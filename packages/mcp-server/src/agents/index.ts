@@ -47,8 +47,21 @@ export {
   createGuardianAgent,
 } from './guardian.js';
 
+// Money Maker Agent
+export {
+  analyzeImageTool,
+  estimatePriceTool,
+  budgetImpactTool,
+  suggestHustlesTool,
+  moneyMakerAnalysisTool,
+  createMoneyMakerAgent,
+  ITEM_CATEGORIES,
+  SIDE_HUSTLES,
+} from './money-maker.js';
+
 // Initialize all tools (must be called before creating agents)
 import './budget-coach.js';
 import './job-matcher.js';
 import './projection-ml.js';
 import './guardian.js';
+import './money-maker.js';
