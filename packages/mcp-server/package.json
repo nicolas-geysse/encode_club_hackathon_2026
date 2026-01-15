@@ -11,6 +11,8 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^3.0.8",
+    "@mastra/core": "^0.24.9",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "duckdb": "^1.0.0",
     "groq-sdk": "^0.37.0",

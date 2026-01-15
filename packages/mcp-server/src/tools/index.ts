@@ -31,6 +31,7 @@
 import { database, query } from '../services/duckdb.js';
 import { trace, getTraceUrl, logFeedback, getCurrentTraceId } from '../services/opik.js';
 import { analyzeBudget, generateAdvice } from '../services/groq.js';
+import { runStudentAnalysis, type StudentProfile } from '../workflows/index.js';
 
 // Types
 interface IncomeSource {
@@ -272,6 +273,54 @@ export const TOOLS = {
       },
       required: ['feedback']
     }
+  },
+
+  // === Workflow Tool (Mastra Multi-Agent) ===
+  analyze_student_profile: {
+    description: 'Complete student analysis workflow using Mastra agents. Combines budget analysis, job matching, optimizations, and graduation projection in one call. Traces are automatically sent to Opik.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Student name' },
+        diploma: { type: 'string', description: 'Current diploma (e.g., L2, M1)' },
+        field: { type: 'string', description: 'Field of study' },
+        skills: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of skills'
+        },
+        years_remaining: { type: 'number', description: 'Years until graduation' },
+        incomes: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              source: { type: 'string' },
+              amount: { type: 'number' }
+            },
+            required: ['source', 'amount']
+          },
+          description: 'Income sources'
+        },
+        expenses: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              category: { type: 'string' },
+              amount: { type: 'number' }
+            },
+            required: ['category', 'amount']
+          },
+          description: 'Expense categories'
+        },
+        max_work_hours: { type: 'number', description: 'Max work hours per week' },
+        min_hourly_rate: { type: 'number', description: 'Minimum hourly rate' },
+        has_loan: { type: 'boolean', description: 'Has student loan' },
+        loan_amount: { type: 'number', description: 'Loan amount if applicable' }
+      },
+      required: ['skills', 'years_remaining', 'incomes', 'expenses', 'max_work_hours', 'min_hourly_rate']
+    }
   }
 };
 
@@ -304,6 +353,8 @@ export async function handleTool(name: string, args: unknown): Promise<unknown> 
       return handleGetTraces(typedArgs);
     case 'log_feedback':
       return handleLogFeedback(typedArgs);
+    case 'analyze_student_profile':
+      return handleAnalyzeStudentProfile(typedArgs);
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -1093,4 +1144,202 @@ async function handleLogFeedback(args: Record<string, unknown>) {
       markdown: false
     }
   };
+}
+
+/**
+ * Handle analyze_student_profile - Mastra multi-agent workflow
+ */
+async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
+  return trace('student_full_analysis_workflow', async (span) => {
+    // Convert MCP args to StudentProfile format
+    const profile: StudentProfile = {
+      name: args.name as string | undefined,
+      diploma: args.diploma as string | undefined,
+      field: args.field as string | undefined,
+      skills: (args.skills as string[]) || [],
+      yearsRemaining: (args.years_remaining as number) || 3,
+      incomes: (args.incomes as Array<{ source: string; amount: number }>) || [],
+      expenses: (args.expenses as Array<{ category: string; amount: number }>) || [],
+      maxWorkHours: (args.max_work_hours as number) || 15,
+      minHourlyRate: (args.min_hourly_rate as number) || 11.65,
+      hasLoan: (args.has_loan as boolean) || false,
+      loanAmount: args.loan_amount as number | undefined,
+    };
+
+    span.setAttributes({
+      student_name: profile.name || 'anonymous',
+      skills_count: profile.skills.length,
+      years_remaining: profile.yearsRemaining,
+      has_loan: profile.hasLoan,
+    });
+
+    // Run the multi-agent workflow
+    const result = await runStudentAnalysis(profile);
+
+    span.setAttributes({
+      budget_margin: result.budget.margin,
+      jobs_found: result.jobs.length,
+      optimizations_found: result.optimizations.length,
+      projection_probability: result.projection.probabilityDebtFree,
+      validation_passed: result.validation.passed,
+    });
+
+    // Return UI-compatible format
+    return {
+      type: 'composite',
+      components: [
+        // Budget metrics
+        {
+          id: 'budget-metrics',
+          type: 'grid',
+          params: {
+            columns: 3,
+            gap: '1rem',
+            children: [
+              {
+                id: 'income',
+                type: 'metric',
+                params: {
+                  title: 'Revenus',
+                  value: result.budget.totalIncome,
+                  unit: 'euro/mois',
+                }
+              },
+              {
+                id: 'expenses',
+                type: 'metric',
+                params: {
+                  title: 'Depenses',
+                  value: result.budget.totalExpenses,
+                  unit: 'euro/mois',
+                }
+              },
+              {
+                id: 'margin',
+                type: 'metric',
+                params: {
+                  title: 'Marge',
+                  value: result.budget.margin,
+                  unit: 'euro/mois',
+                  trend: {
+                    direction: result.budget.margin >= 0 ? 'up' : 'down',
+                    value: Math.abs(result.budget.margin)
+                  }
+                }
+              }
+            ]
+          }
+        },
+        // Jobs table
+        {
+          id: 'jobs-table',
+          type: 'table',
+          params: {
+            title: 'Jobs Recommandes (Mastra JobMatcher)',
+            columns: [
+              { key: 'name', label: 'Job' },
+              { key: 'hourlyRate', label: 'euro/h' },
+              { key: 'matchScore', label: 'Match' },
+              { key: 'coBenefit', label: 'Co-benefice' }
+            ],
+            rows: result.jobs.map(j => ({
+              name: j.name,
+              hourlyRate: j.hourlyRate,
+              matchScore: `${Math.round(j.matchScore * 100)}%`,
+              coBenefit: j.coBenefit || '-'
+            }))
+          }
+        },
+        // Optimizations table
+        {
+          id: 'optimizations-table',
+          type: 'table',
+          params: {
+            title: 'Optimisations Budget',
+            columns: [
+              { key: 'expense', label: 'Depense' },
+              { key: 'solution', label: 'Solution' },
+              { key: 'savingsPct', label: 'Economie' },
+              { key: 'potentialSavings', label: 'Gain/mois' }
+            ],
+            rows: result.optimizations.map(o => ({
+              expense: o.expense,
+              solution: o.solution,
+              savingsPct: `${Math.round(o.savingsPct * 100)}%`,
+              potentialSavings: `${o.potentialSavings}euro`
+            }))
+          }
+        },
+        // Projection metrics
+        {
+          id: 'projection-metrics',
+          type: 'grid',
+          params: {
+            columns: 2,
+            gap: '1rem',
+            children: [
+              {
+                id: 'probability',
+                type: 'metric',
+                params: {
+                  title: 'Probabilite sans dette',
+                  value: `${result.projection.probabilityDebtFree}%`,
+                  trend: {
+                    direction: result.projection.probabilityDebtFree >= 60 ? 'up' : 'down',
+                    value: result.projection.probabilityDebtFree
+                  }
+                }
+              },
+              {
+                id: 'balance',
+                type: 'metric',
+                params: {
+                  title: 'Balance projetee',
+                  value: result.projection.finalBalance.toLocaleString('fr-FR'),
+                  unit: 'euro',
+                  subtitle: `Intervalle: ${result.projection.confidenceInterval.low.toLocaleString('fr-FR')}euro - ${result.projection.confidenceInterval.high.toLocaleString('fr-FR')}euro`
+                }
+              }
+            ]
+          }
+        },
+        // Synthesis
+        {
+          id: 'synthesis',
+          type: 'text',
+          params: {
+            content: result.synthesis,
+            markdown: true
+          }
+        },
+        // Validation status
+        {
+          id: 'validation',
+          type: 'text',
+          params: {
+            content: result.validation.passed
+              ? `**Guardian Validation**: Passe (confiance: ${Math.round(result.validation.confidence * 100)}%)`
+              : `**Guardian Validation**: Echec - ${result.validation.issues.join(', ')}`,
+            markdown: true
+          }
+        },
+        // Opik link
+        {
+          id: 'opik-link',
+          type: 'link',
+          params: {
+            label: 'Voir traces Opik',
+            url: getTraceUrl(),
+            description: 'Visualiser le workflow multi-agent dans Opik'
+          }
+        }
+      ],
+      metadata: {
+        traceId: getCurrentTraceId(),
+        workflowVersion: '1.0.0-mastra',
+        agentsUsed: ['budget-coach', 'job-matcher', 'projection-ml', 'guardian'],
+        validationPassed: result.validation.passed
+      }
+    };
+  });
 }
