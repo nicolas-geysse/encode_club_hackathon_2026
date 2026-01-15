@@ -138,10 +138,10 @@ export default function Questionnaire() {
     <div class="max-w-3xl mx-auto">
       <div class="text-center mb-8">
         <h2 class="text-3xl font-bold text-slate-900 mb-2">
-          Ton Profil Étudiant
+          Bienvenue sur Stride
         </h2>
         <p class="text-slate-600">
-          Remplis ce questionnaire pour obtenir des recommandations personnalisées
+          Remplis ton profil pour des recommandations personnalisées sur ton budget et tes jobs
         </p>
       </div>
 

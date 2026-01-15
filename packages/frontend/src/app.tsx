@@ -12,10 +12,11 @@ export default function App() {
             <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <span class="text-2xl">🎓</span>
+                  <span class="text-2xl">🚀</span>
                   <h1 class="text-xl font-bold text-slate-900">
-                    Student Life Navigator
+                    Stride
                   </h1>
+                  <span class="text-xs text-slate-500 hidden sm:inline">Navigate student life</span>
                 </div>
                 <nav class="flex space-x-4">
                   <a
@@ -48,7 +49,7 @@ export default function App() {
           <footer class="bg-white border-t border-slate-200 mt-auto">
             <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
               <p class="text-center text-slate-500 text-sm">
-                Student Life Navigator - Hackathon Encode Club 2026 - Powered by Opik
+                Stride - Encode Club Hackathon 2026 - Powered by Opik
               </p>
             </div>
           </footer>

@@ -13,7 +13,7 @@ let currentTraceId: string | null = null;
 // Note: Opik SDK connects to the API, not the frontend
 // Frontend is at http://localhost:5173, API is at http://localhost:8085
 const OPIK_BASE_URL = process.env.OPIK_BASE_URL || 'http://localhost:5173';
-const OPIK_PROJECT = process.env.OPIK_PROJECT || 'student-life-navigator';
+const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
 
 /**
  * Span interface for tracing

@@ -20,7 +20,7 @@ import { TOOLS, handleTool } from './tools/index.js';
 // Create server instance
 const server = new Server(
   {
-    name: 'student-life-navigator',
+    name: 'stride',
     version: '0.1.0',
   },
   {
@@ -77,7 +77,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Student Life Navigator MCP Server started');
+  console.error('Stride MCP Server started');
 }
 
 main().catch((error) => {

@@ -1,7 +1,7 @@
 {
-  "name": "@student-life-navigator/mcp-server",
+  "name": "@stride/mcp-server",
   "version": "0.1.0",
-  "description": "MCP Server for Student Life Navigator - Financial Health Hackathon",
+  "description": "Stride MCP Server - Navigate student life, one smart step at a time",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

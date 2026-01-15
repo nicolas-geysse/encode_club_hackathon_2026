@@ -1,6 +1,8 @@
-# Student Life Navigator
+# Stride
 
-> A GPS for student life - navigate between studies, jobs and budget with AI-powered insights
+> **Navigate student life, one smart step at a time**
+
+AI-powered financial navigation for students — combining budget coaching, smart job matching, and predictive insights.
 
 **Track**: Financial Health ($5,000 prize) - Encode Club Hackathon 2026
 **Sponsor**: Comet (Opik)
@@ -18,9 +20,9 @@ Most apps offer generic budgeting. None combine **job matching based on skills**
 
 | Component | Technology | Role |
 |-----------|------------|------|
-| **LLM** | Mastra + Groq | Budget coaching, personalized advice |
+| **LLM** | Groq | Budget coaching, personalized advice |
 | **Graph** | DuckDB + DuckPGQ | Skills → Jobs matching with co-benefits |
-| **ML** | MindsDB | Graduation projections, loan payoff timeline |
+| **ML** | Formula-based predictions | Graduation projections, loan payoff timeline |
 | **Observability** | **Opik** | 10+ spans/request, full traceability |
 
 ## Demo Scenario
@@ -37,7 +39,7 @@ Student: "I'm in L2 Computer Science, I have 800€/month, how can I make it wor
 → SPAN 3: graph_budget_optis (DuckPGQ)
   "Roommate (-30% rent), CROUS (-50% food), Bike (-80% transport)"
 
-→ SPAN 4: ml_graduation_projection (MindsDB)
+→ SPAN 4: ml_graduation_projection
   "With job 10h/week + optimizations: 82% debt-free, ~8500€ savings"
 
 → SPAN 5: llm_recommendation
@@ -73,56 +75,72 @@ INSERT INTO student_edges VALUES
 
 | Component | Technology |
 |-----------|------------|
-| Orchestration | Mastra |
 | Tracing | **Opik self-hosted** |
 | LLM | Groq (llama-3.1-70b) |
 | Graph | DuckDB + DuckPGQ |
-| ML | MindsDB |
-| Frontend | SolidStart |
+| Frontend | SolidStart + TailwindCSS |
+| MCP Server | TypeScript |
 
 ## Project Structure
 
 ```
-encode_club_hackathon_2026/
+stride/
 ├── README.md
 ├── packages/
-│   ├── mcp-server/           # MCP tools (15 tools)
+│   ├── mcp-server/           # MCP tools (12 tools)
 │   │   ├── src/
-│   │   │   ├── tools/
-│   │   │   │   ├── budget-analysis.ts
-│   │   │   │   ├── job-matcher.ts
-│   │   │   │   ├── graduation-predictor.ts
-│   │   │   │   └── opik-tracer.ts
-│   │   │   └── graph/
-│   │   │       └── student-knowledge-graph.sql
+│   │   │   ├── index.ts      # MCP server entry
+│   │   │   ├── tools/        # Tool implementations
+│   │   │   ├── services/     # DuckDB, Opik, Groq
+│   │   │   └── graph/        # Knowledge graph SQL
 │   │   └── package.json
 │   └── frontend/             # SolidStart UI
 │       ├── src/
-│       │   ├── components/
-│       │   │   ├── Chat.tsx
-│       │   │   ├── RadarChart.tsx
-│       │   │   └── OpikTraces.tsx
+│       │   ├── app.tsx
 │       │   └── routes/
+│       │       ├── index.tsx      # Questionnaire
+│       │       ├── dashboard.tsx  # Results
+│       │       └── chat.tsx       # Interactive Q&A
 │       └── package.json
-├── opik/                     # Opik self-hosted config
-├── docs/
-│   └── PLAN.md               # Detailed implementation plan
-└── docker-compose.yml
+├── opik/                     # Opik self-hosted (git clone)
+└── docs/
+    └── PLAN.md
 ```
 
 ## Quick Start
 
 ```bash
-# 1. Setup Opik
-git clone https://github.com/comet-ml/opik.git
-cd opik && ./opik.sh
+# 1. Setup Opik (self-hosted)
+cd opik/deployment/docker-compose
+docker compose --profile opik up -d
 # Available at http://localhost:5173
 
-# 2. Start the project
-cd encode_club_hackathon_2026
-pnpm install
-pnpm dev
+# 2. Build MCP Server
+cd packages/mcp-server
+npm install && npm run build
+
+# 3. Start Frontend
+cd packages/frontend
+npm install && npm run dev
+# Available at http://localhost:3000
 ```
+
+## MCP Tools
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `analyze_budget` | LLM | Budget analysis with recommendations |
+| `generate_advice` | LLM | Personalized financial coaching |
+| `match_jobs` | Graph | Skills → Jobs with co-benefits |
+| `find_optimizations` | Graph | Expense reduction strategies |
+| `career_projection` | Graph | Diploma → Career paths |
+| `suggest_related_jobs` | LLM | Field-specific job suggestions |
+| `predict_graduation_balance` | ML | End-of-studies financial projection |
+| `predict_loan_payoff` | ML | Loan repayment timeline |
+| `create_budget_chart` | Viz | Budget visualization |
+| `explain_recommendation` | Graph | Explainability for job matches |
+| `get_traces` | Opik | Access trace dashboard |
+| `log_feedback` | Opik | User feedback tracking |
 
 ## Hackathon Criteria Match
 
@@ -144,11 +162,7 @@ pnpm dev
 
 ## 30-Second Pitch
 
-> "Student Life Navigator helps students navigate between studies, jobs and budget. It finds jobs compatible with your skills via a graph (Python → Freelance Dev → 25€/h + CV++), predicts if you'll graduate with or without debt, and helps optimize your budget. Everything is traced in Opik - you can see exactly how the AI found that job for you."
-
-## Team
-
-- [Your team members]
+> "**Stride** helps students navigate between studies, jobs and budget. It finds jobs compatible with your skills via a knowledge graph (Python → Freelance Dev → 25€/h + CV++), predicts if you'll graduate with or without debt, and helps optimize your budget. Everything is traced in Opik — you can see exactly how the AI found that job for you."
 
 ## License
 
