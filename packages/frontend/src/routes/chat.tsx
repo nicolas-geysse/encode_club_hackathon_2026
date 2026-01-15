@@ -1,4 +1,5 @@
 import { createSignal, For, onMount, Show } from "solid-js";
+import { VoiceInput } from "~/components/VoiceInput";
 
 interface Message {
   id: string;
@@ -199,7 +200,7 @@ Tu veux que je détaille un aspect en particulier ?`;
 
       {/* Input */}
       <div class="border-t border-slate-200 pt-4 mt-4">
-        <div class="flex gap-3">
+        <div class="flex gap-3 items-end">
           <textarea
             class="input-field flex-1 resize-none"
             rows="2"
@@ -209,8 +210,12 @@ Tu veux que je détaille un aspect en particulier ?`;
             onKeyDown={handleKeyDown}
             disabled={loading()}
           />
+          <VoiceInput
+            onTranscript={(text) => setInput(input() + (input() ? ' ' : '') + text)}
+            disabled={loading()}
+          />
           <button
-            class="btn-primary self-end"
+            class="btn-primary"
             onClick={sendMessage}
             disabled={loading() || !input().trim()}
           >
@@ -218,7 +223,7 @@ Tu veux que je détaille un aspect en particulier ?`;
           </button>
         </div>
         <p class="text-xs text-slate-500 mt-2">
-          Appuie sur Entrée pour envoyer • Shift+Entrée pour nouvelle ligne
+          Appuie sur Entree pour envoyer • Shift+Entree pour nouvelle ligne • Micro pour dicter
         </p>
       </div>
     </div>

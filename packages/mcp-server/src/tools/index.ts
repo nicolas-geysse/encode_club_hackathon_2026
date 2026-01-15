@@ -1,7 +1,7 @@
 /**
  * Student Life Navigator - MCP Tools
  *
- * 15 tools organized in the LLM+Graph+ML triptych:
+ * Tools organized in categories:
  *
  * === LLM / Budget Coaching ===
  * - analyze_budget: Analyze income vs expenses
@@ -17,11 +17,20 @@
  * === MindsDB / ML ===
  * - predict_graduation_balance: Will student be debt-free?
  * - predict_loan_payoff: When will loan be paid off?
- * - predict_study_work_impact: Impact of work hours on GPA
  *
  * === Visualization ===
  * - create_budget_chart: Pie chart of expenses
- * - create_timeline_chart: Projection timeline
+ *
+ * === Voice Input (NEW) ===
+ * - transcribe_audio: Speech-to-text via Whisper
+ * - voice_to_analysis: Speech-to-text + contextual analysis
+ *
+ * === Goal-Driven Mode (NEW) ===
+ * - create_goal_plan: Create goal with milestones
+ * - update_goal_progress: Track weekly progress
+ * - get_goal_status: View goal status
+ * - goal_risk_assessment: Analyze goal risk
+ * - list_user_goals: List all goals
  *
  * === Opik Integration ===
  * - get_traces: Link to Opik dashboard
@@ -32,6 +41,10 @@ import { database, query } from '../services/duckdb.js';
 import { trace, getTraceUrl, logFeedback, getCurrentTraceId } from '../services/opik.js';
 import { analyzeBudget, generateAdvice } from '../services/groq.js';
 import { runStudentAnalysis, type StudentProfile } from '../workflows/index.js';
+
+// Import new tool modules
+import { VOICE_TOOLS, handleVoiceTool } from './voice.js';
+import { GOAL_TOOLS, handleGoalTool } from './goal.js';
 
 // Types
 interface IncomeSource {
@@ -321,12 +334,28 @@ export const TOOLS = {
       },
       required: ['skills', 'years_remaining', 'incomes', 'expenses', 'max_work_hours', 'min_hourly_rate']
     }
-  }
+  },
+
+  // === Voice Input Tools (NEW) ===
+  ...VOICE_TOOLS,
+
+  // === Goal-Driven Mode Tools (NEW) ===
+  ...GOAL_TOOLS,
 };
 
 // Tool handlers
 export async function handleTool(name: string, args: unknown): Promise<unknown> {
   const typedArgs = args as Record<string, unknown>;
+
+  // Check if it's a voice tool
+  if (name in VOICE_TOOLS) {
+    return handleVoiceTool(name, typedArgs);
+  }
+
+  // Check if it's a goal tool
+  if (name in GOAL_TOOLS) {
+    return handleGoalTool(name, typedArgs);
+  }
 
   switch (name) {
     case 'analyze_budget':

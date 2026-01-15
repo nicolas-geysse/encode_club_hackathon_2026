@@ -32,6 +32,12 @@ export default function App() {
                     Dashboard
                   </a>
                   <a
+                    href="/goal-mode/setup"
+                    class="text-slate-600 hover:text-slate-900 px-3 py-2 text-sm font-medium"
+                  >
+                    Objectif
+                  </a>
+                  <a
                     href="/chat"
                     class="text-slate-600 hover:text-slate-900 px-3 py-2 text-sm font-medium"
                   >

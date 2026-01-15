@@ -1,10 +1,12 @@
 /**
  * Groq LLM Service
  *
- * Provides LLM capabilities for budget analysis and advice generation
+ * Provides LLM capabilities for budget analysis, advice generation,
+ * and speech-to-text transcription via Whisper.
  */
 
 import Groq from 'groq-sdk';
+import { toFile } from 'groq-sdk/uploads';
 import { trace } from './opik.js';
 
 // Configuration
@@ -168,12 +170,180 @@ Donne un conseil personnalisé et actionnable.`;
   ]);
 }
 
+// Whisper model for transcription
+const WHISPER_MODEL = process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3-turbo';
+
+/**
+ * Transcription result interface
+ */
+export interface TranscriptionResult {
+  text: string;
+  language: string;
+  duration?: number;
+}
+
+/**
+ * Transcribe audio to text using Whisper via Groq API
+ *
+ * @param audioBuffer - Audio file as Buffer (supports wav, webm, mp3, etc.)
+ * @param options - Transcription options
+ * @returns Transcription result with text and metadata
+ */
+export async function transcribeAudio(
+  audioBuffer: Buffer,
+  options?: {
+    language?: string;
+    filename?: string;
+    prompt?: string;
+  }
+): Promise<TranscriptionResult> {
+  return trace('whisper_transcription', async (span) => {
+    const language = options?.language || 'fr';
+    const filename = options?.filename || 'recording.webm';
+
+    span.setAttributes({
+      'whisper.model': WHISPER_MODEL,
+      'whisper.language': language,
+      'whisper.audio_size_bytes': audioBuffer.length,
+    });
+
+    if (!groqClient) {
+      throw new Error('Groq client not initialized. Set GROQ_API_KEY environment variable.');
+    }
+
+    try {
+      // Convert Buffer to File for Groq API
+      const audioFile = await toFile(audioBuffer, filename);
+
+      const transcription = await groqClient.audio.transcriptions.create({
+        model: WHISPER_MODEL,
+        file: audioFile,
+        language,
+        response_format: 'verbose_json',
+        prompt: options?.prompt,
+      });
+
+      // Cast to any to access verbose_json properties not in base type
+      const verboseResult = transcription as unknown as {
+        text: string;
+        language?: string;
+        duration?: number;
+      };
+
+      const result: TranscriptionResult = {
+        text: verboseResult.text,
+        language: verboseResult.language || language,
+        duration: verboseResult.duration,
+      };
+
+      span.setAttributes({
+        'whisper.transcript_length': result.text.length,
+        'whisper.detected_language': result.language,
+        'whisper.duration_seconds': result.duration || 0,
+      });
+
+      return result;
+    } catch (error) {
+      span.setAttributes({
+        'whisper.error': true,
+        'whisper.error_message': error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  });
+}
+
+/**
+ * Transcribe audio and analyze the content for budget/goal context
+ *
+ * @param audioBuffer - Audio file as Buffer
+ * @param context - Analysis context (budget, goal, question)
+ * @returns Transcript with contextual analysis
+ */
+export async function transcribeAndAnalyze(
+  audioBuffer: Buffer,
+  context: 'budget' | 'goal' | 'question' = 'question'
+): Promise<{
+  transcript: string;
+  analysis: string;
+  extractedData?: Record<string, unknown>;
+}> {
+  return trace('whisper_transcribe_and_analyze', async (span) => {
+    span.setAttributes({
+      'analysis.context': context,
+    });
+
+    // First transcribe
+    const transcription = await transcribeAudio(audioBuffer);
+
+    // Then analyze based on context
+    let analysisPrompt = '';
+    switch (context) {
+      case 'budget':
+        analysisPrompt = `Analyse ce texte et extrait les informations budgétaires:
+- Sources de revenus et montants
+- Catégories de dépenses et montants
+- Préoccupations financières mentionnées
+
+Texte: "${transcription.text}"
+
+Réponds en JSON avec "incomes" et "expenses" si trouvés, sinon donne un "summary".`;
+        break;
+      case 'goal':
+        analysisPrompt = `Analyse ce texte et extrait l'objectif financier:
+- Montant cible (en euros)
+- Délai souhaité (en semaines/mois)
+- Nom/description de l'objectif
+- Contraintes mentionnées
+
+Texte: "${transcription.text}"
+
+Réponds en JSON avec "goalAmount", "deadline", "goalName", "constraints" si trouvés.`;
+        break;
+      default:
+        analysisPrompt = `Analyse cette question d'étudiant et fournis une réponse utile:
+
+Question: "${transcription.text}"
+
+Réponds de manière concise et actionnable.`;
+    }
+
+    const analysis = await chat([
+      { role: 'system', content: 'Tu es un assistant financier pour étudiants. Réponds en français.' },
+      { role: 'user', content: analysisPrompt },
+    ]);
+
+    // Try to extract JSON data if present
+    let extractedData: Record<string, unknown> | undefined;
+    try {
+      const jsonMatch = analysis.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        extractedData = JSON.parse(jsonMatch[0]);
+      }
+    } catch {
+      // JSON extraction failed, that's OK
+    }
+
+    span.setAttributes({
+      'analysis.has_extracted_data': !!extractedData,
+    });
+
+    return {
+      transcript: transcription.text,
+      analysis,
+      extractedData,
+    };
+  });
+}
+
 // Export service
 export const groq = {
   init: initGroq,
   chat,
   analyzeBudget,
   generateAdvice,
+  transcribeAudio,
+  transcribeAndAnalyze,
 };
 
 export default groq;

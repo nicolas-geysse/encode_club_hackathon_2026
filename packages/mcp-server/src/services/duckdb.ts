@@ -116,6 +116,156 @@ async function initSchema(): Promise<void> {
       opik_trace_id VARCHAR
     )
   `);
+
+  // ==========================================
+  // GOAL-DRIVEN MODE TABLES
+  // ==========================================
+
+  // Goals table - main goal definitions
+  await execute(`
+    CREATE TABLE IF NOT EXISTS goals (
+      id VARCHAR PRIMARY KEY,
+      user_id VARCHAR,
+      goal_name VARCHAR NOT NULL,
+      goal_amount DECIMAL NOT NULL,
+      goal_deadline DATE NOT NULL,
+      minimum_budget DECIMAL,
+      status VARCHAR DEFAULT 'active',
+      feasibility_score DECIMAL,
+      risk_level VARCHAR,
+      weekly_target DECIMAL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Goal progress tracking - weekly milestones
+  await execute(`
+    CREATE TABLE IF NOT EXISTS goal_progress (
+      id VARCHAR PRIMARY KEY,
+      goal_id VARCHAR NOT NULL,
+      week_number INTEGER NOT NULL,
+      target_amount DECIMAL NOT NULL,
+      earned_amount DECIMAL DEFAULT 0,
+      pace_ratio DECIMAL,
+      risk_alert VARCHAR DEFAULT 'on_track',
+      actions_completed JSON,
+      achievements_unlocked JSON,
+      notes VARCHAR,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(goal_id, week_number)
+    )
+  `);
+
+  // Goal actions - individual actions within a goal plan
+  await execute(`
+    CREATE TABLE IF NOT EXISTS goal_actions (
+      id VARCHAR PRIMARY KEY,
+      goal_id VARCHAR NOT NULL,
+      action_type VARCHAR NOT NULL,
+      action_name VARCHAR NOT NULL,
+      description VARCHAR,
+      estimated_value DECIMAL,
+      actual_value DECIMAL,
+      time_hours DECIMAL,
+      priority VARCHAR DEFAULT 'medium',
+      start_week INTEGER,
+      completion_week INTEGER,
+      status VARCHAR DEFAULT 'pending',
+      source_strategy_id VARCHAR,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Goal achievements - gamification tracking
+  await execute(`
+    CREATE TABLE IF NOT EXISTS goal_achievements (
+      id VARCHAR PRIMARY KEY,
+      user_id VARCHAR NOT NULL,
+      achievement_id VARCHAR NOT NULL,
+      goal_id VARCHAR,
+      unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, achievement_id, goal_id)
+    )
+  `);
+
+  // ==========================================
+  // RETROPLANNING / CAPACITY TABLES
+  // ==========================================
+
+  // Academic events - exams, vacations, internships, project deadlines
+  await execute(`
+    CREATE TABLE IF NOT EXISTS academic_events (
+      id VARCHAR PRIMARY KEY,
+      user_id VARCHAR NOT NULL,
+      event_type VARCHAR NOT NULL,
+      event_name VARCHAR NOT NULL,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      capacity_impact DECIMAL DEFAULT 0.2,
+      priority VARCHAR DEFAULT 'normal',
+      is_recurring BOOLEAN DEFAULT FALSE,
+      recurrence_pattern VARCHAR,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Commitments - recurring time obligations (classes, sports, family, etc.)
+  await execute(`
+    CREATE TABLE IF NOT EXISTS commitments (
+      id VARCHAR PRIMARY KEY,
+      user_id VARCHAR NOT NULL,
+      commitment_type VARCHAR NOT NULL,
+      commitment_name VARCHAR NOT NULL,
+      hours_per_week DECIMAL NOT NULL,
+      flexible_hours BOOLEAN DEFAULT TRUE,
+      day_preferences VARCHAR[],
+      start_date DATE,
+      end_date DATE,
+      priority VARCHAR DEFAULT 'important',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Energy/mood logs - daily tracking for capacity prediction
+  await execute(`
+    CREATE TABLE IF NOT EXISTS energy_logs (
+      id VARCHAR PRIMARY KEY,
+      user_id VARCHAR NOT NULL,
+      log_date DATE NOT NULL,
+      energy_level INTEGER CHECK (energy_level BETWEEN 1 AND 5),
+      mood_score INTEGER CHECK (mood_score BETWEEN 1 AND 5),
+      stress_level INTEGER CHECK (stress_level BETWEEN 1 AND 5),
+      hours_slept DECIMAL,
+      notes VARCHAR,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, log_date)
+    )
+  `);
+
+  // Retroplans - generated capacity-aware plans for goals
+  await execute(`
+    CREATE TABLE IF NOT EXISTS retroplans (
+      id VARCHAR PRIMARY KEY,
+      goal_id VARCHAR NOT NULL,
+      user_id VARCHAR NOT NULL,
+      config JSON NOT NULL,
+      milestones JSON NOT NULL,
+      total_weeks INTEGER,
+      high_capacity_weeks INTEGER,
+      medium_capacity_weeks INTEGER,
+      low_capacity_weeks INTEGER,
+      protected_weeks INTEGER,
+      feasibility_score DECIMAL,
+      confidence_low DECIMAL,
+      confidence_high DECIMAL,
+      risk_factors JSON,
+      front_loaded_percentage DECIMAL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 /**
