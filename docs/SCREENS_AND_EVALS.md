@@ -232,6 +232,144 @@ const dashboardLayout: UILayout = {
 
 ---
 
+## 🤖 6 Agents Mastra (Implémentés)
+
+| Agent | Description | Tools |
+|-------|-------------|-------|
+| **Budget Coach** | Analyse budget + conseils personnalisés | `analyze_budget`, `generate_advice`, `find_optimizations` |
+| **Job Matcher** | Matching compétences → jobs via graph | `match_jobs`, `explain_job_match`, `compare_jobs` |
+| **Projection ML** | Prédictions probabilistes fin d'études | `predict_graduation_balance`, `simulate_scenarios` |
+| **Guardian** | Validation hybride (Heuristics + LLM-as-Judge) | `validate_calculation`, `check_risk_level`, `hybrid_evaluation` |
+| **Money Maker** | Identifier objets à vendre + side hustles | `analyze_sellable_objects`, `estimate_item_price`, `calculate_sale_impact`, `suggest_side_hustles`, `money_maker_analysis` |
+| **Strategy Comparator** | Cross-évaluation jobs vs hustles vs ventes vs optimisations | `compare_strategies`, `quick_strategy_comparison` |
+
+---
+
+## 🎯 Hybrid Evaluation System (Implémenté)
+
+### Pipeline 4 Couches
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 1: HEURISTIC CHECKS (~50ms, déterministe)                │
+│  • calculation_validation (CRITICAL) - marge, projection        │
+│  • risk_keywords (CRITICAL) - crypto, forex, garanti            │
+│  • readability - Flesch-Kincaid grade 8-12 pour étudiants       │
+│  • tone - sentiment, pas trop optimiste/pessimiste              │
+│  • disclaimers - mises en garde si contenu risqué               │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼ VETO: Calcul faux ou risque critique → REJET AUTOMATIQUE
+       │
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 2: G-EVAL LLM-AS-JUDGE (~500ms)                          │
+│  • Appropriateness (30%) - adapté au budget étudiant?           │
+│  • Safety (35%) - pas de conseils dangereux?                    │
+│  • Coherence (15%) - logique du raisonnement?                   │
+│  • Actionability (20%) - étapes concrètes?                      │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 3: AGGREGATION                                            │
+│  Score = 60% Heuristique + 40% LLM (ajusté par confidence)      │
+│  Veto logic: checks critiques ne peuvent pas être overridés     │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 4: OPIK LOGGING - métriques custom par span              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Fichiers Implémentés
+
+```
+src/evaluation/
+├── types.ts                 # Interfaces TypeScript
+├── index.ts                 # Exports + orchestrateurs
+├── heuristics/
+│   ├── index.ts             # Orchestrateur heuristiques
+│   ├── calculation.ts       # Validation calculs
+│   ├── risk-keywords.ts     # Détection mots-clés risque
+│   ├── readability.ts       # Flesch-Kincaid
+│   ├── tone.ts              # Sentiment analysis
+│   └── disclaimers.ts       # Check mises en garde
+├── geval/
+│   ├── index.ts             # Orchestrateur G-Eval
+│   ├── criteria.ts          # 4 critères avec poids
+│   └── prompts.ts           # Templates Chain-of-Thought
+├── aggregation.ts           # Combinaison scores + veto
+└── opik-integration.ts      # Helpers logging Opik
+```
+
+---
+
+## 💰 Money Maker Agent (Nouveau)
+
+### Fonctionnalités
+
+| Feature | Description |
+|---------|-------------|
+| **Vision** | Analyse photos pour identifier objets vendables |
+| **Prix** | Estimation Leboncoin/Vinted/Back Market |
+| **Impact** | "Équivalent à X mois d'épargne" |
+| **Side Hustles** | 8 suggestions pour étudiants |
+
+### Side Hustles
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│ 📱 Reselling       - Revente en ligne (Vinted, Leboncoin)       │
+│ 🐕 Pet Sitting     - Garde d'animaux (Yoopies, Animaute)       │
+│ 🚲 Delivery        - Livraison (Uber Eats, Stuart, Deliveroo)  │
+│ 📝 Transcription   - Transcription audio                       │
+│ 🔍 Mystery Shop    - Client mystère                            │
+│ 💉 Plasma          - Don de plasma rémunéré                    │
+│ 💬 Focus Groups    - Panels consommateurs                      │
+│ 📦 Moving Help     - Aide déménagement (Youpijob)              │
+└────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚖️ Strategy Comparator Agent (Nouveau)
+
+### Cross-évaluation sur 4 Axes
+
+| Axe | Poids | Description |
+|-----|-------|-------------|
+| **Financial** | 35% | Impact €/mois (normalisé) |
+| **Effort** | 25% | Temps et énergie |
+| **Flexibility** | 20% | Compatibilité études |
+| **Sustainability** | 20% | Durabilité |
+
+### Types Comparés
+
+```
+┌─────────────┬─────────────┬─────────────┬─────────────┐
+│    JOBS     │   HUSTLES   │   SELLING   │ OPTIMIZATIONS│
+├─────────────┼─────────────┼─────────────┼─────────────┤
+│ Dev Freelance│ Pet Sitting │ iPhone usagé│ Colocation  │
+│ Tutorat     │ Livraison   │ PC portable │ CROUS       │
+│ Data Entry  │ Reselling   │ Vêtements   │ Vélo        │
+└─────────────┴─────────────┴─────────────┴─────────────┘
+```
+
+### Output
+
+```typescript
+{
+  bestOverall: Strategy;      // Meilleur score global
+  bestQuickWin: Strategy;     // Gain rapide (vente, hustle)
+  bestLongTerm: Strategy;     // Long terme (job, optimization)
+  rankedStrategies: Strategy[];
+  comparisonMatrix: AvsB[];   // Comparaisons tête-à-tête
+}
+```
+
+---
+
 ## 📊 Framework d'Évaluation (4 Mantras)
 
 ### Évaluation 1: Job Matching Quality

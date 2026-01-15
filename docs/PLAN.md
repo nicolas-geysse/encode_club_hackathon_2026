@@ -219,26 +219,32 @@ User upload bank CSV → Agent analyse patterns → Recommandations personnalis�
 
 ---
 
-## 📐 Architecture Technique (Option A)
+## 📐 Architecture Technique (Implémentée)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND (minimal)                        │
+│                        FRONTEND (SolidStart)                     │
 │  Chat interface + Radar chart strategies + Opik traces link     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    MCP SERVER (simplifié)                        │
+│                    MCP SERVER (Mastra + Opik)                    │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │ Tools exposés (10 max):                                     │ │
-│  │  - generate_strategies                                       │ │
-│  │  - evaluate_strategy                                         │ │
-│  │  - validate_recommendation                                   │ │
-│  │  - get_financial_context                                     │ │
-│  │  - calculate_compound_interest                               │ │
-│  │  - simulate_portfolio                                        │ │
-│  │  - get_traces (Opik)                                        │ │
+│  │ 6 AGENTS MASTRA:                                            │ │
+│  │  1. Budget Coach      - Analyse budget + conseils           │ │
+│  │  2. Job Matcher       - Graph compétences → jobs            │ │
+│  │  3. Projection ML     - Prédictions fin d'études            │ │
+│  │  4. Guardian          - Validation hybride (Heuristics+LLM) │ │
+│  │  5. Money Maker       - Vente objets + side hustles         │ │
+│  │  6. Strategy Comparator - Cross-évaluation stratégies       │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ HYBRID EVALUATION SYSTEM:                                   │ │
+│  │  Layer 1: Heuristics (calculation, risk, readability, tone)│ │
+│  │  Layer 2: G-Eval LLM-as-Judge (4 critères)                 │ │
+│  │  Layer 3: Aggregation avec veto logic                       │ │
+│  │  Layer 4: Opik logging avec métriques custom               │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -246,27 +252,185 @@ User upload bank CSV → Agent analyse patterns → Recommandations personnalis�
 ┌─────────────────────────────────────────────────────────────────┐
 │                    MASTRA ORCHESTRATION                          │
 │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │ Strategy      │  │ Evaluator     │  │ Guardian      │       │
-│  │ Generator     │  │ Agent         │  │ Layer         │       │
-│  │ (3 persp.)    │  │ (LLM-Judge)   │  │ (validation)  │       │
+│  │ Budget Coach  │  │ Job Matcher   │  │ Projection ML │       │
+│  │ Analyse +     │  │ Graph         │  │ Prédiction    │       │
+│  │ Conseils      │  │ DuckPGQ       │  │ probabiliste  │       │
+│  └───────────────┘  └───────────────┘  └───────────────┘       │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
+│  │ Guardian      │  │ Money Maker   │  │ Strategy      │       │
+│  │ Hybrid Eval   │  │ Vision +      │  │ Comparator    │       │
+│  │ Veto Logic    │  │ Price Search  │  │ 4 axes score  │       │
 │  └───────────────┘  └───────────────┘  └───────────────┘       │
 │                              │                                   │
 │                              ▼                                   │
-│                    OPIK TRACING                                  │
-│  - Span per strategy                                            │
+│                    OPIK TRACING (self-hosted)                    │
+│  - Span per agent action                                        │
 │  - Span per evaluation criterion                                │
-│  - Metadata: confidence, tokens, latency                        │
-│  - Custom metrics: diversity_score, risk_alignment              │
+│  - Hybrid eval metrics: heuristic_score, llm_score, final_score│
+│  - Custom metrics: strategy_diversity, evaluation_confidence   │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    OPIK CLOUD (hosted)                           │
-│  - Dashboard traces                                              │
-│  - Run comparisons                                               │
+│                    OPIK SELF-HOSTED (Docker)                     │
+│  - Dashboard traces avec 15+ spans/requête                      │
+│  - Hybrid evaluation visible (heuristics + G-Eval)              │
+│  - Strategy comparison A/B                                       │
 │  - Feedback tracking                                             │
-│  - Metrics visualization                                         │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🤖 6 Agents Mastra (Implémentés)
+
+| Agent | Fichier | Rôle | Tools |
+|-------|---------|------|-------|
+| **Budget Coach** | `budget-coach.ts` | Analyse budget + conseils personnalisés | `analyze_budget`, `generate_advice`, `find_optimizations` |
+| **Job Matcher** | `job-matcher.ts` | Matching compétences → jobs via graph | `match_jobs`, `explain_job_match`, `compare_jobs` |
+| **Projection ML** | `projection-ml.ts` | Prédictions probabilistes fin d'études | `predict_graduation_balance`, `simulate_scenarios` |
+| **Guardian** | `guardian.ts` | Validation hybride (Heuristics + LLM-as-Judge) | `validate_calculation`, `check_risk_level`, `hybrid_evaluation` |
+| **Money Maker** | `money-maker.ts` | Identifier objets à vendre + side hustles | `analyze_sellable_objects`, `estimate_item_price`, `calculate_sale_impact`, `suggest_side_hustles`, `money_maker_analysis` |
+| **Strategy Comparator** | `strategy-comparator.ts` | Cross-évaluation jobs vs hustles vs ventes vs optimisations | `compare_strategies`, `quick_strategy_comparison` |
+
+---
+
+## 🎯 Hybrid Evaluation System (Implémenté)
+
+### Architecture Pipeline
+
+```
+Recommandation + Contexte Étudiant
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 1: HEURISTIC CHECKS (~50ms, déterministe)                │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐   │
+│  │ Calculs    │ │  Keywords  │ │ Readability│ │   Tone     │   │
+│  │ Validation │ │  Risque    │ │ Flesch-K   │ │ Sentiment  │   │
+│  │ (CRITICAL) │ │ (CRITICAL) │ │            │ │            │   │
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘   │
+│  ┌────────────┐                                                 │
+│  │ Disclaimers│  → Score Heuristique (0-1)                      │
+│  └────────────┘                                                 │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼ VETO CHECK: Si calcul faux ou risque critique → STOP
+       │
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 2: G-EVAL LLM-AS-JUDGE (~500ms, sémantique)              │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Critères:                                                 │  │
+│  │  • Appropriateness (adapté à l'étudiant?)       [30%]     │  │
+│  │  • Safety (pas de conseils dangereux?)          [35%]     │  │
+│  │  • Coherence (logique du raisonnement?)         [15%]     │  │
+│  │  • Actionability (étapes concrètes?)            [20%]     │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 3: AGGREGATION                                            │
+│  Score Final = 60% Heuristique + 40% LLM (ajusté par confidence)│
+│  + Veto Logic (si critique échoue, LLM ne peut pas override)    │
+└─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 4: OPIK LOGGING                                           │
+│  • Span par check heuristique avec score + metadata             │
+│  • Span G-Eval avec reasoning + confidence                      │
+│  • Custom metrics: evaluation.safety_score, evaluation.passed    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Fichiers Implémentés
+
+```
+src/evaluation/
+├── types.ts                 # Interfaces TypeScript
+├── index.ts                 # Exports + orchestrateur principal
+├── heuristics/
+│   ├── index.ts             # Orchestrateur heuristiques
+│   ├── calculation.ts       # Validation calculs (CRITICAL)
+│   ├── risk-keywords.ts     # Détection mots-clés risque (CRITICAL)
+│   ├── readability.ts       # Flesch-Kincaid grade level
+│   ├── tone.ts              # Sentiment + agressivité
+│   └── disclaimers.ts       # Check présence mises en garde
+├── geval/
+│   ├── index.ts             # Orchestrateur G-Eval
+│   ├── criteria.ts          # 4 critères avec poids
+│   └── prompts.ts           # Templates Chain-of-Thought
+├── aggregation.ts           # Combinaison scores + veto
+└── opik-integration.ts      # Helpers logging Opik
+```
+
+---
+
+## 💰 Money Maker Agent (Nouveau)
+
+**Pitch**: "Prends une photo d'un truc que tu veux vendre" → identification → prix → impact budget
+
+### Fonctionnalités
+
+| Fonction | Description |
+|----------|-------------|
+| **Vision** | Analyse photos pour identifier objets vendables |
+| **Estimation Prix** | Prix marché Leboncoin/Vinted/Back Market |
+| **Impact Budget** | "Équivalent à X mois d'épargne" |
+| **Side Hustles** | 8 suggestions adaptées aux étudiants |
+
+### Side Hustles Supportés
+
+```typescript
+const SIDE_HUSTLES = [
+  'reselling',        // Revente en ligne
+  'pet_sitting',      // Garde d'animaux (Yoopies, Animaute)
+  'delivery',         // Livraison (Uber Eats, Stuart)
+  'transcription',    // Transcription audio
+  'mystery_shopping', // Client mystère
+  'plasma_donation',  // Don de plasma rémunéré
+  'focus_groups',     // Panels consommateurs
+  'moving_help',      // Aide déménagement (Youpijob)
+];
+```
+
+---
+
+## ⚖️ Strategy Comparator Agent (Nouveau)
+
+**Pitch**: Comparer TOUTES les options pour améliorer ta situation financière
+
+### Scoring sur 4 Axes
+
+| Axe | Poids | Description |
+|-----|-------|-------------|
+| **Financial** | 35% | Impact sur le budget mensuel (€/mois normalisé) |
+| **Effort** | 25% | Temps et énergie requis |
+| **Flexibility** | 20% | Compatibilité avec les cours |
+| **Sustainability** | 20% | Durabilité dans le temps |
+
+### Types de Stratégies Comparées
+
+```typescript
+type StrategyType = 'job' | 'hustle' | 'selling' | 'optimization';
+
+// Jobs: Dev freelance, cours particuliers, etc.
+// Hustles: Pet sitting, livraison, revente, etc.
+// Selling: Vente d'objets (one-time gain)
+// Optimizations: Coloc, CROUS, vélo (monthly savings)
+```
+
+### Output
+
+```typescript
+interface ComparisonResult {
+  bestOverall: Strategy;      // Meilleur score global
+  bestQuickWin: Strategy;     // Meilleur pour gain rapide
+  bestLongTerm: Strategy;     // Meilleur pour le long terme
+  rankedStrategies: Strategy[];
+  comparisonMatrix: Matrix;   // A vs B comparisons
+}
 ```
 
 ---
