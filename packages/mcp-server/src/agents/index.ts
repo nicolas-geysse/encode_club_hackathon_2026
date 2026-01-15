@@ -59,9 +59,25 @@ export {
   SIDE_HUSTLES,
 } from './money-maker.js';
 
+// Strategy Comparator Agent
+export {
+  compareStrategiesTool,
+  quickComparisonTool,
+  compareStrategies,
+  createStrategyFromJob,
+  createStrategyFromHustle,
+  createStrategyFromSelling,
+  createStrategyFromOptimization,
+  createStrategyComparatorAgent,
+  type Strategy,
+  type StrategyType,
+  type StrategyComparison,
+} from './strategy-comparator.js';
+
 // Initialize all tools (must be called before creating agents)
 import './budget-coach.js';
 import './job-matcher.js';
 import './projection-ml.js';
 import './guardian.js';
 import './money-maker.js';
+import './strategy-comparator.js';

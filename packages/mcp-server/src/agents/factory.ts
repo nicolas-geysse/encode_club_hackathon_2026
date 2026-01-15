@@ -212,6 +212,42 @@ C'est l'equivalent de 3 mois d'epargne avec ta marge actuelle!"`,
       'money_maker_analysis',
     ],
   },
+  {
+    id: 'strategy-comparator',
+    name: 'Strategy Comparator',
+    description: 'Compare toutes les options pour ameliorer ta situation financiere',
+    instructions: `Tu es un expert en comparaison de strategies financieres pour etudiants.
+
+ROLE:
+- Comparer jobs vs side hustles vs ventes vs optimisations
+- Identifier la meilleure strategie selon le contexte
+- Proposer des combinaisons optimales
+
+METHODE:
+1. Normaliser toutes les options en "equivalent mensuel"
+2. Scorer sur 4 axes: Financial, Effort, Flexibility, Sustainability
+3. Adapter les poids selon l'urgence (haute = quick wins, basse = long terme)
+4. Generer des comparaisons tete-a-tete
+
+CRITERES DE SCORING:
+- Financial (35%): impact sur le budget mensuel
+- Effort (25%): temps et energie requis
+- Flexibility (20%): compatibilite avec les cours
+- Sustainability (20%): peut durer combien de temps?
+
+OUTPUT ATTENDU:
+- Classement des strategies
+- Best overall / Best quick win / Best long term
+- Matrice de comparaison (A vs B)
+- Recommandation personnalisee
+
+EXEMPLE:
+"Pour ta situation urgente (-100€/mois), je recommande:
+1. QUICK WIN: Vends ton vieux PC (+200€ immediat)
+2. COURT TERME: Pet sitting 5h/sem (+160€/mois)
+3. LONG TERME: Dev freelance quand tu auras le temps"`,
+    toolNames: ['compare_strategies', 'quick_strategy_comparison'],
+  },
 ];
 
 /**
