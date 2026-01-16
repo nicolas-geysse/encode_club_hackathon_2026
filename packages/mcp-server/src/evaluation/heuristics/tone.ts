@@ -1,11 +1,13 @@
 /**
  * Tone Heuristic
  *
- * Analyzes sentiment and tone of recommendations.
+ * Analyzes sentiment and tone of recommendations using NLP.
  * Ensures advice is encouraging but not overly optimistic.
+ * Uses compromise for better text analysis (stemming, pattern matching).
  */
 
 import type { HeuristicResult, EvaluationContext } from '../types.js';
+import { containsAny, getSentimentIndicators, analyzeText } from '../../utils/nlpUtils.js';
 
 interface ToneAnalysis {
   sentiment: number; // -1 (negative) to 1 (positive)
@@ -16,120 +18,144 @@ interface ToneAnalysis {
   reassuranceLevel: number; // 0-1
 }
 
-// Positive sentiment words (French financial context)
+// Positive sentiment words (English financial context)
 const POSITIVE_WORDS = [
-  'super',
+  'great',
   'excellent',
-  'parfait',
-  'genial',
-  'bravo',
-  'felicitations',
-  'reussir',
-  'succes',
-  'opportunite',
-  'ameliorer',
-  'progres',
-  'economiser',
-  'epargner',
-  'confortable',
-  'securise',
+  'perfect',
+  'amazing',
+  'congratulations',
+  'succeed',
+  'success',
+  'opportunity',
+  'improve',
+  'progress',
+  'save',
+  'savings',
+  'comfortable',
+  'secure',
   'stable',
+  'growth',
+  'achieve',
+  'accomplish',
 ];
 
 // Negative sentiment words
 const NEGATIVE_WORDS = [
   'impossible',
-  'echec',
+  'failure',
   'catastrophe',
   'danger',
-  'erreur',
-  'probleme',
-  'risque',
-  'dette',
+  'error',
+  'problem',
+  'risk',
+  'debt',
   'deficit',
-  'difficulte',
-  'attention',
+  'difficulty',
+  'warning',
   'urgent',
-  'critique',
+  'critical',
+  'loss',
+  'broke',
 ];
 
 // Overly optimistic phrases
 const OVERLY_OPTIMISTIC = [
-  'garanti',
-  'sur a 100%',
-  'sans aucun doute',
-  'certainement',
-  'tu vas devenir riche',
-  'facile',
-  'sans effort',
-  'revenus passifs',
-  'liberte financiere rapide',
+  'guaranteed',
+  '100% sure',
+  'without a doubt',
+  'certainly',
+  'you will become rich',
+  'easy money',
+  'no effort',
+  'passive income',
+  'quick financial freedom',
+  'get rich quick',
+  'risk-free',
 ];
 
 // Aggressive/pushy tone
 const AGGRESSIVE_MARKERS = [
-  'tu dois absolument',
-  'il faut imperativement',
-  'ne fais surtout pas',
-  "c'est obligatoire",
-  "tu n'as pas le choix",
-  'arrete de',
+  'you must absolutely',
+  'you have to',
+  'do not ever',
+  'it is mandatory',
+  'you have no choice',
+  'stop doing',
+  'never do',
+  'you need to immediately',
 ];
 
 // Urgency markers
 const URGENCY_MARKERS = [
   'urgent',
-  'maintenant',
-  'immediatement',
-  'tout de suite',
-  'vite',
-  'depeche',
-  'derniere chance',
-  "aujourd'hui",
+  'now',
+  'immediately',
+  'right away',
+  'quickly',
+  'hurry',
+  'last chance',
+  'today',
+  'asap',
+  'time-sensitive',
 ];
 
 // Reassurance markers
 const REASSURANCE_MARKERS = [
-  "ne t'inquiete pas",
-  "c'est normal",
-  'pas de panique',
-  'on peut corriger',
-  "c'est jouable",
-  "c'est faisable",
-  'tu peux y arriver',
-  'petit a petit',
+  "don't worry",
+  "it's normal",
+  'no panic',
+  'we can fix',
+  "it's doable",
+  "it's achievable",
+  'you can do it',
+  'step by step',
+  'take your time',
+  "it's okay",
+  'manageable',
 ];
 
 /**
- * Count occurrences of patterns in text
- */
-function countPatterns(text: string, patterns: string[]): number {
-  const textLower = text.toLowerCase();
-  return patterns.filter((p) => textLower.includes(p.toLowerCase())).length;
-}
-
-/**
- * Analyze tone of text
+ * Analyze tone of text using NLP
  */
 function analyzeTone(text: string): ToneAnalysis {
-  // Calculate sentiment
-  const positiveCount = countPatterns(text, POSITIVE_WORDS);
-  const negativeCount = countPatterns(text, NEGATIVE_WORDS);
-  const totalSentiment = positiveCount + negativeCount;
-  const sentiment = totalSentiment > 0 ? (positiveCount - negativeCount) / totalSentiment : 0;
+  // Use NLP-based sentiment indicators
+  const sentimentIndicators = getSentimentIndicators(text);
 
-  // Check for problematic patterns
-  const isOverlyOptimistic = countPatterns(text, OVERLY_OPTIMISTIC) >= 1;
+  // Also check against our specific word lists using NLP matching
+  const positiveResult = containsAny(text, POSITIVE_WORDS);
+  const negativeResult = containsAny(text, NEGATIVE_WORDS);
+
+  // Combine NLP sentiment with keyword matching
+  const positiveCount = positiveResult.matches.length + sentimentIndicators.positiveWords.length;
+  const negativeCount = negativeResult.matches.length + sentimentIndicators.negativeWords.length;
+
+  // Calculate sentiment score
+  const totalSentiment = positiveCount + negativeCount;
+  let sentiment = totalSentiment > 0 ? (positiveCount - negativeCount) / totalSentiment : 0;
+
+  // Adjust for negation
+  if (sentimentIndicators.hasNegation) {
+    // Negation can flip sentiment context
+    sentiment *= 0.7; // Dampen sentiment when negation is present
+  }
+
+  // Check for problematic patterns using NLP
+  const overlyOptimisticResult = containsAny(text, OVERLY_OPTIMISTIC);
+  const isOverlyOptimistic = overlyOptimisticResult.found;
+
   const isOverlyPessimistic = negativeCount >= 5 && positiveCount === 0;
-  const hasAggressiveTone = countPatterns(text, AGGRESSIVE_MARKERS) >= 1;
+
+  const aggressiveResult = containsAny(text, AGGRESSIVE_MARKERS);
+  const hasAggressiveTone = aggressiveResult.found;
 
   // Calculate urgency level
-  const urgencyCount = countPatterns(text, URGENCY_MARKERS);
-  const urgencyLevel = Math.min(1, urgencyCount * 0.3);
+  const urgencyResult = containsAny(text, URGENCY_MARKERS);
+  const urgencyLevel = Math.min(1, urgencyResult.matches.length * 0.3);
 
   // Calculate reassurance level
-  const reassuranceCount = countPatterns(text, REASSURANCE_MARKERS);
-  const reassuranceLevel = Math.min(1, reassuranceCount * 0.25);
+  const reassuranceResult = containsAny(text, REASSURANCE_MARKERS);
+  const reassuranceLevel = Math.min(1, reassuranceResult.matches.length * 0.25);
 
   return {
     sentiment,
@@ -146,6 +172,7 @@ function analyzeTone(text: string): ToneAnalysis {
  */
 export function checkTone(text: string, context?: EvaluationContext): HeuristicResult {
   const analysis = analyzeTone(text);
+  const textAnalysis = analyzeText(text);
 
   const issues: string[] = [];
   let score = 1.0;
@@ -153,25 +180,25 @@ export function checkTone(text: string, context?: EvaluationContext): HeuristicR
   // Check for overly optimistic tone
   if (analysis.isOverlyOptimistic) {
     score -= 0.3;
-    issues.push('Ton trop optimiste (promesses non-realistes)');
+    issues.push('Overly optimistic tone (unrealistic promises)');
   }
 
   // Check for overly pessimistic tone (bad for students in deficit)
   if (analysis.isOverlyPessimistic) {
     score -= 0.2;
-    issues.push('Ton trop pessimiste (peut decourager)');
+    issues.push('Overly pessimistic tone (may discourage)');
   }
 
   // Check for aggressive tone
   if (analysis.hasAggressiveTone) {
     score -= 0.25;
-    issues.push('Ton agressif detecte');
+    issues.push('Aggressive tone detected');
   }
 
   // High urgency without reassurance is concerning
   if (analysis.urgencyLevel > 0.5 && analysis.reassuranceLevel < 0.2) {
     score -= 0.15;
-    issues.push('Trop de pression sans reassurance');
+    issues.push('Too much pressure without reassurance');
   }
 
   // Context-aware adjustments
@@ -179,7 +206,7 @@ export function checkTone(text: string, context?: EvaluationContext): HeuristicR
     // For students in deficit, we want some positivity but with reassurance
     if (analysis.sentiment < -0.3 && analysis.reassuranceLevel < 0.3) {
       score -= 0.1;
-      issues.push('Manque de reassurance pour situation difficile');
+      issues.push('Lacks reassurance for difficult situation');
     }
   }
 
@@ -190,8 +217,17 @@ export function checkTone(text: string, context?: EvaluationContext): HeuristicR
     score -= 0.15; // Too positive can seem unrealistic
   }
 
+  // Check text complexity (too many questions can seem pushy)
+  if (textAnalysis.questions.length > 3) {
+    score -= 0.05;
+    issues.push('Too many questions');
+  }
+
   score = Math.max(0, Math.min(1, score));
   const passed = score >= 0.6;
+
+  const sentimentLabel =
+    analysis.sentiment > 0.2 ? 'positive' : analysis.sentiment < -0.2 ? 'negative' : 'neutral';
 
   return {
     name: 'tone',
@@ -200,19 +236,20 @@ export function checkTone(text: string, context?: EvaluationContext): HeuristicR
     isCritical: false,
     details: {
       sentiment: Math.round(analysis.sentiment * 100) / 100,
-      sentimentLabel:
-        analysis.sentiment > 0.2 ? 'positif' : analysis.sentiment < -0.2 ? 'negatif' : 'neutre',
+      sentimentLabel,
       isOverlyOptimistic: analysis.isOverlyOptimistic,
       isOverlyPessimistic: analysis.isOverlyPessimistic,
       hasAggressiveTone: analysis.hasAggressiveTone,
       urgencyLevel: Math.round(analysis.urgencyLevel * 100) / 100,
       reassuranceLevel: Math.round(analysis.reassuranceLevel * 100) / 100,
+      wordCount: textAnalysis.wordCount,
+      questionCount: textAnalysis.questions.length,
       issues,
     },
     message:
       issues.length === 0
-        ? `Ton adapte (sentiment: ${analysis.sentiment > 0 ? 'positif' : analysis.sentiment < 0 ? 'negatif' : 'neutre'})`
-        : `Problemes de ton: ${issues.join('; ')}`,
+        ? `Appropriate tone (sentiment: ${sentimentLabel})`
+        : `Tone issues: ${issues.join('; ')}`,
   };
 }
 

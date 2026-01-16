@@ -3,33 +3,40 @@
  *
  * Checks that risky recommendations include appropriate disclaimers.
  * Required when high-risk keywords are detected.
+ * Uses compromise NLP for better pattern matching.
  */
 
 import type { HeuristicResult } from '../types.js';
-import { HIGH_RISK_KEYWORDS } from '../types.js';
+import { containsAny, analyzeFinancialRisk, containsNegated } from '../../utils/nlpUtils.js';
 
 // Expected disclaimer patterns for different risk types
 const DISCLAIMER_PATTERNS = {
   investment: [
-    'risque de perte',
-    'capital non garanti',
-    'peut fluctuer',
-    'performance passee',
-    'ne constitue pas un conseil',
+    'risk of loss',
+    'capital not guaranteed',
+    'may fluctuate',
+    'past performance',
+    'not financial advice',
+    'consult a professional',
+    'do your own research',
   ],
   general: [
-    'attention',
-    'prudence',
-    'selon ta situation',
-    'consulte un conseiller',
-    'informe-toi',
-    'fais tes recherches',
+    'caution',
+    'be careful',
+    'depending on your situation',
+    'consult an advisor',
+    'inform yourself',
+    'do your research',
+    'at your own risk',
+    'consider carefully',
   ],
   crypto: [
-    'tres volatile',
-    'risque eleve',
-    'peut perdre toute valeur',
-    'n\'investis que ce que tu peux perdre',
+    'highly volatile',
+    'high risk',
+    'may lose all value',
+    'only invest what you can afford to lose',
+    'speculative',
+    'not regulated',
   ],
 };
 
@@ -39,25 +46,20 @@ interface DisclaimerAnalysis {
   disclaimersFound: string[];
   disclaimerCoverage: number; // 0-1, ratio of required disclaimers present
   missingDisclaimers: string[];
+  hasNegatedRisk: boolean;
 }
 
 /**
- * Analyze text for disclaimers vs risk content
+ * Analyze text for disclaimers vs risk content using NLP
  */
 function analyzeDisclaimers(text: string): DisclaimerAnalysis {
-  const textLower = text.toLowerCase();
+  // Use NLP-based financial risk analysis
+  const riskAnalysis = analyzeFinancialRisk(text);
 
-  // Find high-risk keywords
-  const highRiskKeywordsFound: string[] = [];
-  for (const keyword of HIGH_RISK_KEYWORDS) {
-    if (textLower.includes(keyword.toLowerCase())) {
-      highRiskKeywordsFound.push(keyword);
-    }
-  }
+  const hasHighRiskContent = riskAnalysis.riskTerms.length > 0;
+  const highRiskKeywordsFound = riskAnalysis.riskTerms;
 
-  const hasHighRiskContent = highRiskKeywordsFound.length > 0;
-
-  // Find all disclaimers present
+  // Find all disclaimers present using NLP matching
   const disclaimersFound: string[] = [];
   const allDisclaimers = [
     ...DISCLAIMER_PATTERNS.investment,
@@ -66,7 +68,8 @@ function analyzeDisclaimers(text: string): DisclaimerAnalysis {
   ];
 
   for (const disclaimer of allDisclaimers) {
-    if (textLower.includes(disclaimer.toLowerCase())) {
+    const result = containsAny(text, [disclaimer]);
+    if (result.found) {
       disclaimersFound.push(disclaimer);
     }
   }
@@ -79,19 +82,19 @@ function analyzeDisclaimers(text: string): DisclaimerAnalysis {
     requiredDisclaimers.push(...DISCLAIMER_PATTERNS.general);
 
     // Check for specific high-risk categories
-    const hasCryptoContent =
-      highRiskKeywordsFound.some((k) =>
-        ['crypto', 'bitcoin', 'ethereum', 'nft'].includes(k)
-      );
+    const cryptoTerms = ['crypto', 'bitcoin', 'ethereum', 'nft'];
+    const hasCryptoContent = highRiskKeywordsFound.some((k) =>
+      cryptoTerms.some((c) => k.toLowerCase().includes(c))
+    );
 
     if (hasCryptoContent) {
       requiredDisclaimers.push(...DISCLAIMER_PATTERNS.crypto);
     }
 
-    const hasInvestmentContent =
-      highRiskKeywordsFound.some((k) =>
-        ['trading', 'forex', 'options', 'investis tout'].includes(k)
-      );
+    const investmentTerms = ['trading', 'forex', 'options', 'margin', 'leverage'];
+    const hasInvestmentContent = highRiskKeywordsFound.some((k) =>
+      investmentTerms.some((i) => k.toLowerCase().includes(i))
+    );
 
     if (hasInvestmentContent) {
       requiredDisclaimers.push(...DISCLAIMER_PATTERNS.investment);
@@ -102,18 +105,30 @@ function analyzeDisclaimers(text: string): DisclaimerAnalysis {
   const missingDisclaimers: string[] = [];
   if (hasHighRiskContent) {
     // At minimum, need at least one general disclaimer
-    const hasAnyGeneralDisclaimer = DISCLAIMER_PATTERNS.general.some((d) =>
-      textLower.includes(d.toLowerCase())
-    );
+    const generalResult = containsAny(text, DISCLAIMER_PATTERNS.general);
+    const hasAnyGeneralDisclaimer = generalResult.found;
 
     if (!hasAnyGeneralDisclaimer) {
-      missingDisclaimers.push('au moins un avertissement general');
+      missingDisclaimers.push('at least one general warning');
     }
 
     // Check specific disclaimers
     for (const req of requiredDisclaimers) {
-      if (!textLower.includes(req.toLowerCase())) {
+      const result = containsAny(text, [req]);
+      if (!result.found) {
         missingDisclaimers.push(req);
+      }
+    }
+  }
+
+  // Check if risk terms are negated (e.g., "don't invest in crypto")
+  let hasNegatedRisk = riskAnalysis.hasNegatedRisk;
+  if (!hasNegatedRisk && highRiskKeywordsFound.length > 0) {
+    // Double-check with our negation detection
+    for (const term of highRiskKeywordsFound) {
+      if (containsNegated(text, term)) {
+        hasNegatedRisk = true;
+        break;
       }
     }
   }
@@ -129,6 +144,7 @@ function analyzeDisclaimers(text: string): DisclaimerAnalysis {
     disclaimersFound,
     disclaimerCoverage: Math.min(1, disclaimerCoverage),
     missingDisclaimers: [...new Set(missingDisclaimers)].slice(0, 5),
+    hasNegatedRisk,
   };
 }
 
@@ -147,9 +163,29 @@ export function checkDisclaimers(text: string): HeuristicResult {
       isCritical: false,
       details: {
         hasHighRiskContent: false,
-        message: 'Pas de contenu a risque, disclaimers non requis',
+        message: 'No risky content, disclaimers not required',
       },
-      message: 'Contenu securise, pas de disclaimer requis',
+      message: 'Safe content, no disclaimer required',
+    };
+  }
+
+  // If risk terms are negated (warnings against risky behavior), that's good
+  if (analysis.hasNegatedRisk) {
+    // Give bonus for warning against risks
+    const bonusScore = Math.min(1, 0.8 + analysis.disclaimersFound.length * 0.1);
+    return {
+      name: 'disclaimers',
+      passed: true,
+      score: bonusScore,
+      isCritical: false,
+      details: {
+        hasHighRiskContent: true,
+        highRiskKeywordsFound: analysis.highRiskKeywordsFound,
+        disclaimersFound: analysis.disclaimersFound,
+        hasNegatedRisk: true,
+        message: 'Risk terms are negated (warning against risky behavior)',
+      },
+      message: `Good: warns against risky behavior`,
     };
   }
 
@@ -182,10 +218,11 @@ export function checkDisclaimers(text: string): HeuristicResult {
       disclaimersFound: analysis.disclaimersFound,
       missingDisclaimers: analysis.missingDisclaimers,
       disclaimerCoverage: Math.round(analysis.disclaimerCoverage * 100) / 100,
+      hasNegatedRisk: analysis.hasNegatedRisk,
     },
     message: passed
-      ? `Disclaimers adequats (${analysis.disclaimersFound.length} trouves)`
-      : `Disclaimers insuffisants: manque ${analysis.missingDisclaimers.slice(0, 3).join(', ')}`,
+      ? `Adequate disclaimers (${analysis.disclaimersFound.length} found)`
+      : `Insufficient disclaimers: missing ${analysis.missingDisclaimers.slice(0, 3).join(', ')}`,
   };
 }
 

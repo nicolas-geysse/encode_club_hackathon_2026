@@ -388,91 +388,96 @@ Etudiant: "Je suis en L2 Info, j'ai 800 euros/mois, je veux economiser 500 euros
 
 ### 4 Killer Features
 
-- [ ] **#1 Crunch Intelligent**
-  - [ ] Comeback window detection algorithm
-  - [ ] Catch-up plan generation
-  - [ ] "Comeback King" achievement
-  - [ ] Opik traces for energy trend analysis
+- [x] **#1 Crunch Intelligent** ✅ COMPLETE
+  - [x] Comeback window detection algorithm (`algorithms/comeback-detection.ts`)
+  - [x] Catch-up plan generation (capacity-aware distribution)
+  - [x] "Comeback King" achievement (bronze/silver/gold tiers)
+  - [x] Opik traces for energy trend analysis
 
-- [ ] **#2 Skill Arbitrage**
-  - [ ] Multi-criteria scoring function
-  - [ ] Graph query for skill -> job matching
-  - [ ] Score visualization in UI
-  - [ ] Opik traces for scoring breakdown
+- [x] **#2 Skill Arbitrage** ✅ COMPLETE
+  - [x] Multi-criteria scoring function (`algorithms/skill-arbitrage.ts`)
+  - [x] Graph query for skill -> job matching (DuckPGQ)
+  - [x] Score visualization in UI (SkillsTab component)
+  - [x] Opik traces for scoring breakdown
 
-- [ ] **#3 Swipe Scenarios**
-  - [ ] Roll the Dice button (compile + freeze)
-  - [ ] SwipeCard component with animations
-  - [ ] Preference learning algorithm
-  - [ ] Recommendation reranking after swipes
-  - [ ] Opik traces for preference updates
+- [x] **#3 Swipe Scenarios** ✅ COMPLETE
+  - [x] Roll the Dice button (compile + freeze)
+  - [x] SwipeCard component with animations
+  - [x] Preference learning algorithm
+  - [x] Recommendation reranking after swipes
+  - [x] Opik traces for preference updates
 
-- [ ] **#4 Energy Debt Gamification**
-  - [ ] Energy debt detection algorithm
-  - [ ] Automatic target reduction
-  - [ ] Self-care achievements
-  - [ ] Recovery plan generation
-  - [ ] Opik traces for debt calculations
+- [x] **#4 Energy Debt Gamification** ✅ COMPLETE
+  - [x] Energy debt detection algorithm (`algorithms/energy-debt.ts`)
+  - [x] Automatic target reduction (50%/75%/85% by severity)
+  - [x] Self-care achievements (Debt Survivor, Fully Recharged, Resilient)
+  - [x] Recovery plan generation
+  - [x] Opik traces for debt calculations
 
 ### Frontend
 
-- [ ] **Screen 0: Onboarding**
-  - [ ] OnboardingChat component
-  - [ ] Chat conversationnel (texte + voix)
-  - [ ] Questions progressives
-  - [ ] Character avatar (Bruno)
+- [x] **Screen 0: Onboarding** ✅ COMPLETE
+  - [x] OnboardingChat component
+  - [x] Chat conversationnel (texte + voix)
+  - [x] Questions progressives
+  - [x] Character avatar (Bruno)
 
-- [ ] **Screen 1: Mon Plan**
-  - [ ] Tab navigation (6 tabs)
-  - [ ] Tab Setup - objectif, echeance, evenements
-  - [ ] Tab Skills - Skill Arbitrage + addSkillChat
-  - [ ] Tab A Vendre - Inventory + addItemChat
-  - [ ] Tab Lifestyle - optimisations + addLifestyleChat
-  - [ ] Tab Trade - emprunter/troquer + addTradeChat
-  - [ ] Tab Swipe - Roll the Dice + SwipeCards
+- [x] **Screen 1: Mon Plan** ✅ COMPLETE
+  - [x] Tab navigation (6 tabs)
+  - [x] Tab Setup - objectif, echeance, evenements
+  - [x] Tab Skills - Skill Arbitrage + addSkillChat
+  - [x] Tab A Vendre - Inventory + addItemChat
+  - [x] Tab Lifestyle - optimisations + addLifestyleChat
+  - [x] Tab Trade - emprunter/troquer + addTradeChat
+  - [x] Tab Swipe - Roll the Dice + SwipeCards
 
-- [ ] **Screen 2: Suivi**
-  - [ ] Timeline Hero (temps + charge de travail)
-  - [ ] Retroplan + Comeback Alert
-  - [ ] Energy History + Recovery mode
-  - [ ] Missions du Swipe (valider/supprimer)
-  - [ ] Achievements
+- [x] **Screen 2: Suivi** ✅ COMPLETE
+  - [x] Timeline Hero (temps + charge de travail)
+  - [x] Retroplan + Comeback Alert
+  - [x] Energy History + Recovery mode
+  - [x] Missions du Swipe (valider/supprimer)
+  - [x] Achievements
 
-- [ ] **Shared Components**
-  - [ ] ChatInput (reutilisable)
-  - [ ] VoiceInput
-  - [ ] GoalProgress
-  - [ ] AchievementBadge
-  - [ ] MissionCard
+- [x] **Shared Components** ✅ COMPLETE
+  - [x] ChatInput (reutilisable)
+  - [x] VoiceInput
+  - [x] GoalProgress
+  - [x] AchievementBadge
+  - [x] MissionCard
 
 ### Backend
 
-- [ ] 4 Agents Mastra configures
-- [ ] Hybrid Evaluation System (Heuristics + G-Eval)
-- [ ] DuckDB avec tables:
-  - [ ] goals
-  - [ ] academic_events
-  - [ ] commitments
-  - [ ] energy_logs
-  - [ ] swipe_history
-  - [ ] user_preferences
-  - [ ] missions
-  - [ ] lifestyle_items
-  - [ ] trade_items
-- [ ] DuckPGQ knowledge graph (skills -> jobs)
-- [ ] Workflow student-analysis
-- [ ] Workflow goal-planning avec retroplanning
-- [ ] Tools: chat, voice, goal, swipe, energy, missions
-- [ ] Opik integration (see OPIK.md)
+- [x] 7 Agents Mastra configures (budget-coach, job-matcher, guardian, energy-calculator, money-maker, strategy-comparator, projection-ml)
+- [x] Hybrid Evaluation System (Heuristics + G-Eval)
+- [x] DuckDB avec tables:
+  - [x] profiles (with goals, expenses, income_sources)
+  - [x] energy_logs
+  - [x] simulation_state
+  - [x] user preferences (stored in profile.planData)
+- [x] DuckPGQ knowledge graph (31 nodes, 47 edges)
+- [x] Workflow student-analysis
+- [x] Workflow goal-planning avec retroplanning
+- [x] Tools: chat, voice, goal, swipe, energy, missions
+- [x] Opik integration (see OPIK.md) - with console fallback
+
+### Core Algorithms (MCP Server)
+
+- [x] `algorithms/retroplanning.ts` - 773 lines, capacity-aware
+- [x] `algorithms/skill-arbitrage.ts` - 4-criteria scoring (rate/demand/effort/rest)
+- [x] `algorithms/energy-debt.ts` - Consecutive week detection, severity levels
+- [x] `algorithms/comeback-detection.ts` - Recovery window detection, catch-up plans
 
 ### API Endpoints
 
-- [ ] `/api/chat` - onboarding, add_skill, add_item, add_lifestyle, add_trade
-- [ ] `/api/goals` - create, update_progress
-- [ ] `/api/retroplan` - events, commitments, energy, comeback
-- [ ] `/api/swipe` - roll_dice, record_decision, get_preferences
-- [ ] `/api/missions` - validate, delete
-- [ ] `/api/voice` - transcription
+- [x] `/api/chat` - onboarding, add_skill, add_item, add_lifestyle, add_trade
+- [x] `/api/goals` - create, update_progress
+- [x] `/api/profiles` - CRUD operations
+- [x] `/api/simulation` - time offset control
+- [x] `/api/health` - system health check
+- [ ] `/api/retroplan` - events, commitments, energy, comeback (uses frontend service)
+- [ ] `/api/swipe` - roll_dice, record_decision, get_preferences (uses frontend service)
+- [ ] `/api/missions` - validate, delete (uses frontend service)
+- [x] `/api/voice` - transcription
 
 ### Documentation
 
@@ -480,7 +485,18 @@ Etudiant: "Je suis en L2 Info, j'ai 800 euros/mois, je veux economiser 500 euros
 - [x] SCREENS_AND_EVALS.md (ecrans + evaluations)
 - [x] OPIK.md (observability pour les 4 killer features)
 - [x] README.md (hero 4 killer features)
+- [x] CLAUDE.md (development instructions)
+- [x] roadmap.md (implementation status)
+
+### Known Issues / TODOs
+
+1. **Opik Cloud Configuration**: Current `.env` has incorrect `OPIK_BASE_URL=http://localhost:5173` (Vite port)
+   - For Opik Cloud: Remove `OPIK_BASE_URL`, ensure `OPIK_WORKSPACE` is set
+   - For self-hosted: Use `OPIK_BASE_URL=http://localhost:8085`
+2. **MCP Tests**: No test files yet for MCP server (`pnpm --filter @stride/mcp-server test` fails)
+3. **Dark Mode**: Not implemented yet
 
 ---
 
-*Document mis a jour - Janvier 2026*
+*Document mis a jour - 16 Janvier 2026*
+*Algorithms backend consolidation complete*

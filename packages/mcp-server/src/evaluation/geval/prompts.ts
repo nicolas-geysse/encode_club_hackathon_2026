@@ -2,9 +2,43 @@
  * G-Eval Prompts
  *
  * Prompt templates for LLM-as-Judge evaluation using Chain-of-Thought.
+ * Uses Zod schemas for robust JSON validation of LLM responses.
  */
 
+import { z } from 'zod';
 import type { GEvalCriterion, EvaluationContext } from '../types.js';
+
+// ============================================
+// ZOD SCHEMAS FOR LLM RESPONSE VALIDATION
+// ============================================
+
+/**
+ * Schema for single criterion evaluation response
+ */
+const GEvalSingleResponseSchema = z.object({
+  criterion: z.string().optional(),
+  reasoning: z.string().min(1, 'Reasoning is required'),
+  score: z.number().int().min(1).max(5),
+  confidence: z.number().min(0).max(1),
+});
+
+/**
+ * Schema for batch evaluation response
+ */
+const GEvalBatchResponseSchema = z.object({
+  evaluations: z.array(
+    z.object({
+      criterion: z.string(),
+      reasoning: z.string(),
+      score: z.number().int().min(1).max(5),
+      confidence: z.number().min(0).max(1),
+    })
+  ),
+  overall_reasoning: z.string().optional(),
+});
+
+export type GEvalSingleResponse = z.infer<typeof GEvalSingleResponseSchema>;
+export type GEvalBatchResponse = z.infer<typeof GEvalBatchResponseSchema>;
 
 /**
  * System prompt for the G-Eval judge
@@ -77,7 +111,9 @@ Reponds UNIQUEMENT en JSON valide:
 function buildContextDescription(context: EvaluationContext): string {
   const parts: string[] = [];
 
-  parts.push(`- Public cible: ${context.targetAudience === 'etudiant' ? 'Etudiant francais' : 'General'}`);
+  parts.push(
+    `- Public cible: ${context.targetAudience === 'etudiant' ? 'Etudiant francais' : 'General'}`
+  );
 
   if (context.financialSituation) {
     const situationMap: Record<string, string> = {
@@ -112,11 +148,16 @@ export function buildBatchEvaluationPrompt(
   const contextDescription = buildContextDescription(context);
 
   const criteriaDescriptions = criteria
-    .map((c, i) => `${i + 1}. **${c.name}** (poids: ${c.weight * 100}%)
+    .map(
+      (c, i) => `${i + 1}. **${c.name}** (poids: ${c.weight * 100}%)
    ${c.description}
 
    Rubrique:
-   ${c.rubric.split('\n').map(l => '   ' + l).join('\n')}`)
+   ${c.rubric
+     .split('\n')
+     .map((l) => '   ' + l)
+     .join('\n')}`
+    )
     .join('\n\n');
 
   return `Tu dois evaluer ce conseil financier selon ${criteria.length} criteres.
@@ -170,78 +211,88 @@ Reponds en JSON avec cette structure EXACTE:
 }
 
 /**
- * Parse LLM response into structured result
+ * Extract JSON from LLM response (handles markdown code blocks)
  */
-export function parseGEvalResponse(response: string): {
-  criterion?: string;
-  reasoning: string;
-  score: number;
-  confidence: number;
-} | null {
+function extractJsonFromResponse(response: string): string | null {
+  // Try markdown code block first
+  const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    return codeBlockMatch[1].trim();
+  }
+
+  // Try to find raw JSON object
+  const jsonMatch = response.match(/\{[\s\S]*\}/);
+  return jsonMatch ? jsonMatch[0] : null;
+}
+
+/**
+ * Parse LLM response into structured result using Zod validation
+ */
+export function parseGEvalResponse(response: string): GEvalSingleResponse | null {
   try {
-    // Try to extract JSON from the response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const jsonStr = extractJsonFromResponse(response);
+    if (!jsonStr) {
       return null;
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonStr);
 
-    // Validate required fields
-    if (
-      typeof parsed.score !== 'number' ||
-      typeof parsed.confidence !== 'number' ||
-      typeof parsed.reasoning !== 'string'
-    ) {
+    // Validate with Zod schema - handles type coercion and range checking
+    const result = GEvalSingleResponseSchema.safeParse(parsed);
+
+    if (!result.success) {
+      // Log validation errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[G-Eval] Validation failed:', result.error.flatten());
+      }
       return null;
     }
 
-    // Normalize score to 1-5 range
-    const score = Math.max(1, Math.min(5, Math.round(parsed.score)));
-    const confidence = Math.max(0, Math.min(1, parsed.confidence));
-
-    return {
-      criterion: parsed.criterion,
-      reasoning: parsed.reasoning,
-      score,
-      confidence,
-    };
-  } catch {
+    return result.data;
+  } catch (e) {
+    // Log parse errors in development
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[G-Eval] JSON parse failed:', e);
+    }
     return null;
   }
 }
 
 /**
- * Parse batch evaluation response
+ * Parse batch evaluation response using Zod validation
  */
-export function parseBatchGEvalResponse(response: string): Array<{
-  criterion: string;
-  reasoning: string;
-  score: number;
-  confidence: number;
-}> | null {
+export function parseBatchGEvalResponse(
+  response: string
+): GEvalBatchResponse['evaluations'] | null {
   try {
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const jsonStr = extractJsonFromResponse(response);
+    if (!jsonStr) {
       return null;
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = JSON.parse(jsonStr);
 
-    if (!Array.isArray(parsed.evaluations)) {
+    // Validate with Zod schema
+    const result = GEvalBatchResponseSchema.safeParse(parsed);
+
+    if (!result.success) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[G-Eval] Batch validation failed:', result.error.flatten());
+      }
       return null;
     }
 
-    return parsed.evaluations.map((e: Record<string, unknown>) => ({
-      criterion: String(e.criterion || ''),
-      reasoning: String(e.reasoning || ''),
-      score: Math.max(1, Math.min(5, Math.round(Number(e.score) || 3))),
-      confidence: Math.max(0, Math.min(1, Number(e.confidence) || 0.5)),
-    }));
-  } catch {
+    return result.data.evaluations;
+  } catch (e) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[G-Eval] Batch JSON parse failed:', e);
+    }
     return null;
   }
 }
+
+// Export schemas for external use
+export { GEvalSingleResponseSchema, GEvalBatchResponseSchema };
 
 export default {
   GEVAL_SYSTEM_PROMPT,
@@ -249,4 +300,7 @@ export default {
   buildBatchEvaluationPrompt,
   parseGEvalResponse,
   parseBatchGEvalResponse,
+  // Schemas
+  GEvalSingleResponseSchema,
+  GEvalBatchResponseSchema,
 };

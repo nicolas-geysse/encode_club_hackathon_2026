@@ -14,13 +14,30 @@
 | **Time Simulation** | ✅ Working | Advance/reset simulated time |
 | **API Endpoints** | ✅ Working | `/api/profiles`, `/api/simulation` |
 | **LLM Integration** | ✅ Working | Groq API for chat |
+| **Screen 1 (Mon Plan)** | ✅ Working | 6 tabs functional with algorithms |
+| **Screen 2 (Suivi)** | ✅ Working | Timeline, Energy, Comeback, Missions |
+| **7 Mastra Agents** | ✅ Working | budget-coach, job-matcher, guardian, etc. |
+| **DuckPGQ Graph** | ✅ Working | 31 nodes, 47 edges (skills→jobs) |
+| **Swipe Preference Learning** | ✅ Working | Frontend + Backend |
+| **Retroplanning** | ✅ Working | 773 lignes, capacity-aware |
 
-### Recent Fixes (January 2026)
+### Core Algorithms (Backend)
 
+| Algorithm | File | Status |
+|-----------|------|--------|
+| **Skill Arbitrage** | `algorithms/skill-arbitrage.ts` | ✅ Complete |
+| **Energy Debt** | `algorithms/energy-debt.ts` | ✅ Complete |
+| **Comeback Detection** | `algorithms/comeback-detection.ts` | ✅ Complete |
+| **Retroplanning** | `algorithms/retroplanning.ts` | ✅ Complete |
+
+### Recent Updates (January 2026)
+
+- **Algorithm Consolidation**: Extracted frontend algorithms to backend MCP server
+- **Skill Arbitrage**: Full 4-criteria scoring (rate 30%, demand 25%, effort 25%, rest 20%)
+- **Job Matcher Enhancement**: New `match_jobs_arbitrage` tool with energy-aware weights
 - **Database Stability**: Centralized `_db.ts` with absolute path resolution
-- **Error Handling**: All API routes return proper error responses (no crashes)
+- **Error Handling**: All API routes return proper error responses
 - **Fallback System**: localStorage backup when API unavailable
-- **Onboarding Flow**: Checks API first, then localStorage
 
 ---
 
@@ -60,23 +77,28 @@ packages/
 - [x] Add localStorage fallback
 - [x] Create API test scripts
 
-### Phase 2: Core Features (In Progress)
+### Phase 2: Core Features ✅ DONE
 
-- [ ] **Plan Generation**: AI-generated financial plans
-- [ ] **Budget Tracking**: Track income/expenses vs plan
-- [ ] **Goal Progress**: Visual progress indicators
-- [ ] **Notifications**: Reminders and alerts
+- [x] **Skill Arbitrage Algorithm**: 4-criteria multi-weighted scoring
+- [x] **Energy Debt Detection**: Consecutive low-week detection with severity levels
+- [x] **Comeback Mode**: Recovery detection + catch-up plan generation
+- [x] **Job Matcher Integration**: Arbitrage scoring in job recommendations
+- [x] **Retroplanning**: Capacity-aware goal planning (773 lines)
+- [x] **Swipe Preference Learning**: Real-time weight updates from user decisions
 
-### Phase 3: Enhanced UX
+### Phase 3: Enhanced UX ✅ MOSTLY DONE
 
-- [ ] **Profile Switching**: Multiple profiles/scenarios
-- [ ] **What-If Scenarios**: Clone profile for simulations
-- [ ] **Achievement System**: Gamification elements
-- [ ] **Dark Mode**: Theme toggle
+- [x] **Profile Switching**: Multiple profiles/scenarios supported
+- [x] **What-If Scenarios**: Profile duplication (parent_profile_id)
+- [x] **Achievement System**: Comeback King, Self-Care Champion, etc.
+- [ ] **Dark Mode**: Theme toggle (not started)
 
-### Phase 4: Advanced Features
+### Phase 4: Advanced Features (In Progress)
 
-- [ ] **Opik Integration**: LLM observability
+- [x] **Opik Integration**: Service implemented with fallback to console
+- [ ] **Opik Cloud Verification**: Need to verify `.env` configuration
+  - Current `.env` has incorrect `OPIK_BASE_URL` (points to Vite port)
+  - For Opik Cloud: Remove `OPIK_BASE_URL`, add `OPIK_WORKSPACE`
 - [ ] **Export/Import**: Profile backup/restore
 - [ ] **Analytics Dashboard**: Spending insights
 - [ ] **Mobile PWA**: Offline support

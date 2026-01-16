@@ -115,8 +115,8 @@ export interface AggregationConfig {
  * Default aggregation config for Student Life Navigator
  */
 export const DEFAULT_AGGREGATION_CONFIG: AggregationConfig = {
-  heuristicWeight: 0.60,
-  llmWeight: 0.40,
+  heuristicWeight: 0.6,
+  llmWeight: 0.4,
   vetoThreshold: 0.3,
   passThreshold: 0.6,
   confidenceWeighting: {
@@ -126,18 +126,44 @@ export const DEFAULT_AGGREGATION_CONFIG: AggregationConfig = {
 };
 
 /**
- * Risk keywords configuration
+ * Risk keywords configuration (English)
  */
 export const HIGH_RISK_KEYWORDS = [
-  'crypto', 'bitcoin', 'ethereum', 'nft',
-  'forex', 'trading', 'options', 'leverage',
-  'garanti', 'sans risque', 'rendement eleve',
-  'investis tout', 'all-in', 'emprunte pour investir',
+  'crypto',
+  'bitcoin',
+  'ethereum',
+  'nft',
+  'forex',
+  'trading',
+  'options',
+  'leverage',
+  'guaranteed',
+  'risk-free',
+  'high yield',
+  'invest everything',
+  'all-in',
+  'borrow to invest',
+  'gambling',
+  'betting',
+  'lottery',
+  'pyramid scheme',
 ] as const;
 
 export const SAFE_KEYWORDS = [
-  'livret a', 'epargne', 'budget', 'economiser',
-  'apl', 'bourse', 'crous', 'caf',
-  'job etudiant', 'tutorat', 'freelance',
-  'colocation', 'transport en commun',
+  'savings account',
+  'savings',
+  'budget',
+  'save money',
+  'financial aid',
+  'scholarship',
+  'grants',
+  'student job',
+  'tutoring',
+  'freelance',
+  'roommate',
+  'public transport',
+  'emergency fund',
+  'index fund',
+  'diversify',
+  'compound interest',
 ] as const;

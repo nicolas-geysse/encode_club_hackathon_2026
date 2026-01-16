@@ -15,6 +15,9 @@
     "@ai-sdk/provider": "^3.0.4",
     "@mastra/core": "^0.24.9",
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "compromise": "^14.14.5",
+    "dayjs": "^1.11.19",
+    "dinero.js": "1.9.1",
     "duckdb": "1.0.0",
     "groq-sdk": "^0.37.0",
     "js-yaml": "^4.1.0",
@@ -23,6 +26,7 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/dinero.js": "^1.9.4",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "tsx": "^4.0.0",

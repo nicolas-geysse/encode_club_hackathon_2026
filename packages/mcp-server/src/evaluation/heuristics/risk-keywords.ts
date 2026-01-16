@@ -2,43 +2,54 @@
  * Risk Keywords Heuristic
  *
  * Detects high-risk financial keywords and safe keywords.
+ * Uses compromise NLP for better matching (stemming, negation detection).
  * Critical failures (multiple high-risk without disclaimers) trigger veto.
  */
 
 import type { HeuristicResult, EvaluationContext } from '../types.js';
 import { HIGH_RISK_KEYWORDS, SAFE_KEYWORDS } from '../types.js';
+import { analyzeFinancialRisk, containsNegated, containsAny } from '../../utils/nlpUtils.js';
 
 interface KeywordAnalysis {
   highRiskFound: string[];
   safeFound: string[];
+  negatedRiskTerms: string[];
   riskScore: number;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
 }
 
 /**
- * Analyze text for risk keywords
+ * Analyze text for risk keywords using NLP
+ * Uses compromise for stemming and negation detection
  */
 function analyzeKeywords(text: string): KeywordAnalysis {
-  const textLower = text.toLowerCase();
+  // Use NLP-based risk analysis
+  const nlpAnalysis = analyzeFinancialRisk(text);
 
-  const highRiskFound: string[] = [];
-  for (const keyword of HIGH_RISK_KEYWORDS) {
-    if (textLower.includes(keyword.toLowerCase())) {
-      highRiskFound.push(keyword);
+  // Also check against the original keyword lists for backward compatibility
+  const highRiskResult = containsAny(text, HIGH_RISK_KEYWORDS);
+  const safeResult = containsAny(text, SAFE_KEYWORDS);
+
+  // Combine NLP results with keyword matching
+  const highRiskFound = [...new Set([...nlpAnalysis.riskTerms, ...highRiskResult.matches])];
+  const safeFound = [...new Set([...nlpAnalysis.safeTerms, ...safeResult.matches])];
+
+  // Track negated risk terms (mentioned but warned against)
+  const negatedRiskTerms: string[] = [];
+  for (const term of highRiskFound) {
+    if (containsNegated(text, term)) {
+      negatedRiskTerms.push(term);
     }
   }
 
-  const safeFound: string[] = [];
-  for (const keyword of SAFE_KEYWORDS) {
-    if (textLower.includes(keyword.toLowerCase())) {
-      safeFound.push(keyword);
-    }
-  }
+  // Filter out negated terms from high risk (they're warnings, not recommendations)
+  const actualHighRisk = highRiskFound.filter((term) => !negatedRiskTerms.includes(term));
 
   // Calculate risk score (0 = safe, 1 = very risky)
-  const baseRiskScore = highRiskFound.length * 0.3;
+  const baseRiskScore = actualHighRisk.length * 0.3;
   const safeBonus = safeFound.length * -0.1;
-  const riskScore = Math.max(0, Math.min(1, 0.3 + baseRiskScore + safeBonus));
+  const negationBonus = negatedRiskTerms.length * -0.05; // Slight bonus for warning about risks
+  const riskScore = Math.max(0, Math.min(1, 0.3 + baseRiskScore + safeBonus + negationBonus));
 
   // Determine risk level
   let riskLevel: 'low' | 'medium' | 'high' | 'critical';
@@ -53,8 +64,9 @@ function analyzeKeywords(text: string): KeywordAnalysis {
   }
 
   return {
-    highRiskFound,
+    highRiskFound: actualHighRisk,
     safeFound,
+    negatedRiskTerms,
     riskScore,
     riskLevel,
   };
@@ -63,10 +75,7 @@ function analyzeKeywords(text: string): KeywordAnalysis {
 /**
  * Run risk keywords heuristic
  */
-export function checkRiskKeywords(
-  text: string,
-  context?: EvaluationContext
-): HeuristicResult {
+export function checkRiskKeywords(text: string, context?: EvaluationContext): HeuristicResult {
   const analysis = analyzeKeywords(text);
   let { riskScore } = analysis;
 
@@ -77,15 +86,16 @@ export function checkRiskKeywords(
   if (context?.financialSituation === 'deficit') {
     if (analysis.highRiskFound.length > 0) {
       riskScore += 0.2;
-      issues.push('Recommandation risquee pour un etudiant en deficit');
+      issues.push('Risky recommendation for student in deficit');
     }
   }
 
   if (context?.hasLoan) {
-    const textLower = text.toLowerCase();
-    if (textLower.includes('emprunte') || textLower.includes('credit')) {
+    // Use NLP to check for loan-related content
+    const hasLoanContent = containsAny(text, ['borrow', 'loan', 'credit', 'debt']).found;
+    if (hasLoanContent) {
       riskScore += 0.15;
-      warnings.push('Attention: etudiant a deja un pret');
+      warnings.push('Warning: student already has a loan');
     }
   }
 
@@ -93,7 +103,12 @@ export function checkRiskKeywords(
   riskScore = Math.max(0, Math.min(1, riskScore));
 
   if (analysis.highRiskFound.length > 0) {
-    issues.push(`Mots-cles a risque: ${analysis.highRiskFound.join(', ')}`);
+    issues.push(`Risk keywords found: ${analysis.highRiskFound.join(', ')}`);
+  }
+
+  if (analysis.negatedRiskTerms.length > 0) {
+    // Add positive note for warning about risks
+    warnings.push(`Good: warned against ${analysis.negatedRiskTerms.join(', ')}`);
   }
 
   // Determine if this is critical (veto-worthy)
@@ -109,6 +124,7 @@ export function checkRiskKeywords(
     details: {
       highRiskFound: analysis.highRiskFound,
       safeFound: analysis.safeFound,
+      negatedRiskTerms: analysis.negatedRiskTerms,
       riskLevel: analysis.riskLevel,
       rawRiskScore: analysis.riskScore,
       adjustedRiskScore: riskScore,
@@ -121,9 +137,9 @@ export function checkRiskKeywords(
     },
     message: passed
       ? analysis.safeFound.length > 0
-        ? `Contenu securise (${analysis.safeFound.slice(0, 3).join(', ')})`
-        : 'Aucun mot-cle a risque detecte'
-      : `Niveau de risque ${analysis.riskLevel}: ${issues.join('; ')}`,
+        ? `Safe content (${analysis.safeFound.slice(0, 3).join(', ')})`
+        : 'No risk keywords detected'
+      : `Risk level ${analysis.riskLevel}: ${issues.join('; ')}`,
   };
 }
 

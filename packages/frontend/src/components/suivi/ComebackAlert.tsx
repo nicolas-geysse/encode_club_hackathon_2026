@@ -2,9 +2,11 @@
  * Comeback Alert Component
  *
  * Detects comeback windows after low energy periods and proposes catch-up plans.
+ * Includes celebration effects when comeback mode is activated.
  */
 
-import { Show, For, createMemo } from 'solid-js';
+import { Show, For, createMemo, createEffect, createSignal } from 'solid-js';
+import { celebrateComeback } from '~/lib/confetti';
 
 interface ComebackWindow {
   detected: boolean;
@@ -63,6 +65,10 @@ function generateCatchUpPlan(deficit: number, capacities: number[]): CatchUpPlan
 }
 
 export function ComebackAlert(props: ComebackAlertProps) {
+  const [hasShownCelebration, setHasShownCelebration] = createSignal(false);
+  const [showContent, setShowContent] = createSignal(false);
+  const [animatedTotal, setAnimatedTotal] = createSignal(0);
+
   const comebackWindow = createMemo(() =>
     detectComebackWindow(props.energyHistory, props.weeklyDeficit)
   );
@@ -78,52 +84,105 @@ export function ComebackAlert(props: ComebackAlertProps) {
 
   const totalCatchUp = createMemo(() => catchUpPlan().reduce((sum, week) => sum + week.target, 0));
 
+  // Trigger celebration when comeback is detected
+  createEffect(() => {
+    if (comebackWindow() && !hasShownCelebration()) {
+      setHasShownCelebration(true);
+      // Delay content reveal for dramatic effect
+      setTimeout(() => {
+        celebrateComeback();
+        setShowContent(true);
+
+        // Animate the total counter
+        const duration = 1000;
+        const startTime = Date.now();
+        const target = totalCatchUp();
+
+        function animate() {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const easeOut = 1 - Math.pow(1 - progress, 3);
+          setAnimatedTotal(Math.round(target * easeOut));
+
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          }
+        }
+
+        requestAnimationFrame(animate);
+      }, 300);
+    }
+  });
+
+  // Update animated total when plan changes
+  createEffect(() => {
+    if (showContent()) {
+      setAnimatedTotal(totalCatchUp());
+    }
+  });
+
   return (
     <Show when={comebackWindow()}>
       {(window) => (
-        <div class="card border-2 border-green-300 bg-gradient-to-br from-green-50 to-emerald-50">
+        <div
+          class={`card border-2 border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 transition-all duration-500 ${
+            showContent() ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          }`}
+        >
           {/* Header */}
           <div class="flex items-start gap-4">
             <div class="flex-shrink-0">
-              <div class="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-3xl animate-bounce">
+              <div class="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-3xl animate-bounce shadow-lg shadow-green-300/50">
                 🚀
               </div>
             </div>
             <div class="flex-1">
-              <h3 class="text-xl font-bold text-green-900">Comeback Mode Active !</h3>
+              <h3 class="text-xl font-bold text-green-900 flex items-center gap-2">
+                Comeback Mode Active!
+                <span class="text-base animate-pulse">✨</span>
+              </h3>
               <p class="text-green-700 mt-1">
-                Ton energie est remontee a {props.energyHistory[props.energyHistory.length - 1]}%
-                apres {window().deficitWeeks} semaines difficiles. C'est le moment de rattraper !
+                Your energy is back up to {props.energyHistory[props.energyHistory.length - 1]}%
+                after {window().deficitWeeks} tough weeks. Time to catch up!
               </p>
             </div>
           </div>
 
           {/* Catch-up Plan */}
           <div class="mt-6">
-            <h4 class="font-semibold text-green-800 mb-3">Plan de rattrapage suggere</h4>
+            <h4 class="font-semibold text-green-800 mb-3">Suggested Catch-up Plan</h4>
 
             <div class="space-y-2">
               <For each={catchUpPlan()}>
-                {(week) => (
-                  <div class="flex items-center gap-3 p-3 bg-white rounded-lg">
-                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center font-bold text-green-700">
-                      S{week.week}
+                {(week, index) => (
+                  <div
+                    class="flex items-center gap-3 p-3 bg-white rounded-lg shadow-sm transition-all duration-300"
+                    style={{
+                      'animation-delay': `${index() * 100}ms`,
+                      animation: showContent() ? 'slideIn 0.3s ease-out forwards' : 'none',
+                      opacity: showContent() ? 1 : 0,
+                    }}
+                  >
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center font-bold text-green-700">
+                      W{week.week}
                     </div>
                     <div class="flex-1">
                       <div class="flex justify-between">
-                        <span class="font-medium text-slate-800">Semaine {week.week}</span>
+                        <span class="font-medium text-slate-800">Week {week.week}</span>
                         <span class="font-bold text-green-600">+{week.target}€</span>
                       </div>
                       <div class="mt-1 h-2 bg-green-100 rounded-full overflow-hidden">
                         <div
-                          class="h-full bg-green-500"
+                          class="h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-1000"
                           style={{
-                            width: `${(week.target / Math.max(...catchUpPlan().map((w) => w.target))) * 100}%`,
+                            width: showContent()
+                              ? `${(week.target / Math.max(...catchUpPlan().map((w) => w.target))) * 100}%`
+                              : '0%',
                           }}
                         />
                       </div>
                       <span class="text-xs text-slate-500">
-                        Capacite: {week.capacity}h disponibles
+                        Capacity: {week.capacity}h available
                       </span>
                     </div>
                   </div>
@@ -132,16 +191,18 @@ export function ComebackAlert(props: ComebackAlertProps) {
             </div>
 
             {/* Total */}
-            <div class="mt-4 p-4 bg-green-100 rounded-lg">
+            <div class="mt-4 p-4 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg">
               <div class="flex justify-between items-center">
                 <div>
-                  <span class="text-green-800 font-medium">Rattrapage total</span>
-                  <p class="text-sm text-green-600">En {window().suggestedCatchUpWeeks} semaines</p>
+                  <span class="text-green-800 font-medium">Total Catch-up</span>
+                  <p class="text-sm text-green-600">In {window().suggestedCatchUpWeeks} weeks</p>
                 </div>
                 <div class="text-right">
-                  <div class="text-3xl font-bold text-green-700">+{totalCatchUp()}€</div>
+                  <div class="text-3xl font-bold text-green-700 tabular-nums">
+                    +{animatedTotal()}€
+                  </div>
                   <div class="text-sm text-green-600">
-                    = {Math.round(totalCatchUp() / window().suggestedCatchUpWeeks)}€/semaine
+                    = {Math.round(totalCatchUp() / window().suggestedCatchUpWeeks)}€/week
                   </div>
                 </div>
               </div>
@@ -152,27 +213,27 @@ export function ComebackAlert(props: ComebackAlertProps) {
           <div class="flex gap-3 mt-6">
             <button
               type="button"
-              class="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+              class="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg shadow-green-300/30 hover:shadow-green-400/40 flex items-center justify-center gap-2"
               onClick={() => props.onAcceptPlan?.(catchUpPlan())}
             >
               <span class="text-xl">💪</span>
-              C'est parti !
+              Let's go!
             </button>
             <button
               type="button"
               class="px-4 py-3 bg-white border border-green-200 text-green-700 rounded-xl font-medium hover:bg-green-50 transition-colors"
               onClick={props.onDeclinePlan}
             >
-              Plus tard
+              Later
             </button>
           </div>
 
           {/* Achievement Teaser */}
-          <div class="mt-4 p-3 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-lg flex items-center gap-3">
-            <span class="text-2xl">🏆</span>
+          <div class="mt-4 p-3 bg-gradient-to-r from-yellow-100 to-amber-100 rounded-lg flex items-center gap-3 border border-yellow-200">
+            <span class="text-2xl animate-pulse">🏆</span>
             <div>
-              <p class="font-medium text-amber-800">Achievement a debloquer</p>
-              <p class="text-sm text-amber-600">Complete le plan pour obtenir "Comeback King" !</p>
+              <p class="font-medium text-amber-800">Achievement to unlock</p>
+              <p class="text-sm text-amber-600">Complete the plan to get "Comeback King"!</p>
             </div>
           </div>
         </div>

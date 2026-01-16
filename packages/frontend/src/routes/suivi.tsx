@@ -8,11 +8,13 @@
 import { createSignal, Show, onMount } from 'solid-js';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
+import { EnergyChart } from '~/components/suivi/EnergyChart';
 import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
+import { weeksBetween, addWeeks, toISO, formatDate, defaultDeadline90Days } from '~/lib/dateUtils';
 
 // Types
 interface SetupData {
@@ -94,13 +96,9 @@ export default function SuiviPage() {
         setSetup(planData.setup);
         setHasData(true);
 
-        // Calculate weeks and targets using simulated date
+        // Calculate weeks and targets using simulated date (dayjs)
         const startDate = simDate;
-        const endDate = new Date(planData.setup.goalDeadline);
-        const totalWeeks = Math.max(
-          1,
-          Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
-        );
+        const totalWeeks = weeksBetween(startDate, planData.setup.goalDeadline);
         const weeklyTarget = Math.ceil(planData.setup.goalAmount / totalWeeks);
 
         // Load followup data from profile or localStorage
@@ -110,13 +108,13 @@ export default function SuiviPage() {
             typeof storedFollowup === 'string' ? JSON.parse(storedFollowup) : storedFollowup;
           setFollowup(followupData);
         } else {
-          // Generate initial energy history (demo data)
+          // Generate initial energy history (demo data) using dayjs
           const energyHistory: EnergyEntry[] = [];
           for (let i = 1; i <= Math.min(4, totalWeeks); i++) {
             energyHistory.push({
               week: i,
               level: 50 + Math.floor(Math.random() * 40),
-              date: new Date(startDate.getTime() + (i - 1) * 7 * 24 * 60 * 60 * 1000).toISOString(),
+              date: toISO(addWeeks(startDate, i - 1)),
             });
           }
 
@@ -164,8 +162,8 @@ export default function SuiviPage() {
                 } else if (trade.type === 'lend' && trade.dueDate) {
                   missions.push({
                     id: `mission_trade_lend_${index}`,
-                    title: `Rendre ${trade.name}`,
-                    description: `Rendre ${trade.name} prete a ${trade.partner} avant le ${new Date(trade.dueDate).toLocaleDateString('fr-FR')}`,
+                    title: `Return ${trade.name}`,
+                    description: `Return ${trade.name} lent to ${trade.partner} before ${formatDate(trade.dueDate)}`,
                     category: 'trade',
                     weeklyHours: 1,
                     weeklyEarnings: 0,
@@ -248,8 +246,7 @@ export default function SuiviPage() {
         setSetup({
           goalName: profile.goalName,
           goalAmount: profile.goalAmount,
-          goalDeadline:
-            profile.goalDeadline || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          goalDeadline: profile.goalDeadline || defaultDeadline90Days(),
         });
         setHasData(true);
       }
@@ -293,7 +290,7 @@ export default function SuiviPage() {
     if (existingIndex >= 0) {
       history[existingIndex] = { ...history[existingIndex], level };
     } else {
-      history.push({ week, level, date: new Date().toISOString() });
+      history.push({ week, level, date: toISO(new Date()) });
     }
 
     updateFollowup({ energyHistory: history.sort((a, b) => a.week - b.week) });
@@ -324,14 +321,14 @@ export default function SuiviPage() {
 
     const catchUpMissions: Mission[] = capacities.map((cap, i) => ({
       id: `comeback_${Date.now()}_${i}`,
-      title: `Rattrapage Semaine ${i + 1}`,
-      description: 'Mission de rattrapage post-exams',
+      title: `Catch-up Week ${i + 1}`,
+      description: 'Post-exam catch-up mission',
       category: 'freelance',
       weeklyHours: Math.round(cap / 10),
       weeklyEarnings: Math.round((cap / totalCapacity) * deficit),
       status: 'active' as const,
       progress: 0,
-      startDate: new Date().toISOString(),
+      startDate: toISO(new Date()),
       hoursCompleted: 0,
       earningsCollected: 0,
     }));
@@ -370,9 +367,12 @@ export default function SuiviPage() {
           />
         </Show>
 
-        {/* Two-column layout for Energy and Comeback */}
+        {/* Energy Chart (full width) */}
+        <EnergyChart history={followup().energyHistory} threshold={40} />
+
+        {/* Two-column layout for Energy Input and Comeback */}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Energy History */}
+          {/* Energy Input & History */}
           <div>
             <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
               <span>⚡</span> Energie
