@@ -9,7 +9,6 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
-import { query as _query } from '../services/duckdb.js';
 
 // Job database (knowledge graph simulation)
 const JOB_DATABASE = [

@@ -31,13 +31,11 @@ export function TimelineHero(props: TimelineHeroProps) {
   const isOnTrack = () => amountProgress() >= timeProgress() - 5;
   const isAhead = () => amountProgress() > timeProgress() + 10;
 
-  const getStatusMessage = () => {
+  const status = () => {
     if (isAhead()) return { text: 'En avance !', color: 'text-green-600', icon: '🚀' };
     if (isOnTrack()) return { text: 'Sur la bonne voie', color: 'text-blue-600', icon: '👍' };
     return { text: "Besoin d'un coup de boost", color: 'text-amber-600', icon: '⚡' };
   };
-
-  const status = getStatusMessage();
 
   return (
     <div class="card bg-gradient-to-br from-slate-900 to-slate-800 text-white">
@@ -68,7 +66,7 @@ export function TimelineHero(props: TimelineHeroProps) {
           <div class="h-3 bg-slate-700 rounded-full overflow-hidden">
             <div
               class="h-full bg-gradient-to-r from-slate-500 to-slate-400 transition-all duration-500"
-              style={`width: ${timeProgress()}%`}
+              style={{ width: `${timeProgress()}%` }}
             />
           </div>
         </div>
@@ -83,7 +81,7 @@ export function TimelineHero(props: TimelineHeroProps) {
             {/* Time marker */}
             <div
               class="absolute top-0 bottom-0 w-0.5 bg-white/50 z-10"
-              style={`left: ${timeProgress()}%`}
+              style={{ left: `${timeProgress()}%` }}
             />
             <div
               class={`h-full transition-all duration-500 ${
@@ -93,7 +91,7 @@ export function TimelineHero(props: TimelineHeroProps) {
                     ? 'bg-gradient-to-r from-blue-500 to-blue-400'
                     : 'bg-gradient-to-r from-amber-500 to-amber-400'
               }`}
-              style={`width: ${amountProgress()}%`}
+              style={{ width: `${amountProgress()}%` }}
             />
           </div>
         </div>
@@ -102,8 +100,8 @@ export function TimelineHero(props: TimelineHeroProps) {
       {/* Status & Stats */}
       <div class="mt-6 pt-6 border-t border-slate-700 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="text-2xl">{status.icon}</span>
-          <span class={`font-medium ${status.color}`}>{status.text}</span>
+          <span class="text-2xl">{status().icon}</span>
+          <span class={`font-medium ${status().color}`}>{status().text}</span>
         </div>
         <div class="flex gap-6 text-sm">
           <div class="text-center">

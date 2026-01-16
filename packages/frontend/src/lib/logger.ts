@@ -20,10 +20,12 @@ function log(level: LogLevel, message: string, context?: LogContext) {
   const timestamp = new Date().toISOString();
   const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
 
+  // eslint-disable-next-line no-console
+  const logFn = console[level];
   if (context?.feature) {
-    console[level](`${prefix} [${context.feature}]`, message, context);
+    logFn(`${prefix} [${context.feature}]`, message, context);
   } else {
-    console[level](prefix, message, context || '');
+    logFn(prefix, message, context || '');
   }
 }
 

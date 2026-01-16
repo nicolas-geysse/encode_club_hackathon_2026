@@ -111,7 +111,7 @@ export function SwipeSession(props: SwipeSessionProps) {
         <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
           <div
             class="h-full bg-primary-500 transition-all duration-300"
-            style={`width: ${progress()}%`}
+            style={{ width: `${progress()}%` }}
           />
         </div>
       </div>
@@ -179,7 +179,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <div class="h-1 bg-slate-200 rounded-full overflow-hidden">
               <div
                 class="h-full bg-blue-500"
-                style={`width: ${(1 - preferences().effortSensitivity) * 100}%`}
+                style={{ width: `${(1 - preferences().effortSensitivity) * 100}%` }}
               />
             </div>
             <span class="text-[10px] text-slate-400">Effort</span>
@@ -188,7 +188,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <div class="h-1 bg-slate-200 rounded-full overflow-hidden">
               <div
                 class="h-full bg-green-500"
-                style={`width: ${preferences().hourlyRatePriority * 100}%`}
+                style={{ width: `${preferences().hourlyRatePriority * 100}%` }}
               />
             </div>
             <span class="text-[10px] text-slate-400">Salaire</span>
@@ -197,7 +197,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <div class="h-1 bg-slate-200 rounded-full overflow-hidden">
               <div
                 class="h-full bg-purple-500"
-                style={`width: ${preferences().timeFlexibility * 100}%`}
+                style={{ width: `${preferences().timeFlexibility * 100}%` }}
               />
             </div>
             <span class="text-[10px] text-slate-400">Flex</span>
@@ -206,7 +206,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <div class="h-1 bg-slate-200 rounded-full overflow-hidden">
               <div
                 class="h-full bg-amber-500"
-                style={`width: ${preferences().incomeStability * 100}%`}
+                style={{ width: `${preferences().incomeStability * 100}%` }}
               />
             </div>
             <span class="text-[10px] text-slate-400">Stable</span>

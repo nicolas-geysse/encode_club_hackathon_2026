@@ -37,11 +37,15 @@ interface SwipeTabProps {
 }
 
 // Generate scenarios based on user data
-function generateScenarios(props: SwipeTabProps): Scenario[] {
+function generateScenarios(
+  skills: SwipeTabProps['skills'],
+  items: SwipeTabProps['items'],
+  lifestyle: SwipeTabProps['lifestyle']
+): Scenario[] {
   const scenarios: Scenario[] = [];
 
   // Skill-based scenarios
-  props.skills?.forEach((skill, index) => {
+  skills?.forEach((skill, index) => {
     scenarios.push({
       id: `skill_${index}`,
       title: `Freelance ${skill.name}`,
@@ -68,7 +72,7 @@ function generateScenarios(props: SwipeTabProps): Scenario[] {
   });
 
   // Item-based scenarios
-  props.items?.forEach((item, index) => {
+  items?.forEach((item, index) => {
     scenarios.push({
       id: `sell_${index}`,
       title: `Vendre ${item.name}`,
@@ -84,7 +88,7 @@ function generateScenarios(props: SwipeTabProps): Scenario[] {
 
   // Lifestyle optimization scenarios
   const totalSavings =
-    props.lifestyle?.reduce((sum, item) => {
+    lifestyle?.reduce((sum, item) => {
       if (item.optimizedCost !== undefined) {
         return sum + (item.currentCost - item.optimizedCost);
       }
@@ -179,7 +183,7 @@ export function SwipeTab(props: SwipeTabProps) {
     setPhase('rolling');
 
     // Generate scenarios based on user data
-    const generated = generateScenarios(props);
+    const generated = generateScenarios(props.skills, props.items, props.lifestyle);
     setScenarios(generated);
 
     // Simulate rolling animation
@@ -251,7 +255,7 @@ export function SwipeTab(props: SwipeTabProps) {
                 <div class="mt-1 h-2 bg-primary-200 rounded-full">
                   <div
                     class="h-full bg-primary-600 rounded-full"
-                    style={`width: ${(1 - preferences().effortSensitivity) * 100}%`}
+                    style={{ width: `${(1 - preferences().effortSensitivity) * 100}%` }}
                   />
                 </div>
               </div>
@@ -260,7 +264,7 @@ export function SwipeTab(props: SwipeTabProps) {
                 <div class="mt-1 h-2 bg-primary-200 rounded-full">
                   <div
                     class="h-full bg-primary-600 rounded-full"
-                    style={`width: ${preferences().hourlyRatePriority * 100}%`}
+                    style={{ width: `${preferences().hourlyRatePriority * 100}%` }}
                   />
                 </div>
               </div>
@@ -269,7 +273,7 @@ export function SwipeTab(props: SwipeTabProps) {
                 <div class="mt-1 h-2 bg-primary-200 rounded-full">
                   <div
                     class="h-full bg-primary-600 rounded-full"
-                    style={`width: ${preferences().timeFlexibility * 100}%`}
+                    style={{ width: `${preferences().timeFlexibility * 100}%` }}
                   />
                 </div>
               </div>
@@ -278,7 +282,7 @@ export function SwipeTab(props: SwipeTabProps) {
                 <div class="mt-1 h-2 bg-primary-200 rounded-full">
                   <div
                     class="h-full bg-primary-600 rounded-full"
-                    style={`width: ${preferences().incomeStability * 100}%`}
+                    style={{ width: `${preferences().incomeStability * 100}%` }}
                   />
                 </div>
               </div>

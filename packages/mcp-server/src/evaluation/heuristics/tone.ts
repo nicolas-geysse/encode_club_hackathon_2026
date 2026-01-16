@@ -18,44 +18,86 @@ interface ToneAnalysis {
 
 // Positive sentiment words (French financial context)
 const POSITIVE_WORDS = [
-  'super', 'excellent', 'parfait', 'genial', 'bravo',
-  'felicitations', 'reussir', 'succes', 'opportunite',
-  'ameliorer', 'progres', 'economiser', 'epargner',
-  'confortable', 'securise', 'stable',
+  'super',
+  'excellent',
+  'parfait',
+  'genial',
+  'bravo',
+  'felicitations',
+  'reussir',
+  'succes',
+  'opportunite',
+  'ameliorer',
+  'progres',
+  'economiser',
+  'epargner',
+  'confortable',
+  'securise',
+  'stable',
 ];
 
 // Negative sentiment words
 const NEGATIVE_WORDS = [
-  'impossible', 'echec', 'catastrophe', 'danger', 'erreur',
-  'probleme', 'risque', 'dette', 'deficit', 'difficulte',
-  'attention', 'urgent', 'critique',
+  'impossible',
+  'echec',
+  'catastrophe',
+  'danger',
+  'erreur',
+  'probleme',
+  'risque',
+  'dette',
+  'deficit',
+  'difficulte',
+  'attention',
+  'urgent',
+  'critique',
 ];
 
 // Overly optimistic phrases
 const OVERLY_OPTIMISTIC = [
-  'garanti', 'sur a 100%', 'sans aucun doute', 'certainement',
-  'tu vas devenir riche', 'facile', 'sans effort',
-  'revenus passifs', 'liberte financiere rapide',
+  'garanti',
+  'sur a 100%',
+  'sans aucun doute',
+  'certainement',
+  'tu vas devenir riche',
+  'facile',
+  'sans effort',
+  'revenus passifs',
+  'liberte financiere rapide',
 ];
 
 // Aggressive/pushy tone
 const AGGRESSIVE_MARKERS = [
-  'tu dois absolument', 'il faut imperativement',
-  'ne fais surtout pas', 'c\'est obligatoire',
-  'tu n\'as pas le choix', 'arrete de',
+  'tu dois absolument',
+  'il faut imperativement',
+  'ne fais surtout pas',
+  "c'est obligatoire",
+  "tu n'as pas le choix",
+  'arrete de',
 ];
 
 // Urgency markers
 const URGENCY_MARKERS = [
-  'urgent', 'maintenant', 'immediatement', 'tout de suite',
-  'vite', 'depeche', 'derniere chance', 'aujourd\'hui',
+  'urgent',
+  'maintenant',
+  'immediatement',
+  'tout de suite',
+  'vite',
+  'depeche',
+  'derniere chance',
+  "aujourd'hui",
 ];
 
 // Reassurance markers
 const REASSURANCE_MARKERS = [
-  'ne t\'inquiete pas', 'c\'est normal', 'pas de panique',
-  'on peut corriger', 'c\'est jouable', 'c\'est faisable',
-  'tu peux y arriver', 'petit a petit',
+  "ne t'inquiete pas",
+  "c'est normal",
+  'pas de panique',
+  'on peut corriger',
+  "c'est jouable",
+  "c'est faisable",
+  'tu peux y arriver',
+  'petit a petit',
 ];
 
 /**
@@ -70,14 +112,11 @@ function countPatterns(text: string, patterns: string[]): number {
  * Analyze tone of text
  */
 function analyzeTone(text: string): ToneAnalysis {
-  const textLower = text.toLowerCase();
-
   // Calculate sentiment
   const positiveCount = countPatterns(text, POSITIVE_WORDS);
   const negativeCount = countPatterns(text, NEGATIVE_WORDS);
   const totalSentiment = positiveCount + negativeCount;
-  const sentiment =
-    totalSentiment > 0 ? (positiveCount - negativeCount) / totalSentiment : 0;
+  const sentiment = totalSentiment > 0 ? (positiveCount - negativeCount) / totalSentiment : 0;
 
   // Check for problematic patterns
   const isOverlyOptimistic = countPatterns(text, OVERLY_OPTIMISTIC) >= 1;
@@ -162,11 +201,7 @@ export function checkTone(text: string, context?: EvaluationContext): HeuristicR
     details: {
       sentiment: Math.round(analysis.sentiment * 100) / 100,
       sentimentLabel:
-        analysis.sentiment > 0.2
-          ? 'positif'
-          : analysis.sentiment < -0.2
-            ? 'negatif'
-            : 'neutre',
+        analysis.sentiment > 0.2 ? 'positif' : analysis.sentiment < -0.2 ? 'negatif' : 'neutre',
       isOverlyOptimistic: analysis.isOverlyOptimistic,
       isOverlyPessimistic: analysis.isOverlyPessimistic,
       hasAggressiveTone: analysis.hasAggressiveTone,

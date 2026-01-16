@@ -14,12 +14,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
-import {
-  runHybridEvaluationWithTracing as _runHybridEvaluationWithTracing,
-  runQuickEvaluation,
-  type EvaluationInput,
-  type HybridEvaluationResult as _HybridEvaluationResult,
-} from '../evaluation/index.js';
+import { runQuickEvaluation, type EvaluationInput } from '../evaluation/index.js';
 
 /**
  * Risk keywords that should trigger warnings

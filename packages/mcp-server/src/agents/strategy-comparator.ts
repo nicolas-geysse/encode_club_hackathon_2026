@@ -173,8 +173,8 @@ function generateComparisons(
   const types = Array.from(byType.entries());
   for (let i = 0; i < types.length; i++) {
     for (let j = i + 1; j < types.length; j++) {
-      const [typeA, stratA] = types[i];
-      const [typeB, stratB] = types[j];
+      const [, stratA] = types[i];
+      const [, stratB] = types[j];
 
       const winner = stratA.scores.overall > stratB.scores.overall ? stratA : stratB;
       const loser = winner === stratA ? stratB : stratA;

@@ -50,7 +50,7 @@ export function MissionCard(props: MissionCardProps) {
     }
   };
 
-  const status = getStatusBadge(props.mission.status);
+  const status = () => getStatusBadge(props.mission.status);
 
   return (
     <div
@@ -73,8 +73,8 @@ export function MissionCard(props: MissionCardProps) {
           {/* Header */}
           <div class="flex items-center gap-2 mb-1">
             <h4 class="font-semibold text-slate-900 truncate">{props.mission.title}</h4>
-            <span class={`px-2 py-0.5 text-xs font-medium rounded-full ${status.class}`}>
-              {status.label}
+            <span class={`px-2 py-0.5 text-xs font-medium rounded-full ${status().class}`}>
+              {status().label}
             </span>
           </div>
 
@@ -91,7 +91,7 @@ export function MissionCard(props: MissionCardProps) {
               <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   class="h-full bg-primary-500 transition-all duration-300"
-                  style={`width: ${props.mission.progress}%`}
+                  style={{ width: `${props.mission.progress}%` }}
                 />
               </div>
             </div>
@@ -120,7 +120,7 @@ export function MissionCard(props: MissionCardProps) {
             <button
               type="button"
               class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors"
-              onClick={props.onComplete}
+              onClick={() => props.onComplete?.()}
             >
               ✓ Fait
             </button>
@@ -142,7 +142,7 @@ export function MissionCard(props: MissionCardProps) {
             <button
               type="button"
               class="text-xs text-slate-400 hover:text-red-500 transition-colors"
-              onClick={props.onSkip}
+              onClick={() => props.onSkip?.()}
             >
               Passer
             </button>

@@ -4,12 +4,7 @@
  * Orchestrates all heuristic checks for the hybrid evaluation system.
  */
 
-import type {
-  HeuristicResult,
-  HeuristicsResults,
-  EvaluationContext,
-  EvaluationInput,
-} from '../types.js';
+import type { HeuristicResult, HeuristicsResults, EvaluationInput } from '../types.js';
 
 import { checkCalculations } from './calculation.js';
 import { checkRiskKeywords } from './risk-keywords.js';
@@ -28,11 +23,11 @@ export { checkDisclaimers } from './disclaimers.js';
  * Weights for each heuristic in the aggregated score
  */
 const HEURISTIC_WEIGHTS: Record<string, number> = {
-  calculation_validation: 0.30, // Most important - math must be correct
-  risk_keywords: 0.25,          // Safety is critical
-  readability: 0.15,            // Important for accessibility
-  tone: 0.15,                   // Affects user experience
-  disclaimers: 0.15,            // Legal and ethical importance
+  calculation_validation: 0.3, // Most important - math must be correct
+  risk_keywords: 0.25, // Safety is critical
+  readability: 0.15, // Important for accessibility
+  tone: 0.15, // Affects user experience
+  disclaimers: 0.15, // Legal and ethical importance
 };
 
 /**
@@ -67,9 +62,7 @@ export async function runAllHeuristics(input: EvaluationInput): Promise<Heuristi
   const aggregatedScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
 
   // Collect all issues from failed checks
-  const issues = checks
-    .filter((c) => !c.passed)
-    .map((c) => c.message);
+  const issues = checks.filter((c) => !c.passed).map((c) => c.message);
 
   return {
     checks,
@@ -85,10 +78,7 @@ export async function runAllHeuristics(input: EvaluationInput): Promise<Heuristi
 export function runCriticalChecksOnly(input: EvaluationInput): HeuristicResult[] {
   const { recommendation, calculations, context } = input;
 
-  return [
-    checkCalculations(calculations),
-    checkRiskKeywords(recommendation, context),
-  ];
+  return [checkCalculations(calculations), checkRiskKeywords(recommendation, context)];
 }
 
 /**

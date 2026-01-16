@@ -4,19 +4,13 @@
  * Provides rich logging of evaluation results with custom metrics.
  */
 
-import { trace, getTraceUrl, getCurrentTraceId } from '../services/opik.js';
+import { trace, getCurrentTraceId } from '../services/opik.js';
 import type {
   HybridEvaluationResult,
   HeuristicsResults,
   GEvalResult,
   EvaluationInput,
-  EvaluationContext,
 } from './types.js';
-import {
-  runHybridEvaluation as _runHybridEvaluation,
-  runQuickEvaluation as _runQuickEvaluation,
-  runCriticalValidation as _runCriticalValidation,
-} from './aggregation.js';
 import type { LLMGenerateFunction } from './geval/index.js';
 
 /**

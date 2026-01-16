@@ -378,7 +378,6 @@ export async function POST(event: APIEvent) {
         const logDate = date || new Date().toISOString().split('T')[0];
 
         // Check for existing log on this date
-        const existingKey = `${userId}_${logDate}`;
         const existingLog = Array.from(energyLogsStore.values()).find(
           (l) => l.userId === userId && l.date === logDate
         );
@@ -494,7 +493,7 @@ export async function POST(event: APIEvent) {
   }
 }
 
-export async function GET(event: APIEvent) {
+export async function GET(_event: APIEvent) {
   // Simple health check
   return new Response(JSON.stringify({ status: 'ok', service: 'retroplan' }), {
     status: 200,

@@ -37,7 +37,7 @@
  * - log_feedback: User thumbs up/down
  */
 
-import { database, query } from '../services/duckdb.js';
+import { query } from '../services/duckdb.js';
 import { trace, getTraceUrl, logFeedback, getCurrentTraceId } from '../services/opik.js';
 import { analyzeBudget, generateAdvice } from '../services/groq.js';
 import { runStudentAnalysis, type StudentProfile } from '../workflows/index.js';
@@ -639,7 +639,6 @@ async function handleMatchJobs(args: Record<string, unknown>) {
 async function handleFindOptimizations(args: Record<string, unknown>) {
   return trace('graph_find_optimizations', async (span) => {
     const categories = args.expense_categories as string[];
-    const currentExpenses = args.current_expenses as Record<string, number> | undefined;
 
     span.setAttributes({
       categories,
@@ -1202,7 +1201,7 @@ Format ta réponse en JSON comme ceci:
 }
 
 // Fallback suggestions based on common fields
-function generateFallbackSuggestions(field: string, diploma: string) {
+function generateFallbackSuggestions(field: string, _diploma: string) {
   const fieldLower = field.toLowerCase();
 
   const fieldSuggestions: Record<

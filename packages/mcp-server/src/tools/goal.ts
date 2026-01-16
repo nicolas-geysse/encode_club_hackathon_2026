@@ -10,17 +10,14 @@ import { trace, getCurrentTraceId } from '../services/opik.js';
 import { query, execute } from '../services/duckdb.js';
 import { randomUUID } from 'crypto';
 import type {
-  AcademicEvent,
   AcademicEventType,
   EventPriority,
-  Commitment,
   CommitmentType,
   CommitmentPriority,
   DayOfWeek,
-  EnergyLog,
   RetroplanInput,
 } from '../types/retroplanning.js';
-import { generateRetroplan, calculateCatchUp } from '../algorithms/retroplanning.js';
+import { generateRetroplan } from '../algorithms/retroplanning.js';
 
 // Use crypto.randomUUID() for generating unique IDs
 const uuidv4 = () => randomUUID();
@@ -96,12 +93,53 @@ export interface ProgressUpdate {
 const ACHIEVEMENTS = [
   { id: 'first_100', name: 'First Blood', icon: '💰', description: 'Gagner 100€', threshold: 100 },
   { id: 'first_500', name: 'Halfway Hero', icon: '🌟', description: 'Gagner 500€', threshold: 500 },
-  { id: 'streak_2', name: 'Régulier', icon: '📈', description: '2 semaines consécutives', type: 'streak', threshold: 2 },
-  { id: 'streak_4', name: 'On Fire', icon: '🔥', description: '4 semaines consécutives', type: 'streak', threshold: 4 },
-  { id: 'ahead_schedule', name: 'Speed Racer', icon: '⚡', description: 'En avance sur le planning', type: 'pace' },
-  { id: 'diversified', name: 'Diversifié', icon: '📊', description: '3+ sources de revenus', type: 'sources', threshold: 3 },
-  { id: 'goal_50pct', name: 'Mi-chemin', icon: '🎯', description: 'Atteindre 50% de l\'objectif', type: 'progress', threshold: 0.5 },
-  { id: 'goal_complete', name: 'Objectif Atteint!', icon: '🏆', description: 'Atteindre 100% de l\'objectif', type: 'progress', threshold: 1.0 },
+  {
+    id: 'streak_2',
+    name: 'Régulier',
+    icon: '📈',
+    description: '2 semaines consécutives',
+    type: 'streak',
+    threshold: 2,
+  },
+  {
+    id: 'streak_4',
+    name: 'On Fire',
+    icon: '🔥',
+    description: '4 semaines consécutives',
+    type: 'streak',
+    threshold: 4,
+  },
+  {
+    id: 'ahead_schedule',
+    name: 'Speed Racer',
+    icon: '⚡',
+    description: 'En avance sur le planning',
+    type: 'pace',
+  },
+  {
+    id: 'diversified',
+    name: 'Diversifié',
+    icon: '📊',
+    description: '3+ sources de revenus',
+    type: 'sources',
+    threshold: 3,
+  },
+  {
+    id: 'goal_50pct',
+    name: 'Mi-chemin',
+    icon: '🎯',
+    description: "Atteindre 50% de l'objectif",
+    type: 'progress',
+    threshold: 0.5,
+  },
+  {
+    id: 'goal_complete',
+    name: 'Objectif Atteint!',
+    icon: '🏆',
+    description: "Atteindre 100% de l'objectif",
+    type: 'progress',
+    threshold: 1.0,
+  },
 ];
 
 // ============================================
@@ -110,7 +148,8 @@ const ACHIEVEMENTS = [
 
 export const GOAL_TOOLS = {
   create_goal_plan: {
-    description: 'Create a personalized goal plan with weekly milestones and recommended strategies.',
+    description:
+      'Create a personalized goal plan with weekly milestones and recommended strategies.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -222,7 +261,8 @@ export const GOAL_TOOLS = {
   // ============================================
 
   add_academic_event: {
-    description: 'Add an academic event (exams, vacations, internship) that affects capacity for earning money.',
+    description:
+      'Add an academic event (exams, vacations, internship) that affects capacity for earning money.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -249,7 +289,8 @@ export const GOAL_TOOLS = {
         },
         capacity_impact: {
           type: 'number',
-          description: 'Capacity multiplier: 0.2 = 80% reduction (exams), 1.5 = 50% boost (vacations). Default varies by type.',
+          description:
+            'Capacity multiplier: 0.2 = 80% reduction (exams), 1.5 = 50% boost (vacations). Default varies by type.',
         },
         priority: {
           type: 'string',
@@ -263,7 +304,8 @@ export const GOAL_TOOLS = {
   },
 
   add_commitment: {
-    description: 'Add a recurring time commitment (classes, sports, family) that reduces available hours.',
+    description:
+      'Add a recurring time commitment (classes, sports, family) that reduces available hours.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -350,7 +392,8 @@ export const GOAL_TOOLS = {
   },
 
   generate_retroplan: {
-    description: 'Generate a capacity-aware retroplan for a goal, considering exams, commitments, and energy patterns.',
+    description:
+      'Generate a capacity-aware retroplan for a goal, considering exams, commitments, and energy patterns.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -469,7 +512,10 @@ function calculateWeeks(deadline: Date): number {
   return Math.max(1, diffWeeks);
 }
 
-function assessFeasibility(weeklyTarget: number, weeksAvailable: number): {
+function assessFeasibility(
+  weeklyTarget: number,
+  weeksAvailable: number
+): {
   score: number;
   level: 'low' | 'medium' | 'high';
   factors: string[];
@@ -567,7 +613,7 @@ function generateDefaultStrategies(weeklyTarget: number): Strategy[] {
   strategies.push({
     id: 'selling-items',
     type: 'selling',
-    name: 'Vente d\'objets',
+    name: "Vente d'objets",
     weeklyContribution: Math.min(100, weeklyTarget * 0.4),
     effort: 'low',
     timeToGoal: 1, // One-time
@@ -700,14 +746,12 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
       recommendedStrategies: strategies,
       gamification: {
         totalMilestones: milestones.length,
-        possibleAchievements: ACHIEVEMENTS.map(a => `${a.icon} ${a.name}`),
+        possibleAchievements: ACHIEVEMENTS.map((a) => `${a.icon} ${a.name}`),
       },
     };
 
     // Generate progress visualization
-    const progressBar = milestones.map((m, i) =>
-      i === 0 ? '▶️' : '⬜'
-    ).join('');
+    const progressBar = milestones.map((m, i) => (i === 0 ? '▶️' : '⬜')).join('');
 
     return {
       type: 'composite',
@@ -752,8 +796,12 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
                 type: 'metric',
                 params: {
                   title: 'Niveau de risque',
-                  value: feasibility.level === 'low' ? '✅ Faible' :
-                         feasibility.level === 'medium' ? '⚠️ Moyen' : '🚨 Élevé',
+                  value:
+                    feasibility.level === 'low'
+                      ? '✅ Faible'
+                      : feasibility.level === 'medium'
+                        ? '⚠️ Moyen'
+                        : '🚨 Élevé',
                 },
               },
             ],
@@ -773,9 +821,10 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
           id: 'risk-factors',
           type: 'text',
           params: {
-            content: feasibility.factors.length > 0
-              ? `## ⚠️ Points d'attention\n\n${feasibility.factors.map(f => `- ${f}`).join('\n')}`
-              : '## ✅ Pas de risque majeur identifié',
+            content:
+              feasibility.factors.length > 0
+                ? `## ⚠️ Points d'attention\n\n${feasibility.factors.map((f) => `- ${f}`).join('\n')}`
+                : '## ✅ Pas de risque majeur identifié',
             markdown: true,
           },
         },
@@ -791,9 +840,16 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
               { key: 'weeklyContribution', label: '€/semaine' },
               { key: 'effort', label: 'Effort' },
             ],
-            rows: strategies.map(s => ({
+            rows: strategies.map((s) => ({
               name: s.name,
-              type: s.type === 'job' ? '💼' : s.type === 'hustle' ? '🏃' : s.type === 'selling' ? '📦' : '💰',
+              type:
+                s.type === 'job'
+                  ? '💼'
+                  : s.type === 'hustle'
+                    ? '🏃'
+                    : s.type === 'selling'
+                      ? '📦'
+                      : '💰',
               weeklyContribution: `${s.weeklyContribution}€`,
               effort: s.effort === 'low' ? '🟢' : s.effort === 'medium' ? '🟡' : '🔴',
             })),
@@ -804,7 +860,9 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
           id: 'achievements-preview',
           type: 'text',
           params: {
-            content: `## 🏆 Achievements à débloquer\n\n${ACHIEVEMENTS.slice(0, 4).map(a => `${a.icon} **${a.name}** - ${a.description}`).join('\n\n')}`,
+            content: `## 🏆 Achievements à débloquer\n\n${ACHIEVEMENTS.slice(0, 4)
+              .map((a) => `${a.icon} **${a.name}** - ${a.description}`)
+              .join('\n\n')}`,
             markdown: true,
           },
         },
@@ -849,9 +907,14 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
     const previousProgress = await query<{
       earned_amount: number;
       week_number: number;
-    }>(`SELECT earned_amount, week_number FROM goal_progress WHERE goal_id = '${goalId}' AND week_number < ${weekNumber} ORDER BY week_number`);
+    }>(
+      `SELECT earned_amount, week_number FROM goal_progress WHERE goal_id = '${goalId}' AND week_number < ${weekNumber} ORDER BY week_number`
+    );
 
-    const totalPreviousEarned = previousProgress.reduce((sum, p) => sum + (p.earned_amount || 0), 0);
+    const totalPreviousEarned = previousProgress.reduce(
+      (sum, p) => sum + (p.earned_amount || 0),
+      0
+    );
     const totalEarned = totalPreviousEarned + amountEarned;
     const expectedTotal = goal.weekly_target * weekNumber;
     const paceRatio = totalEarned / expectedTotal;
@@ -885,7 +948,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
     const unlockedAchievements = await query<{ achievement_id: string }>(
       `SELECT achievement_id FROM goal_achievements WHERE goal_id = '${goalId}'`
     );
-    const unlockedIds = unlockedAchievements.map(a => a.achievement_id);
+    const unlockedIds = unlockedAchievements.map((a) => a.achievement_id);
 
     // Check for new achievements
     const newAchievements = checkAchievements(
@@ -934,7 +997,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
     const progressBar = '█'.repeat(progressBarFilled) + '░'.repeat(10 - progressBarFilled);
 
     // Get achievement details for new ones
-    const newAchievementDetails = ACHIEVEMENTS.filter(a => newAchievements.includes(a.id));
+    const newAchievementDetails = ACHIEVEMENTS.filter((a) => newAchievements.includes(a.id));
 
     const components: unknown[] = [
       // Progress update header
@@ -978,9 +1041,14 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
               params: {
                 title: 'Rythme',
                 value: `${Math.round(paceRatio * 100)}%`,
-                subtitle: riskAlert === 'on_track' ? '✅ En avance' :
-                          riskAlert === 'slight_delay' ? '⚠️ Léger retard' :
-                          riskAlert === 'at_risk' ? '🚨 À risque' : '❌ Critique',
+                subtitle:
+                  riskAlert === 'on_track'
+                    ? '✅ En avance'
+                    : riskAlert === 'slight_delay'
+                      ? '⚠️ Léger retard'
+                      : riskAlert === 'at_risk'
+                        ? '🚨 À risque'
+                        : '❌ Critique',
               },
             },
           ],
@@ -1003,7 +1071,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
         id: 'new-achievements',
         type: 'text',
         params: {
-          content: `## 🏆 Achievements débloqués!\n\n${newAchievementDetails.map(a => `### ${a.icon} ${a.name}\n${a.description}`).join('\n\n')}`,
+          content: `## 🏆 Achievements débloqués!\n\n${newAchievementDetails.map((a) => `### ${a.icon} ${a.name}\n${a.description}`).join('\n\n')}`,
           markdown: true,
         },
       });
@@ -1082,7 +1150,7 @@ export async function handleGetGoalStatus(args: Record<string, unknown>) {
     const totalWeeks = Math.ceil(goal.goal_amount / goal.weekly_target);
     const weeklyViz = [];
     for (let w = 1; w <= totalWeeks; w++) {
-      const weekProgress = progress.find(p => p.week_number === w);
+      const weekProgress = progress.find((p) => p.week_number === w);
       if (weekProgress) {
         const pct = (weekProgress.earned_amount || 0) / (weekProgress.target_amount || 1);
         weeklyViz.push(pct >= 1 ? '✅' : pct >= 0.8 ? '🟡' : '🔴');
@@ -1100,8 +1168,8 @@ export async function handleGetGoalStatus(args: Record<string, unknown>) {
     });
 
     // Get achievement details
-    const unlockedAchievements = ACHIEVEMENTS.filter(a =>
-      achievements.some(ua => ua.achievement_id === a.id)
+    const unlockedAchievements = ACHIEVEMENTS.filter((a) =>
+      achievements.some((ua) => ua.achievement_id === a.id)
     );
 
     return {
@@ -1159,7 +1227,7 @@ export async function handleGetGoalStatus(args: Record<string, unknown>) {
           id: 'achievements',
           type: 'text',
           params: {
-            content: `## 🏆 Achievements (${achievements.length}/${ACHIEVEMENTS.length})\n\n${unlockedAchievements.length > 0 ? unlockedAchievements.map(a => `${a.icon} ${a.name}`).join(' | ') : '*Aucun achievement débloqué*'}`,
+            content: `## 🏆 Achievements (${achievements.length}/${ACHIEVEMENTS.length})\n\n${unlockedAchievements.length > 0 ? unlockedAchievements.map((a) => `${a.icon} ${a.name}`).join(' | ') : '*Aucun achievement débloqué*'}`,
             markdown: true,
           },
         },
@@ -1221,7 +1289,7 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
       message = 'Vous êtes en bonne voie pour atteindre votre objectif!';
     } else if (riskRatio <= 1.3) {
       riskLevel = 'medium';
-      message = 'Léger retard, mais rattrapable avec un peu plus d\'effort.';
+      message = "Léger retard, mais rattrapable avec un peu plus d'effort.";
       actions.push('Augmenter les heures de travail de 20%');
       actions.push('Explorer une source de revenus supplémentaire');
     } else if (riskRatio <= 1.8) {
@@ -1233,8 +1301,8 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
     } else {
       riskLevel = 'critical';
       message = 'Objectif très difficile à atteindre dans le délai imparti.';
-      actions.push('Considérer l\'extension du délai');
-      actions.push('Revoir l\'objectif à la baisse');
+      actions.push("Considérer l'extension du délai");
+      actions.push("Revoir l'objectif à la baisse");
       actions.push('Combiner plusieurs stratégies agressivement');
     }
 
@@ -1268,9 +1336,14 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
                 type: 'metric',
                 params: {
                   title: 'Niveau de risque',
-                  value: riskLevel === 'low' ? '✅ Faible' :
-                         riskLevel === 'medium' ? '⚠️ Moyen' :
-                         riskLevel === 'high' ? '🚨 Élevé' : '❌ Critique',
+                  value:
+                    riskLevel === 'low'
+                      ? '✅ Faible'
+                      : riskLevel === 'medium'
+                        ? '⚠️ Moyen'
+                        : riskLevel === 'high'
+                          ? '🚨 Élevé'
+                          : '❌ Critique',
                 },
               },
               {
@@ -1298,9 +1371,10 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
           id: 'actions',
           type: 'text',
           params: {
-            content: actions.length > 0
-              ? `## 💡 Actions recommandées\n\n${actions.map((a, i) => `${i + 1}. ${a}`).join('\n')}`
-              : '## ✅ Continuez comme ça!',
+            content:
+              actions.length > 0
+                ? `## 💡 Actions recommandées\n\n${actions.map((a, i) => `${i + 1}. ${a}`).join('\n')}`
+                : '## ✅ Continuez comme ça!',
             markdown: true,
           },
         },
@@ -1339,20 +1413,24 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
       goal_deadline: string;
       status: string;
       feasibility_score: number;
-    }>(`SELECT id, goal_name, goal_amount, goal_deadline, status, feasibility_score FROM goals WHERE ${whereClause} ORDER BY created_at DESC`);
+    }>(
+      `SELECT id, goal_name, goal_amount, goal_deadline, status, feasibility_score FROM goals WHERE ${whereClause} ORDER BY created_at DESC`
+    );
 
     // Get progress for each goal
-    const goalsWithProgress = await Promise.all(goals.map(async (g) => {
-      const progress = await query<{ earned_amount: number }>(
-        `SELECT earned_amount FROM goal_progress WHERE goal_id = '${g.id}'`
-      );
-      const earned = progress.reduce((sum, p) => sum + (p.earned_amount || 0), 0);
-      return {
-        ...g,
-        earned,
-        progressPct: Math.round((earned / g.goal_amount) * 100),
-      };
-    }));
+    const goalsWithProgress = await Promise.all(
+      goals.map(async (g) => {
+        const progress = await query<{ earned_amount: number }>(
+          `SELECT earned_amount FROM goal_progress WHERE goal_id = '${g.id}'`
+        );
+        const earned = progress.reduce((sum, p) => sum + (p.earned_amount || 0), 0);
+        return {
+          ...g,
+          earned,
+          progressPct: Math.round((earned / g.goal_amount) * 100),
+        };
+      })
+    );
 
     span.setAttributes({
       'goals.count': goals.length,
@@ -1380,7 +1458,7 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
           { key: 'deadline', label: 'Deadline' },
           { key: 'status', label: 'Statut' },
         ],
-        rows: goalsWithProgress.map(g => ({
+        rows: goalsWithProgress.map((g) => ({
           goal_name: g.goal_name,
           goal_amount: `${g.goal_amount}€`,
           progress: `${g.progressPct}% (${g.earned}€)`,
@@ -1447,9 +1525,14 @@ export async function handleAddAcademicEvent(args: Record<string, unknown>) {
               '${startDate}', '${endDate}', ${capacityImpact}, '${priority}')
     `);
 
-    const impactLabel = capacityImpact < 0.5 ? '🔴 Protégé' :
-                        capacityImpact < 0.8 ? '🟡 Réduit' :
-                        capacityImpact > 1.2 ? '🟢 Boost' : '⚪ Normal';
+    const impactLabel =
+      capacityImpact < 0.5
+        ? '🔴 Protégé'
+        : capacityImpact < 0.8
+          ? '🟡 Réduit'
+          : capacityImpact > 1.2
+            ? '🟢 Boost'
+            : '⚪ Normal';
 
     return {
       type: 'composite',
@@ -1494,7 +1577,7 @@ export async function handleAddCommitment(args: Record<string, unknown>) {
     await execute(`
       INSERT INTO commitments (id, user_id, commitment_type, commitment_name, hours_per_week, flexible_hours, day_preferences, priority)
       VALUES ('${commitmentId}', '${userId}', '${commitmentType}', '${commitmentName.replace(/'/g, "''")}',
-              ${hoursPerWeek}, ${flexibleHours}, ${dayPreferences ? `ARRAY[${dayPreferences.map(d => `'${d}'`).join(',')}]` : 'NULL'}, '${priority}')
+              ${hoursPerWeek}, ${flexibleHours}, ${dayPreferences ? `ARRAY[${dayPreferences.map((d) => `'${d}'`).join(',')}]` : 'NULL'}, '${priority}')
     `);
 
     const typeIcons: Record<CommitmentType, string> = {
@@ -1564,9 +1647,7 @@ export async function handleLogEnergy(args: Record<string, unknown>) {
     const stressEmoji = ['😌', '🙂', '😐', '😰', '🤯'][stressLevel - 1];
 
     // Calculate composite score for capacity prediction
-    const compositeScore = Math.round(
-      ((energyLevel + moodScore + (6 - stressLevel)) / 15) * 100
-    );
+    const compositeScore = Math.round(((energyLevel + moodScore + (6 - stressLevel)) / 15) * 100);
 
     return {
       type: 'composite',
@@ -1689,7 +1770,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
         availableHours: profile.max_work_hours_weekly || 20,
         defaultHourlyRate: profile.min_hourly_rate || 12,
       },
-      academicEvents: academicEvents.map(e => ({
+      academicEvents: academicEvents.map((e) => ({
         id: e.id,
         userId: e.user_id,
         type: e.event_type,
@@ -1701,7 +1782,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
         isRecurring: e.is_recurring,
         recurrencePattern: e.recurrence_pattern as 'weekly' | 'monthly' | 'semester',
       })),
-      commitments: commitments.map(c => ({
+      commitments: commitments.map((c) => ({
         id: c.id,
         userId: c.user_id,
         type: c.commitment_type,
@@ -1711,7 +1792,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
         dayPreferences: c.day_preferences,
         priority: c.priority,
       })),
-      energyHistory: energyLogs.map(e => ({
+      energyHistory: energyLogs.map((e) => ({
         id: e.id,
         userId: e.user_id,
         date: new Date(e.log_date),
@@ -1757,12 +1838,14 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
     });
 
     // Build visual calendar
-    const weeklyViz = retroplan.milestones.map(m => {
-      if (m.capacity.isProtectedWeek) return '🔴';
-      if (m.capacity.capacityCategory === 'low') return '🟠';
-      if (m.capacity.capacityCategory === 'medium') return '🟡';
-      return '🟢';
-    }).join(' ');
+    const weeklyViz = retroplan.milestones
+      .map((m) => {
+        if (m.capacity.isProtectedWeek) return '🔴';
+        if (m.capacity.capacityCategory === 'low') return '🟠';
+        if (m.capacity.capacityCategory === 'medium') return '🟡';
+        return '🟢';
+      })
+      .join(' ');
 
     // Build capacity summary
     const capacitySummary = [
@@ -1773,14 +1856,18 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
     ].join('\n');
 
     // Build milestone table
-    const milestoneRows = retroplan.milestones.slice(0, 8).map(m => ({
+    const milestoneRows = retroplan.milestones.slice(0, 8).map((m) => ({
       week: `S${m.weekNumber}`,
       target: `${Math.round(m.adjustedTarget)}€`,
       cumul: `${Math.round(m.cumulativeTarget)}€`,
-      capacity: m.capacity.isProtectedWeek ? '🔴' :
-                m.capacity.capacityCategory === 'low' ? '🟠' :
-                m.capacity.capacityCategory === 'medium' ? '🟡' : '🟢',
-      events: m.capacity.academicEvents.map(e => e.name).join(', ') || '-',
+      capacity: m.capacity.isProtectedWeek
+        ? '🔴'
+        : m.capacity.capacityCategory === 'low'
+          ? '🟠'
+          : m.capacity.capacityCategory === 'medium'
+            ? '🟡'
+            : '🟢',
+      events: m.capacity.academicEvents.map((e) => e.name).join(', ') || '-',
     }));
 
     return {
@@ -1858,9 +1945,10 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
           id: 'risk-factors',
           type: 'text',
           params: {
-            content: retroplan.riskFactors.length > 0
-              ? `## ⚠️ Facteurs de risque\n\n${retroplan.riskFactors.map(r => `- ${r}`).join('\n')}`
-              : '## ✅ Aucun risque majeur identifié',
+            content:
+              retroplan.riskFactors.length > 0
+                ? `## ⚠️ Facteurs de risque\n\n${retroplan.riskFactors.map((r) => `- ${r}`).join('\n')}`
+                : '## ✅ Aucun risque majeur identifié',
             markdown: true,
           },
         },
@@ -1922,26 +2010,34 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
     const totalCommitmentHours = commitments.reduce((sum, c) => sum + c.hours_per_week, 0);
     const academicMultiplier = events.reduce((mult, e) => Math.min(mult, e.capacity_impact), 1.0);
 
-    const avgEnergy = recentEnergy.length > 0
-      ? recentEnergy.reduce((sum, e) => sum + e.energy_level, 0) / recentEnergy.length
-      : 3;
-    const avgMood = recentEnergy.length > 0
-      ? recentEnergy.reduce((sum, e) => sum + e.mood_score, 0) / recentEnergy.length
-      : 3;
-    const avgStress = recentEnergy.length > 0
-      ? recentEnergy.reduce((sum, e) => sum + e.stress_level, 0) / recentEnergy.length
-      : 3;
+    const avgEnergy =
+      recentEnergy.length > 0
+        ? recentEnergy.reduce((sum, e) => sum + e.energy_level, 0) / recentEnergy.length
+        : 3;
+    const avgMood =
+      recentEnergy.length > 0
+        ? recentEnergy.reduce((sum, e) => sum + e.mood_score, 0) / recentEnergy.length
+        : 3;
+    const avgStress =
+      recentEnergy.length > 0
+        ? recentEnergy.reduce((sum, e) => sum + e.stress_level, 0) / recentEnergy.length
+        : 3;
 
-    const energyMultiplier = 0.6 + (avgEnergy + avgMood + (6 - avgStress)) / 15 * 0.8;
+    const energyMultiplier = 0.6 + ((avgEnergy + avgMood + (6 - avgStress)) / 15) * 0.8;
 
     // Base hours: 168h - 56h sleep - commitments - 21h buffer
     const baseHours = Math.max(0, 168 - 56 - totalCommitmentHours - 21);
     const effectiveHours = Math.round(baseHours * academicMultiplier * energyMultiplier * 0.3); // 30% for earning
 
     const capacityScore = Math.round(academicMultiplier * energyMultiplier * 100);
-    const capacityCategory = capacityScore < 30 ? 'protected' :
-                             capacityScore < 60 ? 'low' :
-                             capacityScore < 85 ? 'medium' : 'high';
+    const capacityCategory =
+      capacityScore < 30
+        ? 'protected'
+        : capacityScore < 60
+          ? 'low'
+          : capacityScore < 85
+            ? 'medium'
+            : 'high';
 
     return {
       type: 'composite',
@@ -1967,9 +2063,14 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
                 params: {
                   title: 'Score capacité',
                   value: `${capacityScore}%`,
-                  subtitle: capacityCategory === 'high' ? '🟢 Haute' :
-                           capacityCategory === 'medium' ? '🟡 Moyenne' :
-                           capacityCategory === 'low' ? '🟠 Basse' : '🔴 Protégée',
+                  subtitle:
+                    capacityCategory === 'high'
+                      ? '🟢 Haute'
+                      : capacityCategory === 'medium'
+                        ? '🟡 Moyenne'
+                        : capacityCategory === 'low'
+                          ? '🟠 Basse'
+                          : '🔴 Protégée',
                 },
               },
               {
@@ -1989,7 +2090,7 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
           id: 'breakdown',
           type: 'text',
           params: {
-            content: `## Détail\n\n| Facteur | Impact |\n|---------|--------|\n| Événements académiques | ×${academicMultiplier.toFixed(2)} |\n| Énergie moyenne | ×${energyMultiplier.toFixed(2)} |\n| Engagements | -${totalCommitmentHours}h/sem |${events.length > 0 ? `\n\n**Événements cette semaine:**\n${events.map(e => `- ${e.event_name} (${e.event_type})`).join('\n')}` : ''}`,
+            content: `## Détail\n\n| Facteur | Impact |\n|---------|--------|\n| Événements académiques | ×${academicMultiplier.toFixed(2)} |\n| Énergie moyenne | ×${energyMultiplier.toFixed(2)} |\n| Engagements | -${totalCommitmentHours}h/sem |${events.length > 0 ? `\n\n**Événements cette semaine:**\n${events.map((e) => `- ${e.event_name} (${e.event_type})`).join('\n')}` : ''}`,
             markdown: true,
           },
         },
@@ -2037,7 +2138,8 @@ export async function handleListAcademicEvents(args: Record<string, unknown>) {
       return {
         type: 'text',
         params: {
-          content: '## Aucun événement académique\n\nAjoutez vos examens et vacances avec `add_academic_event`!',
+          content:
+            '## Aucun événement académique\n\nAjoutez vos examens et vacances avec `add_academic_event`!',
           markdown: true,
         },
         metadata: { traceId: getCurrentTraceId() },
@@ -2063,11 +2165,18 @@ export async function handleListAcademicEvents(args: Record<string, unknown>) {
           { key: 'impact', label: 'Impact' },
           { key: 'priority', label: 'Priorité' },
         ],
-        rows: events.map(e => ({
+        rows: events.map((e) => ({
           icon: typeIcons[e.event_type] || '📅',
           name: e.event_name,
           dates: `${new Date(e.start_date).toLocaleDateString('fr-FR')} - ${new Date(e.end_date).toLocaleDateString('fr-FR')}`,
-          impact: e.capacity_impact < 0.5 ? '🔴' : e.capacity_impact < 0.8 ? '🟡' : e.capacity_impact > 1.2 ? '🟢' : '⚪',
+          impact:
+            e.capacity_impact < 0.5
+              ? '🔴'
+              : e.capacity_impact < 0.8
+                ? '🟡'
+                : e.capacity_impact > 1.2
+                  ? '🟢'
+                  : '⚪',
           priority: e.priority,
         })),
       },
@@ -2090,7 +2199,9 @@ export async function handleListCommitments(args: Record<string, unknown>) {
       hours_per_week: number;
       flexible_hours: boolean;
       priority: string;
-    }>(`SELECT * FROM commitments WHERE user_id = '${userId}' ORDER BY priority, hours_per_week DESC`);
+    }>(
+      `SELECT * FROM commitments WHERE user_id = '${userId}' ORDER BY priority, hours_per_week DESC`
+    );
 
     span.setAttributes({
       'commitments.count': commitments.length,
@@ -2142,7 +2253,7 @@ export async function handleListCommitments(args: Record<string, unknown>) {
               { key: 'flexible', label: 'Flexible' },
               { key: 'priority', label: 'Priorité' },
             ],
-            rows: commitments.map(c => ({
+            rows: commitments.map((c) => ({
               icon: typeIcons[c.commitment_type] || '📌',
               name: c.commitment_name,
               hours: `${c.hours_per_week}h`,
@@ -2164,7 +2275,10 @@ export async function handleListCommitments(args: Record<string, unknown>) {
 /**
  * Handle goal tool by name
  */
-export async function handleGoalTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+export async function handleGoalTool(
+  name: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
   switch (name) {
     case 'create_goal_plan':
       return handleCreateGoalPlan(args);

@@ -77,9 +77,9 @@ function calculateWeeklyTarget(amount: number, deadline: string): number {
 
 // Calculate feasibility score
 function calculateFeasibility(
-  amount: number,
+  _amount: number,
   weeklyTarget: number,
-  minimumBudget: number
+  _minimumBudget: number
 ): { score: number; risk: 'low' | 'medium' | 'high' } {
   // Simple heuristic: if weekly target is reasonable, it's feasible
   const avgMonthlyEarningPotential = 400; // Estimate for student
@@ -95,7 +95,7 @@ function calculateFeasibility(
 }
 
 // Generate strategies based on profile
-function generateStrategies(profile: any): Strategy[] {
+function generateStrategies(profile: { skills?: string[] } | null): Strategy[] {
   const strategies: Strategy[] = [];
 
   // Always suggest optimizations
@@ -270,7 +270,7 @@ export async function POST(event: APIEvent) {
       }
 
       case 'update_progress': {
-        const { goalId, weekNumber, earnedAmount, actionsCompleted } = body;
+        const { goalId, weekNumber, earnedAmount } = body;
         const goal = goalsStore.get(goalId);
 
         if (!goal || !goal.plan) {
@@ -288,10 +288,7 @@ export async function POST(event: APIEvent) {
         }
 
         // Calculate total earned
-        const totalEarned = goal.plan.milestones.reduce(
-          (sum, m) => sum + (m.earnedAmount || 0),
-          0
-        );
+        const totalEarned = goal.plan.milestones.reduce((sum, m) => sum + (m.earnedAmount || 0), 0);
 
         // Check achievements
         if (totalEarned >= 100) {

@@ -48,9 +48,9 @@ function detectEnergyDebt(history: EnergyEntry[], threshold = 40): EnergyDebt | 
 }
 
 export function EnergyHistory(props: EnergyHistoryProps) {
-  const threshold = props.threshold || 40;
+  const threshold = () => props.threshold || 40;
 
-  const debt = createMemo(() => detectEnergyDebt(props.history, threshold));
+  const debt = createMemo(() => detectEnergyDebt(props.history, threshold()));
 
   const averageEnergy = createMemo(() => {
     if (props.history.length === 0) return 0;
@@ -104,7 +104,7 @@ export function EnergyHistory(props: EnergyHistoryProps) {
             <div class="h-4 bg-slate-200 rounded-full overflow-hidden">
               <div
                 class={`h-full transition-all duration-500 ${getEnergyColor(currentEnergy())}`}
-                style={`width: ${currentEnergy()}%`}
+                style={{ width: `${currentEnergy()}%` }}
               />
             </div>
           </div>
@@ -128,7 +128,7 @@ export function EnergyHistory(props: EnergyHistoryProps) {
                     Energy Debt Detecte ({severity.label})
                   </h4>
                   <p class={`text-${severity.color}-600 mt-1`}>
-                    {debtInfo().consecutiveLowWeeks} semaines consecutives a moins de {threshold}%
+                    {debtInfo().consecutiveLowWeeks} semaines consecutives a moins de {threshold()}%
                     d'energie. Tes objectifs ont ete automatiquement reduits de {severity.reduction}
                     %.
                   </p>
@@ -175,9 +175,9 @@ export function EnergyHistory(props: EnergyHistoryProps) {
               <div class="flex-1 flex flex-col items-center gap-1">
                 <div
                   class={`w-full rounded-t transition-all ${getEnergyColor(entry.level)} ${
-                    entry.level < threshold ? 'opacity-60' : ''
+                    entry.level < threshold() ? 'opacity-60' : ''
                   }`}
-                  style={`height: ${entry.level}%`}
+                  style={{ height: `${entry.level}%` }}
                   title={`Semaine ${entry.week}: ${entry.level}%`}
                 />
                 <span class="text-xs text-slate-400">S{entry.week}</span>
@@ -189,7 +189,7 @@ export function EnergyHistory(props: EnergyHistoryProps) {
         {/* Threshold Line */}
         <div class="relative mt-2">
           <div class="absolute left-0 right-0 border-t-2 border-dashed border-red-300" />
-          <span class="absolute right-0 -top-3 text-xs text-red-400">Seuil ({threshold}%)</span>
+          <span class="absolute right-0 -top-3 text-xs text-red-400">Seuil ({threshold()}%)</span>
         </div>
       </div>
 

@@ -8,7 +8,6 @@
 import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { defaultModel as _defaultModel } from '../mastra.config.js';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
 
 // === Tool Definitions ===

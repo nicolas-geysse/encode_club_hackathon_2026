@@ -117,7 +117,9 @@ export function ComebackAlert(props: ComebackAlertProps) {
                       <div class="mt-1 h-2 bg-green-100 rounded-full overflow-hidden">
                         <div
                           class="h-full bg-green-500"
-                          style={`width: ${(week.target / Math.max(...catchUpPlan().map((w) => w.target))) * 100}%`}
+                          style={{
+                            width: `${(week.target / Math.max(...catchUpPlan().map((w) => w.target))) * 100}%`,
+                          }}
                         />
                       </div>
                       <span class="text-xs text-slate-500">

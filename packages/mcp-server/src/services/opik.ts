@@ -6,6 +6,7 @@
  */
 
 // Note: Using dynamic import for opik as it may not be available during initial development
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let opikClient: any = null;
 let currentTraceId: string | null = null;
 
@@ -51,7 +52,6 @@ export async function trace<T>(
   parentSpan?: Span
 ): Promise<T> {
   const startTime = Date.now();
-  const _spanId = `${name}-${Date.now()}`;
 
   // Create a mock span if Opik is not available
   const mockSpan: Span = {
@@ -69,6 +69,7 @@ export async function trace<T>(
 
   // Use Opik if available, otherwise use mock
   let span: Span = mockSpan;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let traceHandle: any = null;
 
   if (opikClient) {

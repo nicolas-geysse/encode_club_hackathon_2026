@@ -10,7 +10,6 @@ import type {
   GEvalResult,
   AggregationConfig,
   EvaluationInput,
-  DEFAULT_AGGREGATION_CONFIG,
 } from './types.js';
 import { runAllHeuristics, runCriticalChecksOnly } from './heuristics/index.js';
 import { runGEval, type LLMGenerateFunction } from './geval/index.js';
@@ -78,8 +77,7 @@ function calculateFinalScore(
 
   // Calculate weighted average
   const finalScore =
-    heuristicScore * normalizedHeuristicWeight +
-    gEvalResult.aggregatedScore * normalizedLlmWeight;
+    heuristicScore * normalizedHeuristicWeight + gEvalResult.aggregatedScore * normalizedLlmWeight;
 
   return Math.round(finalScore * 1000) / 1000;
 }
@@ -149,8 +147,8 @@ export async function runHybridEvaluation(
   input: EvaluationInput,
   generateFn: LLMGenerateFunction,
   config: AggregationConfig = {
-    heuristicWeight: 0.60,
-    llmWeight: 0.40,
+    heuristicWeight: 0.6,
+    llmWeight: 0.4,
     vetoThreshold: 0.3,
     passThreshold: 0.6,
     confidenceWeighting: {
@@ -185,11 +183,7 @@ export async function runHybridEvaluation(
   const gEvalResult = await runGEval(input.recommendation, input.context, generateFn);
 
   // Step 4: Calculate final score
-  const finalScore = calculateFinalScore(
-    heuristicsResults.aggregatedScore,
-    gEvalResult,
-    config
-  );
+  const finalScore = calculateFinalScore(heuristicsResults.aggregatedScore, gEvalResult, config);
 
   // Step 5: Determine pass/fail
   const passed = finalScore >= config.passThreshold;
@@ -218,9 +212,7 @@ export async function runHybridEvaluation(
 /**
  * Run quick evaluation (heuristics only, for fast feedback)
  */
-export async function runQuickEvaluation(
-  input: EvaluationInput
-): Promise<{
+export async function runQuickEvaluation(input: EvaluationInput): Promise<{
   passed: boolean;
   score: number;
   criticalFailed: boolean;
@@ -239,9 +231,10 @@ export async function runQuickEvaluation(
 /**
  * Run critical checks only (fastest, for real-time validation)
  */
-export function runCriticalValidation(
-  input: EvaluationInput
-): { passed: boolean; issues: string[] } {
+export function runCriticalValidation(input: EvaluationInput): {
+  passed: boolean;
+  issues: string[];
+} {
   const criticalResults = runCriticalChecksOnly(input);
   const failed = criticalResults.filter((r) => !r.passed);
 

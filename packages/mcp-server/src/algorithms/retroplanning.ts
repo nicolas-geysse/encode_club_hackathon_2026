@@ -22,7 +22,6 @@ import type {
   RetroplanInput,
   CapacityCategory,
   MilestoneDifficulty,
-  DEFAULT_RETROPLAN_CONFIG,
   CalendarViewData,
   CalendarWeek,
   CalendarDay,
@@ -565,7 +564,8 @@ function assessFeasibility(
 
   // Check average weekly target vs capacity
   const avgTarget = goalAmount / capacities.length;
-  const avgCapacity = capacities.reduce((sum, c) => sum + c.recommendedTarget, 0) / capacities.length;
+  const avgCapacity =
+    capacities.reduce((sum, c) => sum + c.recommendedTarget, 0) / capacities.length;
   if (avgTarget > avgCapacity) {
     score -= 0.2;
     riskFactors.push('Objectif hebdo > capacite moyenne');
@@ -611,7 +611,9 @@ function buildRetroplan(
   config: RetroplanConfig
 ): Retroplan {
   const halfwayPoint = Math.floor(milestones.length / 2);
-  const firstHalfTotal = milestones.slice(0, halfwayPoint).reduce((sum, m) => sum + m.adjustedTarget, 0);
+  const firstHalfTotal = milestones
+    .slice(0, halfwayPoint)
+    .reduce((sum, m) => sum + m.adjustedTarget, 0);
   const frontLoadedPercentage = Math.round((firstHalfTotal / input.goalAmount) * 100);
 
   const equalTarget = input.goalAmount / milestones.length;
@@ -752,12 +754,7 @@ function addDays(date: Date, days: number): Date {
   return result;
 }
 
-function isDateRangeOverlapping(
-  start1: Date,
-  end1: Date,
-  start2: Date,
-  end2: Date
-): boolean {
+function isDateRangeOverlapping(start1: Date, end1: Date, start2: Date, end2: Date): boolean {
   return start1 <= end2 && end1 >= start2;
 }
 

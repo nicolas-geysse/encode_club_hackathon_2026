@@ -63,41 +63,107 @@ export interface AnalysisResult {
 
 // Job database
 const JOB_DATABASE = [
-  { id: 'freelance_dev', name: 'Dev Freelance (Malt/Fiverr)', hourlyRate: 25, flexibility: 0.9, skills: ['python', 'javascript', 'sql', 'web'], coBenefit: 'CV++ et portfolio', networking: 'moyen', cvImpact: 'fort' },
-  { id: 'tutoring', name: 'Cours particuliers', hourlyRate: 20, flexibility: 0.8, skills: ['python', 'math', 'anglais', 'francais'], coBenefit: 'Renforce apprentissage', networking: 'fort', cvImpact: 'moyen' },
-  { id: 'data_entry', name: 'Saisie de donnees', hourlyRate: 12, flexibility: 0.7, skills: ['excel', 'sql'], coBenefit: 'Automatisation possible', networking: 'faible', cvImpact: 'faible' },
-  { id: 'community_manager', name: 'Community Manager', hourlyRate: 15, flexibility: 0.8, skills: ['social_media', 'redaction', 'design'], coBenefit: 'Veille secteur digital', networking: 'fort', cvImpact: 'moyen' },
-  { id: 'assistant_recherche', name: 'Assistant de recherche', hourlyRate: 12, flexibility: 0.6, skills: ['python', 'sql', 'redaction'], coBenefit: 'Reseau academique', networking: 'fort', cvImpact: 'fort' },
-  { id: 'traducteur', name: 'Traducteur freelance', hourlyRate: 18, flexibility: 0.9, skills: ['anglais', 'redaction'], coBenefit: 'Clients internationaux', networking: 'moyen', cvImpact: 'moyen' },
+  {
+    id: 'freelance_dev',
+    name: 'Dev Freelance (Malt/Fiverr)',
+    hourlyRate: 25,
+    flexibility: 0.9,
+    skills: ['python', 'javascript', 'sql', 'web'],
+    coBenefit: 'CV++ et portfolio',
+    networking: 'moyen',
+    cvImpact: 'fort',
+  },
+  {
+    id: 'tutoring',
+    name: 'Cours particuliers',
+    hourlyRate: 20,
+    flexibility: 0.8,
+    skills: ['python', 'math', 'anglais', 'francais'],
+    coBenefit: 'Renforce apprentissage',
+    networking: 'fort',
+    cvImpact: 'moyen',
+  },
+  {
+    id: 'data_entry',
+    name: 'Saisie de donnees',
+    hourlyRate: 12,
+    flexibility: 0.7,
+    skills: ['excel', 'sql'],
+    coBenefit: 'Automatisation possible',
+    networking: 'faible',
+    cvImpact: 'faible',
+  },
+  {
+    id: 'community_manager',
+    name: 'Community Manager',
+    hourlyRate: 15,
+    flexibility: 0.8,
+    skills: ['social_media', 'redaction', 'design'],
+    coBenefit: 'Veille secteur digital',
+    networking: 'fort',
+    cvImpact: 'moyen',
+  },
+  {
+    id: 'assistant_recherche',
+    name: 'Assistant de recherche',
+    hourlyRate: 12,
+    flexibility: 0.6,
+    skills: ['python', 'sql', 'redaction'],
+    coBenefit: 'Reseau academique',
+    networking: 'fort',
+    cvImpact: 'fort',
+  },
+  {
+    id: 'traducteur',
+    name: 'Traducteur freelance',
+    hourlyRate: 18,
+    flexibility: 0.9,
+    skills: ['anglais', 'redaction'],
+    coBenefit: 'Clients internationaux',
+    networking: 'moyen',
+    cvImpact: 'moyen',
+  },
 ];
 
 // Optimization database
-const OPTIMIZATIONS: Record<string, Array<{ solution: string; savingsPct: number; effort: string; condition: string }>> = {
+const OPTIMIZATIONS: Record<
+  string,
+  Array<{ solution: string; savingsPct: number; effort: string; condition: string }>
+> = {
   loyer: [
-    { solution: 'Colocation', savingsPct: 0.30, effort: 'moyen', condition: 'bon coloc' },
-    { solution: 'Residence CROUS', savingsPct: 0.40, effort: 'faible', condition: 'eligibilite' },
+    { solution: 'Colocation', savingsPct: 0.3, effort: 'moyen', condition: 'bon coloc' },
+    { solution: 'Residence CROUS', savingsPct: 0.4, effort: 'faible', condition: 'eligibilite' },
   ],
   alimentation: [
-    { solution: 'Resto U CROUS', savingsPct: 0.50, effort: 'faible', condition: 'proximite' },
-    { solution: 'Batch cooking', savingsPct: 0.30, effort: 'moyen', condition: 'temps disponible' },
+    { solution: 'Resto U CROUS', savingsPct: 0.5, effort: 'faible', condition: 'proximite' },
+    { solution: 'Batch cooking', savingsPct: 0.3, effort: 'moyen', condition: 'temps disponible' },
   ],
   transport: [
-    { solution: 'Velo/Marche', savingsPct: 0.80, effort: 'moyen', condition: 'ville adaptee' },
-    { solution: 'Carte jeune SNCF', savingsPct: 0.30, effort: 'faible', condition: 'voyages reguliers' },
+    { solution: 'Velo/Marche', savingsPct: 0.8, effort: 'moyen', condition: 'ville adaptee' },
+    {
+      solution: 'Carte jeune SNCF',
+      savingsPct: 0.3,
+      effort: 'faible',
+      condition: 'voyages reguliers',
+    },
   ],
 };
 
 /**
  * Analyze budget
  */
-async function analyzeBudget(incomes: Array<{ source: string; amount: number }>, expenses: Array<{ category: string; amount: number }>) {
+async function analyzeBudget(
+  incomes: Array<{ source: string; amount: number }>,
+  expenses: Array<{ category: string; amount: number }>
+) {
   return trace('budget_coach_analysis', async (span) => {
     const totalIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const margin = totalIncome - totalExpenses;
 
     const status = margin >= 0 ? 'positif' : 'deficit';
-    const severity = margin < -100 ? 'critique' : margin < 0 ? 'attention' : margin < 50 ? 'serre' : 'confortable';
+    const severity =
+      margin < -100 ? 'critique' : margin < 0 ? 'attention' : margin < 50 ? 'serre' : 'confortable';
 
     span.setAttributes({
       total_income: totalIncome,
@@ -116,12 +182,11 @@ async function analyzeBudget(incomes: Array<{ source: string; amount: number }>,
  */
 async function matchJobs(skills: string[], minHourlyRate: number) {
   return trace('job_matcher_graph', async (span) => {
-    const skillsLower = skills.map(s => s.toLowerCase());
+    const skillsLower = skills.map((s) => s.toLowerCase());
 
-    const matches = JOB_DATABASE
-      .filter(job => job.hourlyRate >= minHourlyRate)
-      .map(job => {
-        const matchingSkills = job.skills.filter(s => skillsLower.includes(s.toLowerCase()));
+    const matches = JOB_DATABASE.filter((job) => job.hourlyRate >= minHourlyRate)
+      .map((job) => {
+        const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
         const skillScore = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
         const score = skillScore * 0.4 + (job.hourlyRate / 30) * 0.3 + job.flexibility * 0.2;
 
@@ -132,7 +197,7 @@ async function matchJobs(skills: string[], minHourlyRate: number) {
           coBenefit: job.coBenefit,
         };
       })
-      .filter(job => job.matchScore > 0.1)
+      .filter((job) => job.matchScore > 0.1)
       .sort((a, b) => b.matchScore - a.matchScore)
       .slice(0, 5);
 
@@ -150,7 +215,12 @@ async function matchJobs(skills: string[], minHourlyRate: number) {
  */
 async function findOptimizations(expenses: Array<{ category: string; amount: number }>) {
   return trace('budget_coach_optimizations', async (span) => {
-    const results: Array<{ expense: string; solution: string; savingsPct: number; potentialSavings: number }> = [];
+    const results: Array<{
+      expense: string;
+      solution: string;
+      savingsPct: number;
+      potentialSavings: number;
+    }> = [];
 
     for (const expense of expenses) {
       const categoryLower = expense.category.toLowerCase();
@@ -194,7 +264,10 @@ async function predictGraduation(
     const months = yearsRemaining * 12;
     const finalBalance = projectedMonthlyMargin * months;
 
-    const probabilityDebtFree = Math.min(99, Math.max(1, Math.round(50 + (projectedMonthlyMargin / 500) * 40)));
+    const probabilityDebtFree = Math.min(
+      99,
+      Math.max(1, Math.round(50 + (projectedMonthlyMargin / 500) * 40))
+    );
 
     const confidenceLow = Math.round(finalBalance * 0.8);
     const confidenceHigh = Math.round(finalBalance * 1.2);
@@ -216,7 +289,7 @@ async function predictGraduation(
 /**
  * Validate recommendation (Guardian)
  */
-async function validateRecommendation(recommendation: string, margin: number, hasLoan: boolean) {
+async function validateRecommendation(recommendation: string, margin: number, _hasLoan: boolean) {
   return trace('guardian_validation', async (span) => {
     const issues: string[] = [];
 
@@ -230,7 +303,7 @@ async function validateRecommendation(recommendation: string, margin: number, ha
 
     // Check if advice is appropriate for situation
     if (margin < 0 && recommendation.toLowerCase().includes('investir')) {
-      issues.push('Conseil d\'investissement en situation de deficit');
+      issues.push("Conseil d'investissement en situation de deficit");
     }
 
     const passed = issues.length === 0;
