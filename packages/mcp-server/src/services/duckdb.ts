@@ -105,8 +105,56 @@ async function initSchema(): Promise<void> {
       loan_amount DECIMAL,
       monthly_income DECIMAL,
       monthly_expenses DECIMAL,
-      monthly_margin DECIMAL
+      monthly_margin DECIMAL,
+      -- Profile type and duplication support
+      profile_type VARCHAR DEFAULT 'main',
+      parent_profile_id VARCHAR,
+      -- Goal data
+      goal_name VARCHAR,
+      goal_amount DECIMAL,
+      goal_deadline DATE,
+      -- Plan and followup data (stored as JSON)
+      plan_data JSON,
+      followup_data JSON,
+      achievements JSON,
+      -- Active profile flag (only one active at a time)
+      is_active BOOLEAN DEFAULT FALSE
     )
+  `);
+
+  // Migrate existing profiles: add new columns if they don't exist
+  try {
+    await execute(
+      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS profile_type VARCHAR DEFAULT 'main'`
+    );
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS parent_profile_id VARCHAR`);
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_name VARCHAR`);
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_amount DECIMAL`);
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_deadline DATE`);
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS plan_data JSON`);
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS followup_data JSON`);
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS achievements JSON`);
+    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE`);
+  } catch {
+    // Columns may already exist, ignore errors
+  }
+
+  // Create simulation_state table for time simulation
+  await execute(`
+    CREATE TABLE IF NOT EXISTS simulation_state (
+      id VARCHAR PRIMARY KEY DEFAULT 'global',
+      simulated_date DATE DEFAULT CURRENT_DATE,
+      real_date DATE DEFAULT CURRENT_DATE,
+      offset_days INTEGER DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Initialize simulation state if not exists
+  await execute(`
+    INSERT INTO simulation_state (id, simulated_date, real_date, offset_days)
+    SELECT 'global', CURRENT_DATE, CURRENT_DATE, 0
+    WHERE NOT EXISTS (SELECT 1 FROM simulation_state WHERE id = 'global')
   `);
 
   // Create projections table if not exists
@@ -348,12 +396,59 @@ export async function closeDatabase(): Promise<void> {
   }
 }
 
+/**
+ * Get the current simulated date
+ */
+export async function getSimulatedDate(): Promise<Date> {
+  const result = await query<{ simulated_date: string }>(`
+    SELECT simulated_date FROM simulation_state WHERE id = 'global'
+  `);
+  if (result.length > 0 && result[0].simulated_date) {
+    return new Date(result[0].simulated_date);
+  }
+  return new Date();
+}
+
+/**
+ * Get simulation state
+ */
+export async function getSimulationState(): Promise<{
+  simulatedDate: Date;
+  realDate: Date;
+  offsetDays: number;
+  isSimulating: boolean;
+}> {
+  const result = await query<{
+    simulated_date: string;
+    real_date: string;
+    offset_days: number;
+  }>(`SELECT simulated_date, real_date, offset_days FROM simulation_state WHERE id = 'global'`);
+
+  if (result.length > 0) {
+    return {
+      simulatedDate: new Date(result[0].simulated_date),
+      realDate: new Date(result[0].real_date),
+      offsetDays: result[0].offset_days,
+      isSimulating: result[0].offset_days > 0,
+    };
+  }
+
+  return {
+    simulatedDate: new Date(),
+    realDate: new Date(),
+    offsetDays: 0,
+    isSimulating: false,
+  };
+}
+
 // Export singleton for use in tools
 export const database = {
   init: initDatabase,
   query,
   execute,
   close: closeDatabase,
+  getSimulatedDate,
+  getSimulationState,
 };
 
 export default database;

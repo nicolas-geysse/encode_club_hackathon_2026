@@ -1,9 +1,91 @@
 import { Router, useLocation } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { Suspense, createMemo, For } from 'solid-js';
+import { Suspense, createMemo, createSignal, For } from 'solid-js';
 import './app.css';
+import { ProfileSelector } from '~/components/ProfileSelector';
+import { SimulationControls, type SimulationState } from '~/components/SimulationControls';
+import { NotificationBell, type Notification } from '~/components/NotificationBell';
+import { ProgressMini } from '~/components/ProgressMini';
 
 export default function App() {
+  // Simulation state (managed by SimulationControls, shared with app)
+  const [simulationState, setSimulationState] = createSignal<SimulationState>({
+    simulatedDate: new Date().toISOString().split('T')[0],
+    realDate: new Date().toISOString().split('T')[0],
+    offsetDays: 0,
+    isSimulating: false,
+  });
+  const [progressPercent, setProgressPercent] = createSignal(0);
+  const [notifications, setNotifications] = createSignal<Notification[]>([
+    {
+      id: '1',
+      type: 'info',
+      title: 'Bienvenue!',
+      message: 'Commence par definir ton objectif dans Mon Plan.',
+      timestamp: new Date(),
+      read: false,
+    },
+  ]);
+
+  // Handle simulation state changes (from SimulationControls)
+  const handleSimulationChange = (state: SimulationState) => {
+    const prevState = simulationState();
+    setSimulationState(state);
+
+    // Generate notifications based on simulation changes
+    if (state.isSimulating && state.offsetDays !== prevState.offsetDays) {
+      const daysDiff = state.offsetDays - prevState.offsetDays;
+
+      // Weekly milestone notification
+      const prevWeek = Math.floor(prevState.offsetDays / 7);
+      const newWeek = Math.floor(state.offsetDays / 7);
+      if (newWeek > prevWeek) {
+        setNotifications([
+          {
+            id: `week_${state.offsetDays}_${Date.now()}`,
+            type: 'success',
+            title: `Semaine ${newWeek} terminee!`,
+            message: `Tu as simule ${state.offsetDays} jours. Verifie ta progression!`,
+            timestamp: new Date(),
+            read: false,
+          },
+          ...notifications(),
+        ]);
+      }
+
+      // Check-in reminder every 3 simulated days
+      if (state.offsetDays % 3 === 0 && daysDiff > 0) {
+        setNotifications([
+          {
+            id: `checkin_${state.offsetDays}_${Date.now()}`,
+            type: 'info',
+            title: 'Rappel check-in',
+            message: 'Pense a mettre a jour ta progression!',
+            timestamp: new Date(),
+            read: false,
+          },
+          ...notifications(),
+        ]);
+      }
+    }
+  };
+
+  const handleMarkNotificationAsRead = (id: string) => {
+    setNotifications(notifications().map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const handleClearAllNotifications = () => {
+    setNotifications([]);
+  };
+
+  // Update progress based on profile changes
+  const handleProfileChange = () => {
+    // Progress will be updated when we have actual goal data
+    // For now, base it on simulation offset
+    const dayProgress = (simulationState().offsetDays / 56) * 100;
+    setProgressPercent(Math.min(100, dayProgress));
+  };
+
   return (
     <Router
       root={(props) => {
@@ -28,23 +110,59 @@ export default function App() {
                       Navigate student life
                     </span>
                   </a>
-                  <nav class="flex space-x-1">
-                    <For each={navItems}>
-                      {(item) => (
-                        <a
-                          href={item.href}
-                          class={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            currentPath() === item.href
-                              ? 'bg-primary-100 text-primary-700'
-                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                          }`}
-                        >
-                          <span>{item.icon}</span>
-                          <span class="hidden sm:inline">{item.label}</span>
-                        </a>
-                      )}
-                    </For>
-                  </nav>
+                  <div class="flex items-center gap-3">
+                    <nav class="flex space-x-1">
+                      <For each={navItems}>
+                        {(item) => (
+                          <a
+                            href={item.href}
+                            class={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                              currentPath() === item.href
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
+                          >
+                            <span>{item.icon}</span>
+                            <span class="hidden sm:inline">{item.label}</span>
+                          </a>
+                        )}
+                      </For>
+                    </nav>
+                    <div class="hidden md:flex items-center gap-3 pl-3 border-l border-slate-200">
+                      <ProgressMini
+                        percent={progressPercent()}
+                        goalAmount={500}
+                        currentAmount={Math.round(progressPercent() * 5)}
+                        breakdown={[
+                          {
+                            label: 'Jobs',
+                            value: Math.round(progressPercent() * 2),
+                            color: '#3b82f6',
+                          },
+                          {
+                            label: 'Ventes',
+                            value: Math.round(progressPercent() * 2),
+                            color: '#22c55e',
+                          },
+                          {
+                            label: 'Epargne',
+                            value: Math.round(progressPercent()),
+                            color: '#f59e0b',
+                          },
+                        ]}
+                      />
+                    </div>
+                    <NotificationBell
+                      notifications={notifications()}
+                      onMarkAsRead={handleMarkNotificationAsRead}
+                      onClearAll={handleClearAllNotifications}
+                    />
+                    <SimulationControls
+                      compact={true}
+                      onSimulationChange={handleSimulationChange}
+                    />
+                    <ProfileSelector onProfileChange={handleProfileChange} />
+                  </div>
                 </div>
               </div>
             </header>

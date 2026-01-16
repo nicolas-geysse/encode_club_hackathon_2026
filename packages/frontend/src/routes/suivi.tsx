@@ -2,6 +2,7 @@
  * Suivi Page (suivi.tsx)
  *
  * Unified dashboard: Timeline Hero + Retroplan + Energy + Missions
+ * Now uses profileService and simulationService for DuckDB persistence.
  */
 
 import { createSignal, Show, onMount } from 'solid-js';
@@ -10,6 +11,8 @@ import { EnergyHistory } from '~/components/suivi/EnergyHistory';
 import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
 import type { Mission } from '~/components/suivi/MissionCard';
+import { profileService, type FullProfile } from '~/lib/profileService';
+import { simulationService } from '~/lib/simulationService';
 
 // Types
 interface SetupData {
@@ -36,6 +39,8 @@ interface FollowupData {
 export default function SuiviPage() {
   const [hasData, setHasData] = createSignal(false);
   const [setup, setSetup] = createSignal<SetupData | null>(null);
+  const [activeProfile, setActiveProfile] = createSignal<FullProfile | null>(null);
+  const [currentDate, setCurrentDate] = createSignal<Date>(new Date());
   const [followup, setFollowup] = createSignal<FollowupData>({
     currentAmount: 0,
     weeklyTarget: 0,
@@ -45,17 +50,52 @@ export default function SuiviPage() {
     missions: [],
   });
 
-  onMount(() => {
-    // Load plan data
-    const storedPlan = localStorage.getItem('planData');
-    if (storedPlan) {
-      const planData = JSON.parse(storedPlan);
-      if (planData.setup) {
+  onMount(async () => {
+    // Get the current (possibly simulated) date
+    const simDate = await simulationService.getCurrentDate();
+    setCurrentDate(simDate);
+
+    // Load profile from DuckDB
+    const profile = await profileService.loadActiveProfile();
+
+    if (profile) {
+      setActiveProfile(profile);
+
+      // Get plan data from profile
+      const planData = profile.planData as
+        | {
+            setup?: SetupData;
+            skills?: Array<{ name: string; hourlyRate: number }>;
+            inventory?: Array<{ name: string; estimatedValue: number; sold: boolean }>;
+            selectedScenarios?: Array<{
+              id: string;
+              title: string;
+              description: string;
+              category: string;
+              weeklyHours: number;
+              weeklyEarnings: number;
+              effortLevel: number;
+              flexibilityScore: number;
+              hourlyRate: number;
+            }>;
+            trades?: Array<{
+              id: string;
+              type: string;
+              name: string;
+              partner: string;
+              value: number;
+              status: string;
+              dueDate?: string;
+            }>;
+          }
+        | undefined;
+
+      if (planData?.setup) {
         setSetup(planData.setup);
         setHasData(true);
 
-        // Calculate weeks and targets
-        const startDate = new Date();
+        // Calculate weeks and targets using simulated date
+        const startDate = simDate;
         const endDate = new Date(planData.setup.goalDeadline);
         const totalWeeks = Math.max(
           1,
@@ -63,10 +103,12 @@ export default function SuiviPage() {
         );
         const weeklyTarget = Math.ceil(planData.setup.goalAmount / totalWeeks);
 
-        // Load or create followup data
-        const storedFollowup = localStorage.getItem('followupData');
+        // Load followup data from profile or localStorage
+        const storedFollowup = profile.followupData || localStorage.getItem('followupData');
         if (storedFollowup) {
-          setFollowup(JSON.parse(storedFollowup));
+          const followupData =
+            typeof storedFollowup === 'string' ? JSON.parse(storedFollowup) : storedFollowup;
+          setFollowup(followupData);
         } else {
           // Generate initial energy history (demo data)
           const energyHistory: EnergyEntry[] = [];
@@ -78,44 +120,104 @@ export default function SuiviPage() {
             });
           }
 
-          // Create demo missions from plan skills/inventory
+          // Create missions from selectedScenarios (swipe results) first
           const missions: Mission[] = [];
-          if (planData.skills && planData.skills.length > 0) {
-            missions.push({
-              id: 'mission_skill_1',
-              title: `Freelance ${planData.skills[0].name}`,
-              description: 'Premiere mission de freelance cette semaine',
-              category: 'freelance',
-              weeklyHours: 5,
-              weeklyEarnings: planData.skills[0].hourlyRate * 5,
-              status: 'active',
-              progress: 20,
-              startDate: startDate.toISOString(),
-              hoursCompleted: 1,
-              earningsCollected: planData.skills[0].hourlyRate,
-            });
-          }
 
-          if (planData.inventory && planData.inventory.length > 0) {
-            const unsoldItem = planData.inventory.find((i: { sold: boolean }) => !i.sold);
-            if (unsoldItem) {
+          // Priority 1: Use selectedScenarios from swipe if available
+          if (planData.selectedScenarios && planData.selectedScenarios.length > 0) {
+            planData.selectedScenarios.forEach((scenario, index) => {
               missions.push({
-                id: 'mission_sell_1',
-                title: `Vendre ${unsoldItem.name}`,
-                description: 'Mettre en vente et trouver un acheteur',
-                category: 'selling',
-                weeklyHours: 2,
-                weeklyEarnings: unsoldItem.estimatedValue,
+                id: `mission_swipe_${index}`,
+                title: scenario.title,
+                description: scenario.description,
+                category: scenario.category as Mission['category'],
+                weeklyHours: scenario.weeklyHours,
+                weeklyEarnings: scenario.weeklyEarnings,
                 status: 'active',
                 progress: 0,
                 startDate: startDate.toISOString(),
                 hoursCompleted: 0,
                 earningsCollected: 0,
               });
+            });
+          }
+
+          // Priority 2: Add trade-based missions for active borrows/lends
+          if (planData.trades && planData.trades.length > 0) {
+            planData.trades
+              .filter((t) => t.status === 'active' || t.status === 'pending')
+              .forEach((trade, index) => {
+                if (trade.type === 'borrow') {
+                  missions.push({
+                    id: `mission_trade_borrow_${index}`,
+                    title: `Recuperer ${trade.name}`,
+                    description: `Recuperer ${trade.name} emprunte a ${trade.partner}`,
+                    category: 'trade',
+                    weeklyHours: 1,
+                    weeklyEarnings: trade.value, // Savings count as earnings
+                    status: 'active',
+                    progress: trade.status === 'active' ? 50 : 0,
+                    startDate: startDate.toISOString(),
+                    hoursCompleted: trade.status === 'active' ? 0.5 : 0,
+                    earningsCollected: trade.status === 'active' ? Math.round(trade.value / 2) : 0,
+                  });
+                } else if (trade.type === 'lend' && trade.dueDate) {
+                  missions.push({
+                    id: `mission_trade_lend_${index}`,
+                    title: `Rendre ${trade.name}`,
+                    description: `Rendre ${trade.name} prete a ${trade.partner} avant le ${new Date(trade.dueDate).toLocaleDateString('fr-FR')}`,
+                    category: 'trade',
+                    weeklyHours: 1,
+                    weeklyEarnings: 0,
+                    status: 'active',
+                    progress: 0,
+                    startDate: startDate.toISOString(),
+                    hoursCompleted: 0,
+                    earningsCollected: 0,
+                  });
+                }
+              });
+          }
+
+          // Fallback: Use skills/inventory if no swipe scenarios
+          if (missions.length === 0) {
+            if (planData.skills && planData.skills.length > 0) {
+              missions.push({
+                id: 'mission_skill_1',
+                title: `Freelance ${planData.skills[0].name}`,
+                description: 'Premiere mission de freelance cette semaine',
+                category: 'freelance',
+                weeklyHours: 5,
+                weeklyEarnings: planData.skills[0].hourlyRate * 5,
+                status: 'active',
+                progress: 20,
+                startDate: startDate.toISOString(),
+                hoursCompleted: 1,
+                earningsCollected: planData.skills[0].hourlyRate,
+              });
+            }
+
+            if (planData.inventory && planData.inventory.length > 0) {
+              const unsoldItem = planData.inventory.find((i) => !i.sold);
+              if (unsoldItem) {
+                missions.push({
+                  id: 'mission_sell_1',
+                  title: `Vendre ${unsoldItem.name}`,
+                  description: 'Mettre en vente et trouver un acheteur',
+                  category: 'selling',
+                  weeklyHours: 2,
+                  weeklyEarnings: unsoldItem.estimatedValue,
+                  status: 'active',
+                  progress: 0,
+                  startDate: startDate.toISOString(),
+                  hoursCompleted: 0,
+                  earningsCollected: 0,
+                });
+              }
             }
           }
 
-          // Default missions if none from plan
+          // Default missions if still none
           if (missions.length === 0) {
             missions.push({
               id: 'mission_default_1',
@@ -141,15 +243,47 @@ export default function SuiviPage() {
             missions,
           });
         }
+      } else if (profile.goalName && profile.goalAmount) {
+        // Use goal from profile directly
+        setSetup({
+          goalName: profile.goalName,
+          goalAmount: profile.goalAmount,
+          goalDeadline:
+            profile.goalDeadline || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+        setHasData(true);
+      }
+    } else {
+      // Fallback to localStorage for backwards compatibility
+      const storedPlan = localStorage.getItem('planData');
+      if (storedPlan) {
+        const planData = JSON.parse(storedPlan);
+        if (planData.setup) {
+          setSetup(planData.setup);
+          setHasData(true);
+
+          const storedFollowup = localStorage.getItem('followupData');
+          if (storedFollowup) {
+            setFollowup(JSON.parse(storedFollowup));
+          }
+        }
       }
     }
   });
 
-  // Save followup data whenever it changes
-  const updateFollowup = (updates: Partial<FollowupData>) => {
+  // Save followup data to both localStorage and DuckDB (debounced)
+  const updateFollowup = async (updates: Partial<FollowupData>) => {
     const updated = { ...followup(), ...updates };
     setFollowup(updated);
+
+    // Save to localStorage for backwards compatibility
     localStorage.setItem('followupData', JSON.stringify(updated));
+
+    // Save to DuckDB via profileService
+    const profile = activeProfile();
+    if (profile) {
+      await profileService.saveProfile({ ...profile, followupData: updated }, { setActive: false });
+    }
   };
 
   const handleEnergyUpdate = (week: number, level: number) => {
@@ -222,13 +356,13 @@ export default function SuiviPage() {
   return (
     <Show when={hasData()} fallback={<NoPlanView />}>
       <div class="space-y-6 max-w-4xl mx-auto">
-        {/* Timeline Hero */}
+        {/* Timeline Hero - uses simulated date */}
         <Show when={setup()}>
           <TimelineHero
             goalName={setup()!.goalName}
             goalAmount={setup()!.goalAmount}
             currentAmount={followup().currentAmount}
-            startDate={new Date().toISOString()}
+            startDate={currentDate().toISOString()}
             endDate={setup()!.goalDeadline}
             weeklyTarget={followup().weeklyTarget}
             currentWeek={followup().currentWeek}

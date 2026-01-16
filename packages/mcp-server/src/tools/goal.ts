@@ -7,7 +7,7 @@
  */
 
 import { trace, getCurrentTraceId } from '../services/opik.js';
-import { query, execute } from '../services/duckdb.js';
+import { query, execute, getSimulationState } from '../services/duckdb.js';
 import { randomUUID } from 'crypto';
 import type {
   AcademicEventType,
@@ -681,16 +681,25 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
     const goalName = args.goal_name as string;
     const minimumBudget = args.minimum_budget as number | undefined;
     const userId = (args.user_id as string) || 'default';
+    const profileId = args.profile_id as string | undefined;
+
+    // Get simulation state for Opik tracing
+    const simState = await getSimulationState();
 
     const goalDeadline = parseDeadline(goalDeadlineStr);
     const weeksAvailable = calculateWeeks(goalDeadline);
     const weeklyTarget = Math.ceil(goalAmount / weeksAvailable);
 
+    // Set Opik attributes including simulation state
     span.setAttributes({
       'goal.amount': goalAmount,
       'goal.name': goalName,
       'goal.weeks': weeksAvailable,
       'goal.weekly_target': weeklyTarget,
+      'profile.id': profileId || userId,
+      'simulation.is_simulating': simState.isSimulating,
+      'simulation.offset_days': simState.offsetDays,
+      'simulation.simulated_date': simState.simulatedDate.toISOString().split('T')[0],
     });
 
     // Assess feasibility

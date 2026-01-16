@@ -2,13 +2,14 @@
  * Onboarding Chat Component
  *
  * Conversational onboarding with Bruno avatar.
- * Progressive questions to build student profile.
+ * Uses LLM API for intelligent responses and data extraction.
  */
 
 import { createSignal, For, Show, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { profileService } from '~/lib/profileService';
 
 interface Message {
   id: string;
@@ -23,6 +24,7 @@ interface ProfileData {
   yearsRemaining: number;
   skills: string[];
   city: string;
+  citySize: string;
   incomes: { source: string; amount: number }[];
   expenses: { category: string; amount: number }[];
   maxWorkHours: number;
@@ -41,42 +43,12 @@ type OnboardingStep =
   | 'work_preferences'
   | 'complete';
 
-const QUESTIONS: Record<OnboardingStep, string> = {
-  greeting: `Salut ! Je suis **Bruno**, ton coach financier personnel.
+// Initial greeting message
+const GREETING_MESSAGE = `Salut ! Je suis **Bruno**, ton coach financier personnel.
 
 Je vais t'aider a naviguer ta vie etudiante et atteindre tes objectifs.
 
-Pour commencer, **comment tu t'appelles ?**`,
-  name: '', // Dynamic based on user input
-  studies: `Et niveau etudes, **t'es en quoi** ?
-(Ex: "L2 Info", "M1 Droit", "BTS Commerce")`,
-  skills: `Top ! Maintenant, parle-moi de **tes competences**.
-Qu'est-ce que tu sais faire ? (Code, langues, design, sport...)
-
-Tu peux me donner plusieurs trucs, separes par des virgules.`,
-  location: `Tu vis ou ? **Quelle ville ?**
-(Ca m'aide a trouver des opportunites locales)`,
-  budget: `Maintenant, parlons **budget**.
-
-Dis-moi grosso modo :
-- Combien tu touches par mois (APL, parents, bourse, job...)
-- Combien tu depenses (loyer, bouffe, transport...)
-
-Exemple: "J'ai 800 euros avec APL et aide des parents, et je depense 600"`,
-  work_preferences: `Derniere question ! Pour les jobs :
-- **Combien d'heures max** par semaine tu peux bosser ?
-- **Quel taux horaire minimum** tu acceptes ?
-
-Exemple: "15h max, minimum 12 euros"`,
-  complete: `Parfait ! J'ai tout ce qu'il me faut.
-
-Je t'ai cree un profil personnalise. Tu peux maintenant :
-- Definir un objectif d'epargne
-- Explorer les jobs qui matchent tes competences
-- Optimiser ton budget
-
-**On y va ?** Clique sur "Mon Plan" pour commencer !`,
-};
+Pour commencer, **comment tu t'appelles ?**`;
 
 export function OnboardingChat() {
   const navigate = useNavigate();
@@ -117,168 +89,48 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
         {
           id: 'greeting',
           role: 'assistant',
-          content: QUESTIONS.greeting,
+          content: GREETING_MESSAGE,
         },
       ]);
       setStep('name');
     }
   });
 
-  // Parse user response based on current step
-  const parseResponse = (text: string, currentStep: OnboardingStep) => {
-    const lower = text.toLowerCase();
+  // Call LLM API for chat
+  const callChatAPI = async (
+    message: string,
+    currentStep: OnboardingStep,
+    context: Record<string, unknown>
+  ): Promise<{
+    response: string;
+    extractedData: Record<string, unknown>;
+    nextStep: OnboardingStep;
+  }> => {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, step: currentStep, context }),
+      });
 
-    switch (currentStep) {
-      case 'name':
-        setProfile({ ...profile(), name: text.trim() });
-        return true;
-
-      case 'studies': {
-        // Try to parse diploma and field
-        const diplomaMatch = lower.match(/\b(l[1-3]|m[1-2]|bts|dut|licence|master)\b/i);
-        const diploma = diplomaMatch ? diplomaMatch[1].toUpperCase() : 'L2';
-
-        let field = 'Autre';
-        if (lower.includes('info') || lower.includes('dev')) field = 'Informatique';
-        else if (lower.includes('droit') || lower.includes('juri')) field = 'Droit';
-        else if (
-          lower.includes('commerce') ||
-          lower.includes('business') ||
-          lower.includes('gestion')
-        )
-          field = 'Commerce';
-        else if (lower.includes('langue') || lower.includes('llea') || lower.includes('anglais'))
-          field = 'Langues';
-        else if (lower.includes('psycho')) field = 'Psychologie';
-        else if (lower.includes('medecine') || lower.includes('sante') || lower.includes('pharma'))
-          field = 'Sante';
-        else if (lower.includes('art') || lower.includes('design')) field = 'Arts';
-        else if (lower.includes('science') || lower.includes('maths') || lower.includes('physique'))
-          field = 'Sciences';
-
-        const yearsMatch = text.match(/(\d+)\s*(ans?|annees?)/i);
-        const yearsRemaining = yearsMatch
-          ? parseInt(yearsMatch[1])
-          : diploma.startsWith('M')
-            ? 1
-            : 3;
-
-        setProfile({ ...profile(), diploma, field, yearsRemaining });
-        return true;
+      if (!response.ok) {
+        throw new Error('Chat API error');
       }
 
-      case 'skills': {
-        const skillKeywords: Record<string, string> = {
-          python: 'python',
-          javascript: 'javascript',
-          js: 'javascript',
-          react: 'javascript',
-          sql: 'sql',
-          excel: 'excel',
-          anglais: 'anglais',
-          english: 'anglais',
-          espagnol: 'espagnol',
-          allemand: 'allemand',
-          design: 'design',
-          graphisme: 'design',
-          photoshop: 'design',
-          figma: 'design',
-          redaction: 'redaction',
-          ecriture: 'redaction',
-          compta: 'comptabilite',
-          comptabilite: 'comptabilite',
-          social: 'social_media',
-          instagram: 'social_media',
-          tiktok: 'social_media',
-          sport: 'sport',
-          coaching: 'coaching',
-        };
-
-        const detectedSkills: string[] = [];
-        for (const [keyword, skill] of Object.entries(skillKeywords)) {
-          if (lower.includes(keyword) && !detectedSkills.includes(skill)) {
-            detectedSkills.push(skill);
-          }
-        }
-
-        if (detectedSkills.length === 0) {
-          // Default skills based on field
-          const p = profile();
-          if (p.field === 'Informatique') detectedSkills.push('python', 'sql');
-          else if (p.field === 'Commerce') detectedSkills.push('excel', 'anglais');
-          else if (p.field === 'Langues') detectedSkills.push('anglais', 'redaction');
-          else detectedSkills.push('excel');
-        }
-
-        setProfile({ ...profile(), skills: detectedSkills });
-        return true;
-      }
-
-      case 'location': {
-        const city = text.trim();
-        let citySize = 'medium';
-        const bigCities = [
-          'paris',
-          'lyon',
-          'marseille',
-          'toulouse',
-          'bordeaux',
-          'lille',
-          'nantes',
-          'nice',
-        ];
-        const smallCities = ['village', 'campagne', 'rural'];
-
-        if (bigCities.some((c) => lower.includes(c))) citySize = 'large';
-        else if (smallCities.some((c) => lower.includes(c))) citySize = 'small';
-
-        setProfile({ ...profile(), city, citySize });
-        return true;
-      }
-
-      case 'budget': {
-        // Parse income
-        const incomeMatch = lower.match(/(\d+)\s*(euros?)?\s*(par mois|\/mois|mensuel)?/);
-        const income = incomeMatch ? parseInt(incomeMatch[1]) : 800;
-
-        // Parse expenses
-        const expenseMatch = lower.match(
-          /depense[s]?\s*(\d+)|(\d+)\s*(euros?)?\s*(de depenses?|depense)/
-        );
-        const expenses = expenseMatch
-          ? parseInt(expenseMatch[1] || expenseMatch[2])
-          : income * 0.75;
-
-        // Estimate breakdown
-        const incomes = [{ source: 'total', amount: income }];
-        const expensesList = [
-          { category: 'loyer', amount: Math.round(expenses * 0.5) },
-          { category: 'alimentation', amount: Math.round(expenses * 0.25) },
-          { category: 'transport', amount: Math.round(expenses * 0.1) },
-          { category: 'autre', amount: Math.round(expenses * 0.15) },
-        ];
-
-        setProfile({ ...profile(), incomes, expenses: expensesList });
-        return true;
-      }
-
-      case 'work_preferences': {
-        const hoursMatch = lower.match(/(\d+)\s*h(eures?)?(\s*(max|\/sem|par sem))?/);
-        const maxWorkHours = hoursMatch ? parseInt(hoursMatch[1]) : 15;
-
-        const rateMatch = lower.match(/(\d+)\s*(euros?|€)?(\/h|par h|heure|minimum)?/);
-        const minHourlyRate = rateMatch ? parseInt(rateMatch[1]) : 12;
-
-        setProfile({ ...profile(), maxWorkHours, minHourlyRate });
-        return true;
-      }
-
-      default:
-        return true;
+      return response.json();
+    } catch (error) {
+      console.error('Chat API error:', error);
+      // Return fallback response
+      return getFallbackResponse(message, currentStep, context);
     }
   };
 
-  const getNextStep = (currentStep: OnboardingStep): OnboardingStep => {
+  // Fallback response when API fails
+  const getFallbackResponse = (
+    message: string,
+    currentStep: OnboardingStep,
+    _context: Record<string, unknown>
+  ): { response: string; extractedData: Record<string, unknown>; nextStep: OnboardingStep } => {
     const flow: OnboardingStep[] = [
       'greeting',
       'name',
@@ -290,7 +142,84 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
       'complete',
     ];
     const currentIndex = flow.indexOf(currentStep);
-    return flow[currentIndex + 1] || 'complete';
+    const nextStep = flow[Math.min(currentIndex + 1, flow.length - 1)] as OnboardingStep;
+
+    // Basic extraction
+    const extractedData: Record<string, unknown> = {};
+    if (currentStep === 'name') {
+      extractedData.name = message.trim().split(/\s+/)[0];
+    }
+
+    const fallbackResponses: Record<OnboardingStep, string> = {
+      greeting: GREETING_MESSAGE,
+      name: `Super ${extractedData.name || message.trim()} ! Enchante.\n\nEt niveau etudes, t'es en quoi ? (Ex: "L2 Info", "M1 Droit")`,
+      studies: `Cool !\n\nQuelles sont tes competences ? (code, langues, design, sport...)`,
+      skills: `Pas mal !\n\nTu vis ou ? Quelle ville ?`,
+      location: `Je note.\n\nParlons budget: combien tu touches et depenses par mois environ ?`,
+      budget: `OK pour le budget !\n\nDerniere question: combien d'heures max par semaine tu peux bosser ? Et quel taux horaire minimum ?`,
+      work_preferences: `Parfait ! J'ai tout ce qu'il me faut.\n\nClique sur "Mon Plan" pour commencer !`,
+      complete: '',
+    };
+
+    return {
+      response: fallbackResponses[nextStep] || 'Continuons !',
+      extractedData,
+      nextStep,
+    };
+  };
+
+  // Update profile from extracted data
+  const updateProfileFromExtracted = (data: Record<string, unknown>) => {
+    const currentProfile = profile();
+    const updates: Partial<ProfileData> = {};
+
+    if (data.name) updates.name = String(data.name);
+    if (data.diploma) updates.diploma = String(data.diploma);
+    if (data.field) updates.field = String(data.field);
+    if (data.city) updates.city = String(data.city);
+    if (data.skills && Array.isArray(data.skills)) updates.skills = data.skills as string[];
+    if (data.maxWorkHours) updates.maxWorkHours = Number(data.maxWorkHours);
+    if (data.minHourlyRate) updates.minHourlyRate = Number(data.minHourlyRate);
+
+    // Handle income/expenses
+    if (data.income) {
+      const income = Number(data.income);
+      updates.incomes = [{ source: 'total', amount: income }];
+    }
+    if (data.expenses) {
+      const expenses = Number(data.expenses);
+      updates.expenses = [
+        { category: 'loyer', amount: Math.round(expenses * 0.5) },
+        { category: 'alimentation', amount: Math.round(expenses * 0.25) },
+        { category: 'transport', amount: Math.round(expenses * 0.1) },
+        { category: 'autre', amount: Math.round(expenses * 0.15) },
+      ];
+    }
+
+    // Determine city size
+    if (data.city) {
+      const cityLower = String(data.city).toLowerCase();
+      const bigCities = [
+        'paris',
+        'lyon',
+        'marseille',
+        'toulouse',
+        'bordeaux',
+        'lille',
+        'nantes',
+        'nice',
+      ];
+      const smallCities = ['village', 'campagne', 'rural'];
+      if (bigCities.some((c) => cityLower.includes(c))) {
+        updates.citySize = 'large';
+      } else if (smallCities.some((c) => cityLower.includes(c))) {
+        updates.citySize = 'small';
+      } else {
+        updates.citySize = 'medium';
+      }
+    }
+
+    setProfile({ ...currentProfile, ...updates });
   };
 
   const handleSend = async (text: string) => {
@@ -303,82 +232,85 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
     setMessages([...messages(), userMsg]);
     setLoading(true);
 
-    // Simulate processing delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      // Build context from current profile
+      const currentProfile = profile();
+      const context: Record<string, unknown> = {
+        name: currentProfile.name,
+        diploma: currentProfile.diploma,
+        field: currentProfile.field,
+        city: currentProfile.city,
+        skills: currentProfile.skills,
+        income: currentProfile.incomes?.[0]?.amount,
+        expenses: currentProfile.expenses?.reduce((sum, e) => sum + e.amount, 0),
+        maxWorkHours: currentProfile.maxWorkHours,
+        minHourlyRate: currentProfile.minHourlyRate,
+      };
 
-    // Parse response
-    const currentStep = step();
-    parseResponse(text, currentStep);
+      // Call LLM API
+      const currentStep = step();
+      const result = await callChatAPI(text, currentStep, context);
 
-    // Move to next step
-    const nextStep = getNextStep(currentStep);
-    setStep(nextStep);
+      // Update profile with extracted data
+      if (result.extractedData && Object.keys(result.extractedData).length > 0) {
+        updateProfileFromExtracted(result.extractedData);
+      }
 
-    // Generate response
-    let response = QUESTIONS[nextStep];
+      // Update step
+      setStep(result.nextStep);
 
-    if (nextStep === 'studies') {
-      const p = profile();
-      response = `Super ${p.name} ! Enchanté.
+      // Handle completion
+      if (result.nextStep === 'complete') {
+        // Save profile to API (DuckDB)
+        const finalProfile = profile() as ProfileData;
 
-${QUESTIONS.studies}`;
-    } else if (nextStep === 'skills') {
-      const p = profile();
-      response = `${p.diploma} ${p.field}, nice ! ${p.yearsRemaining} ans, ca te laisse le temps.
-
-${QUESTIONS.skills}`;
-    } else if (nextStep === 'location') {
-      const p = profile();
-      const skillNames = p.skills?.map((s) => {
-        const labels: Record<string, string> = {
-          python: 'Python',
-          javascript: 'JavaScript',
-          sql: 'SQL',
-          excel: 'Excel',
-          anglais: 'Anglais',
-          design: 'Design',
-          redaction: 'Redaction',
-          social_media: 'Reseaux sociaux',
+        // Normalize field names for API
+        const normalizedProfile = {
+          name: finalProfile.name || 'Mon Profil',
+          diploma: finalProfile.diploma,
+          skills: finalProfile.skills,
+          city: finalProfile.city,
+          citySize: finalProfile.citySize,
+          incomeSources: finalProfile.incomes,
+          expenses: finalProfile.expenses,
+          maxWorkHoursWeekly: finalProfile.maxWorkHours,
+          minHourlyRate: finalProfile.minHourlyRate,
+          hasLoan: finalProfile.hasLoan,
+          loanAmount: finalProfile.loanAmount,
+          profileType: 'main',
         };
-        return labels[s] || s;
-      });
-      response = `${skillNames?.join(', ')} - pas mal du tout !
 
-${QUESTIONS.location}`;
-    } else if (nextStep === 'budget') {
-      const p = profile();
-      response = `${p.city}, je note.
+        // Save to API first
+        try {
+          await profileService.saveProfile(normalizedProfile, { immediate: true, setActive: true });
+        } catch (error) {
+          console.error('Failed to save profile to API:', error);
+        }
 
-${QUESTIONS.budget}`;
-    } else if (nextStep === 'work_preferences') {
-      const p = profile();
-      const totalIncome = p.incomes?.reduce((sum, i) => sum + i.amount, 0) || 0;
-      const totalExpenses = p.expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
-      const margin = totalIncome - totalExpenses;
+        // Keep localStorage as fallback
+        localStorage.setItem('studentProfile', JSON.stringify(finalProfile));
+        setIsComplete(true);
+      }
 
-      let budgetComment = '';
-      if (margin > 100) budgetComment = "T'as une marge confortable !";
-      else if (margin > 0) budgetComment = 'Budget serre mais ca passe.';
-      else budgetComment = 'Budget tendu, on va trouver des solutions.';
-
-      response = `${budgetComment}
-
-${QUESTIONS.work_preferences}`;
-    } else if (nextStep === 'complete') {
-      // Save profile to localStorage
-      const finalProfile = profile() as ProfileData;
-      localStorage.setItem('studentProfile', JSON.stringify(finalProfile));
-      setIsComplete(true);
+      // Add assistant message
+      const assistantMsg: Message = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: result.response,
+      };
+      setMessages([...messages(), assistantMsg]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      // Add error message
+      const errorMsg: Message = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: "Oups, j'ai eu un petit souci. Peux-tu reessayer ?",
+      };
+      setMessages([...messages(), errorMsg]);
+    } finally {
+      setLoading(false);
     }
-
-    // Add assistant message
-    const assistantMsg: Message = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      content: response,
-    };
-    setMessages([...messages(), assistantMsg]);
-    setLoading(false);
   };
 
   const goToPlan = () => {
@@ -439,7 +371,7 @@ ${QUESTIONS.work_preferences}`;
                 onClick={() => {
                   setIsComplete(false);
                   setStep('name');
-                  setMessages([{ id: 'restart', role: 'assistant', content: QUESTIONS.greeting }]);
+                  setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
                 }}
               >
                 recommence l'onboarding

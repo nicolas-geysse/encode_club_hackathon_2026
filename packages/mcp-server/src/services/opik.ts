@@ -11,10 +11,13 @@ let opikClient: any = null;
 let currentTraceId: string | null = null;
 
 // Configuration
-// Note: Opik SDK connects to the API, not the frontend
-// Frontend is at http://localhost:5173, API is at http://localhost:8085
-const OPIK_BASE_URL = process.env.OPIK_BASE_URL || 'http://localhost:5173';
+// Opik Cloud: https://www.comet.com/opik (no OPIK_BASE_URL needed)
+// Self-hosted: set OPIK_BASE_URL to your Opik API endpoint
+const OPIK_API_KEY = process.env.OPIK_API_KEY;
+const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
 const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
+// For self-hosted only (Opik Cloud doesn't need this)
+const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
 
 /**
  * Span interface for tracing
@@ -29,14 +32,40 @@ export interface Span {
  * Initialize Opik client
  */
 export async function initOpik(): Promise<void> {
+  if (!OPIK_API_KEY) {
+    console.error('OPIK_API_KEY not set, tracing disabled');
+    return;
+  }
+
   try {
     // Dynamic import to handle missing package gracefully
     const { Opik } = await import('opik');
-    opikClient = new Opik({
-      apiKey: process.env.OPIK_API_KEY,
+
+    // Configure Opik client
+    // For Opik Cloud, only apiKey and projectName are needed
+    // For self-hosted, also set baseUrl
+    const config: {
+      apiKey: string;
+      projectName: string;
+      workspaceName?: string;
+      baseUrl?: string;
+    } = {
+      apiKey: OPIK_API_KEY,
       projectName: OPIK_PROJECT,
-    });
-    console.error(`Opik initialized with project: ${OPIK_PROJECT}`);
+    };
+
+    if (OPIK_WORKSPACE) {
+      config.workspaceName = OPIK_WORKSPACE;
+    }
+
+    if (OPIK_BASE_URL) {
+      config.baseUrl = OPIK_BASE_URL;
+    }
+
+    opikClient = new Opik(config);
+    console.error(
+      `Opik initialized with project: ${OPIK_PROJECT}${OPIK_WORKSPACE ? `, workspace: ${OPIK_WORKSPACE}` : ''}`
+    );
   } catch (error) {
     console.error('Opik not available, tracing disabled:', error);
   }
@@ -153,10 +182,14 @@ export async function logFeedback(
  */
 export function getTraceUrl(traceId?: string): string {
   const id = traceId || currentTraceId;
+  // Use Opik Cloud URL if no base URL is set
+  const baseUrl = OPIK_BASE_URL || 'https://www.comet.com/opik';
+  const workspace = OPIK_WORKSPACE || 'default';
+
   if (!id) {
-    return `${OPIK_BASE_URL}/projects/${OPIK_PROJECT}`;
+    return `${baseUrl}/${workspace}/${OPIK_PROJECT}`;
   }
-  return `${OPIK_BASE_URL}/traces/${id}`;
+  return `${baseUrl}/${workspace}/${OPIK_PROJECT}/traces/${id}`;
 }
 
 /**

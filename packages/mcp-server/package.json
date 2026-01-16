@@ -17,10 +17,13 @@
     "@modelcontextprotocol/sdk": "^1.0.0",
     "duckdb": "1.0.0",
     "groq-sdk": "^0.37.0",
+    "js-yaml": "^4.1.0",
     "opik": "^1.0.0",
+    "uuid": "^13.0.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",

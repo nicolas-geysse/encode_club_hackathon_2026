@@ -32,6 +32,20 @@
  * - goal_risk_assessment: Analyze goal risk
  * - list_user_goals: List all goals
  *
+ * === Profile Management (NEW) ===
+ * - save_profile: Save profile + planData + followupData
+ * - load_profile: Load by ID or active profile
+ * - list_profiles: List all profiles
+ * - switch_profile: Change active profile
+ * - duplicate_profile_for_goal: Clone for new goal
+ * - delete_profile: Delete a profile
+ *
+ * === Simulation (NEW) ===
+ * - advance_day: Advance simulation by N days
+ * - get_simulation_date: Get current simulated date
+ * - reset_simulation: Reset to real date
+ * - simulate_week_progress: Simulate goal progress
+ *
  * === Opik Integration ===
  * - get_traces: Link to Opik dashboard
  * - log_feedback: User thumbs up/down
@@ -46,6 +60,8 @@ import { runStudentAnalysis, type StudentProfile } from '../workflows/index.js';
 import { VOICE_TOOLS, handleVoiceTool } from './voice.js';
 import { GOAL_TOOLS, handleGoalTool } from './goal.js';
 import { SWIPE_TOOLS, handleSwipeTool } from './swipe.js';
+import { PROFILE_TOOLS, handleProfileTool } from './profile.js';
+import { SIMULATION_TOOLS, handleSimulationTool } from './simulation.js';
 
 // Types
 interface IncomeSource {
@@ -382,6 +398,12 @@ export const TOOLS = {
 
   // === Swipe Scenarios Tools (NEW) ===
   ...SWIPE_TOOLS,
+
+  // === Profile Management Tools (NEW) ===
+  ...PROFILE_TOOLS,
+
+  // === Simulation Tools (NEW) ===
+  ...SIMULATION_TOOLS,
 };
 
 // Tool handlers
@@ -401,6 +423,16 @@ export async function handleTool(name: string, args: unknown): Promise<unknown> 
   // Check if it's a swipe tool
   if (name in SWIPE_TOOLS) {
     return handleSwipeTool(name, typedArgs);
+  }
+
+  // Check if it's a profile tool
+  if (name in PROFILE_TOOLS) {
+    return handleProfileTool(name, typedArgs);
+  }
+
+  // Check if it's a simulation tool
+  if (name in SIMULATION_TOOLS) {
+    return handleSimulationTool(name, typedArgs);
   }
 
   switch (name) {

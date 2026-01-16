@@ -183,7 +183,7 @@ export function SetupTab(props: SetupTabProps) {
               <input
                 type="date"
                 class="input-field"
-                value={goalDeadline()}
+                value={goalDeadline() || ''}
                 onInput={(e) => setGoalDeadline(e.currentTarget.value)}
                 min={new Date().toISOString().split('T')[0]}
               />
@@ -263,13 +263,13 @@ export function SetupTab(props: SetupTabProps) {
           <input
             type="date"
             class="input-field"
-            value={newEvent().startDate}
+            value={newEvent().startDate || ''}
             onInput={(e) => setNewEvent({ ...newEvent(), startDate: e.currentTarget.value })}
           />
           <input
             type="date"
             class="input-field"
-            value={newEvent().endDate}
+            value={newEvent().endDate || ''}
             onInput={(e) => setNewEvent({ ...newEvent(), endDate: e.currentTarget.value })}
           />
         </div>

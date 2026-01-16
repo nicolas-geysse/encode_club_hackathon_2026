@@ -2,6 +2,7 @@
  * Mon Plan Page (plan.tsx)
  *
  * 6 tabs: Setup, Skills, Inventory, Lifestyle, Trade, Swipe
+ * Now uses profileService for DuckDB persistence instead of localStorage.
  */
 
 import { createSignal, Show, createEffect, onMount } from 'solid-js';
@@ -13,22 +14,38 @@ import { InventoryTab } from '~/components/tabs/InventoryTab';
 import { LifestyleTab } from '~/components/tabs/LifestyleTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab } from '~/components/tabs/SwipeTab';
+import { profileService, type FullProfile } from '~/lib/profileService';
 
-// Types for plan data
+// Types for plan data - using 'any' style string types for JSON storage compatibility
+// The component types use strict unions, but stored data may have any string values
+type AcademicEventType =
+  | 'exam_period'
+  | 'class_intensive'
+  | 'vacation'
+  | 'internship'
+  | 'project_deadline';
+type CommitmentType = 'class' | 'sport' | 'club' | 'family' | 'health' | 'other';
+type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+type ItemCategory = 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
+type ItemCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+type LifestyleCategory = 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
+type TradeType = 'trade' | 'borrow' | 'lend';
+type TradeStatus = 'pending' | 'active' | 'completed';
+
 interface SetupData {
   goalName: string;
   goalAmount: number;
   goalDeadline: string;
   academicEvents: Array<{
     id: string;
-    type: string;
+    type: AcademicEventType;
     name: string;
     startDate: string;
     endDate: string;
   }>;
   commitments: Array<{
     id: string;
-    type: string;
+    type: CommitmentType;
     name: string;
     hoursPerWeek: number;
   }>;
@@ -37,7 +54,7 @@ interface SetupData {
 interface Skill {
   id: string;
   name: string;
-  level: string;
+  level: SkillLevel;
   hourlyRate: number;
   marketDemand: number;
   cognitiveEffort: number;
@@ -48,9 +65,9 @@ interface Skill {
 interface Item {
   id: string;
   name: string;
-  category: string;
+  category: ItemCategory;
   estimatedValue: number;
-  condition: string;
+  condition: ItemCondition;
   platform?: string;
   sold?: boolean;
   soldPrice?: number;
@@ -58,7 +75,7 @@ interface Item {
 
 interface LifestyleItem {
   id: string;
-  category: string;
+  category: LifestyleCategory;
   name: string;
   currentCost: number;
   optimizedCost?: number;
@@ -68,13 +85,25 @@ interface LifestyleItem {
 
 interface TradeItem {
   id: string;
-  type: string;
+  type: TradeType;
   name: string;
   description?: string;
   partner: string;
   value: number;
-  status: string;
+  status: TradeStatus;
   dueDate?: string;
+}
+
+interface SelectedScenario {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  weeklyHours: number;
+  weeklyEarnings: number;
+  effortLevel: number;
+  flexibilityScore: number;
+  hourlyRate: number;
 }
 
 interface PlanData {
@@ -83,6 +112,7 @@ interface PlanData {
   inventory: Item[];
   lifestyle: LifestyleItem[];
   trades: TradeItem[];
+  selectedScenarios: SelectedScenario[];
   completedTabs: TabId[];
 }
 
@@ -90,32 +120,62 @@ export default function PlanPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = createSignal<TabId>('setup');
   const [hasProfile, setHasProfile] = createSignal(false);
+  const [activeProfile, setActiveProfile] = createSignal<FullProfile | null>(null);
   const [planData, setPlanData] = createSignal<PlanData>({
     skills: [],
     inventory: [],
     lifestyle: [],
     trades: [],
+    selectedScenarios: [],
     completedTabs: [],
   });
+  const [isSaving] = createSignal(false);
 
-  // Check for profile on mount
-  onMount(() => {
-    const storedProfile = localStorage.getItem('studentProfile');
-    if (storedProfile) {
+  // Check for profile on mount - now using profileService
+  onMount(async () => {
+    // First, try to sync localStorage to DuckDB (migration)
+    await profileService.syncLocalToDb();
+
+    // Load active profile from DuckDB
+    const profile = await profileService.loadActiveProfile();
+    if (profile) {
+      setActiveProfile(profile);
       setHasProfile(true);
 
-      // Load any existing plan data
-      const storedPlan = localStorage.getItem('planData');
-      if (storedPlan) {
-        setPlanData(JSON.parse(storedPlan));
+      // Load plan data from profile (cast from stored JSON)
+      if (profile.planData) {
+        const stored = profile.planData as unknown as PlanData;
+        setPlanData(stored);
+      }
+    } else {
+      // Fallback to localStorage for backwards compatibility
+      const storedProfile = localStorage.getItem('studentProfile');
+      if (storedProfile) {
+        setHasProfile(true);
+        const storedPlan = localStorage.getItem('planData');
+        if (storedPlan) {
+          setPlanData(JSON.parse(storedPlan));
+        }
       }
     }
   });
 
-  // Save plan data whenever it changes
+  // Save plan data whenever it changes - now using profileService with debounce
   createEffect(() => {
-    if (hasProfile()) {
-      localStorage.setItem('planData', JSON.stringify(planData()));
+    const profile = activeProfile();
+    const data = planData();
+    if (hasProfile() && profile && !isSaving()) {
+      // Debounced save to DuckDB (cast planData for storage)
+      profileService.saveProfile(
+        {
+          ...profile,
+          planData: data as unknown as Record<string, unknown>,
+        },
+        { setActive: false }
+      );
+
+      // Also save to localStorage for backwards compatibility
+      localStorage.setItem('planData', JSON.stringify(data));
     }
   });
 
@@ -167,7 +227,9 @@ export default function PlanPage() {
     markTabComplete('swipe');
   };
 
-  const handleScenariosSelected = () => {
+  const handleScenariosSelected = (scenarios: SelectedScenario[]) => {
+    // Save selected scenarios to planData
+    setPlanData({ ...planData(), selectedScenarios: scenarios });
     // Navigate to suivi after completing swipe
     navigate('/suivi');
   };
@@ -219,7 +281,12 @@ export default function PlanPage() {
           </Show>
 
           <Show when={activeTab() === 'trade'}>
-            <TradeTab initialTrades={planData().trades} onTradesChange={handleTradesChange} />
+            <TradeTab
+              initialTrades={planData().trades}
+              onTradesChange={handleTradesChange}
+              goalName={planData().setup?.goalName}
+              goalAmount={planData().setup?.goalAmount}
+            />
           </Show>
 
           <Show when={activeTab() === 'swipe'}>

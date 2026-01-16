@@ -4,7 +4,7 @@
  * Tinder-style card with swipe animations for scenario selection.
  */
 
-import { createSignal, onMount } from 'solid-js';
+import { createSignal, onMount, For } from 'solid-js';
 
 export interface SwipeCardProps {
   id: string;
@@ -16,8 +16,14 @@ export interface SwipeCardProps {
   flexibilityScore: number;
   hourlyRate: number;
   category: string;
-  onSwipe: (direction: 'left' | 'right', timeSpent: number) => void;
+  onSwipe: (direction: 'left' | 'right', timeSpent: number, adjustments?: CardAdjustments) => void;
   isActive?: boolean;
+}
+
+export interface CardAdjustments {
+  perceivedEffort?: number;
+  perceivedFlexibility?: number;
+  customHourlyRate?: number;
 }
 
 export function SwipeCard(props: SwipeCardProps) {
@@ -27,15 +33,51 @@ export function SwipeCard(props: SwipeCardProps) {
   const [swipeDirection, setSwipeDirection] = createSignal<'left' | 'right' | null>(null);
   const [startTime, setStartTime] = createSignal(Date.now());
 
+  // Perceived values (user adjustments)
+  const [perceivedEffort, setPerceivedEffort] = createSignal(props.effortLevel);
+  const [perceivedFlexibility, setPerceivedFlexibility] = createSignal(props.flexibilityScore);
+  const [customRate, setCustomRate] = createSignal(props.hourlyRate);
+  const [isEditingRate, setIsEditingRate] = createSignal(false);
+
   let cardRef: HTMLDivElement | undefined;
   let startPos = { x: 0, y: 0 };
 
   onMount(() => {
     setStartTime(Date.now());
+    setPerceivedEffort(props.effortLevel);
+    setPerceivedFlexibility(props.flexibilityScore);
+    setCustomRate(props.hourlyRate);
+  });
+
+  // Adjust perceived effort (+1 or -1)
+  const adjustEffort = (delta: number) => {
+    const newValue = Math.max(1, Math.min(5, perceivedEffort() + delta));
+    setPerceivedEffort(newValue);
+  };
+
+  // Adjust perceived flexibility (+1 or -1)
+  const adjustFlexibility = (delta: number) => {
+    const newValue = Math.max(1, Math.min(5, perceivedFlexibility() + delta));
+    setPerceivedFlexibility(newValue);
+  };
+
+  // Get current adjustments
+  const getAdjustments = (): CardAdjustments => ({
+    perceivedEffort: perceivedEffort() !== props.effortLevel ? perceivedEffort() : undefined,
+    perceivedFlexibility:
+      perceivedFlexibility() !== props.flexibilityScore ? perceivedFlexibility() : undefined,
+    customHourlyRate: customRate() !== props.hourlyRate ? customRate() : undefined,
   });
 
   const handlePointerDown = (e: PointerEvent) => {
     if (!props.isActive) return;
+
+    // Don't start drag if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target?.closest('button, input, [role="button"]')) {
+      return;
+    }
+
     setIsDragging(true);
     startPos = { x: e.clientX - position().x, y: e.clientY - position().y };
     cardRef?.setPointerCapture(e.pointerId);
@@ -71,6 +113,7 @@ export function SwipeCard(props: SwipeCardProps) {
       // Swipe completed
       const direction = x > 0 ? 'right' : 'left';
       const timeSpent = Date.now() - startTime();
+      const adjustments = getAdjustments();
 
       // Animate out
       setPosition({
@@ -80,7 +123,7 @@ export function SwipeCard(props: SwipeCardProps) {
       setRotation(direction === 'right' ? 30 : -30);
 
       setTimeout(() => {
-        props.onSwipe(direction, timeSpent);
+        props.onSwipe(direction, timeSpent, adjustments);
       }, 200);
     } else {
       // Spring back
@@ -101,10 +144,51 @@ export function SwipeCard(props: SwipeCardProps) {
     return icons[category] || '💼';
   };
 
-  const getEffortLabel = (level: number) => {
-    const labels = ['', 'Tres facile', 'Facile', 'Modere', 'Difficile', 'Intense'];
-    return labels[level] || 'Modere';
-  };
+  // Star meter component for effort/flexibility
+  const StarMeter = (currentProps: {
+    value: number;
+    onChange?: (delta: number) => void;
+    label: string;
+  }) => (
+    <div class="flex items-center gap-1">
+      <span class="text-xs text-slate-500 mr-1">{currentProps.label}:</span>
+      {currentProps.onChange && (
+        <button
+          type="button"
+          class="w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs flex items-center justify-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            currentProps.onChange!(-1);
+          }}
+        >
+          👎
+        </button>
+      )}
+      <div class="flex">
+        <For each={[1, 2, 3, 4, 5]}>
+          {(i) => (
+            <span
+              class={`text-sm ${i <= currentProps.value ? 'text-amber-500' : 'text-slate-300'}`}
+            >
+              ★
+            </span>
+          )}
+        </For>
+      </div>
+      {currentProps.onChange && (
+        <button
+          type="button"
+          class="w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs flex items-center justify-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            currentProps.onChange!(1);
+          }}
+        >
+          👍
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <div
@@ -178,22 +262,47 @@ export function SwipeCard(props: SwipeCardProps) {
           </div>
         </div>
 
-        {/* Effort & Flexibility */}
-        <div class="flex justify-between text-sm">
-          <div>
-            <span class="text-slate-500">Effort: </span>
-            <span class="font-medium">{getEffortLabel(props.effortLevel)}</span>
-          </div>
-          <div>
-            <span class="text-slate-500">Flexibilite: </span>
-            <span class="font-medium">{'⭐'.repeat(props.flexibilityScore)}</span>
-          </div>
+        {/* Effort & Flexibility with adjustment controls */}
+        <div class="space-y-2">
+          <StarMeter value={perceivedEffort()} onChange={adjustEffort} label="Effort" />
+          <StarMeter value={perceivedFlexibility()} onChange={adjustFlexibility} label="Flex" />
         </div>
 
-        {/* Hourly Rate */}
+        {/* Hourly Rate (editable) */}
         {props.hourlyRate > 0 && (
           <div class="mt-4 pt-4 border-t border-slate-100 text-center">
-            <span class="text-lg font-bold text-green-600">{props.hourlyRate}€/h</span>
+            {isEditingRate() ? (
+              <div class="flex items-center justify-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  class="w-20 px-2 py-1 text-center border border-slate-300 rounded-lg text-green-600 font-bold"
+                  value={customRate()}
+                  onInput={(e) =>
+                    setCustomRate(parseInt(e.currentTarget.value) || props.hourlyRate)
+                  }
+                  onBlur={() => setIsEditingRate(false)}
+                  onKeyDown={(e) => e.key === 'Enter' && setIsEditingRate(false)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span class="text-green-600 font-bold">€/h</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                class="text-lg font-bold text-green-600 hover:text-green-700 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingRate(true);
+                }}
+              >
+                {customRate()}€/h ✏️
+              </button>
+            )}
+            {customRate() !== props.hourlyRate && (
+              <div class="text-xs text-slate-400 mt-1">(original: {props.hourlyRate}€/h)</div>
+            )}
           </div>
         )}
       </div>

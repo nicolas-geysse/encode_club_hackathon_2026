@@ -20,6 +20,110 @@ interface TradeItem {
 interface TradeTabProps {
   initialTrades?: TradeItem[];
   onTradesChange?: (trades: TradeItem[]) => void;
+  goalName?: string;
+  goalAmount?: number;
+}
+
+interface TradeSuggestion {
+  type: 'borrow' | 'lend' | 'trade';
+  name: string;
+  description: string;
+  estimatedSavings: number;
+}
+
+// Generate suggestions based on goal
+function getSuggestions(goalName?: string, goalAmount?: number): TradeSuggestion[] {
+  const suggestions: TradeSuggestion[] = [];
+  const lowerGoal = (goalName || '').toLowerCase();
+
+  // Camping/vacation goal suggestions
+  if (
+    lowerGoal.includes('camping') ||
+    lowerGoal.includes('vacances') ||
+    lowerGoal.includes('voyage')
+  ) {
+    suggestions.push({
+      type: 'borrow',
+      name: 'Tente',
+      description: "Empruntez une tente au lieu d'acheter",
+      estimatedSavings: 80,
+    });
+    suggestions.push({
+      type: 'borrow',
+      name: 'Sac de couchage',
+      description: 'Empruntez a un ami pour les vacances',
+      estimatedSavings: 40,
+    });
+    suggestions.push({
+      type: 'borrow',
+      name: 'Glaciere',
+      description: 'Pour garder vos aliments au frais',
+      estimatedSavings: 30,
+    });
+  }
+
+  // Tech/electronics goal suggestions
+  if (lowerGoal.includes('ordi') || lowerGoal.includes('pc') || lowerGoal.includes('tech')) {
+    suggestions.push({
+      type: 'borrow',
+      name: 'Outils de reparation',
+      description: 'Pour upgrader vous-meme',
+      estimatedSavings: 25,
+    });
+  }
+
+  // Moving/housing goal suggestions
+  if (
+    lowerGoal.includes('appart') ||
+    lowerGoal.includes('demenag') ||
+    lowerGoal.includes('logement')
+  ) {
+    suggestions.push({
+      type: 'borrow',
+      name: 'Cartons de demenagement',
+      description: 'Reutilisez ceux de vos amis',
+      estimatedSavings: 20,
+    });
+    suggestions.push({
+      type: 'borrow',
+      name: 'Diable/Chariot',
+      description: 'Pour transporter les meubles lourds',
+      estimatedSavings: 35,
+    });
+  }
+
+  // Study/school goal suggestions
+  if (
+    lowerGoal.includes('etude') ||
+    lowerGoal.includes('ecole') ||
+    lowerGoal.includes('formation') ||
+    lowerGoal.includes('permis')
+  ) {
+    suggestions.push({
+      type: 'borrow',
+      name: 'Manuels scolaires',
+      description: "Empruntez a des etudiants de l'annee precedente",
+      estimatedSavings: 50,
+    });
+  }
+
+  // Generic suggestions (always show some)
+  if (suggestions.length < 3) {
+    suggestions.push({
+      type: 'borrow',
+      name: 'Outils',
+      description: 'Pour bricolage ponctuel',
+      estimatedSavings: 30,
+    });
+    suggestions.push({
+      type: 'trade',
+      name: 'Cours/Competences',
+      description: "Echangez vos competences contre celles d'autres",
+      estimatedSavings: 40,
+    });
+  }
+
+  return suggestions;
 }
 
 const TRADE_TYPES = [
@@ -90,6 +194,37 @@ export function TradeTab(props: TradeTabProps) {
       .filter((t) => t.type === 'lend' && t.status === 'active')
       .reduce((sum, t) => sum + t.value, 0);
 
+  // Total savings from borrowing (money not spent)
+  const totalSavings = () => borrowedValue();
+
+  // Savings percentage of goal
+  const savingsPercent = () => {
+    if (!props.goalAmount || props.goalAmount <= 0) return 0;
+    return Math.round((totalSavings() / props.goalAmount) * 100);
+  };
+
+  // Get suggestions based on goal
+  const suggestions = () => getSuggestions(props.goalName, props.goalAmount);
+
+  // Add a suggestion as a trade
+  const addFromSuggestion = (suggestion: TradeSuggestion) => {
+    const newTrade: TradeItem = {
+      id: `trade_${Date.now()}`,
+      type: suggestion.type,
+      name: suggestion.name,
+      description: suggestion.description,
+      partner: '', // User fills this in
+      value: suggestion.estimatedSavings,
+      status: 'pending',
+    };
+
+    setNewTrade({
+      ...newTrade,
+      partner: '',
+    });
+    setShowAddForm(true);
+  };
+
   const getTypeInfo = (type: string) => TRADE_TYPES.find((t) => t.id === type);
 
   const getStatusBadge = (status: string) => {
@@ -108,7 +243,7 @@ export function TradeTab(props: TradeTabProps) {
   return (
     <div class="p-6 space-y-6 max-w-3xl mx-auto">
       {/* Summary Cards */}
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="card bg-gradient-to-br from-blue-50 to-blue-100">
           <div class="text-sm text-blue-600 font-medium">J'ai emprunte</div>
           <div class="text-2xl font-bold text-blue-900 mt-1">{borrowedValue()}€</div>
@@ -123,7 +258,44 @@ export function TradeTab(props: TradeTabProps) {
             {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} actifs
           </div>
         </div>
+        {/* Savings card - shows when there's a goal */}
+        <Show when={props.goalAmount && props.goalAmount > 0}>
+          <div class="card bg-gradient-to-br from-green-50 to-green-100">
+            <div class="text-sm text-green-600 font-medium">Economies</div>
+            <div class="text-2xl font-bold text-green-900 mt-1">{totalSavings()}€</div>
+            <div class="text-xs text-green-500 mt-1">{savingsPercent()}% de l'objectif</div>
+          </div>
+        </Show>
       </div>
+
+      {/* Suggestions based on goal */}
+      <Show when={suggestions().length > 0}>
+        <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+          <h3 class="font-medium text-purple-900 mb-3 flex items-center gap-2">
+            <span>💡</span> Suggestions pour "{props.goalName || 'ton objectif'}"
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <For each={suggestions()}>
+              {(suggestion) => (
+                <button
+                  type="button"
+                  class="flex items-center justify-between p-3 bg-white rounded-lg border border-purple-100 hover:border-purple-300 transition-colors text-left"
+                  onClick={() => addFromSuggestion(suggestion)}
+                >
+                  <div>
+                    <div class="font-medium text-slate-900">{suggestion.name}</div>
+                    <div class="text-xs text-slate-500">{suggestion.description}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-green-600 font-bold">-{suggestion.estimatedSavings}€</div>
+                    <div class="text-xs text-slate-400">a economiser</div>
+                  </div>
+                </button>
+              )}
+            </For>
+          </div>
+        </div>
+      </Show>
 
       {/* Type Tabs */}
       <div class="flex gap-2">
