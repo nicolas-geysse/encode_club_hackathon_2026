@@ -5,7 +5,7 @@
  * Provides a single source of truth for database connection with:
  * - Absolute path resolution (fixes relative path issues)
  * - Automatic directory creation
- * - Connection pooling (single connection reused)
+ * - Fresh connections per query (avoids SSR connection lifecycle issues)
  * - Proper error handling
  *
  * Note: Uses createRequire via nativeModule.ts because Vite SSR
@@ -22,54 +22,64 @@ import * as path from 'path';
 const DB_DIR = process.env.DUCKDB_DIR || path.resolve(process.cwd(), 'data');
 const DB_PATH = process.env.DUCKDB_PATH || path.join(DB_DIR, 'stride.duckdb');
 
-// Database connection singleton
+// Database instance singleton (keep database open, create fresh connections)
 let db: DuckDBDatabase | null = null;
-let connection: DuckDBConnection | null = null;
 let initialized = false;
+
+/**
+ * Ensure data directory exists
+ */
+function ensureDataDir(): void {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+    console.log(`[DuckDB] Created data directory: ${DB_DIR}`);
+  }
+}
+
+/**
+ * Get or create database instance
+ */
+function getDatabase(): DuckDBDatabase {
+  if (!db) {
+    ensureDataDir();
+    db = new duckdb.Database(DB_PATH);
+    initialized = true;
+    console.log(`[DuckDB] Opened database: ${DB_PATH}`);
+  }
+  return db;
+}
+
+/**
+ * Get a fresh connection for a query
+ * Creates a new connection each time to avoid SSR lifecycle issues
+ */
+function getFreshConnection(): DuckDBConnection {
+  const database = getDatabase();
+  return database.connect();
+}
 
 /**
  * Initialize the database connection
  * Safe to call multiple times - only initializes once
  */
 export async function initDatabase(): Promise<void> {
-  if (initialized && connection) return;
-
-  try {
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(DB_DIR)) {
-      fs.mkdirSync(DB_DIR, { recursive: true });
-      console.log(`[DuckDB] Created data directory: ${DB_DIR}`);
-    }
-
-    // Create database connection
-    db = new duckdb.Database(DB_PATH);
-    connection = db.connect();
-    initialized = true;
-
-    console.log(`[DuckDB] Connected to: ${DB_PATH}`);
-  } catch (error) {
-    console.error('[DuckDB] Initialization failed:', error);
-    throw error;
-  }
+  if (initialized && db) return;
+  getDatabase();
 }
 
 /**
- * Get the database connection
- * Throws if database not initialized
+ * Get the database connection (for compatibility)
+ * Note: Returns a fresh connection each time
  */
 export function getConnection(): DuckDBConnection {
-  if (!connection) {
-    throw new Error('Database not initialized. Call initDatabase() first.');
-  }
-  return connection;
+  return getFreshConnection();
 }
 
 /**
  * Execute a query and return results
  */
 export async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
-  await initDatabase();
-  const conn = getConnection();
+  const conn = getFreshConnection();
 
   return new Promise((resolve, reject) => {
     conn.all<T>(sql, (err: Error | null, result: T[]) => {
@@ -87,8 +97,7 @@ export async function query<T = Record<string, unknown>>(sql: string): Promise<T
  * Execute a statement without returning results
  */
 export async function execute(sql: string): Promise<void> {
-  await initDatabase();
-  const conn = getConnection();
+  const conn = getFreshConnection();
 
   return new Promise((resolve, reject) => {
     conn.exec(sql, (err: Error | null) => {

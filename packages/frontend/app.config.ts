@@ -12,6 +12,10 @@ export default defineConfig({
     externals: ["duckdb"],
   },
   vite: {
+    server: {
+      port: 3002,
+      strictPort: true, // Fail if 3002 is occupied
+    },
     resolve: {
       alias: {
         "~": resolve(__dirname, "./src"),
