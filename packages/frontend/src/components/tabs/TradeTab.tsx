@@ -39,70 +39,70 @@ function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestio
   // Camping/vacation goal suggestions
   if (
     lowerGoal.includes('camping') ||
-    lowerGoal.includes('vacances') ||
-    lowerGoal.includes('voyage')
+    lowerGoal.includes('vacation') ||
+    lowerGoal.includes('travel')
   ) {
     suggestions.push({
       type: 'borrow',
-      name: 'Tente',
-      description: "Empruntez une tente au lieu d'acheter",
+      name: 'Tent',
+      description: 'Borrow a tent instead of buying',
       estimatedSavings: 80,
     });
     suggestions.push({
       type: 'borrow',
-      name: 'Sac de couchage',
-      description: 'Empruntez a un ami pour les vacances',
+      name: 'Sleeping bag',
+      description: 'Borrow from a friend for the vacation',
       estimatedSavings: 40,
     });
     suggestions.push({
       type: 'borrow',
-      name: 'Glaciere',
-      description: 'Pour garder vos aliments au frais',
+      name: 'Cooler',
+      description: 'To keep your food fresh',
       estimatedSavings: 30,
     });
   }
 
   // Tech/electronics goal suggestions
-  if (lowerGoal.includes('ordi') || lowerGoal.includes('pc') || lowerGoal.includes('tech')) {
+  if (lowerGoal.includes('computer') || lowerGoal.includes('pc') || lowerGoal.includes('tech')) {
     suggestions.push({
       type: 'borrow',
-      name: 'Outils de reparation',
-      description: 'Pour upgrader vous-meme',
+      name: 'Repair tools',
+      description: 'To upgrade it yourself',
       estimatedSavings: 25,
     });
   }
 
   // Moving/housing goal suggestions
   if (
-    lowerGoal.includes('appart') ||
-    lowerGoal.includes('demenag') ||
-    lowerGoal.includes('logement')
+    lowerGoal.includes('apartment') ||
+    lowerGoal.includes('moving') ||
+    lowerGoal.includes('housing')
   ) {
     suggestions.push({
       type: 'borrow',
-      name: 'Cartons de demenagement',
-      description: 'Reutilisez ceux de vos amis',
+      name: 'Moving boxes',
+      description: 'Reuse from your friends',
       estimatedSavings: 20,
     });
     suggestions.push({
       type: 'borrow',
-      name: 'Diable/Chariot',
-      description: 'Pour transporter les meubles lourds',
+      name: 'Hand truck/Dolly',
+      description: 'To move heavy furniture',
       estimatedSavings: 35,
     });
   }
 
   // Study/school goal suggestions
   if (
-    lowerGoal.includes('etude') ||
-    lowerGoal.includes('ecole') ||
-    lowerGoal.includes('formation') ||
-    lowerGoal.includes('permis')
+    lowerGoal.includes('study') ||
+    lowerGoal.includes('school') ||
+    lowerGoal.includes('training') ||
+    lowerGoal.includes('license')
   ) {
     suggestions.push({
       type: 'borrow',
-      name: 'Manuels scolaires',
-      description: "Empruntez a des etudiants de l'annee precedente",
+      name: 'Textbooks',
+      description: 'Borrow from previous year students',
       estimatedSavings: 50,
     });
   }
@@ -111,14 +111,14 @@ function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestio
   if (suggestions.length < 3) {
     suggestions.push({
       type: 'borrow',
-      name: 'Outils',
-      description: 'Pour bricolage ponctuel',
+      name: 'Tools',
+      description: 'For occasional DIY',
       estimatedSavings: 30,
     });
     suggestions.push({
       type: 'trade',
-      name: 'Cours/Competences',
-      description: "Echangez vos competences contre celles d'autres",
+      name: 'Skills/Courses',
+      description: 'Exchange your skills for others',
       estimatedSavings: 40,
     });
   }
@@ -127,9 +127,9 @@ function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestio
 }
 
 const TRADE_TYPES = [
-  { id: 'borrow', label: 'Emprunter', icon: '📥', color: 'blue' },
-  { id: 'lend', label: 'Preter', icon: '📤', color: 'orange' },
-  { id: 'trade', label: 'Echanger', icon: '🔄', color: 'purple' },
+  { id: 'borrow', label: 'Borrow', icon: '📥', color: 'blue' },
+  { id: 'lend', label: 'Lend', icon: '📤', color: 'orange' },
+  { id: 'trade', label: 'Trade', icon: '🔄', color: 'purple' },
 ];
 
 export function TradeTab(props: TradeTabProps) {
@@ -230,11 +230,11 @@ export function TradeTab(props: TradeTabProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return { label: 'En cours', class: 'bg-blue-100 text-blue-700' };
+        return { label: 'In progress', class: 'bg-blue-100 text-blue-700' };
       case 'completed':
-        return { label: 'Termine', class: 'bg-green-100 text-green-700' };
+        return { label: 'Done', class: 'bg-green-100 text-green-700' };
       case 'pending':
-        return { label: 'En attente', class: 'bg-amber-100 text-amber-700' };
+        return { label: 'Pending', class: 'bg-amber-100 text-amber-700' };
       default:
         return { label: status, class: 'bg-slate-100 text-slate-700' };
     }
@@ -245,25 +245,25 @@ export function TradeTab(props: TradeTabProps) {
       {/* Summary Cards */}
       <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="card bg-gradient-to-br from-blue-50 to-blue-100">
-          <div class="text-sm text-blue-600 font-medium">J'ai emprunte</div>
+          <div class="text-sm text-blue-600 font-medium">I borrowed</div>
           <div class="text-2xl font-bold text-blue-900 mt-1">{borrowedValue()}€</div>
           <div class="text-xs text-blue-500 mt-1">
-            {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} actifs
+            {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
           </div>
         </div>
         <div class="card bg-gradient-to-br from-orange-50 to-orange-100">
-          <div class="text-sm text-orange-600 font-medium">J'ai prete</div>
+          <div class="text-sm text-orange-600 font-medium">I lent</div>
           <div class="text-2xl font-bold text-orange-900 mt-1">{lentValue()}€</div>
           <div class="text-xs text-orange-500 mt-1">
-            {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} actifs
+            {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} active
           </div>
         </div>
         {/* Savings card - shows when there's a goal */}
         <Show when={props.goalAmount && props.goalAmount > 0}>
           <div class="card bg-gradient-to-br from-green-50 to-green-100">
-            <div class="text-sm text-green-600 font-medium">Economies</div>
+            <div class="text-sm text-green-600 font-medium">Savings</div>
             <div class="text-2xl font-bold text-green-900 mt-1">{totalSavings()}€</div>
-            <div class="text-xs text-green-500 mt-1">{savingsPercent()}% de l'objectif</div>
+            <div class="text-xs text-green-500 mt-1">{savingsPercent()}% of goal</div>
           </div>
         </Show>
       </div>
@@ -272,7 +272,7 @@ export function TradeTab(props: TradeTabProps) {
       <Show when={suggestions().length > 0}>
         <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
           <h3 class="font-medium text-purple-900 mb-3 flex items-center gap-2">
-            <span>💡</span> Suggestions pour "{props.goalName || 'ton objectif'}"
+            <span>💡</span> Suggestions for "{props.goalName || 'your goal'}"
           </h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <For each={suggestions()}>
@@ -288,7 +288,7 @@ export function TradeTab(props: TradeTabProps) {
                   </div>
                   <div class="text-right">
                     <div class="text-green-600 font-bold">-{suggestion.estimatedSavings}€</div>
-                    <div class="text-xs text-slate-400">a economiser</div>
+                    <div class="text-xs text-slate-400">to save</div>
                   </div>
                 </button>
               )}
@@ -331,7 +331,7 @@ export function TradeTab(props: TradeTabProps) {
               setShowAddForm(true);
             }}
           >
-            + Ajouter
+            + Add
           </button>
         </div>
 
@@ -357,12 +357,12 @@ export function TradeTab(props: TradeTabProps) {
                 </div>
                 <div class="flex items-center gap-3 mt-1 text-sm text-slate-500">
                   <span>
-                    {trade.type === 'borrow' ? 'De' : trade.type === 'lend' ? 'A' : 'Avec'}{' '}
+                    {trade.type === 'borrow' ? 'From' : trade.type === 'lend' ? 'To' : 'With'}{' '}
                     <strong>{trade.partner}</strong>
                   </span>
                   <Show when={trade.dueDate}>
                     <span class="text-slate-300">•</span>
-                    <span>Retour: {new Date(trade.dueDate!).toLocaleDateString('fr-FR')}</span>
+                    <span>Return: {new Date(trade.dueDate!).toLocaleDateString('en-US')}</span>
                   </Show>
                 </div>
                 <Show when={trade.description}>
@@ -383,7 +383,7 @@ export function TradeTab(props: TradeTabProps) {
                     class="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                     onClick={() => updateStatus(trade.id, 'completed')}
                   >
-                    Termine
+                    Done
                   </button>
                 </Show>
                 <button
@@ -410,10 +410,10 @@ export function TradeTab(props: TradeTabProps) {
             <div class="text-4xl mb-3">{getTypeInfo(activeType())?.icon}</div>
             <p>
               {activeType() === 'borrow'
-                ? "Tu n'as rien emprunte"
+                ? "You haven't borrowed anything"
                 : activeType() === 'lend'
-                  ? "Tu n'as rien prete"
-                  : "Pas d'echange en cours"}
+                  ? "You haven't lent anything"
+                  : 'No trades in progress'}
             </p>
           </div>
         </Show>
@@ -421,13 +421,13 @@ export function TradeTab(props: TradeTabProps) {
 
       {/* Tips */}
       <div class="card bg-slate-50">
-        <h4 class="text-sm font-medium text-slate-700 mb-2">💡 Astuce</h4>
+        <h4 class="text-sm font-medium text-slate-700 mb-2">💡 Tip</h4>
         <p class="text-sm text-slate-600">
           {activeType() === 'borrow'
-            ? "Emprunter des manuels ou du materiel peut t'aider a economiser. Pense a demander a tes amis ou a la BU !"
+            ? 'Borrowing textbooks or equipment can help you save money. Ask your friends or the library!'
             : activeType() === 'lend'
-              ? 'Preter des objets inutilises renforce les liens et peut mener a des echanges futurs.'
-              : "Le troc est un excellent moyen d'obtenir ce dont tu as besoin sans depenser. Propose tes competences !"}
+              ? 'Lending unused items strengthens bonds and can lead to future exchanges.'
+              : 'Bartering is a great way to get what you need without spending. Offer your skills!'}
         </p>
       </div>
 
@@ -442,11 +442,11 @@ export function TradeTab(props: TradeTabProps) {
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Quoi ?</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">What?</label>
                 <input
                   type="text"
                   class="input-field"
-                  placeholder="Ex: Ordinateur portable, Manuel de maths..."
+                  placeholder="Ex: Laptop, Math textbook..."
                   value={newTrade().name}
                   onInput={(e) => setNewTrade({ ...newTrade(), name: e.currentTarget.value })}
                 />
@@ -455,15 +455,15 @@ export function TradeTab(props: TradeTabProps) {
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">
                   {newTrade().type === 'borrow'
-                    ? 'De qui ?'
+                    ? 'From whom?'
                     : newTrade().type === 'lend'
-                      ? 'A qui ?'
-                      : 'Avec qui ?'}
+                      ? 'To whom?'
+                      : 'With whom?'}
                 </label>
                 <input
                   type="text"
                   class="input-field"
-                  placeholder="Nom de la personne"
+                  placeholder="Person's name"
                   value={newTrade().partner}
                   onInput={(e) => setNewTrade({ ...newTrade(), partner: e.currentTarget.value })}
                 />
@@ -472,7 +472,7 @@ export function TradeTab(props: TradeTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1">
-                    Valeur estimee (€)
+                    Estimated value (€)
                   </label>
                   <input
                     type="number"
@@ -485,9 +485,7 @@ export function TradeTab(props: TradeTabProps) {
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
-                    Date de retour
-                  </label>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Return date</label>
                   <input
                     type="date"
                     class="input-field"
@@ -499,12 +497,12 @@ export function TradeTab(props: TradeTabProps) {
 
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">
-                  Notes (optionnel)
+                  Notes (optional)
                 </label>
                 <input
                   type="text"
                   class="input-field"
-                  placeholder="Ex: A rendre avant les vacances"
+                  placeholder="Ex: Return before vacation"
                   value={newTrade().description}
                   onInput={(e) =>
                     setNewTrade({ ...newTrade(), description: e.currentTarget.value })
@@ -519,7 +517,7 @@ export function TradeTab(props: TradeTabProps) {
                 class="btn-secondary flex-1"
                 onClick={() => setShowAddForm(false)}
               >
-                Annuler
+                Cancel
               </button>
               <button
                 type="button"
@@ -527,7 +525,7 @@ export function TradeTab(props: TradeTabProps) {
                 onClick={addTrade}
                 disabled={!newTrade().name || !newTrade().partner}
               >
-                Ajouter
+                Add
               </button>
             </div>
           </div>

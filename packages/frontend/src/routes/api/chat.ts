@@ -35,72 +35,72 @@ type OnboardingStep =
 
 // System prompts (from prompts.yaml - hardcoded fallback if service not available)
 const SYSTEM_PROMPTS = {
-  onboarding: `Tu es Bruno, un coach financier bienveillant et enthousiaste pour etudiants francais.
-Tu poses des questions simples pour comprendre leur situation financiere.
-Tu es encourageant et utilises un langage jeune mais respectueux (pas de vulgarite).
-Tu t'adaptes au niveau de detail que donne l'utilisateur.
-Tu ne donnes JAMAIS de conseils d'investissement risques ou speculatifs.
-Reponds toujours en francais. Tes reponses sont concises (2-4 phrases max).`,
+  onboarding: `You are Bruno, a friendly and enthusiastic financial coach for students.
+You ask simple questions to understand their financial situation.
+You are encouraging and use casual but respectful language (no vulgarity).
+You adapt to the level of detail the user provides.
+You NEVER give risky or speculative investment advice.
+Always respond in English. Keep your responses concise (2-4 sentences max).`,
 
-  extraction: `Tu es un assistant qui extrait des informations structurees des messages utilisateur.
-Reponds UNIQUEMENT avec un JSON valide, sans texte avant ou apres.`,
+  extraction: `You are an assistant that extracts structured information from user messages.
+Respond ONLY with valid JSON, no text before or after.`,
 };
 
 // Step-specific prompts
 const STEP_PROMPTS: Record<OnboardingStep, string> = {
   greeting: '',
-  name: `L'utilisateur vient de donner son prenom "{name}".
-Genere une reponse chaleureuse de 2-3 phrases qui:
-1. Accueille l'utilisateur par son prenom
-2. Lui demande ses etudes (niveau et domaine, ex: "L2 Info", "M1 Droit")`,
+  name: `The user just gave their first name "{name}".
+Generate a warm response of 2-3 sentences that:
+1. Welcomes the user by their first name
+2. Asks about their studies (level and field, e.g., "Junior CS", "Senior Law")`,
 
-  studies: `L'utilisateur etudie en {diploma} {field}.
-Genere une reponse de 2-3 phrases qui:
-1. Commente positivement ses etudes
-2. Lui demande ses competences (code, langues, design, sport, etc.)`,
+  studies: `The user studies {diploma} {field}.
+Generate a response of 2-3 sentences that:
+1. Comments positively on their studies
+2. Asks about their skills (coding, languages, design, sports, etc.)`,
 
-  skills: `L'utilisateur a ces competences: {skills}.
-Genere une reponse de 2-3 phrases qui:
-1. Valorise ses competences
-2. Lui demande sa ville de residence`,
+  skills: `The user has these skills: {skills}.
+Generate a response of 2-3 sentences that:
+1. Values their skills
+2. Asks for their city of residence`,
 
-  location: `L'utilisateur vit a {city}.
-Genere une reponse de 2-3 phrases qui:
-1. Mentionne sa ville
-2. Lui demande son budget (combien il gagne/touche par mois, et combien il depense)`,
+  location: `The user lives in {city}.
+Generate a response of 2-3 sentences that:
+1. Mentions their city
+2. Asks about their budget (monthly income and expenses)`,
 
-  budget: `L'utilisateur a {income}e de revenus et {expenses}e de depenses par mois (marge: {margin}e).
-Genere une reponse de 2-3 phrases qui:
-1. Commente son budget brievement (positif si marge >0, encourageant sinon)
-2. Lui demande ses preferences de travail (heures max par semaine, taux horaire minimum)`,
+  budget: `The user has {income}€ income and {expenses}€ expenses per month (margin: {margin}€).
+Generate a response of 2-3 sentences that:
+1. Briefly comments on their budget (positive if margin >0, encouraging otherwise)
+2. Asks about their work preferences (max hours per week, minimum hourly rate)`,
 
-  work_preferences: `L'utilisateur peut travailler {maxWorkHours}h/semaine, minimum {minHourlyRate}e/h.
-Profil complet: {name}, {diploma} {field}, competences: {skills}, ville: {city}.
-Genere une reponse de 3-4 phrases qui:
-1. Resume brievement son profil
-2. Le felicite d'avoir complete l'onboarding
-3. L'invite a aller dans "Mon Plan" pour definir un objectif d'epargne`,
+  work_preferences: `The user can work {maxWorkHours}h/week, minimum {minHourlyRate}€/h.
+Complete profile: {name}, {diploma} {field}, skills: {skills}, city: {city}.
+Generate a response of 3-4 sentences that:
+1. Briefly summarizes their profile
+2. Congratulates them on completing the onboarding
+3. Invites them to go to "My Plan" to set a savings goal`,
 
   complete: '',
 };
 
 // Extraction prompt template
-const EXTRACTION_PROMPT = `Extrais les informations du message utilisateur suivant.
-Retourne UNIQUEMENT un JSON valide avec les champs trouves.
+const EXTRACTION_PROMPT = `Extract information from the following user message.
+Return ONLY valid JSON with the found fields.
 
-Champs possibles:
-- name: string (prenom)
-- diploma: string (L1, L2, L3, M1, M2, BTS, DUT, Licence, Master)
-- field: string (domaine d'etudes)
-- city: string (ville)
-- income: number (revenus mensuels en euros)
-- expenses: number (depenses mensuelles en euros)
-- skills: string[] (competences)
-- maxWorkHours: number (heures de travail max par semaine)
-- minHourlyRate: number (taux horaire minimum en euros)
+Possible fields:
+- name: string (first name)
+- diploma: string (Freshman, Sophomore, Junior, Senior, Graduate, etc.)
+- field: string (field of study)
+- city: string (city)
+- income: number (monthly income in euros)
+- expenses: number (monthly expenses in euros)
+- skills: string[] (skills)
+- maxWorkHours: number (max work hours per week)
+- minHourlyRate: number (minimum hourly rate in euros)
 
 Message: "{message}"
-Contexte precedent: {context}
+Previous context: {context}
 
 JSON:`;
 
@@ -281,15 +281,15 @@ function getNextStep(currentStep: OnboardingStep): OnboardingStep {
 
 // Generate completion message
 function generateCompletionMessage(context: Record<string, unknown>): string {
-  const name = context.name || 'toi';
-  return `Parfait ${name}! J'ai tout ce qu'il me faut.
+  const name = context.name || 'you';
+  return `Perfect ${name}! I have everything I need.
 
-Je t'ai cree un profil personnalise. Tu peux maintenant:
-- Definir un objectif d'epargne
-- Explorer les jobs qui matchent tes competences
-- Optimiser ton budget
+I've created a personalized profile for you. You can now:
+- Set a savings goal
+- Explore jobs that match your skills
+- Optimize your budget
 
-**On y va?** Clique sur "Mon Plan" pour commencer!`;
+**Ready to go?** Click on "My Plan" to get started!`;
 }
 
 // Basic regex extraction fallback
@@ -353,18 +353,18 @@ function getFallbackResponse(
 function getFallbackStepResponse(step: OnboardingStep, context: Record<string, unknown>): string {
   switch (step) {
     case 'name':
-      return `Super ${context.name || ''}! Enchante.\n\nEt niveau etudes, t'es en quoi? (Ex: "L2 Info", "M1 Droit")`;
+      return `Great ${context.name || ''}! Nice to meet you.\n\nWhat are you studying? (e.g., "Junior CS", "Senior Law")`;
     case 'studies':
-      return `${context.diploma || ''} ${context.field || ''}, cool!\n\nQuelles sont tes competences? (code, langues, design, sport...)`;
+      return `${context.diploma || ''} ${context.field || ''}, cool!\n\nWhat are your skills? (coding, languages, design, sports...)`;
     case 'skills':
-      return `Pas mal!\n\nTu vis ou? Quelle ville?`;
+      return `Nice!\n\nWhere do you live? What city?`;
     case 'location':
-      return `${context.city || ''}, je note.\n\nParlons budget: combien tu touches et depenses par mois environ?`;
+      return `${context.city || ''}, noted.\n\nLet's talk budget: how much do you earn and spend per month roughly?`;
     case 'budget':
-      return `OK pour le budget!\n\nDerniere question: combien d'heures max par semaine tu peux bosser? Et quel taux horaire minimum?`;
+      return `Got it for the budget!\n\nLast question: how many hours max per week can you work? And what's your minimum hourly rate?`;
     case 'work_preferences':
       return generateCompletionMessage(context);
     default:
-      return 'Continuons!';
+      return "Let's continue!";
   }
 }

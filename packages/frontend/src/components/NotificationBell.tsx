@@ -60,10 +60,10 @@ export function NotificationBell(props: NotificationBellProps) {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return "A l'instant";
-    if (diffMins < 60) return `Il y a ${diffMins}min`;
-    if (diffHours < 24) return `Il y a ${diffHours}h`;
-    return `Il y a ${diffDays}j`;
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
   };
 
   return (
@@ -101,7 +101,7 @@ export function NotificationBell(props: NotificationBellProps) {
                 onClick={() => props.onClearAll?.()}
                 class="text-xs text-slate-500 hover:text-slate-700"
               >
-                Tout effacer
+                Clear all
               </button>
             </Show>
           </div>
@@ -112,7 +112,7 @@ export function NotificationBell(props: NotificationBellProps) {
               fallback={
                 <div class="px-4 py-8 text-center text-slate-500">
                   <div class="text-3xl mb-2">🔔</div>
-                  <p class="text-sm">Aucune notification</p>
+                  <p class="text-sm">No notifications</p>
                 </div>
               }
             >

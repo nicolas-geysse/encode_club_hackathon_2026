@@ -255,10 +255,10 @@ function generateRetroplanForGoal(
   // Identify risk factors
   const riskFactors: string[] = [];
   if (protectedWeeks > 0) {
-    riskFactors.push(`${protectedWeeks} semaine(s) protegee(s) (examens)`);
+    riskFactors.push(`${protectedWeeks} protected week(s) (exams)`);
   }
   if (feasibilityScore < 0.5) {
-    riskFactors.push('Objectif ambitieux vu les contraintes');
+    riskFactors.push('Ambitious goal given constraints');
   }
 
   const retroplan: Retroplan = {

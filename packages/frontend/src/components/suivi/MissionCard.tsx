@@ -42,11 +42,11 @@ export function MissionCard(props: MissionCardProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return { label: 'Termine', class: 'bg-green-100 text-green-700' };
+        return { label: 'Done', class: 'bg-green-100 text-green-700' };
       case 'skipped':
-        return { label: 'Passe', class: 'bg-slate-100 text-slate-500' };
+        return { label: 'Skipped', class: 'bg-slate-100 text-slate-500' };
       default:
-        return { label: 'En cours', class: 'bg-blue-100 text-blue-700' };
+        return { label: 'In progress', class: 'bg-blue-100 text-blue-700' };
     }
   };
 
@@ -85,7 +85,7 @@ export function MissionCard(props: MissionCardProps) {
           <Show when={props.mission.status === 'active'}>
             <div class="mb-3">
               <div class="flex justify-between text-xs text-slate-500 mb-1">
-                <span>Progression</span>
+                <span>Progress</span>
                 <span>{props.mission.progress}%</span>
               </div>
               <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -122,14 +122,14 @@ export function MissionCard(props: MissionCardProps) {
               class="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors"
               onClick={() => props.onComplete?.()}
             >
-              ✓ Fait
+              ✓ Done
             </button>
             <button
               type="button"
               class="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-sm hover:bg-slate-200 transition-colors"
               onClick={() => {
-                const hours = prompt('Heures completees cette semaine:', '0');
-                const earnings = prompt('Euros gagnes:', '0');
+                const hours = prompt('Hours completed this week:', '0');
+                const earnings = prompt('Euros earned:', '0');
                 if (hours && earnings) {
                   props.onLogProgress?.(parseFloat(hours), parseFloat(earnings));
                 }
@@ -144,7 +144,7 @@ export function MissionCard(props: MissionCardProps) {
               class="text-xs text-slate-400 hover:text-red-500 transition-colors"
               onClick={() => props.onSkip?.()}
             >
-              Passer
+              Skip
             </button>
           </Show>
         </div>

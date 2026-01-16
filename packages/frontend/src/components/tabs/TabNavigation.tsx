@@ -1,8 +1,8 @@
 /**
  * Tab Navigation Component
  *
- * Horizontal tab navigation for Mon Plan page.
- * 6 tabs: Setup, Skills, A Vendre, Lifestyle, Trade, Swipe
+ * Horizontal tab navigation for My Plan page.
+ * 6 tabs: Setup, Skills, Inventory, Lifestyle, Trade, Swipe
  */
 
 import { For } from 'solid-js';
@@ -18,7 +18,7 @@ interface Tab {
 const TABS: Tab[] = [
   { id: 'setup', label: 'Setup', icon: '🎯' },
   { id: 'skills', label: 'Skills', icon: '💼' },
-  { id: 'inventory', label: 'A Vendre', icon: '📦' },
+  { id: 'inventory', label: 'Inventory', icon: '📦' },
   { id: 'lifestyle', label: 'Lifestyle', icon: '🏠' },
   { id: 'trade', label: 'Trade', icon: '🤝' },
   { id: 'swipe', label: 'Swipe', icon: '🎲' },

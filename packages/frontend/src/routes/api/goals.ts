@@ -102,10 +102,10 @@ function generateStrategies(profile: { skills?: string[] } | null): Strategy[] {
   strategies.push({
     id: 'opt_food',
     type: 'optimization',
-    name: 'Resto U CROUS',
+    name: 'Campus Cafeteria',
     monthlyImpact: 100,
     effort: 'low',
-    description: 'Manger au CROUS plutot que de cuisiner ou commander',
+    description: 'Eat at campus cafeteria instead of cooking or ordering',
   });
 
   // Check skills for jobs
@@ -113,10 +113,10 @@ function generateStrategies(profile: { skills?: string[] } | null): Strategy[] {
     strategies.push({
       id: 'job_freelance',
       type: 'job',
-      name: 'Dev Freelance (Malt)',
+      name: 'Dev Freelance (Upwork)',
       monthlyImpact: 500,
       effort: 'medium',
-      description: '10h/semaine de freelance dev a 25€/h',
+      description: '10h/week of freelance dev at €25/h',
     });
   }
 
@@ -124,19 +124,19 @@ function generateStrategies(profile: { skills?: string[] } | null): Strategy[] {
   strategies.push({
     id: 'hustle_delivery',
     type: 'hustle',
-    name: 'Livraison (Uber Eats)',
+    name: 'Delivery (Uber Eats)',
     monthlyImpact: 300,
     effort: 'medium',
-    description: 'Livraisons le soir et week-end',
+    description: 'Deliveries in evenings and weekends',
   });
 
   strategies.push({
     id: 'sell_stuff',
     type: 'selling',
-    name: 'Vente objets inutiles',
+    name: 'Sell unused items',
     monthlyImpact: 150,
     effort: 'low',
-    description: 'Vendre sur Leboncoin/Vinted',
+    description: 'Sell on eBay/Craigslist',
   });
 
   return strategies;
@@ -157,7 +157,7 @@ function generateMilestones(amount: number, weeklyTarget: number, deadline: stri
       targetAmount: weeklyTarget,
       cumulativeTarget: weeklyTarget * week,
       status: week === 1 ? 'in_progress' : 'pending',
-      actions: week <= 2 ? ['Vendre des objets', 'Optimiser depenses'] : ['Continuer les efforts'],
+      actions: week <= 2 ? ['Sell items', 'Optimize expenses'] : ['Keep up the effort'],
     });
   }
 
@@ -171,35 +171,35 @@ function generateAchievements(): Achievement[] {
       id: 'first_100',
       name: 'First Blood',
       icon: '💰',
-      description: 'Gagner 100€',
+      description: 'Earn €100',
       unlocked: false,
     },
     {
       id: 'halfway',
-      name: 'Mi-chemin',
+      name: 'Halfway There',
       icon: '🎯',
-      description: 'Atteindre 50%',
+      description: 'Reach 50%',
       unlocked: false,
     },
     {
       id: 'streak_4',
       name: 'On Fire',
       icon: '🔥',
-      description: '4 semaines consecutives',
+      description: '4 consecutive weeks',
       unlocked: false,
     },
     {
       id: 'diversified',
-      name: 'Diversifie',
+      name: 'Diversified',
       icon: '📈',
-      description: '3+ sources de revenus',
+      description: '3+ income sources',
       unlocked: false,
     },
     {
       id: 'goal_achieved',
-      name: 'Objectif!',
+      name: 'Goal!',
       icon: '🏆',
-      description: "Atteindre l'objectif",
+      description: 'Reach the goal',
       unlocked: false,
     },
   ];

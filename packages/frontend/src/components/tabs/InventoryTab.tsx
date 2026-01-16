@@ -23,20 +23,20 @@ interface InventoryTabProps {
 }
 
 const CATEGORIES = [
-  { id: 'electronics', label: 'Electronique', icon: '📱' },
-  { id: 'clothing', label: 'Vetements', icon: '👕' },
-  { id: 'books', label: 'Livres', icon: '📚' },
-  { id: 'furniture', label: 'Meubles', icon: '🪑' },
-  { id: 'sports', label: 'Sport', icon: '⚽' },
-  { id: 'other', label: 'Autre', icon: '📦' },
+  { id: 'electronics', label: 'Electronics', icon: '📱' },
+  { id: 'clothing', label: 'Clothing', icon: '👕' },
+  { id: 'books', label: 'Books', icon: '📚' },
+  { id: 'furniture', label: 'Furniture', icon: '🪑' },
+  { id: 'sports', label: 'Sports', icon: '⚽' },
+  { id: 'other', label: 'Other', icon: '📦' },
 ];
 
 const PLATFORMS = [
-  { id: 'leboncoin', label: 'Leboncoin' },
+  { id: 'leboncoin', label: 'Craigslist' },
   { id: 'vinted', label: 'Vinted' },
   { id: 'facebook', label: 'Facebook Marketplace' },
   { id: 'ebay', label: 'eBay' },
-  { id: 'direct', label: 'Vente directe' },
+  { id: 'direct', label: 'Direct sale' },
 ];
 
 export function InventoryTab(props: InventoryTabProps) {
@@ -106,11 +106,11 @@ export function InventoryTab(props: InventoryTabProps) {
 
   const getConditionLabel = (condition: string) => {
     const labels: Record<string, string> = {
-      new: 'Neuf',
-      like_new: 'Comme neuf',
-      good: 'Bon etat',
-      fair: 'Etat correct',
-      poor: 'A reparer',
+      new: 'New',
+      like_new: 'Like new',
+      good: 'Good',
+      fair: 'Fair',
+      poor: 'Needs repair',
     };
     return labels[condition] || condition;
   };
@@ -120,17 +120,17 @@ export function InventoryTab(props: InventoryTabProps) {
       {/* Summary Cards */}
       <div class="grid grid-cols-2 gap-4">
         <div class="card bg-gradient-to-br from-blue-50 to-blue-100">
-          <div class="text-sm text-blue-600 font-medium">A vendre</div>
+          <div class="text-sm text-blue-600 font-medium">For sale</div>
           <div class="text-2xl font-bold text-blue-900 mt-1">{totalEstimated()}€</div>
           <div class="text-xs text-blue-500 mt-1">
-            {items().filter((i) => !i.sold).length} objets
+            {items().filter((i) => !i.sold).length} items
           </div>
         </div>
         <div class="card bg-gradient-to-br from-green-50 to-green-100">
-          <div class="text-sm text-green-600 font-medium">Vendu</div>
+          <div class="text-sm text-green-600 font-medium">Sold</div>
           <div class="text-2xl font-bold text-green-900 mt-1">{totalSold()}€</div>
           <div class="text-xs text-green-500 mt-1">
-            {items().filter((i) => i.sold).length} objets
+            {items().filter((i) => i.sold).length} items
           </div>
         </div>
       </div>
@@ -138,10 +138,10 @@ export function InventoryTab(props: InventoryTabProps) {
       {/* Header */}
       <div class="flex items-center justify-between">
         <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
-          <span>📦</span> Inventaire
+          <span>📦</span> Inventory
         </h2>
         <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
-          + Ajouter
+          + Add
         </button>
       </div>
 
@@ -166,7 +166,7 @@ export function InventoryTab(props: InventoryTabProps) {
                     <h4 class="font-semibold text-slate-900">{item.name}</h4>
                     <Show when={item.sold}>
                       <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                        Vendu
+                        Sold
                       </span>
                     </Show>
                   </div>
@@ -197,11 +197,11 @@ export function InventoryTab(props: InventoryTabProps) {
                       type="button"
                       class="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                       onClick={() => {
-                        const price = prompt('Prix de vente ?', item.estimatedValue.toString());
+                        const price = prompt('Sale price?', item.estimatedValue.toString());
                         if (price) markAsSold(item.id, parseInt(price));
                       }}
                     >
-                      Vendu !
+                      Sold!
                     </button>
                   </Show>
                   <button
@@ -229,12 +229,10 @@ export function InventoryTab(props: InventoryTabProps) {
       <Show when={items().length === 0 && !showAddForm()}>
         <div class="card text-center py-12">
           <div class="text-4xl mb-4">📦</div>
-          <h3 class="text-lg font-medium text-slate-900 mb-2">Rien a vendre ?</h3>
-          <p class="text-slate-500 mb-4">
-            Ajoute des objets dont tu n'as plus besoin pour generer des revenus
-          </p>
+          <h3 class="text-lg font-medium text-slate-900 mb-2">Nothing to sell?</h3>
+          <p class="text-slate-500 mb-4">Add items you no longer need to generate income</p>
           <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
-            Ajouter un objet
+            Add an item
           </button>
         </div>
       </Show>
@@ -243,22 +241,22 @@ export function InventoryTab(props: InventoryTabProps) {
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">Nouvel objet</h3>
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">New item</h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Nom</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
                 <input
                   type="text"
                   class="input-field"
-                  placeholder="Ex: iPhone 12, Velo, Manuels..."
+                  placeholder="Ex: iPhone 12, Bike, Textbooks..."
                   value={newItem().name}
                   onInput={(e) => setNewItem({ ...newItem(), name: e.currentTarget.value })}
                 />
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">Categorie</label>
+                <label class="block text-sm font-medium text-slate-700 mb-2">Category</label>
                 <div class="grid grid-cols-3 gap-2">
                   <For each={CATEGORIES}>
                     {(cat) => (
@@ -284,7 +282,7 @@ export function InventoryTab(props: InventoryTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1">
-                    Valeur estimee (€)
+                    Estimated value (€)
                   </label>
                   <input
                     type="number"
@@ -300,7 +298,7 @@ export function InventoryTab(props: InventoryTabProps) {
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Etat</label>
+                  <label class="block text-sm font-medium text-slate-700 mb-1">Condition</label>
                   <select
                     class="input-field"
                     value={newItem().condition}
@@ -311,19 +309,17 @@ export function InventoryTab(props: InventoryTabProps) {
                       })
                     }
                   >
-                    <option value="new">Neuf</option>
-                    <option value="like_new">Comme neuf</option>
-                    <option value="good">Bon etat</option>
-                    <option value="fair">Etat correct</option>
-                    <option value="poor">A reparer</option>
+                    <option value="new">New</option>
+                    <option value="like_new">Like new</option>
+                    <option value="good">Good</option>
+                    <option value="fair">Fair</option>
+                    <option value="poor">Needs repair</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
-                  Plateforme de vente
-                </label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Sales platform</label>
                 <select
                   class="input-field"
                   value={newItem().platform}
@@ -342,7 +338,7 @@ export function InventoryTab(props: InventoryTabProps) {
                 class="btn-secondary flex-1"
                 onClick={() => setShowAddForm(false)}
               >
-                Annuler
+                Cancel
               </button>
               <button
                 type="button"
@@ -350,7 +346,7 @@ export function InventoryTab(props: InventoryTabProps) {
                 onClick={addItem}
                 disabled={!newItem().name || !newItem().estimatedValue}
               >
-                Ajouter
+                Add
               </button>
             </div>
           </div>

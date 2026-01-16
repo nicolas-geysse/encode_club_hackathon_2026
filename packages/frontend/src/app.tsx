@@ -20,8 +20,8 @@ export default function App() {
     {
       id: '1',
       type: 'info',
-      title: 'Bienvenue!',
-      message: 'Commence par definir ton objectif dans Mon Plan.',
+      title: 'Welcome!',
+      message: 'Start by defining your goal in My Plan.',
       timestamp: new Date(),
       read: false,
     },
@@ -44,8 +44,8 @@ export default function App() {
           {
             id: `week_${state.offsetDays}_${Date.now()}`,
             type: 'success',
-            title: `Semaine ${newWeek} terminee!`,
-            message: `Tu as simule ${state.offsetDays} jours. Verifie ta progression!`,
+            title: `Week ${newWeek} completed!`,
+            message: `You simulated ${state.offsetDays} days. Check your progress!`,
             timestamp: new Date(),
             read: false,
           },
@@ -59,8 +59,8 @@ export default function App() {
           {
             id: `checkin_${state.offsetDays}_${Date.now()}`,
             type: 'info',
-            title: 'Rappel check-in',
-            message: 'Pense a mettre a jour ta progression!',
+            title: 'Check-in reminder',
+            message: 'Remember to update your progress!',
             timestamp: new Date(),
             read: false,
           },
@@ -94,8 +94,8 @@ export default function App() {
 
         const navItems = [
           { href: '/', label: 'Onboarding', icon: '👋' },
-          { href: '/plan', label: 'Mon Plan', icon: '📋' },
-          { href: '/suivi', label: 'Suivi', icon: '📊' },
+          { href: '/plan', label: 'My Plan', icon: '📋' },
+          { href: '/suivi', label: 'Tracking', icon: '📊' },
         ];
 
         return (
@@ -140,12 +140,12 @@ export default function App() {
                             color: '#3b82f6',
                           },
                           {
-                            label: 'Ventes',
+                            label: 'Sales',
                             value: Math.round(progressPercent() * 2),
                             color: '#22c55e',
                           },
                           {
-                            label: 'Epargne',
+                            label: 'Savings',
                             value: Math.round(progressPercent()),
                             color: '#f59e0b',
                           },

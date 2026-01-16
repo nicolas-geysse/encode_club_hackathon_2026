@@ -104,9 +104,7 @@ export function SwipeSession(props: SwipeSessionProps) {
           <span>
             {currentIndex() + 1} / {props.scenarios.length}
           </span>
-          <span>
-            {accepted().length} accepte{accepted().length > 1 ? 's' : ''}
-          </span>
+          <span>{accepted().length} accepted</span>
         </div>
         <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
           <div
@@ -142,7 +140,7 @@ export function SwipeSession(props: SwipeSessionProps) {
         <Show when={currentIndex() >= props.scenarios.length}>
           <div class="text-center text-slate-500">
             <div class="text-4xl mb-4">✅</div>
-            <p>Tous les scenarios ont ete evalues !</p>
+            <p>All scenarios have been evaluated!</p>
           </div>
         </Show>
       </div>
@@ -157,7 +155,7 @@ export function SwipeSession(props: SwipeSessionProps) {
           <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center text-2xl">
             ✕
           </div>
-          <span class="text-xs">Pas pour moi</span>
+          <span class="text-xs">Not for me</span>
         </button>
         <button
           type="button"
@@ -167,13 +165,13 @@ export function SwipeSession(props: SwipeSessionProps) {
           <div class="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-2xl">
             ♥
           </div>
-          <span class="text-xs">Je prends !</span>
+          <span class="text-xs">I'll take it!</span>
         </button>
       </div>
 
       {/* Live Preference Updates */}
       <div class="mt-8 w-full max-w-sm">
-        <p class="text-xs text-slate-400 text-center mb-2">Preferences en cours d'apprentissage</p>
+        <p class="text-xs text-slate-400 text-center mb-2">Preferences learning in progress</p>
         <div class="grid grid-cols-4 gap-2">
           <div class="text-center">
             <div class="h-1 bg-slate-200 rounded-full overflow-hidden">
@@ -191,7 +189,7 @@ export function SwipeSession(props: SwipeSessionProps) {
                 style={{ width: `${preferences().hourlyRatePriority * 100}%` }}
               />
             </div>
-            <span class="text-[10px] text-slate-400">Salaire</span>
+            <span class="text-[10px] text-slate-400">Pay</span>
           </div>
           <div class="text-center">
             <div class="h-1 bg-slate-200 rounded-full overflow-hidden">

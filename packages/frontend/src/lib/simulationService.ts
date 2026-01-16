@@ -105,7 +105,7 @@ export function formatSimulatedDate(
     month: 'short',
     day: 'numeric',
   };
-  return d.toLocaleDateString('fr-FR', options || defaultOptions);
+  return d.toLocaleDateString('en-US', options || defaultOptions);
 }
 
 /**

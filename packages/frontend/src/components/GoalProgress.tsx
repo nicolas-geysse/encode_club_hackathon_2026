@@ -62,7 +62,7 @@ export function GoalProgress(props: GoalProgressProps) {
       <div class="flex justify-between mt-1">
         <span class="text-xs text-slate-500">{percentage()}%</span>
         <Show when={percentage() >= 100}>
-          <span class="text-xs text-green-600 font-medium">Objectif atteint !</span>
+          <span class="text-xs text-green-600 font-medium">Goal reached!</span>
         </Show>
       </div>
     </div>

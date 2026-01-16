@@ -183,7 +183,7 @@ export default function SuiviPage() {
               missions.push({
                 id: 'mission_skill_1',
                 title: `Freelance ${planData.skills[0].name}`,
-                description: 'Premiere mission de freelance cette semaine',
+                description: 'First freelance mission this week',
                 category: 'freelance',
                 weeklyHours: 5,
                 weeklyEarnings: planData.skills[0].hourlyRate * 5,
@@ -200,8 +200,8 @@ export default function SuiviPage() {
               if (unsoldItem) {
                 missions.push({
                   id: 'mission_sell_1',
-                  title: `Vendre ${unsoldItem.name}`,
-                  description: 'Mettre en vente et trouver un acheteur',
+                  title: `Sell ${unsoldItem.name}`,
+                  description: 'List for sale and find a buyer',
                   category: 'selling',
                   weeklyHours: 2,
                   weeklyEarnings: unsoldItem.estimatedValue,
@@ -219,8 +219,8 @@ export default function SuiviPage() {
           if (missions.length === 0) {
             missions.push({
               id: 'mission_default_1',
-              title: 'Cours particuliers',
-              description: 'Trouver un eleve et donner des cours',
+              title: 'Tutoring',
+              description: 'Find a student and give tutoring sessions',
               category: 'tutoring',
               weeklyHours: 3,
               weeklyEarnings: 45,
@@ -342,10 +342,10 @@ export default function SuiviPage() {
   const NoPlanView = () => (
     <div class="card text-center py-12 max-w-md mx-auto">
       <div class="text-4xl mb-4">📋</div>
-      <h2 class="text-xl font-bold text-slate-900 mb-2">Pas encore de plan</h2>
-      <p class="text-slate-500 mb-6">Configure d'abord ton objectif dans Mon Plan</p>
+      <h2 class="text-xl font-bold text-slate-900 mb-2">No plan yet</h2>
+      <p class="text-slate-500 mb-6">First set up your goal in My Plan</p>
       <a href="/plan" class="btn-primary">
-        Creer mon plan
+        Create my plan
       </a>
     </div>
   );
@@ -375,7 +375,7 @@ export default function SuiviPage() {
           {/* Energy Input & History */}
           <div>
             <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <span>⚡</span> Energie
+              <span>⚡</span> Energy
             </h3>
             <EnergyHistory history={followup().energyHistory} onEnergyUpdate={handleEnergyUpdate} />
           </div>
@@ -398,9 +398,9 @@ export default function SuiviPage() {
               <div class="card bg-slate-50 text-center py-8">
                 <div class="text-3xl mb-3">😊</div>
                 <p class="text-slate-600">
-                  Pas de mode comeback necessaire.
+                  No comeback mode needed.
                   <br />
-                  Continue comme ca !
+                  Keep it up!
                 </p>
               </div>
             </Show>
@@ -424,11 +424,11 @@ export default function SuiviPage() {
         <div class="card bg-gradient-to-r from-primary-50 to-primary-100">
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="font-semibold text-primary-900">Besoin d'aide ?</h4>
-              <p class="text-sm text-primary-600">Bruno peut t'aider a optimiser ton plan</p>
+              <h4 class="font-semibold text-primary-900">Need help?</h4>
+              <p class="text-sm text-primary-600">Bruno can help you optimize your plan</p>
             </div>
             <a href="/" class="btn-primary">
-              Parler a Bruno
+              Talk to Bruno
             </a>
           </div>
         </div>

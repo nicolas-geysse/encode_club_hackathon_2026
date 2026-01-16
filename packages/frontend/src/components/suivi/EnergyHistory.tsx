@@ -70,21 +70,21 @@ export function EnergyHistory(props: EnergyHistoryProps) {
   };
 
   const getEnergyLabel = (level: number) => {
-    if (level >= 80) return 'Au top !';
-    if (level >= 60) return 'Ca va';
-    if (level >= 40) return 'Fatigue';
-    if (level >= 20) return 'Epuise';
+    if (level >= 80) return 'On fire!';
+    if (level >= 60) return 'Okay';
+    if (level >= 40) return 'Tired';
+    if (level >= 20) return 'Exhausted';
     return 'Burnout';
   };
 
   const getSeverityInfo = (severity: string) => {
     switch (severity) {
       case 'high':
-        return { label: 'Critique', color: 'red', reduction: 85 };
+        return { label: 'Critical', color: 'red', reduction: 85 };
       case 'medium':
-        return { label: 'Modere', color: 'orange', reduction: 75 };
+        return { label: 'Moderate', color: 'orange', reduction: 75 };
       case 'low':
-        return { label: 'Leger', color: 'amber', reduction: 50 };
+        return { label: 'Minor', color: 'amber', reduction: 50 };
       default:
         return { label: '', color: 'slate', reduction: 0 };
     }
@@ -95,8 +95,8 @@ export function EnergyHistory(props: EnergyHistoryProps) {
       {/* Current Energy */}
       <div class="card">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-semibold text-slate-900">Energie actuelle</h3>
-          <span class="text-sm text-slate-500">Moyenne: {averageEnergy()}%</span>
+          <h3 class="font-semibold text-slate-900">Current energy</h3>
+          <span class="text-sm text-slate-500">Average: {averageEnergy()}%</span>
         </div>
 
         <div class="flex items-center gap-4">
@@ -125,22 +125,21 @@ export function EnergyHistory(props: EnergyHistoryProps) {
                 <div class="text-3xl">⚠️</div>
                 <div class="flex-1">
                   <h4 class={`font-bold text-${severity.color}-800`}>
-                    Energy Debt Detecte ({severity.label})
+                    Energy Debt Detected ({severity.label})
                   </h4>
                   <p class={`text-${severity.color}-600 mt-1`}>
-                    {debtInfo().consecutiveLowWeeks} semaines consecutives a moins de {threshold()}%
-                    d'energie. Tes objectifs ont ete automatiquement reduits de {severity.reduction}
-                    %.
+                    {debtInfo().consecutiveLowWeeks} consecutive weeks below {threshold()}% energy.
+                    Your targets have been automatically reduced by {severity.reduction}%.
                   </p>
 
                   <div class="mt-4 p-3 bg-white rounded-lg">
                     <div class="flex items-center justify-between">
-                      <span class="text-sm text-slate-600">Points de dette accumules</span>
+                      <span class="text-sm text-slate-600">Accumulated debt points</span>
                       <span class="font-bold text-red-600">{debtInfo().accumulatedDebt} pts</span>
                     </div>
                     <p class="text-xs text-slate-500 mt-2">
-                      Prends soin de toi. Quand ton energie remontera, tu pourras debloquer le mode
-                      Comeback !
+                      Take care of yourself. When your energy recovers, you can unlock Comeback
+                      mode!
                     </p>
                   </div>
 
@@ -149,13 +148,13 @@ export function EnergyHistory(props: EnergyHistoryProps) {
                       type="button"
                       class={`px-4 py-2 bg-${severity.color}-500 text-white rounded-lg text-sm font-medium hover:bg-${severity.color}-600 transition-colors`}
                     >
-                      🧘 Mode Self-Care
+                      🧘 Self-Care Mode
                     </button>
                     <button
                       type="button"
                       class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
                     >
-                      Voir les conseils
+                      See tips
                     </button>
                   </div>
                 </div>
@@ -167,7 +166,7 @@ export function EnergyHistory(props: EnergyHistoryProps) {
 
       {/* History Chart */}
       <div class="card">
-        <h3 class="font-semibold text-slate-900 mb-4">Historique</h3>
+        <h3 class="font-semibold text-slate-900 mb-4">History</h3>
 
         <div class="flex items-end gap-1 h-32">
           <For each={props.history}>
@@ -178,7 +177,7 @@ export function EnergyHistory(props: EnergyHistoryProps) {
                     entry.level < threshold() ? 'opacity-60' : ''
                   }`}
                   style={{ height: `${entry.level}%` }}
-                  title={`Semaine ${entry.week}: ${entry.level}%`}
+                  title={`Week ${entry.week}: ${entry.level}%`}
                 />
                 <span class="text-xs text-slate-400">S{entry.week}</span>
               </div>
@@ -189,13 +188,15 @@ export function EnergyHistory(props: EnergyHistoryProps) {
         {/* Threshold Line */}
         <div class="relative mt-2">
           <div class="absolute left-0 right-0 border-t-2 border-dashed border-red-300" />
-          <span class="absolute right-0 -top-3 text-xs text-red-400">Seuil ({threshold()}%)</span>
+          <span class="absolute right-0 -top-3 text-xs text-red-400">
+            Threshold ({threshold()}%)
+          </span>
         </div>
       </div>
 
       {/* Quick Energy Input */}
       <div class="card bg-slate-50">
-        <h4 class="font-medium text-slate-700 mb-3">Comment tu te sens cette semaine ?</h4>
+        <h4 class="font-medium text-slate-700 mb-3">How are you feeling this week?</h4>
         <div class="flex gap-2">
           <For
             each={[

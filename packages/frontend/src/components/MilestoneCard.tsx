@@ -57,16 +57,16 @@ export function MilestoneCard(props: MilestoneCardProps) {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <span class="text-lg font-bold">{statusIcon()}</span>
-          <span class="font-semibold">Semaine {props.weekNumber}</span>
+          <span class="font-semibold">Week {props.weekNumber}</span>
           <Show when={props.isCurrentWeek}>
             <span class="px-2 py-0.5 bg-primary-500 text-white text-xs rounded-full">
-              En cours
+              In progress
             </span>
           </Show>
         </div>
         <div class="text-right">
           <div class="font-bold">{props.targetAmount}€</div>
-          <div class="text-xs opacity-75">Cible: {props.cumulativeTarget}€ cumule</div>
+          <div class="text-xs opacity-75">Target: {props.cumulativeTarget}€ cumulative</div>
         </div>
       </div>
 

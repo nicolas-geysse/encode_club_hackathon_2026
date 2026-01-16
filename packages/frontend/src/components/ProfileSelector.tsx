@@ -112,7 +112,7 @@ export function ProfileSelector(props: Props) {
         <Show when={!loading()} fallback={<span class="animate-pulse">...</span>}>
           <span>{getProfileIcon(activeProfile())}</span>
           <span class="font-medium text-slate-700 max-w-[120px] truncate">
-            {activeProfile()?.name || 'Pas de profil'}
+            {activeProfile()?.name || 'No profile'}
           </span>
           <Show when={activeProfile()?.goalName}>
             <span class="text-xs text-slate-500 max-w-[80px] truncate">
@@ -139,7 +139,7 @@ export function ProfileSelector(props: Props) {
       <Show when={isOpen()}>
         <div class="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-slate-200 z-50">
           <div class="py-2">
-            <div class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Mes Profils</div>
+            <div class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">My Profiles</div>
 
             <Show when={profiles().length === 0}>
               <a
@@ -148,7 +148,7 @@ export function ProfileSelector(props: Props) {
                 onClick={() => setIsOpen(false)}
               >
                 <span>➕</span>
-                <span class="text-sm font-medium">Creer un profil</span>
+                <span class="text-sm font-medium">Create a profile</span>
               </a>
             </Show>
 
@@ -185,7 +185,7 @@ export function ProfileSelector(props: Props) {
                 class="w-full flex items-center gap-3 px-3 py-2 text-left text-primary-600 hover:bg-primary-50 transition-colors"
               >
                 <span>🎯</span>
-                <span class="text-sm font-medium">Nouvel objectif</span>
+                <span class="text-sm font-medium">New goal</span>
               </button>
             </div>
           </div>
@@ -201,28 +201,26 @@ export function ProfileSelector(props: Props) {
       <Show when={showNewGoalModal()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h3 class="text-lg font-bold text-slate-900 mb-4">Nouvel objectif</h3>
+            <h3 class="text-lg font-bold text-slate-900 mb-4">New goal</h3>
             <p class="text-sm text-slate-500 mb-4">
-              Créer un nouveau profil basé sur "{activeProfile()?.name}" avec un nouvel objectif.
+              Create a new profile based on "{activeProfile()?.name}" with a new goal.
             </p>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
-                  Nom de l'objectif
-                </label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Goal name</label>
                 <input
                   type="text"
                   value={newGoalForm().name}
                   onInput={(e) => setNewGoalForm({ ...newGoalForm(), name: e.currentTarget.value })}
-                  placeholder="Ex: Permis de conduire"
+                  placeholder="Ex: Driver's license"
                   class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">
-                  Montant cible (€)
+                  Target amount (€)
                 </label>
                 <input
                   type="number"
@@ -241,7 +239,7 @@ export function ProfileSelector(props: Props) {
 
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">
-                  Deadline (optionnel)
+                  Deadline (optional)
                 </label>
                 <input
                   type="date"
@@ -262,14 +260,14 @@ export function ProfileSelector(props: Props) {
                 }}
                 class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Annuler
+                Cancel
               </button>
               <button
                 onClick={handleDuplicateForGoal}
                 disabled={!newGoalForm().name || !newGoalForm().amount}
                 class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Créer
+                Create
               </button>
             </div>
           </div>

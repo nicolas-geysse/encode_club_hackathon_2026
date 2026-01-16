@@ -225,7 +225,7 @@ export function SwipeCard(props: SwipeCardProps) {
         }`}
       >
         <div class="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-xl transform rotate-12">
-          JE PRENDS !
+          I'LL TAKE IT!
         </div>
       </div>
       <div
@@ -234,7 +234,7 @@ export function SwipeCard(props: SwipeCardProps) {
         }`}
       >
         <div class="bg-red-500 text-white px-6 py-3 rounded-full font-bold text-xl transform -rotate-12">
-          PAS POUR MOI
+          NOT FOR ME
         </div>
       </div>
 
@@ -258,11 +258,11 @@ export function SwipeCard(props: SwipeCardProps) {
         <div class="grid grid-cols-2 gap-4 mb-4">
           <div class="bg-slate-50 rounded-lg p-3 text-center">
             <div class="text-2xl font-bold text-primary-600">{props.weeklyEarnings}€</div>
-            <div class="text-xs text-slate-500">/semaine</div>
+            <div class="text-xs text-slate-500">/week</div>
           </div>
           <div class="bg-slate-50 rounded-lg p-3 text-center">
             <div class="text-2xl font-bold text-slate-700">{props.weeklyHours}h</div>
-            <div class="text-xs text-slate-500">/semaine</div>
+            <div class="text-xs text-slate-500">/week</div>
           </div>
         </div>
 
@@ -313,8 +313,8 @@ export function SwipeCard(props: SwipeCardProps) {
 
       {/* Swipe Hint */}
       <div class="bg-slate-50 px-6 py-3 flex justify-between text-xs text-slate-400">
-        <span>← Refuser</span>
-        <span>Accepter →</span>
+        <span>← Decline</span>
+        <span>Accept →</span>
       </div>
     </div>
   );

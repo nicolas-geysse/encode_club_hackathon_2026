@@ -28,23 +28,23 @@ const SKILL_TEMPLATES: Partial<Skill>[] = [
   { name: 'JavaScript', hourlyRate: 23, marketDemand: 5, cognitiveEffort: 4, restNeeded: 2 },
   { name: 'Excel', hourlyRate: 18, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
   {
-    name: 'Cours particuliers',
+    name: 'Tutoring',
     hourlyRate: 20,
     marketDemand: 5,
     cognitiveEffort: 3,
     restNeeded: 1,
   },
   {
-    name: 'Traduction Anglais',
+    name: 'English Translation',
     hourlyRate: 15,
     marketDemand: 3,
     cognitiveEffort: 2,
     restNeeded: 0.5,
   },
-  { name: 'Design Graphique', hourlyRate: 22, marketDemand: 3, cognitiveEffort: 4, restNeeded: 2 },
+  { name: 'Graphic Design', hourlyRate: 22, marketDemand: 3, cognitiveEffort: 4, restNeeded: 2 },
   { name: 'Data Entry', hourlyRate: 12, marketDemand: 4, cognitiveEffort: 1, restNeeded: 0.5 },
   { name: 'Social Media', hourlyRate: 16, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
-  { name: 'Redaction Web', hourlyRate: 18, marketDemand: 3, cognitiveEffort: 3, restNeeded: 1 },
+  { name: 'Web Writing', hourlyRate: 18, marketDemand: 3, cognitiveEffort: 3, restNeeded: 1 },
 ];
 
 // Skill Arbitrage Algorithm
@@ -124,8 +124,8 @@ export function SkillsTab(props: SkillsTabProps) {
   };
 
   const getEffortLabel = (effort: number) => {
-    const labels = ['', 'Tres faible', 'Faible', 'Modere', 'Eleve', 'Tres eleve'];
-    return labels[effort] || 'Modere';
+    const labels = ['', 'Very low', 'Low', 'Moderate', 'High', 'Very high'];
+    return labels[effort] || 'Moderate';
   };
 
   return (
@@ -137,17 +137,17 @@ export function SkillsTab(props: SkillsTabProps) {
             <span>💼</span> Skill Arbitrage
           </h2>
           <p class="text-sm text-slate-500 mt-1">
-            Le job qui paye le plus n'est pas forcement le meilleur
+            The highest paying job isn't necessarily the best
           </p>
         </div>
         <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
-          + Ajouter
+          + Add
         </button>
       </div>
 
       {/* Quick Add Templates */}
       <div class="card">
-        <h3 class="text-sm font-medium text-slate-700 mb-3">Ajouter rapidement</h3>
+        <h3 class="text-sm font-medium text-slate-700 mb-3">Quick add</h3>
         <div class="flex flex-wrap gap-2">
           <For each={SKILL_TEMPLATES.filter((t) => !skills().some((s) => s.name === t.name))}>
             {(template) => (
@@ -180,7 +180,7 @@ export function SkillsTab(props: SkillsTabProps) {
                     <h4 class="font-semibold text-slate-900">{skill.name}</h4>
                     <Show when={index() === 0}>
                       <span class="px-2 py-0.5 text-xs font-medium bg-primary-100 text-primary-700 rounded-full">
-                        Recommande
+                        Recommended
                       </span>
                     </Show>
                   </div>
@@ -225,12 +225,10 @@ export function SkillsTab(props: SkillsTabProps) {
       <Show when={skills().length === 0 && !showAddForm()}>
         <div class="card text-center py-12">
           <div class="text-4xl mb-4">💼</div>
-          <h3 class="text-lg font-medium text-slate-900 mb-2">Aucune competence ajoutee</h3>
-          <p class="text-slate-500 mb-4">
-            Ajoute tes competences pour decouvrir les meilleurs jobs
-          </p>
+          <h3 class="text-lg font-medium text-slate-900 mb-2">No skills added</h3>
+          <p class="text-slate-500 mb-4">Add your skills to discover the best jobs</p>
           <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
-            Ajouter une competence
+            Add a skill
           </button>
         </div>
       </Show>
@@ -239,11 +237,11 @@ export function SkillsTab(props: SkillsTabProps) {
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">Nouvelle competence</h3>
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">New skill</h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Nom</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
                 <input
                   type="text"
                   class="input-field"
@@ -256,7 +254,7 @@ export function SkillsTab(props: SkillsTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1">
-                    Taux horaire (€)
+                    Hourly rate (€)
                   </label>
                   <input
                     type="number"
@@ -274,7 +272,7 @@ export function SkillsTab(props: SkillsTabProps) {
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1">
-                    Demande marche (1-5)
+                    Market demand (1-5)
                   </label>
                   <input
                     type="range"
@@ -295,7 +293,7 @@ export function SkillsTab(props: SkillsTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1">
-                    Effort cognitif (1-5)
+                    Cognitive effort (1-5)
                   </label>
                   <select
                     class="input-field"
@@ -307,16 +305,16 @@ export function SkillsTab(props: SkillsTabProps) {
                       })
                     }
                   >
-                    <option value="1">1 - Tres faible</option>
-                    <option value="2">2 - Faible</option>
-                    <option value="3">3 - Modere</option>
-                    <option value="4">4 - Eleve</option>
-                    <option value="5">5 - Tres eleve</option>
+                    <option value="1">1 - Very low</option>
+                    <option value="2">2 - Low</option>
+                    <option value="3">3 - Moderate</option>
+                    <option value="4">4 - High</option>
+                    <option value="5">5 - Very high</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-sm font-medium text-slate-700 mb-1">
-                    Repos necessaire (h)
+                    Rest needed (h)
                   </label>
                   <input
                     type="number"
@@ -342,7 +340,7 @@ export function SkillsTab(props: SkillsTabProps) {
                 class="btn-secondary flex-1"
                 onClick={() => setShowAddForm(false)}
               >
-                Annuler
+                Cancel
               </button>
               <button
                 type="button"
@@ -350,7 +348,7 @@ export function SkillsTab(props: SkillsTabProps) {
                 onClick={() => addSkill()}
                 disabled={!newSkill().name}
               >
-                Ajouter
+                Add
               </button>
             </div>
           </div>
@@ -359,11 +357,11 @@ export function SkillsTab(props: SkillsTabProps) {
 
       {/* Scoring Explanation */}
       <div class="card bg-slate-50">
-        <h4 class="text-sm font-medium text-slate-700 mb-2">Comment ca marche ?</h4>
+        <h4 class="text-sm font-medium text-slate-700 mb-2">How does it work?</h4>
         <p class="text-sm text-slate-600">
-          Le score equilibre 4 criteres : taux horaire (30%), demande marche (25%), effort cognitif
-          (25%), et temps de repos (20%). Un job bien paye mais epuisant peut avoir un score
-          inferieur a un job moins paye mais plus facile.
+          The score balances 4 criteria: hourly rate (30%), market demand (25%), cognitive effort
+          (25%), and rest time (20%). A well-paid but exhausting job may score lower than a
+          lower-paid but easier job.
         </p>
       </div>
     </div>

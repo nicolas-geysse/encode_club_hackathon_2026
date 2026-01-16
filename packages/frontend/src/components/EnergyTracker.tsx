@@ -85,10 +85,10 @@ export function EnergyTracker(props: EnergyTrackerProps) {
   const CompactView = () => (
     <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
       <Show when={!submitted()}>
-        <p class="text-sm font-medium text-slate-700 mb-3">Comment tu te sens aujourd'hui ?</p>
+        <p class="text-sm font-medium text-slate-700 mb-3">How are you feeling today?</p>
         <div class="flex items-center justify-between gap-2">
           <div class="flex flex-col items-center">
-            <span class="text-xs text-slate-500 mb-1">Energie</span>
+            <span class="text-xs text-slate-500 mb-1">Energy</span>
             <div class="flex gap-1">
               <For each={[1, 2, 3, 4, 5]}>
                 {(level) => (
@@ -119,16 +119,16 @@ export function EnergyTracker(props: EnergyTrackerProps) {
       <Show when={submitted()}>
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-green-700">Check-in enregistre !</p>
+            <p class="text-sm font-medium text-green-700">Check-in recorded!</p>
             <p class="text-xs text-slate-500">
-              Score capacite: <span class={getScoreColor()}>{compositeScore()}%</span>
+              Capacity score: <span class={getScoreColor()}>{compositeScore()}%</span>
             </p>
           </div>
           <button
             class="text-xs text-slate-500 hover:text-slate-700"
             onClick={() => setSubmitted(false)}
           >
-            Modifier
+            Edit
           </button>
         </div>
       </Show>
@@ -139,7 +139,7 @@ export function EnergyTracker(props: EnergyTrackerProps) {
   const FullView = () => (
     <div class="card">
       <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-        <span>📊</span> Check-in du jour
+        <span>📊</span> Daily Check-in
       </h3>
 
       <Show when={!submitted()}>
@@ -147,7 +147,7 @@ export function EnergyTracker(props: EnergyTrackerProps) {
           {/* Energy Level */}
           <div>
             <div class="flex justify-between items-center mb-2">
-              <label class="text-sm font-medium text-slate-700">Energie</label>
+              <label class="text-sm font-medium text-slate-700">Energy</label>
               <span class="text-2xl">{energyEmojis[energyLevel() - 1]}</span>
             </div>
             <div class="flex justify-between gap-2">
@@ -167,15 +167,15 @@ export function EnergyTracker(props: EnergyTrackerProps) {
               </For>
             </div>
             <div class="flex justify-between text-xs text-slate-400 mt-1">
-              <span>Epuise</span>
-              <span>En forme</span>
+              <span>Exhausted</span>
+              <span>Energized</span>
             </div>
           </div>
 
           {/* Mood Score */}
           <div>
             <div class="flex justify-between items-center mb-2">
-              <label class="text-sm font-medium text-slate-700">Humeur</label>
+              <label class="text-sm font-medium text-slate-700">Mood</label>
               <span class="text-2xl">{moodEmojis[moodScore() - 1]}</span>
             </div>
             <div class="flex justify-between gap-2">
@@ -195,8 +195,8 @@ export function EnergyTracker(props: EnergyTrackerProps) {
               </For>
             </div>
             <div class="flex justify-between text-xs text-slate-400 mt-1">
-              <span>Negatif</span>
-              <span>Positif</span>
+              <span>Negative</span>
+              <span>Positive</span>
             </div>
           </div>
 
@@ -223,15 +223,15 @@ export function EnergyTracker(props: EnergyTrackerProps) {
               </For>
             </div>
             <div class="flex justify-between text-xs text-slate-400 mt-1">
-              <span>Zen</span>
-              <span>Stresse</span>
+              <span>Calm</span>
+              <span>Stressed</span>
             </div>
           </div>
 
           {/* Hours Slept (optional) */}
           <div>
             <label class="text-sm font-medium text-slate-700 block mb-2">
-              Heures de sommeil (optionnel)
+              Hours of sleep (optional)
             </label>
             <div class="flex items-center gap-3">
               <input
@@ -251,20 +251,20 @@ export function EnergyTracker(props: EnergyTrackerProps) {
 
           {/* Composite Score Preview */}
           <div class="bg-slate-50 rounded-lg p-4 text-center">
-            <p class="text-sm text-slate-500 mb-1">Score capacite estime</p>
+            <p class="text-sm text-slate-500 mb-1">Estimated capacity score</p>
             <p class={`text-3xl font-bold ${getScoreColor()}`}>{compositeScore()}%</p>
             <p class="text-xs text-slate-400 mt-1">
               {compositeScore() >= 70
-                ? 'Bonne capacite pour atteindre tes objectifs'
+                ? 'Good capacity to reach your goals'
                 : compositeScore() >= 50
-                  ? 'Capacite moyenne, adapte tes efforts'
-                  : 'Prends soin de toi, reduis tes objectifs si besoin'}
+                  ? 'Average capacity, adjust your efforts'
+                  : 'Take care of yourself, reduce your goals if needed'}
             </p>
           </div>
 
           {/* Submit Button */}
           <button class="w-full btn-primary" onClick={handleSubmit} disabled={loading()}>
-            {loading() ? 'Enregistrement...' : 'Enregistrer mon check-in'}
+            {loading() ? 'Saving...' : 'Save my check-in'}
           </button>
         </div>
       </Show>
@@ -272,15 +272,15 @@ export function EnergyTracker(props: EnergyTrackerProps) {
       <Show when={submitted()}>
         <div class="text-center py-6">
           <div class="text-5xl mb-4">✅</div>
-          <p class="text-lg font-medium text-green-700 mb-2">Check-in enregistre !</p>
+          <p class="text-lg font-medium text-green-700 mb-2">Check-in recorded!</p>
           <p class="text-slate-500 mb-4">
-            Score capacite: <span class={`font-bold ${getScoreColor()}`}>{compositeScore()}%</span>
+            Capacity score: <span class={`font-bold ${getScoreColor()}`}>{compositeScore()}%</span>
           </p>
           <button
             class="text-sm text-primary-600 hover:text-primary-700"
             onClick={() => setSubmitted(false)}
           >
-            Modifier mon check-in
+            Edit my check-in
           </button>
         </div>
       </Show>

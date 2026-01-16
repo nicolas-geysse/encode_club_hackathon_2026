@@ -22,38 +22,48 @@ interface LifestyleTabProps {
 }
 
 const CATEGORIES = [
-  { id: 'housing', label: 'Logement', icon: '🏠', color: 'blue' },
-  { id: 'food', label: 'Alimentation', icon: '🍕', color: 'orange' },
+  { id: 'housing', label: 'Housing', icon: '🏠', color: 'blue' },
+  { id: 'food', label: 'Food', icon: '🍕', color: 'orange' },
   { id: 'transport', label: 'Transport', icon: '🚌', color: 'green' },
-  { id: 'subscriptions', label: 'Abonnements', icon: '📺', color: 'purple' },
-  { id: 'other', label: 'Autre', icon: '📌', color: 'slate' },
+  { id: 'subscriptions', label: 'Subscriptions', icon: '📺', color: 'purple' },
+  { id: 'other', label: 'Other', icon: '📌', color: 'slate' },
 ];
 
 const SUGGESTIONS: Record<string, { items: Partial<LifestyleItem>[] }> = {
   subscriptions: {
     items: [
-      { name: 'Netflix', currentCost: 13, optimizedCost: 6.5, suggestion: 'Partage familial' },
-      { name: 'Spotify', currentCost: 11, optimizedCost: 3, suggestion: 'Duo etudiant' },
+      { name: 'Netflix', currentCost: 13, optimizedCost: 6.5, suggestion: 'Family sharing' },
+      { name: 'Spotify', currentCost: 11, optimizedCost: 3, suggestion: 'Student duo' },
       {
-        name: 'Salle de sport',
+        name: 'Gym',
         currentCost: 30,
         optimizedCost: 0,
-        suggestion: 'Sport universitaire',
+        suggestion: 'Campus gym',
       },
-      { name: 'Amazon Prime', currentCost: 6, optimizedCost: 3, suggestion: 'Offre etudiant' },
+      { name: 'Amazon Prime', currentCost: 6, optimizedCost: 3, suggestion: 'Student offer' },
     ],
   },
   food: {
     items: [
-      { name: 'Restaurant U', currentCost: 0, optimizedCost: 0, suggestion: '1€ avec bourse' },
-      { name: 'Courses', currentCost: 200, optimizedCost: 150, suggestion: 'Lidl + batch cooking' },
-      { name: 'Cafes', currentCost: 50, optimizedCost: 15, suggestion: 'Thermos maison' },
+      {
+        name: 'Campus cafeteria',
+        currentCost: 0,
+        optimizedCost: 0,
+        suggestion: '$1 with scholarship',
+      },
+      {
+        name: 'Groceries',
+        currentCost: 200,
+        optimizedCost: 150,
+        suggestion: 'Discount store + batch cooking',
+      },
+      { name: 'Coffee', currentCost: 50, optimizedCost: 15, suggestion: 'Bring thermos' },
     ],
   },
   transport: {
     items: [
-      { name: 'Abonnement metro', currentCost: 75, optimizedCost: 37, suggestion: 'Imagine R' },
-      { name: 'Essence', currentCost: 100, optimizedCost: 50, suggestion: 'Covoiturage BlaBlaCar' },
+      { name: 'Transit pass', currentCost: 75, optimizedCost: 37, suggestion: 'Student discount' },
+      { name: 'Gas', currentCost: 100, optimizedCost: 50, suggestion: 'Carpool' },
     ],
   },
 };
@@ -121,19 +131,19 @@ export function LifestyleTab(props: LifestyleTabProps) {
       {/* Summary Cards */}
       <div class="grid grid-cols-3 gap-4">
         <div class="card">
-          <div class="text-sm text-slate-500">Actuel</div>
+          <div class="text-sm text-slate-500">Current</div>
           <div class="text-2xl font-bold text-slate-900 mt-1">{totalCurrent()}€</div>
-          <div class="text-xs text-slate-400">/mois</div>
+          <div class="text-xs text-slate-400">/month</div>
         </div>
         <div class="card bg-gradient-to-br from-green-50 to-green-100">
-          <div class="text-sm text-green-600">Optimise</div>
+          <div class="text-sm text-green-600">Optimized</div>
           <div class="text-2xl font-bold text-green-900 mt-1">{totalOptimized()}€</div>
-          <div class="text-xs text-green-500">/mois</div>
+          <div class="text-xs text-green-500">/month</div>
         </div>
         <div class="card bg-gradient-to-br from-amber-50 to-amber-100">
-          <div class="text-sm text-amber-600">Economies possibles</div>
+          <div class="text-sm text-amber-600">Potential savings</div>
           <div class="text-2xl font-bold text-amber-900 mt-1">+{potentialSavings()}€</div>
-          <div class="text-xs text-amber-500">/mois</div>
+          <div class="text-xs text-amber-500">/month</div>
         </div>
       </div>
 
@@ -197,7 +207,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
             class="text-sm text-primary-600 hover:text-primary-700 font-medium"
             onClick={() => setShowAddForm(true)}
           >
-            + Ajouter
+            + Add
           </button>
         </div>
 
@@ -209,7 +219,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
                   <h4 class="font-medium text-slate-900">{item.name}</h4>
                   <Show when={item.applied}>
                     <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                      Optimise
+                      Optimized
                     </span>
                   </Show>
                 </div>
@@ -245,7 +255,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
                     class="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
                     onClick={() => applyOptimization(item.id)}
                   >
-                    Appliquer
+                    Apply
                   </button>
                 </Show>
 
@@ -269,7 +279,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
         </For>
 
         <Show when={items().filter((i) => i.category === activeCategory()).length === 0}>
-          <div class="text-center py-8 text-slate-500">Aucun element dans cette categorie</div>
+          <div class="text-center py-8 text-slate-500">No items in this category</div>
         </Show>
       </div>
 
@@ -277,15 +287,15 @@ export function LifestyleTab(props: LifestyleTabProps) {
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">Nouvelle depense</h3>
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">New expense</h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Nom</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
                 <input
                   type="text"
                   class="input-field"
-                  placeholder="Ex: Netflix, Metro, Courses..."
+                  placeholder="Ex: Netflix, Transit, Groceries..."
                   value={newItem().name}
                   onInput={(e) => setNewItem({ ...newItem(), name: e.currentTarget.value })}
                 />
@@ -293,7 +303,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
 
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">
-                  Cout mensuel (€)
+                  Monthly cost (€)
                 </label>
                 <input
                   type="number"
@@ -307,7 +317,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Categorie</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
                 <select
                   class="input-field"
                   value={newItem().category}
@@ -335,7 +345,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
                 class="btn-secondary flex-1"
                 onClick={() => setShowAddForm(false)}
               >
-                Annuler
+                Cancel
               </button>
               <button
                 type="button"
@@ -343,7 +353,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
                 onClick={() => addItem()}
                 disabled={!newItem().name}
               >
-                Ajouter
+                Add
               </button>
             </div>
           </div>

@@ -108,10 +108,10 @@ export function SetupTab(props: SetupTabProps) {
 
   // Quick presets
   const presets = [
-    { name: 'Vacances', amount: 500, icon: '🏖️' },
-    { name: 'Permis', amount: 1500, icon: '🚗' },
-    { name: 'Ordinateur', amount: 800, icon: '💻' },
-    { name: 'Fonds urgence', amount: 1000, icon: '🛡️' },
+    { name: 'Vacation', amount: 500, icon: '🏖️' },
+    { name: "Driver's license", amount: 1500, icon: '🚗' },
+    { name: 'Computer', amount: 800, icon: '💻' },
+    { name: 'Emergency fund', amount: 1000, icon: '🛡️' },
   ];
 
   return (
@@ -119,7 +119,7 @@ export function SetupTab(props: SetupTabProps) {
       {/* Goal Presets */}
       <div class="card">
         <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <span>🎯</span> Objectif rapide
+          <span>🎯</span> Quick goal
         </h3>
         <div class="flex gap-3 flex-wrap">
           <For each={presets}>
@@ -152,11 +152,11 @@ export function SetupTab(props: SetupTabProps) {
         </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Nom de l'objectif</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Goal name</label>
             <input
               type="text"
               class="input-field"
-              placeholder="Ex: Vacances d'ete"
+              placeholder="Ex: Summer vacation"
               value={goalName()}
               onInput={(e) => setGoalName(e.currentTarget.value)}
             />
@@ -164,7 +164,7 @@ export function SetupTab(props: SetupTabProps) {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Montant</label>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Amount</label>
               <div class="relative">
                 <input
                   type="number"
@@ -195,10 +195,10 @@ export function SetupTab(props: SetupTabProps) {
       {/* Academic Events */}
       <div class="card">
         <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <span>📅</span> Evenements academiques
+          <span>📅</span> Academic events
         </h3>
         <p class="text-sm text-slate-500 mb-4">
-          Ajoute tes periodes d'examens ou vacances pour adapter les objectifs
+          Add your exam periods or vacations to adapt your goals
         </p>
 
         <Show when={academicEvents().length > 0}>
@@ -221,8 +221,8 @@ export function SetupTab(props: SetupTabProps) {
                     <div>
                       <p class="font-medium text-slate-800">{event.name}</p>
                       <p class="text-xs text-slate-500">
-                        {new Date(event.startDate).toLocaleDateString('fr-FR')} -{' '}
-                        {new Date(event.endDate).toLocaleDateString('fr-FR')}
+                        {new Date(event.startDate).toLocaleDateString('en-US')} -{' '}
+                        {new Date(event.endDate).toLocaleDateString('en-US')}
                       </p>
                     </div>
                   </div>
@@ -247,16 +247,16 @@ export function SetupTab(props: SetupTabProps) {
               setNewEvent({ ...newEvent(), type: e.currentTarget.value as AcademicEvent['type'] })
             }
           >
-            <option value="exam_period">📝 Examens</option>
-            <option value="vacation">🏖️ Vacances</option>
-            <option value="class_intensive">📚 Cours intensifs</option>
-            <option value="internship">💼 Stage</option>
-            <option value="project_deadline">⏰ Rendu projet</option>
+            <option value="exam_period">📝 Exams</option>
+            <option value="vacation">🏖️ Vacation</option>
+            <option value="class_intensive">📚 Intensive classes</option>
+            <option value="internship">💼 Internship</option>
+            <option value="project_deadline">⏰ Project deadline</option>
           </select>
           <input
             type="text"
             class="input-field"
-            placeholder="Nom (ex: Partiels S1)"
+            placeholder="Name (ex: Midterms S1)"
             value={newEvent().name}
             onInput={(e) => setNewEvent({ ...newEvent(), name: e.currentTarget.value })}
           />
@@ -278,18 +278,16 @@ export function SetupTab(props: SetupTabProps) {
           class="mt-3 text-sm text-primary-600 hover:text-primary-700 font-medium"
           onClick={addAcademicEvent}
         >
-          + Ajouter cet evenement
+          + Add this event
         </button>
       </div>
 
       {/* Commitments */}
       <div class="card">
         <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <span>📋</span> Engagements reguliers
+          <span>📋</span> Regular commitments
         </h3>
-        <p class="text-sm text-slate-500 mb-4">
-          Indique tes activites qui prennent du temps chaque semaine
-        </p>
+        <p class="text-sm text-slate-500 mb-4">Indicate your activities that take time each week</p>
 
         <Show when={commitments().length > 0}>
           <div class="space-y-2 mb-4">
@@ -312,7 +310,7 @@ export function SetupTab(props: SetupTabProps) {
                     </span>
                     <div>
                       <p class="font-medium text-slate-800">{commitment.name}</p>
-                      <p class="text-xs text-slate-500">{commitment.hoursPerWeek}h/semaine</p>
+                      <p class="text-xs text-slate-500">{commitment.hoursPerWeek}h/week</p>
                     </div>
                   </div>
                   <button
@@ -339,17 +337,17 @@ export function SetupTab(props: SetupTabProps) {
               })
             }
           >
-            <option value="class">📚 Cours</option>
+            <option value="class">📚 Classes</option>
             <option value="sport">⚽ Sport</option>
-            <option value="club">🎭 Club/Asso</option>
-            <option value="family">👨‍👩‍👧 Famille</option>
-            <option value="health">🏥 Sante</option>
-            <option value="other">📌 Autre</option>
+            <option value="club">🎭 Club/Association</option>
+            <option value="family">👨‍👩‍👧 Family</option>
+            <option value="health">🏥 Health</option>
+            <option value="other">📌 Other</option>
           </select>
           <input
             type="text"
             class="input-field"
-            placeholder="Nom (ex: Basket)"
+            placeholder="Name (ex: Basketball)"
             value={newCommitment().name}
             onInput={(e) => setNewCommitment({ ...newCommitment(), name: e.currentTarget.value })}
           />
@@ -368,7 +366,7 @@ export function SetupTab(props: SetupTabProps) {
               }
             />
             <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
-              h/sem
+              h/wk
             </span>
           </div>
         </div>
@@ -377,7 +375,7 @@ export function SetupTab(props: SetupTabProps) {
           class="mt-3 text-sm text-primary-600 hover:text-primary-700 font-medium"
           onClick={addCommitment}
         >
-          + Ajouter cet engagement
+          + Add this commitment
         </button>
       </div>
 
@@ -389,7 +387,7 @@ export function SetupTab(props: SetupTabProps) {
           onClick={handleSave}
           disabled={!goalName() || goalAmount() <= 0 || !goalDeadline()}
         >
-          Valider l'objectif
+          Validate goal
         </button>
       </div>
     </div>

@@ -28,7 +28,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'first_euro',
     name: 'First Euro',
-    description: 'Tu as gagne ton premier euro avec Stride !',
+    description: 'You earned your first euro with Stride!',
     icon: '💰',
     category: 'earning',
     condition: 'earningsCollected >= 1',
@@ -36,8 +36,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: 'hundred_club',
-    name: 'Club des 100',
-    description: 'Tu as atteint 100 euros de revenus',
+    name: '100 Club',
+    description: 'You reached 100 euros in earnings',
     icon: '💯',
     category: 'earning',
     condition: 'earningsCollected >= 100',
@@ -45,8 +45,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: 'week_complete',
-    name: 'Semaine Complete',
-    description: 'Tu as complete toutes tes missions de la semaine',
+    name: 'Week Complete',
+    description: 'You completed all your missions for the week',
     icon: '📅',
     category: 'earning',
     condition: 'weeklyMissionsCompleted === weeklyMissionsTotal',
@@ -54,8 +54,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: 'goal_achieved',
-    name: 'Objectif Atteint',
-    description: "Tu as atteint ton objectif d'epargne !",
+    name: 'Goal Achieved',
+    description: 'You reached your savings goal!',
     icon: '🏆',
     category: 'earning',
     condition: 'currentAmount >= goalAmount',
@@ -66,7 +66,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'self_care_champion',
     name: 'Self Care Champion',
-    description: 'Tu as pris soin de toi pendant une periode difficile',
+    description: 'You took care of yourself during a difficult period',
     icon: '🧘',
     category: 'wellness',
     condition: 'energyDebtActivated && restModeUsed',
@@ -75,7 +75,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'comeback_king',
     name: 'Comeback King',
-    description: "Tu as complete un plan de rattrapage apres une baisse d'energie",
+    description: 'You completed a catch-up plan after an energy dip',
     icon: '🚀',
     category: 'wellness',
     condition: 'comebackPlanCompleted',
@@ -83,8 +83,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: 'energy_stable',
-    name: 'Energie Stable',
-    description: 'Tu as maintenu ton energie au-dessus de 60% pendant 4 semaines',
+    name: 'Stable Energy',
+    description: 'You maintained energy above 60% for 4 weeks',
     icon: '⚡',
     category: 'wellness',
     condition: 'energyHistory.filter(e => e.level >= 60).length >= 4',
@@ -95,7 +95,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'budget_master',
     name: 'Budget Master',
-    description: 'Tu as applique 3 optimisations lifestyle',
+    description: 'You applied 3 lifestyle optimizations',
     icon: '💡',
     category: 'optimization',
     condition: 'optimizationsApplied >= 3',
@@ -104,7 +104,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'skill_arbitrage_pro',
     name: 'Skill Arbitrage Pro',
-    description: 'Tu as utilise le scoring multi-criteres pour choisir un job',
+    description: 'You used multi-criteria scoring to choose a job',
     icon: '📊',
     category: 'optimization',
     condition: 'skillArbitrageUsed',
@@ -112,8 +112,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: 'diversified_income',
-    name: 'Revenus Diversifies',
-    description: 'Tu as 3+ sources de revenus actives',
+    name: 'Diversified Income',
+    description: 'You have 3+ active income sources',
     icon: '🌈',
     category: 'optimization',
     condition: 'activeMissions.length >= 3',
@@ -124,7 +124,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'swipe_master',
     name: 'Swipe Master',
-    description: 'Tu as complete une session Swipe Scenarios',
+    description: 'You completed a Swipe Scenarios session',
     icon: '👆',
     category: 'engagement',
     condition: 'swipeSessionCompleted',
@@ -132,8 +132,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: 'profile_complete',
-    name: 'Profil Complet',
-    description: 'Tu as complete tous les onglets de Mon Plan',
+    name: 'Profile Complete',
+    description: 'You completed all tabs in My Plan',
     icon: '✅',
     category: 'engagement',
     condition: 'completedTabs.length === 6',
@@ -141,8 +141,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
   {
     id: 'daily_check',
-    name: 'Check Quotidien',
-    description: 'Tu as mis a jour ton energie 7 jours de suite',
+    name: 'Daily Check',
+    description: 'You updated your energy for 7 days in a row',
     icon: '📱',
     category: 'engagement',
     condition: 'consecutiveDailyChecks >= 7',

@@ -106,7 +106,7 @@ export function SimulationControls(props: Props) {
         if (profile?.goalDeadline) {
           setGoalInfo({
             deadline: profile.goalDeadline,
-            name: profile.goalName || 'Objectif',
+            name: profile.goalName || 'Goal',
             amount: profile.goalAmount || 0,
           });
         }
@@ -177,7 +177,7 @@ export function SimulationControls(props: Props) {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString('en-US', {
       weekday: 'short',
       day: 'numeric',
       month: 'short',
@@ -198,7 +198,7 @@ export function SimulationControls(props: Props) {
         <div class="relative flex items-center gap-2">
           {/* Day Counter Display */}
           <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-lg">
-            <span class="text-xs text-slate-500 font-medium">JOUR</span>
+            <span class="text-xs text-slate-500 font-medium">DAY</span>
             <span class="text-lg font-bold text-primary-600">{daysInfo().currentDay}</span>
             <span class="text-slate-400">/</span>
             <span class="text-sm text-slate-500">{daysInfo().totalDays}</span>
@@ -236,14 +236,14 @@ export function SimulationControls(props: Props) {
                 {state().isSimulating ? (
                   <>
                     <div class="font-medium text-amber-800">
-                      Date simulee: {formatDate(state().simulatedDate)}
+                      Simulated date: {formatDate(state().simulatedDate)}
                     </div>
                     <div class="text-xs text-slate-500 mt-1">
-                      +{state().offsetDays}j depuis le {formatDate(state().realDate)}
+                      +{state().offsetDays}d since {formatDate(state().realDate)}
                     </div>
                   </>
                 ) : (
-                  <div>Aujourd'hui: {formatDate(state().realDate)}</div>
+                  <div>Today: {formatDate(state().realDate)}</div>
                 )}
               </div>
 
@@ -254,7 +254,7 @@ export function SimulationControls(props: Props) {
                   disabled={loading()}
                   class="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  +1 jour
+                  +1 day
                 </button>
                 <button
                   type="button"
@@ -262,7 +262,7 @@ export function SimulationControls(props: Props) {
                   disabled={loading()}
                   class="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  +1 semaine
+                  +1 week
                 </button>
                 <button
                   type="button"
@@ -270,7 +270,7 @@ export function SimulationControls(props: Props) {
                   disabled={loading()}
                   class="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  +1 mois
+                  +1 month
                 </button>
               </div>
 
@@ -281,7 +281,7 @@ export function SimulationControls(props: Props) {
                   disabled={loading()}
                   class="w-full px-3 py-1.5 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  Retour au temps reel
+                  Back to real time
                 </button>
               </Show>
 
@@ -309,12 +309,12 @@ export function SimulationControls(props: Props) {
               <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
                 <div class="text-center mb-4">
                   <span class="text-4xl">👋</span>
-                  <h3 class="text-lg font-bold text-slate-900 mt-2">Nouvelle journee!</h3>
+                  <h3 class="text-lg font-bold text-slate-900 mt-2">New day!</h3>
                   <p class="text-slate-500 text-sm mt-1">
                     {formatDate(state().realDate)}
                     {state().isSimulating && (
                       <span class="text-amber-600 ml-1">
-                        (simule: {formatDate(state().simulatedDate)})
+                        (simulated: {formatDate(state().simulatedDate)})
                       </span>
                     )}
                   </p>
@@ -325,14 +325,14 @@ export function SimulationControls(props: Props) {
                     onClick={completeDailyCheckin}
                     class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
-                    C'est parti !
+                    Let's go!
                   </button>
                   <a
                     href="/suivi"
                     onClick={completeDailyCheckin}
                     class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors text-center"
                   >
-                    Voir mon suivi
+                    View my progress
                   </a>
                 </div>
               </div>
@@ -351,10 +351,10 @@ export function SimulationControls(props: Props) {
                 <span class="text-amber-600 text-lg">⏱️</span>
                 <div class="text-sm">
                   <span class="text-amber-800 font-medium">
-                    Date simulée: {formatDate(state().simulatedDate)}
+                    Simulated date: {formatDate(state().simulatedDate)}
                   </span>
                   <span class="text-amber-600 ml-2">
-                    (+{state().offsetDays}j depuis le {formatDate(state().realDate)})
+                    (+{state().offsetDays}d since {formatDate(state().realDate)})
                   </span>
                 </div>
               </div>
@@ -366,21 +366,21 @@ export function SimulationControls(props: Props) {
                     disabled={loading()}
                     class="px-2 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-colors disabled:opacity-50"
                   >
-                    +1j
+                    +1d
                   </button>
                   <button
                     onClick={() => handleAdvance(7)}
                     disabled={loading()}
                     class="px-2 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-colors disabled:opacity-50"
                   >
-                    +7j
+                    +7d
                   </button>
                   <button
                     onClick={() => handleAdvance(30)}
                     disabled={loading()}
                     class="px-2 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-colors disabled:opacity-50"
                   >
-                    +30j
+                    +30d
                   </button>
                   <Show when={state().isSimulating}>
                     <button
@@ -435,7 +435,7 @@ export function SimulationControls(props: Props) {
           <button
             onClick={() => setExpanded(true)}
             class="fixed bottom-4 right-4 p-3 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-lg transition-colors z-40"
-            title="Mode simulation"
+            title="Simulation mode"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -454,12 +454,12 @@ export function SimulationControls(props: Props) {
             <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
               <div class="text-center mb-4">
                 <span class="text-4xl">👋</span>
-                <h3 class="text-lg font-bold text-slate-900 mt-2">Nouvelle journée!</h3>
+                <h3 class="text-lg font-bold text-slate-900 mt-2">New day!</h3>
                 <p class="text-slate-500 text-sm mt-1">
                   {formatDate(state().realDate)}
                   {state().isSimulating && (
                     <span class="text-amber-600 ml-1">
-                      (simulé: {formatDate(state().simulatedDate)})
+                      (simulated: {formatDate(state().simulatedDate)})
                     </span>
                   )}
                 </p>
@@ -468,15 +468,15 @@ export function SimulationControls(props: Props) {
               <div class="space-y-3 mb-6">
                 <div class="p-3 bg-slate-50 rounded-lg">
                   <p class="text-sm text-slate-700">
-                    Comment te sens-tu aujourd'hui ? As-tu avancé sur tes objectifs ?
+                    How are you feeling today? Did you make progress on your goals?
                   </p>
                 </div>
 
                 <Show when={state().isSimulating}>
                   <div class="p-3 bg-amber-50 rounded-lg border border-amber-200">
                     <p class="text-sm text-amber-800">
-                      <strong>Note:</strong> Tu es en mode simulation. Les données sont décalées de
-                      +{state().offsetDays} jours.
+                      <strong>Note:</strong> You are in simulation mode. Data is offset by +
+                      {state().offsetDays} days.
                     </p>
                   </div>
                 </Show>
@@ -487,14 +487,14 @@ export function SimulationControls(props: Props) {
                   onClick={completeDailyCheckin}
                   class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                 >
-                  C'est parti !
+                  Let's go!
                 </button>
                 <a
                   href="/suivi"
                   onClick={completeDailyCheckin}
                   class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors text-center"
                 >
-                  Voir mon suivi
+                  View my progress
                 </a>
               </div>
             </div>

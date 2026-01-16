@@ -44,11 +44,11 @@ type OnboardingStep =
   | 'complete';
 
 // Initial greeting message
-const GREETING_MESSAGE = `Salut ! Je suis **Bruno**, ton coach financier personnel.
+const GREETING_MESSAGE = `Hey! I'm **Bruno**, your personal financial coach.
 
-Je vais t'aider a naviguer ta vie etudiante et atteindre tes objectifs.
+I'll help you navigate student life and reach your goals.
 
-Pour commencer, **comment tu t'appelles ?**`;
+To start, **what's your name?**`;
 
 export function OnboardingChat() {
   const navigate = useNavigate();
@@ -92,9 +92,9 @@ export function OnboardingChat() {
           {
             id: 'welcome-back',
             role: 'assistant',
-            content: `Re-salut **${apiProfile.name}** ! Content de te revoir.
+            content: `Hey **${apiProfile.name}**! Good to see you again.
 
-Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
+Want to update your profile or go straight to your plan?`,
           },
         ]);
         setIsComplete(true);
@@ -115,9 +115,9 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
           {
             id: 'welcome-back',
             role: 'assistant',
-            content: `Re-salut **${existingProfile.name}** ! Content de te revoir.
+            content: `Hey **${existingProfile.name}**! Good to see you again.
 
-Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
+Want to update your profile or go straight to your plan?`,
           },
         ]);
         setIsComplete(true);
@@ -199,17 +199,17 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
 
     const fallbackResponses: Record<OnboardingStep, string> = {
       greeting: GREETING_MESSAGE,
-      name: `Super ${extractedData.name || message.trim()} ! Enchante.\n\nEt niveau etudes, t'es en quoi ? (Ex: "L2 Info", "M1 Droit")`,
-      studies: `Cool !\n\nQuelles sont tes competences ? (code, langues, design, sport...)`,
-      skills: `Pas mal !\n\nTu vis ou ? Quelle ville ?`,
-      location: `Je note.\n\nParlons budget: combien tu touches et depenses par mois environ ?`,
-      budget: `OK pour le budget !\n\nDerniere question: combien d'heures max par semaine tu peux bosser ? Et quel taux horaire minimum ?`,
-      work_preferences: `Parfait ! J'ai tout ce qu'il me faut.\n\nClique sur "Mon Plan" pour commencer !`,
+      name: `Great ${extractedData.name || message.trim()}! Nice to meet you.\n\nWhat are you studying? (Ex: "CS Junior", "Law Senior")`,
+      studies: `Cool!\n\nWhat are your skills? (coding, languages, design, sports...)`,
+      skills: `Nice!\n\nWhere do you live? What city?`,
+      location: `Got it.\n\nLet's talk budget: how much do you earn and spend per month roughly?`,
+      budget: `OK for the budget!\n\nLast question: how many hours max per week can you work? And what's your minimum hourly rate?`,
+      work_preferences: `Perfect! I have everything I need.\n\nClick on "My Plan" to get started!`,
       complete: '',
     };
 
     return {
-      response: fallbackResponses[nextStep] || 'Continuons !',
+      response: fallbackResponses[nextStep] || "Let's continue!",
       extractedData,
       nextStep,
     };
@@ -236,10 +236,10 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
     if (data.expenses) {
       const expenses = Number(data.expenses);
       updates.expenses = [
-        { category: 'loyer', amount: Math.round(expenses * 0.5) },
-        { category: 'alimentation', amount: Math.round(expenses * 0.25) },
+        { category: 'rent', amount: Math.round(expenses * 0.5) },
+        { category: 'food', amount: Math.round(expenses * 0.25) },
         { category: 'transport', amount: Math.round(expenses * 0.1) },
-        { category: 'autre', amount: Math.round(expenses * 0.15) },
+        { category: 'other', amount: Math.round(expenses * 0.15) },
       ];
     }
 
@@ -313,7 +313,7 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
 
         // Normalize field names for API
         const normalizedProfile = {
-          name: finalProfile.name || 'Mon Profil',
+          name: finalProfile.name || 'My Profile',
           diploma: finalProfile.diploma,
           skills: finalProfile.skills,
           city: finalProfile.city,
@@ -352,7 +352,7 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
       const errorMsg: Message = {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: "Oups, j'ai eu un petit souci. Peux-tu reessayer ?",
+        content: 'Oops, I had a small issue. Can you try again?',
       };
       setMessages([...messages(), errorMsg]);
     } finally {
@@ -409,10 +409,10 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
         fallback={
           <div class="border-t border-slate-200 bg-white p-6 text-center">
             <button class="btn-primary text-lg px-8 py-3" onClick={goToPlan}>
-              Commencer Mon Plan
+              Start My Plan
             </button>
             <p class="text-sm text-slate-500 mt-3">
-              Ou{' '}
+              Or{' '}
               <button
                 class="text-primary-600 underline"
                 onClick={() => {
@@ -421,13 +421,13 @@ Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
                   setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
                 }}
               >
-                recommence l'onboarding
+                restart onboarding
               </button>
             </p>
           </div>
         }
       >
-        <ChatInput onSend={handleSend} placeholder="Ecris ta reponse..." disabled={loading()} />
+        <ChatInput onSend={handleSend} placeholder="Type your response..." disabled={loading()} />
       </Show>
     </div>
   );

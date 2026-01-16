@@ -124,22 +124,22 @@ export const DEMO_PROFILES: DemoProfile[] = [
   {
     id: 'lucas-energy-debt',
     name: 'Lucas',
-    description: 'Energy Debt - 3 semaines fatigue extreme',
+    description: 'Energy Debt - 3 weeks of extreme fatigue',
     killerFeature: '#4',
     studentProfile: {
       name: 'Lucas',
       diploma: 'L3',
-      field: 'Informatique',
+      field: 'Computer Science',
       yearsRemaining: 2,
       skills: ['python', 'sql', 'javascript'],
       city: 'Lyon',
       incomes: [
-        { source: 'bourse', amount: 300 },
-        { source: 'parents', amount: 400 },
+        { source: 'scholarship', amount: 300 },
+        { source: 'family', amount: 400 },
       ],
       expenses: [
-        { category: 'loyer', amount: 450 },
-        { category: 'alimentation', amount: 150 },
+        { category: 'rent', amount: 450 },
+        { category: 'food', amount: 150 },
         { category: 'transport', amount: 50 },
       ],
       maxWorkHours: 15,
@@ -149,19 +149,19 @@ export const DEMO_PROFILES: DemoProfile[] = [
     },
     planData: {
       setup: {
-        goalName: 'Nouveau PC gaming',
+        goalName: 'New Gaming PC',
         goalAmount: 1200,
         goalDeadline: weeksFromNow(12),
         academicEvents: [
           {
             id: 'exam_1',
             type: 'exam_period',
-            name: 'Partiels S5',
+            name: 'S5 Finals',
             startDate: weekAgo(4).split('T')[0],
             endDate: weekAgo(1).split('T')[0],
           },
         ],
-        commitments: [{ id: 'cours', type: 'class', name: 'Cours', hoursPerWeek: 25 }],
+        commitments: [{ id: 'cours', type: 'class', name: 'Classes', hoursPerWeek: 25 }],
       },
       skills: [
         {
@@ -188,7 +188,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
       inventory: [
         {
           id: 'i1',
-          name: 'Ancien PC portable',
+          name: 'Old Laptop',
           category: 'electronics',
           estimatedValue: 200,
           condition: 'good',
@@ -201,7 +201,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
           name: 'Netflix',
           currentCost: 13,
           optimizedCost: 6.5,
-          suggestion: 'Partage familial',
+          suggestion: 'Family sharing',
         },
       ],
       trades: [],
@@ -222,7 +222,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
         {
           id: 'm1',
           title: 'Freelance Python',
-          description: 'Mission dev pour startup',
+          description: 'Dev gig for startup',
           category: 'freelance',
           weeklyHours: 5,
           weeklyEarnings: 125,
@@ -243,18 +243,18 @@ export const DEMO_PROFILES: DemoProfile[] = [
     studentProfile: {
       name: 'Marie',
       diploma: 'M1',
-      field: 'Commerce',
+      field: 'Business',
       yearsRemaining: 2,
       skills: ['excel', 'anglais', 'social_media', 'comptabilite'],
       city: 'Paris',
       incomes: [
         { source: 'apl', amount: 200 },
-        { source: 'parents', amount: 500 },
+        { source: 'family', amount: 500 },
         { source: 'job', amount: 300 },
       ],
       expenses: [
-        { category: 'loyer', amount: 600 },
-        { category: 'alimentation', amount: 200 },
+        { category: 'rent', amount: 600 },
+        { category: 'food', amount: 200 },
         { category: 'transport', amount: 75 },
       ],
       maxWorkHours: 20,
@@ -264,19 +264,19 @@ export const DEMO_PROFILES: DemoProfile[] = [
     },
     planData: {
       setup: {
-        goalName: 'Remboursement pret',
+        goalName: 'Loan Repayment',
         goalAmount: 2000,
         goalDeadline: weeksFromNow(16),
         academicEvents: [],
         commitments: [
-          { id: 'cours', type: 'class', name: 'Cours + projet', hoursPerWeek: 20 },
+          { id: 'cours', type: 'class', name: 'Classes + project', hoursPerWeek: 20 },
           { id: 'sport', type: 'sport', name: 'Volley', hoursPerWeek: 4 },
         ],
       },
       skills: [
         {
           id: 's1',
-          name: 'Excel Avance',
+          name: 'Advanced Excel',
           level: 'expert',
           hourlyRate: 22,
           marketDemand: 5,
@@ -296,7 +296,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
         },
         {
           id: 's3',
-          name: 'Comptabilite',
+          name: 'Accounting',
           level: 'intermediate',
           hourlyRate: 20,
           marketDemand: 3,
@@ -306,7 +306,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
         },
         {
           id: 's4',
-          name: 'Traduction Anglais',
+          name: 'English Translation',
           level: 'advanced',
           hourlyRate: 15,
           marketDemand: 3,
@@ -318,14 +318,14 @@ export const DEMO_PROFILES: DemoProfile[] = [
       inventory: [
         {
           id: 'i1',
-          name: 'Vieux iPhone',
+          name: 'Old iPhone',
           category: 'electronics',
           estimatedValue: 150,
           condition: 'good',
         },
         {
           id: 'i2',
-          name: 'Vetements de marque',
+          name: 'Designer Clothes',
           category: 'clothing',
           estimatedValue: 100,
           condition: 'like_new',
@@ -346,7 +346,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
           name: 'Metro',
           currentCost: 75,
           optimizedCost: 37,
-          suggestion: 'Imagine R',
+          suggestion: 'Student discount',
         },
       ],
       trades: [],
@@ -366,7 +366,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
         {
           id: 'm1',
           title: 'Excel Formation',
-          description: 'Formation Excel pour PME',
+          description: 'Excel training for SMBs',
           category: 'tutoring',
           weeklyHours: 4,
           weeklyEarnings: 88,
@@ -379,7 +379,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
         {
           id: 'm2',
           title: 'Community Manager freelance',
-          description: 'Gestion reseaux sociaux startup',
+          description: 'Social media management for startup',
           category: 'freelance',
           weeklyHours: 6,
           weeklyEarnings: 108,
@@ -405,12 +405,12 @@ export const DEMO_PROFILES: DemoProfile[] = [
       skills: ['redaction', 'anglais'],
       city: 'Bordeaux',
       incomes: [
-        { source: 'bourse', amount: 400 },
-        { source: 'parents', amount: 300 },
+        { source: 'scholarship', amount: 400 },
+        { source: 'family', amount: 300 },
       ],
       expenses: [
-        { category: 'loyer', amount: 380 },
-        { category: 'alimentation', amount: 180 },
+        { category: 'rent', amount: 380 },
+        { category: 'food', amount: 180 },
         { category: 'transport', amount: 40 },
       ],
       maxWorkHours: 12,
@@ -420,11 +420,11 @@ export const DEMO_PROFILES: DemoProfile[] = [
     },
     planData: {
       setup: {
-        goalName: 'Vacances Espagne',
+        goalName: 'Spain Vacation',
         goalAmount: 600,
         goalDeadline: weeksFromNow(10),
         academicEvents: [],
-        commitments: [{ id: 'cours', type: 'class', name: 'Cours', hoursPerWeek: 22 }],
+        commitments: [{ id: 'cours', type: 'class', name: 'Classes', hoursPerWeek: 22 }],
       },
       skills: [
         {
@@ -439,7 +439,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
         },
         {
           id: 's2',
-          name: 'Cours Anglais',
+          name: 'English Classes',
           level: 'intermediate',
           hourlyRate: 18,
           marketDemand: 4,
@@ -478,17 +478,17 @@ export const DEMO_PROFILES: DemoProfile[] = [
     studentProfile: {
       name: 'Tom',
       diploma: 'M2',
-      field: 'Droit',
+      field: 'Law',
       yearsRemaining: 1,
       skills: ['redaction', 'anglais'],
       city: 'Toulouse',
       incomes: [
-        { source: 'bourse', amount: 500 },
+        { source: 'scholarship', amount: 500 },
         { source: 'job', amount: 200 },
       ],
       expenses: [
-        { category: 'loyer', amount: 420 },
-        { category: 'alimentation', amount: 180 },
+        { category: 'rent', amount: 420 },
+        { category: 'food', amount: 180 },
         { category: 'transport', amount: 45 },
       ],
       maxWorkHours: 18,
@@ -505,7 +505,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
           {
             id: 'exam_1',
             type: 'exam_period',
-            name: 'Partiels M2',
+            name: 'M2 Finals',
             startDate: weekAgo(5).split('T')[0],
             endDate: weekAgo(2).split('T')[0],
           },
@@ -525,7 +525,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
         },
         {
           id: 's2',
-          name: 'Cours de droit',
+          name: 'Law Classes',
           level: 'advanced',
           hourlyRate: 22,
           marketDemand: 4,
@@ -539,10 +539,10 @@ export const DEMO_PROFILES: DemoProfile[] = [
         {
           id: 'l1',
           category: 'subscriptions',
-          name: 'Salle de sport',
+          name: 'Gym',
           currentCost: 35,
           optimizedCost: 0,
-          suggestion: 'Sport universitaire',
+          suggestion: 'Campus gym',
         },
       ],
       trades: [],
@@ -563,8 +563,8 @@ export const DEMO_PROFILES: DemoProfile[] = [
       missions: [
         {
           id: 'm1',
-          title: 'Cours de droit',
-          description: 'Preparer des etudiants aux partiels',
+          title: 'Law Tutoring',
+          description: 'Help students prepare for finals',
           category: 'tutoring',
           weeklyHours: 4,
           weeklyEarnings: 88,

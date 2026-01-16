@@ -20,8 +20,8 @@ export function RollDice(props: RollDiceProps) {
       <div class="text-center mb-8">
         <h2 class="text-2xl font-bold text-slate-900 mb-2">Swipe Scenarios</h2>
         <p class="text-slate-500 max-w-md">
-          On va te proposer des strategies basees sur ton profil. Swipe a droite pour accepter, a
-          gauche pour refuser. L'app apprend tes preferences !
+          We'll suggest strategies based on your profile. Swipe right to accept, left to decline.
+          The app learns your preferences!
         </p>
       </div>
 
@@ -73,13 +73,13 @@ export function RollDice(props: RollDiceProps) {
           <span class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500">
             ←
           </span>
-          <span>Pas pour moi</span>
+          <span>Not for me</span>
         </div>
         <div class="flex items-center gap-2">
           <span class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-500">
             →
           </span>
-          <span>Je prends !</span>
+          <span>I'll take it!</span>
         </div>
       </div>
 
@@ -87,11 +87,11 @@ export function RollDice(props: RollDiceProps) {
       <div class="mt-12 grid grid-cols-3 gap-6 max-w-lg">
         <div class="text-center">
           <div class="text-2xl mb-2">🎯</div>
-          <p class="text-sm text-slate-600">Personnalise</p>
+          <p class="text-sm text-slate-600">Personalized</p>
         </div>
         <div class="text-center">
           <div class="text-2xl mb-2">🧠</div>
-          <p class="text-sm text-slate-600">Apprend de toi</p>
+          <p class="text-sm text-slate-600">Learns from you</p>
         </div>
         <div class="text-center">
           <div class="text-2xl mb-2">⚡</div>

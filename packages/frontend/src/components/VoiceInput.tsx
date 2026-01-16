@@ -63,7 +63,7 @@ export function VoiceInput(props: VoiceInputProps) {
         stream.getTracks().forEach((track) => track.stop());
 
         if (audioChunks.length === 0) {
-          setError('Aucun audio enregistre');
+          setError('No audio recorded');
           return;
         }
 
@@ -76,11 +76,11 @@ export function VoiceInput(props: VoiceInputProps) {
           if (result.text && result.text.trim()) {
             props.onTranscript(result.text.trim());
           } else {
-            setError("Pas de parole detectee. Reessaie !");
+            setError('No speech detected. Try again!');
           }
         } catch (err) {
           console.error('Transcription error:', err);
-          setError(err instanceof Error ? err.message : 'Erreur de transcription');
+          setError(err instanceof Error ? err.message : 'Transcription error');
         } finally {
           setIsTranscribing(false);
         }
@@ -88,7 +88,7 @@ export function VoiceInput(props: VoiceInputProps) {
 
       mediaRecorder.onerror = (event) => {
         console.error('MediaRecorder error:', event);
-        setError("Erreur d'enregistrement");
+        setError('Recording error');
         setIsRecording(false);
       };
 
@@ -98,9 +98,9 @@ export function VoiceInput(props: VoiceInputProps) {
       console.error('Failed to start recording:', err);
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
         setPermissionDenied(true);
-        setError("Acces au micro refuse. Active-le dans les parametres du navigateur.");
+        setError('Microphone access denied. Enable it in your browser settings.');
       } else {
-        setError("Impossible d'acceder au microphone");
+        setError('Unable to access microphone');
       }
     }
   }
@@ -142,7 +142,7 @@ export function VoiceInput(props: VoiceInputProps) {
           }
           ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
-        title={isRecording() ? 'Arreter' : isTranscribing() ? 'Transcription...' : 'Parler'}
+        title={isRecording() ? 'Stop' : isTranscribing() ? 'Transcribing...' : 'Speak'}
       >
         <Show
           when={!isTranscribing()}
@@ -198,8 +198,8 @@ export function VoiceInput(props: VoiceInputProps) {
       {/* Permission denied help */}
       <Show when={permissionDenied()}>
         <div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 p-2 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg max-w-xs shadow-sm">
-          <p class="font-medium mb-1">Micro bloque</p>
-          <p>Clique sur l'icone de cadenas dans la barre d'adresse pour autoriser l'acces.</p>
+          <p class="font-medium mb-1">Microphone blocked</p>
+          <p>Click the padlock icon in the address bar to allow access.</p>
         </div>
       </Show>
     </div>
