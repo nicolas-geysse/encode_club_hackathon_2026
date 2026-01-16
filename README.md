@@ -1,83 +1,66 @@
 # Stride
 
-> **Navigate student life, one smart step at a time**
+> Navigate student life, one smart step at a time
 
-AI-powered financial navigation for students with **4 killer features** that make budgeting feel like a game, not a chore.
+## 30 Second Pitch
 
-**Track**: Financial Health ($5,000 prize) - Encode Club Hackathon 2026
+Stride aide les étudiants à gérer leur budget avec 4 features intelligentes:
+
+1. **Skill Arbitrage** - Trouve le job qui ne te cramera pas (SQL à 22€/h bat Python à 25€/h)
+2. **Swipe Scenarios** - Choisis tes stratégies comme sur Tinder
+3. **Comeback Mode** - Détecte quand tu récupères après les exams et crée un plan de rattrapage
+4. **Energy Debt** - Réduit tes objectifs quand tu es épuisé et récompense le self-care
+
+Tout est tracé dans Opik - tu peux voir exactement pourquoi on te recommande ce job.
+
+**Track**: Financial Health - Encode Club Hackathon 2026
 **Sponsor**: Comet (Opik)
 
 ---
 
-## 4 Killer Features
+## Comment ça marche
 
-### 1. Crunch Intelligent (Comeback Mode)
+### Onboarding (Chat avec Bruno)
+- Dis ton objectif en langage naturel
+- Bruno te pose des questions pour comprendre ta situation
+- Profil créé automatiquement
 
-> *"Failed a few weeks? We detect your comeback window."*
+### Mon Plan (6 tabs)
 
-You had exams. You couldn't focus on saving. Now you're back at 90% energy.
+| Tab | Ce que tu fais |
+|-----|----------------|
+| Setup | Objectif, deadline, événements académiques |
+| Skills | Voir le scoring multi-critères de tes jobs |
+| À Vendre | Ajouter des objets à vendre via chat |
+| Lifestyle | Optimiser tes dépenses récurrentes |
+| Trade | Emprunter/troquer au lieu d'acheter |
+| Swipe | Roll the Dice → Swipe tes stratégies |
 
-**What happens:**
-- Stride detects your "comeback window" automatically
-- Creates an aggressive but realistic catch-up plan
-- Redistributes your goal to high-capacity weeks
-- Unlocks the "Comeback King" achievement
+### Suivi (Dashboard)
+- Timeline avec progression temps + charge de travail
+- Alerte Comeback si tu peux rattraper
+- Historique énergie + détection fatigue
+- Valider/supprimer tes missions
 
-```
-Week 1-4: 50% of target (exams)     ← Protected
-Week 5:   Energy recovers to 90%    ← Comeback detected!
-Week 5-7: Aggressive catch-up       ← 50€ + 45€ + 31€ = 126€ recovered
-```
+---
 
-### 2. Skill Arbitrage (Smart Job Matching)
+## 4 Features Clés
 
-> *"Not just max money - the job that fits YOUR life."*
+### Skill Arbitrage
+Le job le mieux payé n'est pas toujours le meilleur.
+Score multi-critères: taux horaire × demande × effort × repos nécessaire.
 
-Python Dev pays 25€/h. SQL Coaching pays 22€/h. We recommend SQL Coaching. Why?
+### Swipe Scenarios
+Swipe right = intéressé, left = pas intéressé.
+L'app apprend tes préférences après 4 swipes.
 
-**Multi-criteria scoring:**
-| Job | Rate | Demand | Effort | Rest | Score |
-|-----|------|--------|--------|------|-------|
-| Python Dev | 25€ | ★★★★★ | Very High | Low | 6.2/10 |
-| SQL Coaching | 22€ | ★★★★ | Moderate | High | **8.7/10** |
-| Data Entry | 12€ | ★★★★ | Very Low | High | 7.1/10 |
+### Comeback Mode
+Détecte quand ton énergie remonte après une période difficile.
+Crée un plan de rattrapage réaliste.
 
-**The insight:** Highest pay ≠ best choice. Stride finds the job that won't burn you out.
-
-### 3. Swipe Scenarios (Tinder for Strategies)
-
-> *"Swipe through money strategies like you swipe profiles."*
-
-Don't read walls of text. Just swipe.
-
-**How it works:**
-- See a strategy card (Freelance Dev: +120€/month, 10h/week)
-- Swipe right = interested, left = not interested
-- Stride learns your preferences
-- Next recommendations get smarter
-
-**The magic:** After 4 swipes, we know you prioritize flexibility over max income. Your future recommendations reflect that.
-
-### 4. Energy Debt Gamification
-
-> *"3 weeks at 30% energy? Time to reward self-care."*
-
-Most apps push you harder. Stride does the opposite.
-
-**Reverse psychology:**
-- 3 weeks at low energy detected
-- Target automatically reduced: 63€ → 10€
-- Focus on recovery
-- Unlock "Self Care Champion" achievement
-
-```
-Week 1: Energy 35% → Target kept
-Week 2: Energy 30% → Target kept
-Week 3: Energy 32% → Energy Debt detected!
-Week 4: Target reduced to 10€ + Recovery plan activated
-```
-
-**The insight:** Rest is a strategy, not a failure.
+### Energy Debt
+3 semaines à basse énergie = objectif réduit automatiquement.
+Badge "Self Care Champion" débloqué.
 
 ---
 
@@ -85,92 +68,22 @@ Week 4: Target reduced to 10€ + Recovery plan activated
 
 ### 4 Agents
 
-| Agent | Role | Killer Feature |
-|-------|------|----------------|
-| **Budget Coach** | Analyzes income/expenses, generates advice | Foundation |
-| **Job Matcher** | Skill Arbitrage + multi-criteria scoring | #2 Skill Arbitrage |
-| **Guardian** | Validates recommendations (2-layer eval) | Quality control |
-| **Energy Calculator** | Capacity tracking + Comeback detection | #1 & #4 |
+| Agent | Rôle |
+|-------|------|
+| Budget Coach | Analyse budget + chat onboarding |
+| Job Matcher | Skill Arbitrage + scoring |
+| Guardian | Validation 2 couches |
+| Energy Calculator | Comeback + Energy Debt |
 
-### 5 Screens
+### Stack
 
-| # | Screen | Purpose |
-|---|--------|---------|
-| 1 | **Onboarding** | Profile + skills + budget |
-| 2 | **Goal Setup** | Define goal + exams + commitments |
-| 3 | **Goal Plan** | Strategies + Swipe Scenarios |
-| 4 | **Goal Calendar** | Retroplan with capacity visualization |
-| 5 | **Goal Track** | Progress + Energy check-in + Achievements |
-
-### 2-Layer Evaluation
-
-| Layer | Purpose | Latency |
-|-------|---------|---------|
-| **Heuristics** | Fast sanity checks (math, risks) | ~50ms |
-| **G-Eval LLM** | Quality scoring via LLM-as-Judge | ~500ms |
-
-*Opik handles monitoring separately. See [OPIK.md](docs/OPIK.md) for full observability details.*
-
----
-
-## Demo Scenario
-
-```
-Student: "I'm in L2 CS, 800€/month. I want to save 500€ for a trip in 8 weeks."
-
-→ SPAN 1: Budget Analysis
-  Income: 800€, Expenses: 750€, Margin: 50€
-
-→ SPAN 2: Skill Arbitrage (Killer #2)
-  Python → 25€/h but HIGH effort (score: 6.2)
-  SQL Coaching → 22€/h, MODERATE effort (score: 8.7) ← Recommended
-
-→ SPAN 3: Swipe Session (Killer #3)
-  [Freelance] ← swipe left
-  [Tutoring] → swipe right
-  [Selling items] → swipe right
-  Learned: prioritizes flexibility, moderate effort
-
-→ SPAN 4: Energy Check (Killer #1 & #4)
-  Current energy: 85%
-  No debt detected
-  Comeback mode: not needed (all good!)
-
-→ SPAN 5: Guardian Validation
-  Heuristics: PASS (math valid)
-  G-Eval: 0.89 confidence
-  Final: APPROVED
-
-→ RESULT: "SQL Coaching 6h/week + sell 2 items = 500€ in 7 weeks"
-```
-
----
-
-## Why Opik is Essential
-
-4 agents coordinating = complex traces to debug.
-
-| What Opik Shows | Why It Matters |
-|-----------------|----------------|
-| Comeback detection logic | "Why is my target 50€ this week?" |
-| Skill arbitrage scoring | "Why SQL over Python?" |
-| Preference learning | "How did my swipes change recommendations?" |
-| Energy debt calculations | "Why was my target reduced?" |
-
-**Full details:** [docs/OPIK.md](docs/OPIK.md)
-
----
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| **Tracing** | Opik self-hosted |
-| **LLM** | Groq (llama-3.3-70b) |
-| **Voice** | Groq Whisper |
-| **Graph** | DuckDB + DuckPGQ |
-| **Agents** | Mastra Framework |
-| **Frontend** | SolidStart + TailwindCSS |
+| Composant | Technologie |
+|-----------|-------------|
+| Tracing | Opik self-hosted |
+| LLM | Groq (llama-3.3-70b) |
+| Agents | Mastra Framework |
+| Frontend | SolidStart + TailwindCSS |
+| Storage | DuckDB |
 
 ---
 
@@ -194,46 +107,22 @@ npm install && npm run dev
 
 ---
 
-## Hackathon Criteria Match
+## Observability avec Opik
 
-| Criteria | Our Response |
-|----------|--------------|
-| **Functionality** | 4 killer features, not just a chatbot |
-| **Real-world** | Student niche = concrete, immediate problems |
-| **LLM/Agents** | 4 Mastra agents with multi-criteria intelligence |
-| **Opik** | Full traceability for every recommendation |
-| **Goal alignment** | Help students balance money, time, and wellness |
+Chaque recommandation est tracée:
+- Pourquoi ce job? → `score_calculation` trace
+- Pourquoi cet objectif réduit? → `energy_debt_check` trace
+- Comment mes swipes influencent? → `preference_learning` trace
 
----
-
-## Why We Win
-
-1. **Laser focus** → 4 killer features, not 20 mediocre ones
-2. **Reverse psychology** → Energy Debt rewards rest, not hustle
-3. **Multi-criteria** → Skill Arbitrage prevents burnout
-4. **Addictive UX** → Swipe Scenarios make planning fun
-5. **Full transparency** → Opik traces explain every decision
-
----
-
-## 30-Second Pitch
-
-> "**Stride** helps students navigate between studies, jobs, and budget with 4 killer features:
->
-> **Crunch Intelligent** detects when you recover from exams and creates catch-up plans.
-> **Skill Arbitrage** finds jobs that won't burn you out (SQL at 22€/h beats Python at 25€/h).
-> **Swipe Scenarios** lets you pick strategies like Tinder profiles.
-> **Energy Debt** rewards self-care when you're exhausted.
->
-> All traced in Opik - you can see exactly why we recommended that job."
+Détails: [docs/OPIK.md](docs/OPIK.md)
 
 ---
 
 ## Documentation
 
-- [OPIK.md](docs/OPIK.md) - Opik integration details
-- [SCREENS_AND_EVALS.md](docs/SCREENS_AND_EVALS.md) - Screens and evaluation
-- [PLAN.md](docs/PLAN.md) - Architecture and implementation
+- [OPIK.md](docs/OPIK.md) - Intégration Opik + traces
+- [SCREENS_AND_EVALS.md](docs/SCREENS_AND_EVALS.md) - Détail des écrans
+- [PLAN.md](docs/PLAN.md) - Architecture complète
 
 ---
 
