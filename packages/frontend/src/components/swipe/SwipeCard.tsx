@@ -33,10 +33,10 @@ export function SwipeCard(props: SwipeCardProps) {
   const [swipeDirection, setSwipeDirection] = createSignal<'left' | 'right' | null>(null);
   const [startTime, setStartTime] = createSignal(Date.now());
 
-  // Perceived values (user adjustments)
-  const [perceivedEffort, setPerceivedEffort] = createSignal(props.effortLevel);
-  const [perceivedFlexibility, setPerceivedFlexibility] = createSignal(props.flexibilityScore);
-  const [customRate, setCustomRate] = createSignal(props.hourlyRate);
+  // Perceived values (user adjustments) - initialized to 0, set in onMount
+  const [perceivedEffort, setPerceivedEffort] = createSignal(0);
+  const [perceivedFlexibility, setPerceivedFlexibility] = createSignal(0);
+  const [customRate, setCustomRate] = createSignal(0);
   const [isEditingRate, setIsEditingRate] = createSignal(false);
 
   let cardRef: HTMLDivElement | undefined;
@@ -44,9 +44,13 @@ export function SwipeCard(props: SwipeCardProps) {
 
   onMount(() => {
     setStartTime(Date.now());
-    setPerceivedEffort(props.effortLevel);
-    setPerceivedFlexibility(props.flexibilityScore);
-    setCustomRate(props.hourlyRate);
+    // Access props within onMount to initialize state
+    const effort = props.effortLevel;
+    const flex = props.flexibilityScore;
+    const rate = props.hourlyRate;
+    setPerceivedEffort(effort);
+    setPerceivedFlexibility(flex);
+    setCustomRate(rate);
   });
 
   // Adjust perceived effort (+1 or -1)

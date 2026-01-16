@@ -1,54 +1,13 @@
+/* eslint-disable no-console */
 /**
  * Simulation API Route
  *
  * Handles time simulation operations using DuckDB.
+ * Uses centralized database connection from _db.ts
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import * as duckdb from 'duckdb';
-import * as fs from 'fs';
-import * as path from 'path';
-
-// Database path
-const DB_PATH =
-  process.env.DUCKDB_PATH || path.join(process.env.HOME || '.', '.stride', 'data.duckdb');
-
-// Database connection cache
-let db: duckdb.Database | null = null;
-let connection: duckdb.Connection | null = null;
-
-async function getConnection(): Promise<duckdb.Connection> {
-  if (!connection) {
-    const dbDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-    }
-    db = new duckdb.Database(DB_PATH);
-    connection = db.connect();
-  }
-  return connection;
-}
-
-async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
-  const conn = await getConnection();
-  return new Promise((resolve, reject) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    conn.all(sql, (err: Error | null, result: any) => {
-      if (err) reject(err);
-      else resolve(result as T[]);
-    });
-  });
-}
-
-async function execute(sql: string): Promise<void> {
-  const conn = await getConnection();
-  return new Promise((resolve, reject) => {
-    conn.exec(sql, (err: Error | null) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
+import { query, execute } from './_db';
 
 interface SimulationState {
   simulatedDate: string;
@@ -57,8 +16,13 @@ interface SimulationState {
   isSimulating: boolean;
 }
 
+// Schema initialization flag
+let schemaInitialized = false;
+
 // Initialize simulation state if needed
 async function ensureSimulationState(): Promise<void> {
+  if (schemaInitialized) return;
+
   try {
     await execute(`
       CREATE TABLE IF NOT EXISTS simulation_state (
@@ -74,8 +38,11 @@ async function ensureSimulationState(): Promise<void> {
       SELECT 'global', CURRENT_DATE, CURRENT_DATE, 0
       WHERE NOT EXISTS (SELECT 1 FROM simulation_state WHERE id = 'global')
     `);
+    schemaInitialized = true;
+    console.log('[Simulation] Schema initialized');
   } catch {
-    // Table might already exist, ignore
+    // Table might already exist
+    schemaInitialized = true;
   }
 }
 
@@ -115,13 +82,18 @@ export async function GET() {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Simulation GET error:', error);
+    console.error('[Simulation] GET error:', error);
+    // Return a fallback state instead of crashing
+    const now = new Date().toISOString().split('T')[0];
     return new Response(
       JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        simulatedDate: now,
+        realDate: now,
+        offsetDays: 0,
+        isSimulating: false,
+        _fallback: true,
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
@@ -195,11 +167,11 @@ export async function POST(event: APIEvent) {
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Simulation POST error:', error);
+    console.error('[Simulation] POST error:', error);
     return new Response(
       JSON.stringify({
         error: true,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: error instanceof Error ? error.message : 'Database operation failed',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );

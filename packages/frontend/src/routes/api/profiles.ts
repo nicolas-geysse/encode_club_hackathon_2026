@@ -1,38 +1,16 @@
+/* eslint-disable no-console */
 /**
  * Profiles API Route
  *
  * Handles profile CRUD operations using DuckDB.
- * This is a server-side API route for profile management.
+ * Uses centralized database connection from _db.ts
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import * as duckdb from 'duckdb';
-import * as fs from 'fs';
-import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { query, execute, escapeSQL } from './_db';
 
-// Database path
-const DB_PATH =
-  process.env.DUCKDB_PATH || path.join(process.env.HOME || '.', '.stride', 'data.duckdb');
-
-// Database connection cache
-let db: duckdb.Database | null = null;
-let connection: duckdb.Connection | null = null;
-
-async function getConnection(): Promise<duckdb.Connection> {
-  if (!connection) {
-    // Ensure directory exists
-    const dbDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dbDir)) {
-      fs.mkdirSync(dbDir, { recursive: true });
-    }
-    db = new duckdb.Database(DB_PATH);
-    connection = db.connect();
-  }
-  return connection;
-}
-
-// Schema initialization flag
+// Schema initialization flag (persists across requests in same process)
 let schemaInitialized = false;
 
 // Initialize profiles schema if needed
@@ -71,36 +49,11 @@ async function ensureProfilesSchema(): Promise<void> {
       )
     `);
     schemaInitialized = true;
+    console.log('[Profiles] Schema initialized');
   } catch {
-    // Table might already exist, ignore
+    // Table might already exist, mark as initialized anyway
     schemaInitialized = true;
   }
-}
-
-async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
-  const conn = await getConnection();
-  return new Promise((resolve, reject) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    conn.all(sql, (err: Error | null, result: any) => {
-      if (err) reject(err);
-      else resolve(result as T[]);
-    });
-  });
-}
-
-async function execute(sql: string): Promise<void> {
-  const conn = await getConnection();
-  return new Promise((resolve, reject) => {
-    conn.exec(sql, (err: Error | null) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
-}
-
-function escapeSQL(str: string | null | undefined): string {
-  if (str === null || str === undefined) return 'NULL';
-  return `'${str.replace(/'/g, "''")}'`;
 }
 
 // Profile type
@@ -220,11 +173,11 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Profiles GET error:', error);
+    console.error('[Profiles] GET error:', error);
     return new Response(
       JSON.stringify({
         error: true,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: error instanceof Error ? error.message : 'Database connection failed',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
@@ -319,11 +272,11 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Profiles POST error:', error);
+    console.error('[Profiles] POST error:', error);
     return new Response(
       JSON.stringify({
         error: true,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: error instanceof Error ? error.message : 'Database operation failed',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
@@ -365,11 +318,11 @@ export async function PUT(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Profiles PUT error:', error);
+    console.error('[Profiles] PUT error:', error);
     return new Response(
       JSON.stringify({
         error: true,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: error instanceof Error ? error.message : 'Database operation failed',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
@@ -428,11 +381,11 @@ export async function DELETE(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Profiles DELETE error:', error);
+    console.error('[Profiles] DELETE error:', error);
     return new Response(
       JSON.stringify({
         error: true,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: error instanceof Error ? error.message : 'Database operation failed',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );

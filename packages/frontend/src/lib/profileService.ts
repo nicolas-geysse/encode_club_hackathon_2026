@@ -64,18 +64,54 @@ const SAVE_DEBOUNCE_MS = 500;
 
 /**
  * Load the active profile from DuckDB
+ * Falls back to localStorage if API fails
  */
 export async function loadActiveProfile(): Promise<FullProfile | null> {
   try {
     const response = await fetch('/api/profiles?active=true');
     if (!response.ok) {
-      console.error('Failed to load active profile');
-      return null;
+      logger.warn('API returned error, trying localStorage fallback');
+      return loadFromLocalStorage();
     }
     const profile = await response.json();
+    // API might return null if no profiles exist
+    if (!profile) {
+      return loadFromLocalStorage();
+    }
     return profile;
   } catch (error) {
-    console.error('Error loading active profile:', error);
+    logger.warn('API unreachable, using localStorage fallback', { error });
+    return loadFromLocalStorage();
+  }
+}
+
+/**
+ * Load profile from localStorage (fallback)
+ */
+function loadFromLocalStorage(): FullProfile | null {
+  try {
+    const stored = localStorage.getItem('studentProfile');
+    if (!stored) return null;
+
+    const local = JSON.parse(stored);
+    // Map localStorage format to FullProfile format
+    return {
+      id: local.id || 'local-profile',
+      name: local.name || 'Mon Profil',
+      profileType: 'main',
+      isActive: true,
+      diploma: local.diploma,
+      skills: local.skills,
+      city: local.city,
+      citySize: local.citySize,
+      incomeSources: local.incomes || local.incomeSources,
+      expenses: local.expenses,
+      maxWorkHoursWeekly: local.maxWorkHours,
+      minHourlyRate: local.minHourlyRate,
+      hasLoan: local.hasLoan,
+      loanAmount: local.loanAmount,
+    };
+  } catch {
     return null;
   }
 }
@@ -125,6 +161,7 @@ export async function listProfiles(): Promise<ProfileSummary[]> {
 
 /**
  * Save a profile (debounced)
+ * Saves to both API and localStorage for redundancy
  */
 export async function saveProfile(
   profile: Partial<FullProfile> & { name: string },
@@ -139,6 +176,29 @@ export async function saveProfile(
   }
 
   const doSave = async () => {
+    // Always save to localStorage as backup
+    try {
+      const localProfile = {
+        id: profile.id,
+        name: profile.name,
+        diploma: profile.diploma,
+        skills: profile.skills,
+        city: profile.city,
+        citySize: profile.citySize,
+        incomes: profile.incomeSources,
+        expenses: profile.expenses,
+        maxWorkHours: profile.maxWorkHoursWeekly,
+        minHourlyRate: profile.minHourlyRate,
+        hasLoan: profile.hasLoan,
+        loanAmount: profile.loanAmount,
+      };
+      localStorage.setItem('studentProfile', JSON.stringify(localProfile));
+      logger.debug('Profile saved to localStorage');
+    } catch (localError) {
+      logger.warn('Failed to save to localStorage', { error: localError });
+    }
+
+    // Try API save
     try {
       const response = await fetch('/api/profiles', {
         method: 'POST',
@@ -147,15 +207,16 @@ export async function saveProfile(
       });
 
       if (!response.ok) {
-        console.error('Failed to save profile');
-        return { success: false };
+        logger.warn('API save failed, but localStorage backup succeeded');
+        return { success: true, profileId: profile.id }; // Still success due to localStorage
       }
 
       const result = await response.json();
+      logger.info('Profile saved to API');
       return { success: true, profileId: result.profileId };
     } catch (error) {
-      console.error('Error saving profile:', error);
-      return { success: false };
+      logger.warn('API unreachable, profile saved to localStorage only', { error });
+      return { success: true, profileId: profile.id }; // Still success due to localStorage
     }
   };
 

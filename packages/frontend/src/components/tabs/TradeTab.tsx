@@ -32,7 +32,7 @@ interface TradeSuggestion {
 }
 
 // Generate suggestions based on goal
-function getSuggestions(goalName?: string, goalAmount?: number): TradeSuggestion[] {
+function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestion[] {
   const suggestions: TradeSuggestion[] = [];
   const lowerGoal = (goalName || '').toLowerCase();
 

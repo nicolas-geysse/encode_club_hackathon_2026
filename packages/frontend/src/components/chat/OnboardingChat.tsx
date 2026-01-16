@@ -67,33 +67,80 @@ export function OnboardingChat() {
   const [isComplete, setIsComplete] = createSignal(false);
 
   // Check for existing profile on mount
-  onMount(() => {
-    const stored = localStorage.getItem('studentProfile');
-    if (stored) {
-      const existingProfile = JSON.parse(stored);
-      setProfile(existingProfile);
-      // If profile exists, show welcome back message
-      setMessages([
-        {
-          id: 'welcome-back',
-          role: 'assistant',
-          content: `Re-salut **${existingProfile.name}** ! Content de te revoir.
+  // Priority: 1. API (DuckDB), 2. localStorage fallback
+  onMount(async () => {
+    try {
+      // First, try to load from API (DuckDB)
+      const apiProfile = await profileService.loadActiveProfile();
+
+      if (apiProfile && apiProfile.name) {
+        // Profile exists in DB - show welcome back
+        setProfile({
+          name: apiProfile.name,
+          diploma: apiProfile.diploma,
+          city: apiProfile.city,
+          citySize: apiProfile.citySize,
+          skills: apiProfile.skills,
+          incomes: apiProfile.incomeSources,
+          expenses: apiProfile.expenses,
+          maxWorkHours: apiProfile.maxWorkHoursWeekly,
+          minHourlyRate: apiProfile.minHourlyRate,
+          hasLoan: apiProfile.hasLoan,
+          loanAmount: apiProfile.loanAmount,
+        });
+        setMessages([
+          {
+            id: 'welcome-back',
+            role: 'assistant',
+            content: `Re-salut **${apiProfile.name}** ! Content de te revoir.
 
 Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
-        },
-      ]);
-      setIsComplete(true);
-    } else {
-      // Start onboarding
-      setMessages([
-        {
-          id: 'greeting',
-          role: 'assistant',
-          content: GREETING_MESSAGE,
-        },
-      ]);
-      setStep('name');
+          },
+        ]);
+        setIsComplete(true);
+        return;
+      }
+    } catch (error) {
+      console.warn('[Onboarding] API check failed, trying localStorage:', error);
     }
+
+    // Fallback: check localStorage
+    const stored = localStorage.getItem('studentProfile');
+    if (stored) {
+      try {
+        const existingProfile = JSON.parse(stored);
+        setProfile(existingProfile);
+        // If profile exists, show welcome back message
+        setMessages([
+          {
+            id: 'welcome-back',
+            role: 'assistant',
+            content: `Re-salut **${existingProfile.name}** ! Content de te revoir.
+
+Tu veux mettre a jour ton profil ou passer directement a ton plan ?`,
+          },
+        ]);
+        setIsComplete(true);
+
+        // Try to sync localStorage to DB in background
+        profileService.syncLocalToDb().catch((err) => {
+          console.warn('[Onboarding] Background sync failed:', err);
+        });
+        return;
+      } catch {
+        console.warn('[Onboarding] localStorage parse failed');
+      }
+    }
+
+    // No profile found - start fresh onboarding
+    setMessages([
+      {
+        id: 'greeting',
+        role: 'assistant',
+        content: GREETING_MESSAGE,
+      },
+    ]);
+    setStep('name');
   });
 
   // Call LLM API for chat

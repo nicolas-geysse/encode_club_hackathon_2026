@@ -4,6 +4,9 @@
   "private": true,
   "description": "Stride - Navigate student life, one smart step at a time",
   "type": "module",
+  "pnpm": {
+    "onlyBuiltDependencies": ["duckdb"]
+  },
   "scripts": {
     "dev": "pnpm --filter @stride/frontend dev",
     "dev:mcp": "pnpm --filter @stride/mcp-server dev",
