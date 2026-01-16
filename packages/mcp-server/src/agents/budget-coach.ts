@@ -17,18 +17,18 @@ import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
  */
 export const analyzeBudgetTool = createTool({
   id: 'analyze_budget',
-  description: "Analyse le budget mensuel d'un etudiant (revenus vs depenses)",
+  description: "Analyze a student's monthly budget (income vs expenses)",
   inputSchema: z.object({
     incomes: z.array(
       z.object({
-        source: z.string().describe('Source de revenu (APL, Parents, Job, Bourse)'),
-        amount: z.number().describe('Montant mensuel en euros'),
+        source: z.string().describe('Income source (Financial Aid, Parents, Job, Scholarship)'),
+        amount: z.number().describe('Monthly amount in dollars'),
       })
     ),
     expenses: z.array(
       z.object({
-        category: z.string().describe('Categorie de depense (Loyer, Alimentation, Transport)'),
-        amount: z.number().describe('Montant mensuel en euros'),
+        category: z.string().describe('Expense category (Rent, Food, Transport)'),
+        amount: z.number().describe('Monthly amount in dollars'),
       })
     ),
   }),
@@ -54,9 +54,9 @@ export const analyzeBudgetTool = createTool({
     }));
 
     // Determine status
-    const status = margin >= 0 ? 'positif' : 'deficit';
+    const status = margin >= 0 ? 'positive' : 'deficit';
     const severity =
-      margin < -100 ? 'critique' : margin < 0 ? 'attention' : margin < 50 ? 'serré' : 'confortable';
+      margin < -100 ? 'critical' : margin < 0 ? 'warning' : margin < 50 ? 'tight' : 'comfortable';
 
     return {
       totalIncome,
@@ -76,14 +76,14 @@ export const analyzeBudgetTool = createTool({
  */
 export const generateAdviceTool = createTool({
   id: 'generate_advice',
-  description: 'Genere des conseils personnalises bases sur le profil etudiant',
+  description: 'Generate personalized advice based on student profile',
   inputSchema: z.object({
-    diploma: z.string().optional().describe('Diplome actuel'),
-    skills: z.array(z.string()).optional().describe('Competences'),
-    margin: z.number().optional().describe('Marge mensuelle en euros'),
-    hasLoan: z.boolean().optional().describe('A un pret etudiant'),
-    loanAmount: z.number().optional().describe('Montant du pret'),
-    context: z.string().optional().describe('Contexte additionnel'),
+    diploma: z.string().optional().describe('Current degree'),
+    skills: z.array(z.string()).optional().describe('Skills'),
+    margin: z.number().optional().describe('Monthly margin in dollars'),
+    hasLoan: z.boolean().optional().describe('Has student loan'),
+    loanAmount: z.number().optional().describe('Loan amount'),
+    context: z.string().optional().describe('Additional context'),
   }),
   execute: async ({ context }) => {
     const advice: string[] = [];
@@ -92,49 +92,43 @@ export const generateAdviceTool = createTool({
     if (context.margin !== undefined) {
       if (context.margin < 0) {
         advice.push(
-          'Priorite: reduire le deficit. Cherche des aides (APL, bourses) ou un petit job compatible.'
+          'Priority: reduce the deficit. Look for financial aid (grants, scholarships) or a compatible part-time job.'
         );
-        advice.push('Conseil: verifie ton eligibilite aux aides CROUS et CAF.');
+        advice.push('Tip: check your eligibility for student aid programs.');
       } else if (context.margin < 50) {
+        advice.push('Your margin is tight. Building a small safety cushion is recommended.');
         advice.push(
-          "Ta marge est serree. Constitution d'un petit coussin de securite recommandee."
-        );
-        advice.push(
-          'Astuce: les optimisations budget (CROUS, coloc) peuvent liberer 100-200e/mois.'
+          'Tip: budget optimizations (meal plans, roommates) can free up $100-200/month.'
         );
       } else if (context.margin < 200) {
-        advice.push('Bon equilibre! Tu peux commencer a epargner regulierement.');
-        advice.push('Objectif: viser 3 mois de depenses en reserve de securite.');
+        advice.push('Good balance! You can start saving regularly.');
+        advice.push('Goal: aim for 3 months of expenses as an emergency fund.');
       } else {
-        advice.push('Excellente marge! Tu as de la flexibilite pour investir en toi-meme.');
-        advice.push('Idee: formations, certifications, ou experiences qui boostent ton CV.');
+        advice.push('Excellent margin! You have flexibility to invest in yourself.');
+        advice.push('Idea: courses, certifications, or experiences that boost your resume.');
       }
     }
 
     // Advice based on loan
     if (context.hasLoan && context.loanAmount) {
-      advice.push(
-        `Pret etudiant de ${context.loanAmount}e: commence a planifier le remboursement des maintenant.`
-      );
-      advice.push(
-        'Strategie: des que possible, augmente tes revenus pour accelerer le remboursement.'
-      );
+      advice.push(`Student loan of $${context.loanAmount}: start planning repayment now.`);
+      advice.push('Strategy: as soon as possible, increase your income to accelerate repayment.');
     }
 
     // Skills-based advice
     if (context.skills && context.skills.length > 0) {
       advice.push(
-        `Tes competences (${context.skills.slice(0, 3).join(', ')}) sont monetisables: freelance, tutorat, stages.`
+        `Your skills (${context.skills.slice(0, 3).join(', ')}) are monetizable: freelance, tutoring, internships.`
       );
     }
 
     return {
       advice,
-      priority: context.margin && context.margin < 0 ? 'urgente' : 'normale',
+      priority: context.margin && context.margin < 0 ? 'urgent' : 'normal',
       profile: {
         diploma: context.diploma,
         skills: context.skills,
-        financialStatus: context.margin && context.margin < 0 ? 'deficit' : 'equilibre',
+        financialStatus: context.margin && context.margin < 0 ? 'deficit' : 'balanced',
       },
     };
   },
@@ -145,11 +139,11 @@ export const generateAdviceTool = createTool({
  */
 export const findOptimizationsTool = createTool({
   id: 'find_optimizations',
-  description: 'Trouve des optimisations budget basees sur le knowledge graph',
+  description: 'Find budget optimizations based on knowledge graph',
   inputSchema: z.object({
-    expenseCategories: z.array(z.string()).describe('Categories de depenses a optimiser'),
-    currentExpenses: z.record(z.number()).optional().describe('Depenses actuelles par categorie'),
-    constraints: z.array(z.string()).optional().describe('Contraintes (ex: "pas de coloc")'),
+    expenseCategories: z.array(z.string()).describe('Expense categories to optimize'),
+    currentExpenses: z.record(z.number()).optional().describe('Current expenses by category'),
+    constraints: z.array(z.string()).optional().describe('Constraints (e.g., "no roommate")'),
   }),
   execute: async ({ context }) => {
     // Optimization database
@@ -162,58 +156,68 @@ export const findOptimizationsTool = createTool({
         condition: string;
       }>
     > = {
-      loyer: [
-        { solution: 'Colocation', savingsPct: 0.3, effort: 'moyen', condition: 'bon coloc' },
+      rent: [
+        { solution: 'Roommate', savingsPct: 0.3, effort: 'medium', condition: 'good roommate' },
         {
-          solution: 'Residence CROUS',
+          solution: 'Student housing',
           savingsPct: 0.4,
-          effort: 'faible',
-          condition: 'eligibilite',
+          effort: 'low',
+          condition: 'eligibility',
         },
-        { solution: 'APL', savingsPct: 0.25, effort: 'faible', condition: 'declaration CAF' },
+        {
+          solution: 'Housing assistance',
+          savingsPct: 0.25,
+          effort: 'low',
+          condition: 'apply for aid',
+        },
       ],
-      alimentation: [
-        { solution: 'Resto U CROUS', savingsPct: 0.5, effort: 'faible', condition: 'proximite' },
+      food: [
+        { solution: 'Campus dining', savingsPct: 0.5, effort: 'low', condition: 'nearby' },
         {
-          solution: 'Batch cooking',
+          solution: 'Meal prep',
           savingsPct: 0.3,
-          effort: 'moyen',
-          condition: 'temps disponible',
+          effort: 'medium',
+          condition: 'time available',
         },
         {
-          solution: 'Applis anti-gaspi',
+          solution: 'Food rescue apps',
           savingsPct: 0.2,
-          effort: 'faible',
-          condition: 'disponibilite stocks',
+          effort: 'low',
+          condition: 'stock availability',
         },
       ],
       transport: [
-        { solution: 'Velo/Marche', savingsPct: 0.8, effort: 'moyen', condition: 'ville adaptee' },
         {
-          solution: 'Carte jeune SNCF',
-          savingsPct: 0.3,
-          effort: 'faible',
-          condition: 'voyages reguliers',
+          solution: 'Bike/Walk',
+          savingsPct: 0.8,
+          effort: 'medium',
+          condition: 'bike-friendly city',
         },
         {
-          solution: 'Covoiturage',
+          solution: 'Student transit pass',
+          savingsPct: 0.3,
+          effort: 'low',
+          condition: 'regular trips',
+        },
+        {
+          solution: 'Carpool',
           savingsPct: 0.5,
-          effort: 'moyen',
-          condition: 'trajets compatibles',
+          effort: 'medium',
+          condition: 'compatible routes',
         },
       ],
-      telephone: [
+      phone: [
         {
-          solution: 'Forfait etudiant',
+          solution: 'Student plan',
           savingsPct: 0.4,
-          effort: 'faible',
-          condition: 'changement operateur',
+          effort: 'low',
+          condition: 'switch carrier',
         },
         {
-          solution: 'Forfait famille',
+          solution: 'Family plan',
           savingsPct: 0.5,
-          effort: 'faible',
-          condition: 'accord famille',
+          effort: 'low',
+          condition: 'family agreement',
         },
       ],
     };

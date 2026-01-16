@@ -26,14 +26,14 @@ import {
 const JOB_DATABASE = [
   {
     id: 'freelance_dev',
-    name: 'Dev Freelance (Malt/Fiverr)',
+    name: 'Freelance Developer',
     hourlyRate: 25,
     flexibility: 0.9,
     skills: ['python', 'javascript', 'sql', 'web'],
-    coBenefit: 'CV++ et portfolio',
-    networking: 'moyen',
-    cvImpact: 'fort',
-    platform: 'Malt, Fiverr, Upwork',
+    coBenefit: 'Resume builder + portfolio',
+    networking: 'medium',
+    cvImpact: 'high',
+    platform: 'Upwork, Fiverr, Toptal',
     // Arbitrage metrics
     marketDemand: 5,
     cognitiveEffort: 4,
@@ -41,28 +41,28 @@ const JOB_DATABASE = [
   },
   {
     id: 'tutoring',
-    name: 'Cours particuliers',
+    name: 'Private Tutoring',
     hourlyRate: 20,
     flexibility: 0.8,
-    skills: ['python', 'math', 'anglais', 'francais'],
-    coBenefit: 'Renforce apprentissage',
-    networking: 'fort',
-    cvImpact: 'moyen',
-    platform: 'Superprof, Kelprof',
+    skills: ['python', 'math', 'english', 'writing'],
+    coBenefit: 'Reinforces learning',
+    networking: 'high',
+    cvImpact: 'medium',
+    platform: 'Wyzant, Tutor.com',
     marketDemand: 5,
     cognitiveEffort: 3,
     restNeeded: 1,
   },
   {
     id: 'data_entry',
-    name: 'Saisie de donnees',
+    name: 'Data Entry',
     hourlyRate: 12,
     flexibility: 0.7,
     skills: ['excel', 'sql'],
-    coBenefit: 'Automatisation possible',
-    networking: 'faible',
-    cvImpact: 'faible',
-    platform: 'Indeed, Pole Emploi',
+    coBenefit: 'Automation opportunity',
+    networking: 'low',
+    cvImpact: 'low',
+    platform: 'Indeed, LinkedIn',
     marketDemand: 4,
     cognitiveEffort: 1,
     restNeeded: 0.5,
@@ -72,52 +72,52 @@ const JOB_DATABASE = [
     name: 'Community Manager',
     hourlyRate: 15,
     flexibility: 0.8,
-    skills: ['social_media', 'redaction', 'design'],
-    coBenefit: 'Veille secteur digital',
-    networking: 'fort',
-    cvImpact: 'moyen',
-    platform: 'LinkedIn, Welcome to the Jungle',
+    skills: ['social_media', 'writing', 'design'],
+    coBenefit: 'Digital industry insights',
+    networking: 'high',
+    cvImpact: 'medium',
+    platform: 'LinkedIn, Indeed',
     marketDemand: 4,
     cognitiveEffort: 2,
     restNeeded: 1,
   },
   {
-    id: 'assistant_recherche',
-    name: 'Assistant de recherche',
+    id: 'research_assistant',
+    name: 'Research Assistant',
     hourlyRate: 12,
     flexibility: 0.6,
-    skills: ['python', 'sql', 'redaction'],
-    coBenefit: 'Reseau academique',
-    networking: 'fort',
-    cvImpact: 'fort',
-    platform: 'Universites, CNRS',
+    skills: ['python', 'sql', 'writing'],
+    coBenefit: 'Academic network',
+    networking: 'high',
+    cvImpact: 'high',
+    platform: 'Universities, Labs',
     marketDemand: 3,
     cognitiveEffort: 4,
     restNeeded: 1.5,
   },
   {
-    id: 'traducteur',
-    name: 'Traducteur freelance',
+    id: 'translator',
+    name: 'Freelance Translator',
     hourlyRate: 18,
     flexibility: 0.9,
-    skills: ['anglais', 'redaction'],
-    coBenefit: 'Clients internationaux',
-    networking: 'moyen',
-    cvImpact: 'moyen',
+    skills: ['languages', 'writing'],
+    coBenefit: 'International clients',
+    networking: 'medium',
+    cvImpact: 'medium',
     platform: 'Upwork, ProZ',
     marketDemand: 3,
     cognitiveEffort: 2,
     restNeeded: 0.5,
   },
   {
-    id: 'mcdo',
+    id: 'fastfood',
     name: 'Fast-food (reference)',
     hourlyRate: 11.65,
     flexibility: 0.3,
     skills: [],
     coBenefit: null,
-    networking: 'faible',
-    cvImpact: 'faible',
+    networking: 'low',
+    cvImpact: 'low',
     platform: 'Direct',
     marketDemand: 5,
     cognitiveEffort: 2,
@@ -132,12 +132,12 @@ const JOB_DATABASE = [
  */
 export const matchJobsTool = createTool({
   id: 'match_jobs',
-  description: 'Trouve des jobs compatibles avec les competences via knowledge graph',
+  description: 'Find jobs compatible with skills via knowledge graph',
   inputSchema: z.object({
-    skills: z.array(z.string()).describe('Liste des competences'),
-    maxHoursWeekly: z.number().optional().describe('Heures max par semaine'),
-    minHourlyRate: z.number().optional().describe('Taux horaire minimum'),
-    prioritizeNetworking: z.boolean().optional().describe('Prioriser le networking'),
+    skills: z.array(z.string()).describe('List of skills'),
+    maxHoursWeekly: z.number().optional().describe('Max hours per week'),
+    minHourlyRate: z.number().optional().describe('Minimum hourly rate'),
+    prioritizeNetworking: z.boolean().optional().describe('Prioritize networking'),
   }),
   execute: async ({ context }) => {
     const skillsLower = context.skills.map((s) => s.toLowerCase());
@@ -190,10 +190,10 @@ export const matchJobsTool = createTool({
  */
 export const explainJobMatchTool = createTool({
   id: 'explain_job_match',
-  description: 'Explique pourquoi un job est recommande via le chemin dans le graph',
+  description: 'Explain why a job is recommended via the graph path',
   inputSchema: z.object({
-    skill: z.string().describe('Competence source'),
-    jobId: z.string().describe('ID du job cible'),
+    skill: z.string().describe('Source skill'),
+    jobId: z.string().describe('Target job ID'),
   }),
   execute: async ({ context }) => {
     const job = JOB_DATABASE.find((j) => j.id === context.jobId);
@@ -201,7 +201,7 @@ export const explainJobMatchTool = createTool({
     if (!job) {
       return {
         found: false,
-        explanation: `Job "${context.jobId}" non trouve`,
+        explanation: `Job "${context.jobId}" not found`,
       };
     }
 
@@ -214,13 +214,13 @@ export const explainJobMatchTool = createTool({
       { relation: hasSkill ? 'enables' : 'partially_enables', weight: hasSkill ? 0.9 : 0.5 },
       { node: job.name, type: 'job' },
       { relation: 'pays', weight: job.hourlyRate },
-      { node: 'Revenu', type: 'outcome' },
+      { node: 'Income', type: 'outcome' },
     ];
 
-    const explanation = `${context.skill} → ${hasSkill ? 'active directement' : 'contribue a'} → ${job.name} (${job.hourlyRate}e/h)`;
+    const explanation = `${context.skill} → ${hasSkill ? 'directly enables' : 'contributes to'} → ${job.name} ($${job.hourlyRate}/h)`;
     const coBenefitExplanation = job.coBenefit
       ? `Bonus: ${job.coBenefit}`
-      : 'Pas de co-benefice particulier';
+      : 'No particular co-benefit';
 
     return {
       found: true,
@@ -230,8 +230,8 @@ export const explainJobMatchTool = createTool({
       coBenefit: coBenefitExplanation,
       path,
       recommendation: hasSkill
-        ? `Excellent match! Ta competence ${context.skill} est directement utilisee.`
-        : `Match partiel. Tu devras peut-etre completer tes competences.`,
+        ? `Excellent match! Your skill ${context.skill} is directly used.`
+        : `Partial match. You may need to complement your skills.`,
     };
   },
 });
@@ -241,10 +241,10 @@ export const explainJobMatchTool = createTool({
  */
 export const compareJobsTool = createTool({
   id: 'compare_jobs',
-  description: 'Compare plusieurs jobs sur differents criteres',
+  description: 'Compare multiple jobs on different criteria',
   inputSchema: z.object({
-    jobIds: z.array(z.string()).describe('IDs des jobs a comparer'),
-    hoursPerWeek: z.number().optional().describe('Heures de travail par semaine'),
+    jobIds: z.array(z.string()).describe('Job IDs to compare'),
+    hoursPerWeek: z.number().optional().describe('Work hours per week'),
   }),
   execute: async ({ context }) => {
     const hoursPerWeek = context.hoursPerWeek || 10;
@@ -300,20 +300,19 @@ export const compareJobsTool = createTool({
  */
 export const scoreSkillArbitrageTool = createTool({
   id: 'score_skill_arbitrage',
-  description:
-    "Calcule le score d'arbitrage pour une competence avec 4 criteres: taux, demande, effort, repos",
+  description: 'Calculate arbitrage score for a skill with 4 criteria: rate, demand, effort, rest',
   inputSchema: z.object({
     skills: z
       .array(
         z.object({
           name: z.string(),
-          hourlyRate: z.number().describe('Taux horaire en euros'),
-          marketDemand: z.number().min(1).max(5).describe('Demande marche (1-5)'),
-          cognitiveEffort: z.number().min(1).max(5).describe('Effort cognitif (1-5)'),
-          restNeeded: z.number().min(0).max(4).describe('Repos necessaire en heures'),
+          hourlyRate: z.number().describe('Hourly rate in dollars'),
+          marketDemand: z.number().min(1).max(5).describe('Market demand (1-5)'),
+          cognitiveEffort: z.number().min(1).max(5).describe('Cognitive effort (1-5)'),
+          restNeeded: z.number().min(0).max(4).describe('Rest needed in hours'),
         })
       )
-      .describe('Liste des competences a evaluer'),
+      .describe('List of skills to evaluate'),
     customWeights: z
       .object({
         rate: z.number().optional(),
@@ -322,7 +321,7 @@ export const scoreSkillArbitrageTool = createTool({
         rest: z.number().optional(),
       })
       .optional()
-      .describe('Poids personnalises (optionnel)'),
+      .describe('Custom weights (optional)'),
   }),
   execute: async ({ context }) => {
     const weights: ArbitrageWeights = context.customWeights
@@ -351,9 +350,7 @@ export const scoreSkillArbitrageTool = createTool({
     const insights: string[] = [];
     if (sortedResults.length > 0) {
       const top = sortedResults[0];
-      insights.push(
-        `🏆 "${top.skill.name}" est ton meilleur arbitrage (${top.score.toFixed(1)}/10)`
-      );
+      insights.push(`🏆 "${top.skill.name}" is your best arbitrage (${top.score.toFixed(1)}/10)`);
 
       // Find high-rate but lower-score skill
       const highRateLowScore = sortedResults.find(
@@ -361,7 +358,7 @@ export const scoreSkillArbitrageTool = createTool({
       );
       if (highRateLowScore) {
         insights.push(
-          `💡 "${highRateLowScore.skill.name}" paie bien mais l'effort fait baisser son score`
+          `💡 "${highRateLowScore.skill.name}" pays well but the effort lowers its score`
         );
       }
     }
@@ -387,11 +384,11 @@ export const scoreSkillArbitrageTool = createTool({
 export const matchJobsWithArbitrageTool = createTool({
   id: 'match_jobs_arbitrage',
   description:
-    "Trouve des jobs compatibles et les classe avec le score d'arbitrage (taux, demande, effort, repos)",
+    'Find compatible jobs and rank them with arbitrage score (rate, demand, effort, rest)',
   inputSchema: z.object({
-    skills: z.array(z.string()).describe('Liste des competences du user'),
-    energyLevel: z.number().min(0).max(100).optional().describe("Niveau d'energie actuel (0-100)"),
-    prioritizeLowEffort: z.boolean().optional().describe('Prioriser les jobs peu fatigants'),
+    skills: z.array(z.string()).describe("User's list of skills"),
+    energyLevel: z.number().min(0).max(100).optional().describe('Current energy level (0-100)'),
+    prioritizeLowEffort: z.boolean().optional().describe('Prioritize low-effort jobs'),
   }),
   execute: async ({ context }) => {
     const skillsLower = context.skills.map((s) => s.toLowerCase());
@@ -452,7 +449,7 @@ export const matchJobsWithArbitrageTool = createTool({
         coBenefit: job.coBenefit,
         platform: job.platform,
         effortLevel:
-          job.cognitiveEffort <= 2 ? 'Facile' : job.cognitiveEffort <= 3 ? 'Modere' : 'Intense',
+          job.cognitiveEffort <= 2 ? 'Easy' : job.cognitiveEffort <= 3 ? 'Moderate' : 'Intense',
         recommendation: job.recommendation,
       })),
       reference: mcdo

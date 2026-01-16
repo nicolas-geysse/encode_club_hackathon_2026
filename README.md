@@ -4,63 +4,63 @@
 
 ## 30 Second Pitch
 
-Stride aide les étudiants à gérer leur budget avec 4 features intelligentes:
+Stride helps students manage their budget with 4 intelligent features:
 
-1. **Skill Arbitrage** - Trouve le job qui ne te cramera pas (SQL à 22€/h bat Python à 25€/h)
-2. **Swipe Scenarios** - Choisis tes stratégies comme sur Tinder
-3. **Comeback Mode** - Détecte quand tu récupères après les exams et crée un plan de rattrapage
-4. **Energy Debt** - Réduit tes objectifs quand tu es épuisé et récompense le self-care
+1. **Skill Arbitrage** - Finds the job that won't burn you out (SQL at $22/h beats Python at $25/h)
+2. **Swipe Scenarios** - Choose your strategies like on Tinder
+3. **Comeback Mode** - Detects when you recover after exams and creates a catch-up plan
+4. **Energy Debt** - Reduces your goals when exhausted and rewards self-care
 
-Tout est tracé dans Opik - tu peux voir exactement pourquoi on te recommande ce job.
+Everything is traced in Opik - you can see exactly why we recommend that job.
 
 **Track**: Financial Health - Encode Club Hackathon 2026
 **Sponsor**: Comet (Opik)
 
 ---
 
-## Comment ça marche
+## How It Works
 
-### Onboarding (Chat avec Bruno)
-- Dis ton objectif en langage naturel
-- Bruno te pose des questions pour comprendre ta situation
-- Profil créé automatiquement
+### Onboarding (Chat with Bruno)
+- State your goal in natural language
+- Bruno asks questions to understand your situation
+- Profile created automatically
 
-### Mon Plan (6 tabs)
+### My Plan (6 tabs)
 
-| Tab | Ce que tu fais |
-|-----|----------------|
-| Setup | Objectif, deadline, événements académiques |
-| Skills | Voir le scoring multi-critères de tes jobs |
-| À Vendre | Ajouter des objets à vendre via chat |
-| Lifestyle | Optimiser tes dépenses récurrentes |
-| Trade | Emprunter/troquer au lieu d'acheter |
-| Swipe | Roll the Dice → Swipe tes stratégies |
+| Tab | What you do |
+|-----|-------------|
+| Setup | Goal, deadline, academic events |
+| Skills | View multi-criteria scoring of your jobs |
+| Inventory | Add items to sell via chat |
+| Lifestyle | Optimize your recurring expenses |
+| Trade | Borrow/trade instead of buying |
+| Swipe | Roll the Dice → Swipe your strategies |
 
-### Suivi (Dashboard)
-- Timeline avec progression temps + charge de travail
-- Alerte Comeback si tu peux rattraper
-- Historique énergie + détection fatigue
-- Valider/supprimer tes missions
+### Dashboard
+- Timeline with time progress + workload
+- Comeback alert if you can catch up
+- Energy history + fatigue detection
+- Validate/delete your missions
 
 ---
 
-## 4 Features Clés
+## 4 Key Features
 
 ### Skill Arbitrage
-Le job le mieux payé n'est pas toujours le meilleur.
-Score multi-critères: taux horaire × demande × effort × repos nécessaire.
+The highest-paying job isn't always the best.
+Multi-criteria score: hourly rate × demand × effort × rest needed.
 
 ### Swipe Scenarios
-Swipe right = intéressé, left = pas intéressé.
-L'app apprend tes préférences après 4 swipes.
+Swipe right = interested, left = not interested.
+The app learns your preferences after 4 swipes.
 
 ### Comeback Mode
-Détecte quand ton énergie remonte après une période difficile.
-Crée un plan de rattrapage réaliste.
+Detects when your energy rises after a difficult period.
+Creates a realistic catch-up plan.
 
 ### Energy Debt
-3 semaines à basse énergie = objectif réduit automatiquement.
-Badge "Self Care Champion" débloqué.
+3 weeks at low energy = automatically reduced goal.
+"Self Care Champion" badge unlocked.
 
 ---
 
@@ -68,18 +68,18 @@ Badge "Self Care Champion" débloqué.
 
 ### 4 Agents
 
-| Agent | Rôle |
+| Agent | Role |
 |-------|------|
-| Budget Coach | Analyse budget + chat onboarding |
+| Budget Coach | Budget analysis + onboarding chat |
 | Job Matcher | Skill Arbitrage + scoring |
-| Guardian | Validation 2 couches |
+| Guardian | 2-layer validation |
 | Energy Calculator | Comeback + Energy Debt |
 
 ### Stack
 
-| Composant | Technologie |
-|-----------|-------------|
-| Tracing | Opik self-hosted |
+| Component | Technology |
+|-----------|------------|
+| Tracing | Opik Cloud |
 | LLM | Groq (llama-3.3-70b) |
 | Agents | Mastra Framework |
 | Frontend | SolidStart + TailwindCSS |
@@ -90,39 +90,36 @@ Badge "Self Care Champion" débloqué.
 ## Quick Start
 
 ```bash
-# 1. Opik (self-hosted)
-cd opik/deployment/docker-compose
-docker compose --profile opik up -d
-# → http://localhost:5173
+# 1. Install dependencies
+pnpm install
 
-# 2. MCP Server
-cd packages/mcp-server
-npm install && npm run build
+# 2. Set environment variables
+cp .env.example .env
+# Edit .env with your GROQ_API_KEY, OPIK_API_KEY, OPIK_WORKSPACE
 
-# 3. Frontend
-cd packages/frontend
-npm install && npm run dev
-# → http://localhost:3000
+# 3. Run development servers
+pnpm dev              # Frontend → http://localhost:3000
+pnpm dev:mcp          # MCP Server (stdio)
 ```
 
 ---
 
-## Observability avec Opik
+## Observability with Opik
 
-Chaque recommandation est tracée:
-- Pourquoi ce job? → `score_calculation` trace
-- Pourquoi cet objectif réduit? → `energy_debt_check` trace
-- Comment mes swipes influencent? → `preference_learning` trace
+Every recommendation is traced:
+- Why this job? → `score_calculation` trace
+- Why this reduced goal? → `energy_debt_check` trace
+- How do my swipes influence? → `preference_learning` trace
 
-Détails: [docs/OPIK.md](docs/OPIK.md)
+Details: [docs/OPIK.md](docs/OPIK.md)
 
 ---
 
 ## Documentation
 
-- [OPIK.md](docs/OPIK.md) - Intégration Opik + traces
-- [SCREENS_AND_EVALS.md](docs/SCREENS_AND_EVALS.md) - Détail des écrans
-- [PLAN.md](docs/PLAN.md) - Architecture complète
+- [OPIK.md](docs/OPIK.md) - Opik integration + traces
+- [SCREENS_AND_EVALS.md](docs/SCREENS_AND_EVALS.md) - Screen details
+- [PLAN.md](docs/PLAN.md) - Full architecture
 
 ---
 
