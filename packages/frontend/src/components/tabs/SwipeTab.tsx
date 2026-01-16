@@ -7,6 +7,7 @@
 import { createSignal, Show, For } from 'solid-js';
 import { RollDice } from '../swipe/RollDice';
 import { SwipeSession } from '../swipe/SwipeSession';
+import { celebrateBig } from '~/lib/confetti';
 
 export interface Scenario {
   id: string;
@@ -192,17 +193,34 @@ export function SwipeTab(props: SwipeTabProps) {
     }, 1500);
   };
 
+  // Track "meh" (strong dislike) items for future coloring in skills/inventory/lifestyle/trade tabs
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [mehScenarioIds, setMehScenarioIds] = createSignal<Set<string>>(new Set());
+
   const handleSwipeComplete = (
     accepted: Scenario[],
     rejected: Scenario[],
-    updatedPrefs: UserPreferences
+    updatedPrefs: UserPreferences,
+    mehIds?: Set<string>
   ) => {
     setSelectedScenarios(accepted);
     setPreferences(updatedPrefs);
+    if (mehIds) {
+      setMehScenarioIds(mehIds);
+    }
     setPhase('complete');
+    // Don't call callbacks yet - wait for user to click "Validate"
+  };
 
-    props.onPreferencesChange?.(updatedPrefs);
-    props.onScenariosSelected?.(accepted);
+  const handleValidate = () => {
+    // Trigger celebration
+    celebrateBig();
+
+    // Call the callbacks after a short delay to let celebration start
+    setTimeout(() => {
+      props.onPreferencesChange?.(preferences());
+      props.onScenariosSelected?.(selectedScenarios());
+    }, 500);
   };
 
   const handleReset = () => {
@@ -235,14 +253,14 @@ export function SwipeTab(props: SwipeTabProps) {
         />
       </Show>
 
-      {/* Complete Phase - Results */}
+      {/* Complete Phase - Summary before validation */}
       <Show when={phase() === 'complete'}>
         <div class="space-y-6">
           <div class="text-center">
-            <div class="text-4xl mb-4">🎉</div>
-            <h2 class="text-2xl font-bold text-slate-900">Done!</h2>
+            <div class="text-4xl mb-4">📋</div>
+            <h2 class="text-2xl font-bold text-slate-900">Review Your Plan</h2>
             <p class="text-slate-500 mt-2">
-              I've learned your preferences. Here's your personalized plan.
+              I've learned your preferences. Review your selections before validating.
             </p>
           </div>
 
@@ -325,7 +343,7 @@ export function SwipeTab(props: SwipeTabProps) {
             <button type="button" class="btn-secondary flex-1" onClick={handleReset}>
               Start over
             </button>
-            <button type="button" class="btn-primary flex-1">
+            <button type="button" class="btn-primary flex-1" onClick={handleValidate}>
               Validate my plan
             </button>
           </div>

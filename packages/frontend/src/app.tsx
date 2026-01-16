@@ -6,6 +6,7 @@ import { ProfileSelector } from '~/components/ProfileSelector';
 import { SimulationControls, type SimulationState } from '~/components/SimulationControls';
 import { NotificationBell, type Notification } from '~/components/NotificationBell';
 import { ProgressMini } from '~/components/ProgressMini';
+import { RouteProgress } from '~/components/RouteProgress';
 
 export default function App() {
   // Simulation state (managed by SimulationControls, shared with app)
@@ -100,6 +101,7 @@ export default function App() {
 
         return (
           <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
+            <RouteProgress />
             <header class="bg-white shadow-sm border-b border-slate-200">
               <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between">

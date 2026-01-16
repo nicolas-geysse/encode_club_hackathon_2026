@@ -15,6 +15,7 @@ import { LifestyleTab } from '~/components/tabs/LifestyleTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab } from '~/components/tabs/SwipeTab';
 import { profileService, type FullProfile } from '~/lib/profileService';
+import { PageLoader } from '~/components/PageLoader';
 
 // Types for plan data - using 'any' style string types for JSON storage compatibility
 // The component types use strict unions, but stored data may have any string values
@@ -119,6 +120,7 @@ interface PlanData {
 export default function PlanPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = createSignal<TabId>('setup');
+  const [isLoading, setIsLoading] = createSignal(true);
   const [hasProfile, setHasProfile] = createSignal(false);
   const [activeProfile, setActiveProfile] = createSignal<FullProfile | null>(null);
   const [planData, setPlanData] = createSignal<PlanData>({
@@ -133,30 +135,34 @@ export default function PlanPage() {
 
   // Check for profile on mount - now using profileService
   onMount(async () => {
-    // First, try to sync localStorage to DuckDB (migration)
-    await profileService.syncLocalToDb();
+    try {
+      // First, try to sync localStorage to DuckDB (migration)
+      await profileService.syncLocalToDb();
 
-    // Load active profile from DuckDB
-    const profile = await profileService.loadActiveProfile();
-    if (profile) {
-      setActiveProfile(profile);
-      setHasProfile(true);
-
-      // Load plan data from profile (cast from stored JSON)
-      if (profile.planData) {
-        const stored = profile.planData as unknown as PlanData;
-        setPlanData(stored);
-      }
-    } else {
-      // Fallback to localStorage for backwards compatibility
-      const storedProfile = localStorage.getItem('studentProfile');
-      if (storedProfile) {
+      // Load active profile from DuckDB
+      const profile = await profileService.loadActiveProfile();
+      if (profile) {
+        setActiveProfile(profile);
         setHasProfile(true);
-        const storedPlan = localStorage.getItem('planData');
-        if (storedPlan) {
-          setPlanData(JSON.parse(storedPlan));
+
+        // Load plan data from profile (cast from stored JSON)
+        if (profile.planData) {
+          const stored = profile.planData as unknown as PlanData;
+          setPlanData(stored);
+        }
+      } else {
+        // Fallback to localStorage for backwards compatibility
+        const storedProfile = localStorage.getItem('studentProfile');
+        if (storedProfile) {
+          setHasProfile(true);
+          const storedPlan = localStorage.getItem('planData');
+          if (storedPlan) {
+            setPlanData(JSON.parse(storedPlan));
+          }
         }
       }
+    } finally {
+      setIsLoading(false);
     }
   });
 
@@ -247,75 +253,77 @@ export default function PlanPage() {
   );
 
   return (
-    <Show when={hasProfile()} fallback={<NoProfileView />}>
-      <div class="flex flex-col h-full -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
-        {/* Tab Navigation */}
-        <TabNavigation
-          activeTab={activeTab()}
-          onTabChange={setActiveTab}
-          completedTabs={planData().completedTabs}
-        />
+    <Show when={!isLoading()} fallback={<PageLoader />}>
+      <Show when={hasProfile()} fallback={<NoProfileView />}>
+        <div class="flex flex-col h-full -mx-4 sm:-mx-6 lg:-mx-8 -mt-6">
+          {/* Tab Navigation */}
+          <TabNavigation
+            activeTab={activeTab()}
+            onTabChange={setActiveTab}
+            completedTabs={planData().completedTabs}
+          />
 
-        {/* Tab Content */}
-        <div class="flex-1 overflow-y-auto">
-          <Show when={activeTab() === 'setup'}>
-            <SetupTab onComplete={handleSetupComplete} initialData={planData().setup} />
-          </Show>
+          {/* Tab Content */}
+          <div class="flex-1 overflow-y-auto">
+            <Show when={activeTab() === 'setup'}>
+              <SetupTab onComplete={handleSetupComplete} initialData={planData().setup} />
+            </Show>
 
-          <Show when={activeTab() === 'skills'}>
-            <SkillsTab initialSkills={planData().skills} onSkillsChange={handleSkillsChange} />
-          </Show>
+            <Show when={activeTab() === 'skills'}>
+              <SkillsTab initialSkills={planData().skills} onSkillsChange={handleSkillsChange} />
+            </Show>
 
-          <Show when={activeTab() === 'inventory'}>
-            <InventoryTab
-              initialItems={planData().inventory}
-              onItemsChange={handleInventoryChange}
-            />
-          </Show>
+            <Show when={activeTab() === 'inventory'}>
+              <InventoryTab
+                initialItems={planData().inventory}
+                onItemsChange={handleInventoryChange}
+              />
+            </Show>
 
-          <Show when={activeTab() === 'lifestyle'}>
-            <LifestyleTab
-              initialItems={planData().lifestyle}
-              onItemsChange={handleLifestyleChange}
-            />
-          </Show>
+            <Show when={activeTab() === 'lifestyle'}>
+              <LifestyleTab
+                initialItems={planData().lifestyle}
+                onItemsChange={handleLifestyleChange}
+              />
+            </Show>
 
-          <Show when={activeTab() === 'trade'}>
-            <TradeTab
-              initialTrades={planData().trades}
-              onTradesChange={handleTradesChange}
-              goalName={planData().setup?.goalName}
-              goalAmount={planData().setup?.goalAmount}
-            />
-          </Show>
+            <Show when={activeTab() === 'trade'}>
+              <TradeTab
+                initialTrades={planData().trades}
+                onTradesChange={handleTradesChange}
+                goalName={planData().setup?.goalName}
+                goalAmount={planData().setup?.goalAmount}
+              />
+            </Show>
 
-          <Show when={activeTab() === 'swipe'}>
-            <SwipeTab
-              skills={planData().skills.map((s) => ({
-                name: s.name,
-                hourlyRate: s.hourlyRate,
-              }))}
-              items={planData()
-                .inventory.filter((i) => !i.sold)
-                .map((i) => ({
-                  name: i.name,
-                  estimatedValue: i.estimatedValue,
+            <Show when={activeTab() === 'swipe'}>
+              <SwipeTab
+                skills={planData().skills.map((s) => ({
+                  name: s.name,
+                  hourlyRate: s.hourlyRate,
                 }))}
-              lifestyle={planData().lifestyle.map((l) => ({
-                name: l.name,
-                currentCost: l.currentCost,
-                optimizedCost: l.optimizedCost,
-              }))}
-              trades={planData().trades.map((t) => ({
-                name: t.name,
-                value: t.value,
-              }))}
-              onPreferencesChange={handleSwipePreferencesChange}
-              onScenariosSelected={handleScenariosSelected}
-            />
-          </Show>
+                items={planData()
+                  .inventory.filter((i) => !i.sold)
+                  .map((i) => ({
+                    name: i.name,
+                    estimatedValue: i.estimatedValue,
+                  }))}
+                lifestyle={planData().lifestyle.map((l) => ({
+                  name: l.name,
+                  currentCost: l.currentCost,
+                  optimizedCost: l.optimizedCost,
+                }))}
+                trades={planData().trades.map((t) => ({
+                  name: t.name,
+                  value: t.value,
+                }))}
+                onPreferencesChange={handleSwipePreferencesChange}
+                onScenariosSelected={handleScenariosSelected}
+              />
+            </Show>
+          </div>
         </div>
-      </div>
+      </Show>
     </Show>
   );
 }

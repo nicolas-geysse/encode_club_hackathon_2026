@@ -4,7 +4,9 @@
  * Tinder-style card with swipe animations for scenario selection.
  */
 
-import { createSignal, onMount, For } from 'solid-js';
+import { createSignal, onMount } from 'solid-js';
+
+export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
 
 export interface SwipeCardProps {
   id: string;
@@ -16,7 +18,7 @@ export interface SwipeCardProps {
   flexibilityScore: number;
   hourlyRate: number;
   category: string;
-  onSwipe: (direction: 'left' | 'right', timeSpent: number, adjustments?: CardAdjustments) => void;
+  onSwipe: (direction: SwipeDirection, timeSpent: number, adjustments?: CardAdjustments) => void;
   isActive?: boolean;
 }
 
@@ -30,48 +32,18 @@ export function SwipeCard(props: SwipeCardProps) {
   const [position, setPosition] = createSignal({ x: 0, y: 0 });
   const [rotation, setRotation] = createSignal(0);
   const [isDragging, setIsDragging] = createSignal(false);
-  const [swipeDirection, setSwipeDirection] = createSignal<'left' | 'right' | null>(null);
+  const [swipeDirection, setSwipeDirection] = createSignal<SwipeDirection | null>(null);
   const [startTime, setStartTime] = createSignal(Date.now());
-
-  // Perceived values (user adjustments) - initialized to 0, set in onMount
-  const [perceivedEffort, setPerceivedEffort] = createSignal(0);
-  const [perceivedFlexibility, setPerceivedFlexibility] = createSignal(0);
-  const [customRate, setCustomRate] = createSignal(0);
-  const [isEditingRate, setIsEditingRate] = createSignal(false);
 
   let cardRef: HTMLDivElement | undefined;
   let startPos = { x: 0, y: 0 };
 
   onMount(() => {
     setStartTime(Date.now());
-    // Access props within onMount to initialize state
-    const effort = props.effortLevel;
-    const flex = props.flexibilityScore;
-    const rate = props.hourlyRate;
-    setPerceivedEffort(effort);
-    setPerceivedFlexibility(flex);
-    setCustomRate(rate);
   });
 
-  // Adjust perceived effort (+1 or -1)
-  const adjustEffort = (delta: number) => {
-    const newValue = Math.max(1, Math.min(5, perceivedEffort() + delta));
-    setPerceivedEffort(newValue);
-  };
-
-  // Adjust perceived flexibility (+1 or -1)
-  const adjustFlexibility = (delta: number) => {
-    const newValue = Math.max(1, Math.min(5, perceivedFlexibility() + delta));
-    setPerceivedFlexibility(newValue);
-  };
-
-  // Get current adjustments
-  const getAdjustments = (): CardAdjustments => ({
-    perceivedEffort: perceivedEffort() !== props.effortLevel ? perceivedEffort() : undefined,
-    perceivedFlexibility:
-      perceivedFlexibility() !== props.flexibilityScore ? perceivedFlexibility() : undefined,
-    customHourlyRate: customRate() !== props.hourlyRate ? customRate() : undefined,
-  });
+  // Get current adjustments (now passed from parent via props if needed)
+  const getAdjustments = (): CardAdjustments => ({});
 
   const handlePointerDown = (e: PointerEvent) => {
     if (!props.isActive) return;
@@ -94,13 +66,20 @@ export function SwipeCard(props: SwipeCardProps) {
     const y = e.clientY - startPos.y;
 
     setPosition({ x, y });
+    // Rotation based on horizontal movement only
     setRotation(x * 0.05);
 
-    // Determine swipe direction
-    if (x > 50) {
-      setSwipeDirection('right');
-    } else if (x < -50) {
-      setSwipeDirection('left');
+    // Determine swipe direction (4-way)
+    const absX = Math.abs(x);
+    const absY = Math.abs(y);
+    const threshold = 50;
+
+    if (absX > absY && absX > threshold) {
+      // Horizontal dominant
+      setSwipeDirection(x > 0 ? 'right' : 'left');
+    } else if (absY > absX && absY > threshold) {
+      // Vertical dominant
+      setSwipeDirection(y > 0 ? 'down' : 'up');
     } else {
       setSwipeDirection(null);
     }
@@ -110,24 +89,43 @@ export function SwipeCard(props: SwipeCardProps) {
     if (!isDragging() || !props.isActive) return;
     setIsDragging(false);
 
-    const x = position().x;
+    const { x, y } = position();
     const threshold = 100;
+    const absX = Math.abs(x);
+    const absY = Math.abs(y);
 
-    if (Math.abs(x) > threshold) {
-      // Swipe completed
-      const direction = x > 0 ? 'right' : 'left';
+    let direction: SwipeDirection | null = null;
+
+    // Determine final swipe direction (4-way)
+    if (absX > absY && absX > threshold) {
+      direction = x > 0 ? 'right' : 'left';
+    } else if (absY > absX && absY > threshold) {
+      direction = y > 0 ? 'down' : 'up';
+    }
+
+    if (direction) {
       const timeSpent = Date.now() - startTime();
       const adjustments = getAdjustments();
 
-      // Animate out
-      setPosition({
-        x: direction === 'right' ? 500 : -500,
-        y: position().y,
-      });
-      setRotation(direction === 'right' ? 30 : -30);
+      // Animate out based on direction (keep within reasonable bounds)
+      const exitPositions = {
+        right: { x: 400, y: position().y },
+        left: { x: -400, y: position().y },
+        up: { x: position().x, y: -400 },
+        down: { x: position().x, y: 400 },
+      };
+      const exitRotations = {
+        right: 30,
+        left: -30,
+        up: 0,
+        down: 0,
+      };
+
+      setPosition(exitPositions[direction]);
+      setRotation(exitRotations[direction]);
 
       setTimeout(() => {
-        props.onSwipe(direction, timeSpent, adjustments);
+        props.onSwipe(direction!, timeSpent, adjustments);
       }, 200);
     } else {
       // Spring back
@@ -148,52 +146,6 @@ export function SwipeCard(props: SwipeCardProps) {
     return icons[category] || '💼';
   };
 
-  // Star meter component for effort/flexibility
-  const StarMeter = (currentProps: {
-    value: number;
-    onChange?: (delta: number) => void;
-    label: string;
-  }) => (
-    <div class="flex items-center gap-1">
-      <span class="text-xs text-slate-500 mr-1">{currentProps.label}:</span>
-      {currentProps.onChange && (
-        <button
-          type="button"
-          class="w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs flex items-center justify-center"
-          onClick={(e) => {
-            e.stopPropagation();
-            currentProps.onChange!(-1);
-          }}
-        >
-          👎
-        </button>
-      )}
-      <div class="flex">
-        <For each={[1, 2, 3, 4, 5]}>
-          {(i) => (
-            <span
-              class={`text-sm ${i <= currentProps.value ? 'text-amber-500' : 'text-slate-300'}`}
-            >
-              ★
-            </span>
-          )}
-        </For>
-      </div>
-      {currentProps.onChange && (
-        <button
-          type="button"
-          class="w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs flex items-center justify-center"
-          onClick={(e) => {
-            e.stopPropagation();
-            currentProps.onChange!(1);
-          }}
-        >
-          👍
-        </button>
-      )}
-    </div>
-  );
-
   return (
     <div
       ref={cardRef}
@@ -204,7 +156,11 @@ export function SwipeCard(props: SwipeCardProps) {
           ? 'border-green-400'
           : swipeDirection() === 'left'
             ? 'border-red-400'
-            : 'border-slate-200'
+            : swipeDirection() === 'up'
+              ? 'border-blue-400'
+              : swipeDirection() === 'down'
+                ? 'border-orange-400'
+                : 'border-slate-200'
       }`}
       style={{
         transform: `translate(${position().x}px, ${position().y}px) rotate(${rotation()}deg)`,
@@ -225,7 +181,7 @@ export function SwipeCard(props: SwipeCardProps) {
         }`}
       >
         <div class="bg-green-500 text-white px-6 py-3 rounded-full font-bold text-xl transform rotate-12">
-          I'LL TAKE IT!
+          ♥ I'LL TAKE IT!
         </div>
       </div>
       <div
@@ -234,7 +190,25 @@ export function SwipeCard(props: SwipeCardProps) {
         }`}
       >
         <div class="bg-red-500 text-white px-6 py-3 rounded-full font-bold text-xl transform -rotate-12">
-          NOT FOR ME
+          ✕ NOT FOR ME
+        </div>
+      </div>
+      <div
+        class={`absolute inset-0 bg-blue-500/20 flex items-center justify-center transition-opacity z-20 ${
+          swipeDirection() === 'up' ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <div class="bg-blue-500 text-white px-6 py-3 rounded-full font-bold text-xl">
+          ⭐ SUPER LIKE!
+        </div>
+      </div>
+      <div
+        class={`absolute inset-0 bg-orange-500/20 flex items-center justify-center transition-opacity z-20 ${
+          swipeDirection() === 'down' ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <div class="bg-orange-500 text-white px-6 py-3 rounded-full font-bold text-xl">
+          👎 NOT GREAT
         </div>
       </div>
 
@@ -254,8 +228,8 @@ export function SwipeCard(props: SwipeCardProps) {
         {/* Description */}
         <p class="text-slate-600 text-sm mb-6">{props.description}</p>
 
-        {/* Stats */}
-        <div class="grid grid-cols-2 gap-4 mb-4">
+        {/* Stats - only earnings and hours */}
+        <div class="grid grid-cols-2 gap-4">
           <div class="bg-slate-50 rounded-lg p-3 text-center">
             <div class="text-2xl font-bold text-primary-600">{props.weeklyEarnings}€</div>
             <div class="text-xs text-slate-500">/week</div>
@@ -265,56 +239,14 @@ export function SwipeCard(props: SwipeCardProps) {
             <div class="text-xs text-slate-500">/week</div>
           </div>
         </div>
-
-        {/* Effort & Flexibility with adjustment controls */}
-        <div class="space-y-2">
-          <StarMeter value={perceivedEffort()} onChange={adjustEffort} label="Effort" />
-          <StarMeter value={perceivedFlexibility()} onChange={adjustFlexibility} label="Flex" />
-        </div>
-
-        {/* Hourly Rate (editable) */}
-        {props.hourlyRate > 0 && (
-          <div class="mt-4 pt-4 border-t border-slate-100 text-center">
-            {isEditingRate() ? (
-              <div class="flex items-center justify-center gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  class="w-20 px-2 py-1 text-center border border-slate-300 rounded-lg text-green-600 font-bold"
-                  value={customRate()}
-                  onInput={(e) =>
-                    setCustomRate(parseInt(e.currentTarget.value) || props.hourlyRate)
-                  }
-                  onBlur={() => setIsEditingRate(false)}
-                  onKeyDown={(e) => e.key === 'Enter' && setIsEditingRate(false)}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span class="text-green-600 font-bold">€/h</span>
-              </div>
-            ) : (
-              <button
-                type="button"
-                class="text-lg font-bold text-green-600 hover:text-green-700 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsEditingRate(true);
-                }}
-              >
-                {customRate()}€/h ✏️
-              </button>
-            )}
-            {customRate() !== props.hourlyRate && (
-              <div class="text-xs text-slate-400 mt-1">(original: {props.hourlyRate}€/h)</div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Swipe Hint */}
-      <div class="bg-slate-50 px-6 py-3 flex justify-between text-xs text-slate-400">
-        <span>← Decline</span>
-        <span>Accept →</span>
+      <div class="bg-slate-50 px-4 py-2 flex justify-between text-xs text-slate-400">
+        <span>← No</span>
+        <span>↑ Super</span>
+        <span>↓ Meh</span>
+        <span>Yes →</span>
       </div>
     </div>
   );
