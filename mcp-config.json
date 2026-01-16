@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/mcp.json",
+  "mcpServers": {
+    "opik": {
+      "command": "npx",
+      "args": ["-y", "opik-mcp", "--apiKey", "${OPIK_API_KEY}"],
+      "description": "Opik MCP Server for observability - query traces, manage prompts, debug from IDE"
+    },
+    "stride": {
+      "command": "node",
+      "args": ["packages/mcp-server/dist/index.js"],
+      "description": "Stride MCP Server - Student financial navigator tools"
+    }
+  },
+  "_readme": {
+    "usage": [
+      "Copy the mcpServers section to your IDE's MCP config:",
+      "- Claude Desktop: ~/.config/claude/claude_desktop_config.json (Linux) or ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)",
+      "- Cursor: Settings > Features > MCP Servers",
+      "- VS Code: claude-code extension settings"
+    ],
+    "opik_commands": [
+      "Show recent traces for stride project",
+      "Why did the budget-coach agent fail?",
+      "Compare latency of last 2 versions",
+      "List all prompts in the project"
+    ],
+    "environment": {
+      "OPIK_API_KEY": "Required for Opik MCP - set in your shell or IDE config"
+    }
+  }
+}

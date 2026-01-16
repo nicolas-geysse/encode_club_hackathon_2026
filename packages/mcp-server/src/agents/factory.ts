@@ -54,21 +54,33 @@ export function getToolsByNames(names: string[]): Record<string, ReturnType<type
   return tools;
 }
 
+// Cached model reference for lazy loading
+let cachedModel: unknown = null;
+
+/**
+ * Get the default model (lazy loaded)
+ */
+async function getDefaultModel(): Promise<unknown> {
+  if (!cachedModel) {
+    const config = await import('../mastra.config.js');
+    cachedModel = config.defaultModel;
+  }
+  return cachedModel;
+}
+
 /**
  * Create a Stride agent from configuration
  * Note: Uses lazy model loading to avoid import issues
  */
-export function createStrideAgent(config: AgentConfig): Agent {
+export async function createStrideAgent(config: AgentConfig): Promise<Agent> {
   const tools = getToolsByNames(config.toolNames);
-
-  // Dynamic import to get the model at runtime
-  // This avoids type issues with LanguageModelV3 vs MastraModelConfig
-  const { defaultModel } = require('../mastra.config.js');
+  const model = await getDefaultModel();
 
   return new Agent({
     name: config.name,
     instructions: config.instructions,
-    model: defaultModel as any, // Type assertion needed due to version mismatch
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    model: model as any,
     tools,
   });
 }
@@ -181,7 +193,7 @@ Sois strict mais juste. Mieux vaut rejeter un conseil douteux que laisser passer
   {
     id: 'money-maker',
     name: 'Money Maker',
-    description: 'Trouve des facons creatives de gagner de l\'argent',
+    description: "Trouve des facons creatives de gagner de l'argent",
     instructions: `Tu es un expert en side hustles et vente d'occasion pour etudiants.
 
 ROLE:
@@ -312,11 +324,11 @@ export function getAgentConfig(id: string): AgentConfig | undefined {
 /**
  * Create all Stride agents
  */
-export function createAllAgents(): Map<string, Agent> {
+export async function createAllAgents(): Promise<Map<string, Agent>> {
   const agents = new Map<string, Agent>();
 
   for (const config of AGENT_CONFIGS) {
-    const agent = createStrideAgent(config);
+    const agent = await createStrideAgent(config);
     agents.set(config.id, agent);
   }
 

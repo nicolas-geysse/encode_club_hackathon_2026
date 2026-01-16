@@ -9,7 +9,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
-import { query } from '../services/duckdb.js';
+import { query as _query } from '../services/duckdb.js';
 
 // Job database (knowledge graph simulation)
 const JOB_DATABASE = [
@@ -111,14 +111,11 @@ export const matchJobsTool = createTool({
     const minRate = context.minHourlyRate || 0;
 
     // Score and filter jobs
-    const matches = JOB_DATABASE
-      .filter((job) => job.hourlyRate >= minRate)
+    const matches = JOB_DATABASE.filter((job) => job.hourlyRate >= minRate)
       .map((job) => {
         // Calculate skill match score
         const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
-        const skillScore = job.skills.length > 0
-          ? matchingSkills.length / job.skills.length
-          : 0;
+        const skillScore = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
 
         // Calculate composite score
         let score = skillScore * 0.4 + (job.hourlyRate / 30) * 0.3 + job.flexibility * 0.2;
@@ -245,16 +242,19 @@ export const compareJobsTool = createTool({
     return {
       comparison: withDiff,
       hoursPerWeek,
-      recommendation: withDiff.sort((a, b) => {
-        // Score: income (40%) + flexibility (30%) + CV impact (30%)
-        const scoreA = a.monthlyIncome / bestIncome * 0.4 +
-          a.flexibility * 0.3 +
-          (a.cvImpact === 'fort' ? 1 : a.cvImpact === 'moyen' ? 0.5 : 0) * 0.3;
-        const scoreB = b.monthlyIncome / bestIncome * 0.4 +
-          b.flexibility * 0.3 +
-          (b.cvImpact === 'fort' ? 1 : b.cvImpact === 'moyen' ? 0.5 : 0) * 0.3;
-        return scoreB - scoreA;
-      })[0]?.name || 'Aucune recommandation',
+      recommendation:
+        withDiff.sort((a, b) => {
+          // Score: income (40%) + flexibility (30%) + CV impact (30%)
+          const scoreA =
+            (a.monthlyIncome / bestIncome) * 0.4 +
+            a.flexibility * 0.3 +
+            (a.cvImpact === 'fort' ? 1 : a.cvImpact === 'moyen' ? 0.5 : 0) * 0.3;
+          const scoreB =
+            (b.monthlyIncome / bestIncome) * 0.4 +
+            b.flexibility * 0.3 +
+            (b.cvImpact === 'fort' ? 1 : b.cvImpact === 'moyen' ? 0.5 : 0) * 0.3;
+          return scoreB - scoreA;
+        })[0]?.name || 'Aucune recommandation',
     };
   },
 });
@@ -267,7 +267,7 @@ registerTool('compare_jobs', compareJobsTool);
 /**
  * Create Job Matcher agent instance
  */
-export function createJobMatcherAgent(): Agent {
+export async function createJobMatcherAgent(): Promise<Agent> {
   const config = getAgentConfig('job-matcher');
   if (!config) {
     throw new Error('Job Matcher agent config not found');

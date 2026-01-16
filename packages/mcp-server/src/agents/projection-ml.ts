@@ -32,9 +32,10 @@ export const predictGraduationBalanceTool = createTool({
     const currentMargin = context.monthlyIncome - context.monthlyExpenses;
 
     // Calculate additional job income
-    const additionalJobIncome = context.jobHoursWeekly && context.jobHourlyRate
-      ? context.jobHoursWeekly * context.jobHourlyRate * 4
-      : 0;
+    const additionalJobIncome =
+      context.jobHoursWeekly && context.jobHourlyRate
+        ? context.jobHoursWeekly * context.jobHourlyRate * 4
+        : 0;
 
     // Estimate optimization savings
     const optimizationSavings = (context.optimizationsApplied || []).length * 50; // avg 50€ per optimization
@@ -44,12 +45,12 @@ export const predictGraduationBalanceTool = createTool({
 
     // Calculate projections
     const months = context.yearsRemaining * 12;
-    const finalBalance = (context.currentSavings || 0) + (projectedMonthlyMargin * months);
+    const finalBalance = (context.currentSavings || 0) + projectedMonthlyMargin * months;
 
     // Calculate probability of being debt-free
     // Based on margin: negative margin = low probability, high margin = high probability
     const baseProbability = 0.5;
-    const marginImpact = Math.min(0.4, Math.max(-0.4, projectedMonthlyMargin / 500 * 0.4));
+    const marginImpact = Math.min(0.4, Math.max(-0.4, (projectedMonthlyMargin / 500) * 0.4));
     const probabilityDebtFree = Math.min(0.99, Math.max(0.01, baseProbability + marginImpact));
 
     // Confidence interval (±20% for uncertainty)
@@ -62,12 +63,13 @@ export const predictGraduationBalanceTool = createTool({
       current: {
         name: 'Situation actuelle',
         monthlyMargin: currentMargin,
-        finalBalance: (context.currentSavings || 0) + (currentMargin * months),
+        finalBalance: (context.currentSavings || 0) + currentMargin * months,
       },
       withJob: {
         name: 'Avec job additionnel',
         monthlyMargin: currentMargin + additionalJobIncome,
-        finalBalance: (context.currentSavings || 0) + ((currentMargin + additionalJobIncome) * months),
+        finalBalance:
+          (context.currentSavings || 0) + (currentMargin + additionalJobIncome) * months,
       },
       optimized: {
         name: 'Avec optimisations',
@@ -93,11 +95,12 @@ export const predictGraduationBalanceTool = createTool({
         months,
       },
       scenarios,
-      recommendation: finalBalance < 0
-        ? 'Augmente tes revenus (job) ou reduis tes depenses pour eviter l\'endettement.'
-        : finalBalance < 1000
-          ? 'Situation equilibree mais fragile. Un petit job ou des optimisations securiseraient ta fin d\'etudes.'
-          : 'Bonne trajectoire! Tu devrais finir tes etudes avec une epargne confortable.',
+      recommendation:
+        finalBalance < 0
+          ? "Augmente tes revenus (job) ou reduis tes depenses pour eviter l'endettement."
+          : finalBalance < 1000
+            ? "Situation equilibree mais fragile. Un petit job ou des optimisations securiseraient ta fin d'etudes."
+            : 'Bonne trajectoire! Tu devrais finir tes etudes avec une epargne confortable.',
       modelVersion: '1.0.0-formula',
     };
   },
@@ -116,13 +119,15 @@ export const simulateScenariosTool = createTool({
       yearsRemaining: z.number(),
       currentSavings: z.number().optional(),
     }),
-    variations: z.array(z.object({
-      name: z.string().describe('Nom du scenario'),
-      incomeChange: z.number().optional().describe('Changement de revenu mensuel'),
-      expenseChange: z.number().optional().describe('Changement de depenses mensuel'),
-      jobHoursWeekly: z.number().optional().describe('Heures de job additionnel'),
-      jobHourlyRate: z.number().optional().describe('Taux horaire'),
-    })),
+    variations: z.array(
+      z.object({
+        name: z.string().describe('Nom du scenario'),
+        incomeChange: z.number().optional().describe('Changement de revenu mensuel'),
+        expenseChange: z.number().optional().describe('Changement de depenses mensuel'),
+        jobHoursWeekly: z.number().optional().describe('Heures de job additionnel'),
+        jobHourlyRate: z.number().optional().describe('Taux horaire'),
+      })
+    ),
   }),
   execute: async ({ context }) => {
     const { baseScenario, variations } = context;
@@ -131,7 +136,7 @@ export const simulateScenariosTool = createTool({
 
     // Calculate base scenario
     const baseMargin = baseScenario.monthlyIncome - baseScenario.monthlyExpenses;
-    const baseFinalBalance = currentSavings + (baseMargin * months);
+    const baseFinalBalance = currentSavings + baseMargin * months;
 
     const results = [
       {
@@ -139,7 +144,9 @@ export const simulateScenariosTool = createTool({
         monthlyMargin: baseMargin,
         finalBalance: baseFinalBalance,
         differenceFromBase: 0,
-        probabilityDebtFree: Math.round(Math.min(0.99, Math.max(0.01, 0.5 + (baseMargin / 500 * 0.4))) * 100),
+        probabilityDebtFree: Math.round(
+          Math.min(0.99, Math.max(0.01, 0.5 + (baseMargin / 500) * 0.4)) * 100
+        ),
       },
     ];
 
@@ -147,19 +154,22 @@ export const simulateScenariosTool = createTool({
     for (const variation of variations) {
       const incomeChange = variation.incomeChange || 0;
       const expenseChange = variation.expenseChange || 0;
-      const jobIncome = variation.jobHoursWeekly && variation.jobHourlyRate
-        ? variation.jobHoursWeekly * variation.jobHourlyRate * 4
-        : 0;
+      const jobIncome =
+        variation.jobHoursWeekly && variation.jobHourlyRate
+          ? variation.jobHoursWeekly * variation.jobHourlyRate * 4
+          : 0;
 
       const newMargin = baseMargin + incomeChange - expenseChange + jobIncome;
-      const newFinalBalance = currentSavings + (newMargin * months);
+      const newFinalBalance = currentSavings + newMargin * months;
 
       results.push({
         name: variation.name,
         monthlyMargin: newMargin,
         finalBalance: newFinalBalance,
         differenceFromBase: newFinalBalance - baseFinalBalance,
-        probabilityDebtFree: Math.round(Math.min(0.99, Math.max(0.01, 0.5 + (newMargin / 500 * 0.4))) * 100),
+        probabilityDebtFree: Math.round(
+          Math.min(0.99, Math.max(0.01, 0.5 + (newMargin / 500) * 0.4)) * 100
+        ),
       });
     }
 
@@ -177,9 +187,10 @@ export const simulateScenariosTool = createTool({
           max: sortedByBalance[0].finalBalance,
         },
       },
-      recommendation: sortedByBalance[0].name !== 'Situation actuelle'
-        ? `Le scenario "${sortedByBalance[0].name}" offre le meilleur resultat (+${sortedByBalance[0].differenceFromBase}€).`
-        : 'Ta situation actuelle est deja optimale parmi les scenarios testes.',
+      recommendation:
+        sortedByBalance[0].name !== 'Situation actuelle'
+          ? `Le scenario "${sortedByBalance[0].name}" offre le meilleur resultat (+${sortedByBalance[0].differenceFromBase}€).`
+          : 'Ta situation actuelle est deja optimale parmi les scenarios testes.',
     };
   },
 });
@@ -191,7 +202,7 @@ registerTool('simulate_scenarios', simulateScenariosTool);
 /**
  * Create Projection ML agent instance
  */
-export function createProjectionMLAgent(): Agent {
+export async function createProjectionMLAgent(): Promise<Agent> {
   const config = getAgentConfig('projection-ml');
   if (!config) {
     throw new Error('Projection ML agent config not found');

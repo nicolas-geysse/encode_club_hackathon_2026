@@ -45,6 +45,7 @@ import { runStudentAnalysis, type StudentProfile } from '../workflows/index.js';
 // Import new tool modules
 import { VOICE_TOOLS, handleVoiceTool } from './voice.js';
 import { GOAL_TOOLS, handleGoalTool } from './goal.js';
+import { SWIPE_TOOLS, handleSwipeTool } from './swipe.js';
 
 // Types
 interface IncomeSource {
@@ -85,7 +86,8 @@ interface CareerPath {
 export const TOOLS = {
   // === LLM Tools ===
   analyze_budget: {
-    description: 'Analyze student budget: income sources vs expenses. Returns KPIs and recommendations.',
+    description:
+      'Analyze student budget: income sources vs expenses. Returns KPIs and recommendations.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -95,11 +97,14 @@ export const TOOLS = {
           items: {
             type: 'object',
             properties: {
-              source: { type: 'string', description: 'Income source name (e.g., APL, Parents, Job)' },
-              amount: { type: 'number', description: 'Monthly amount in euros' }
+              source: {
+                type: 'string',
+                description: 'Income source name (e.g., APL, Parents, Job)',
+              },
+              amount: { type: 'number', description: 'Monthly amount in euros' },
             },
-            required: ['source', 'amount']
-          }
+            required: ['source', 'amount'],
+          },
         },
         expenses: {
           type: 'array',
@@ -107,15 +112,18 @@ export const TOOLS = {
           items: {
             type: 'object',
             properties: {
-              category: { type: 'string', description: 'Expense category (e.g., rent, food, transport)' },
-              amount: { type: 'number', description: 'Monthly amount in euros' }
+              category: {
+                type: 'string',
+                description: 'Expense category (e.g., rent, food, transport)',
+              },
+              amount: { type: 'number', description: 'Monthly amount in euros' },
             },
-            required: ['category', 'amount']
-          }
-        }
+            required: ['category', 'amount'],
+          },
+        },
       },
-      required: ['income_sources', 'expenses']
-    }
+      required: ['income_sources', 'expenses'],
+    },
   },
 
   generate_advice: {
@@ -128,27 +136,28 @@ export const TOOLS = {
         margin: { type: 'number', description: 'Current monthly margin in euros' },
         has_loan: { type: 'boolean', description: 'Whether student has a loan' },
         loan_amount: { type: 'number', description: 'Total loan amount if applicable' },
-        context: { type: 'string', description: 'Additional context for advice' }
-      }
-    }
+        context: { type: 'string', description: 'Additional context for advice' },
+      },
+    },
   },
 
   // === Graph Tools ===
   match_jobs: {
-    description: 'Find jobs compatible with student skills using knowledge graph. Returns ranked jobs with co-benefits.',
+    description:
+      'Find jobs compatible with student skills using knowledge graph. Returns ranked jobs with co-benefits.',
     inputSchema: {
       type: 'object',
       properties: {
         skills: {
           type: 'array',
           items: { type: 'string' },
-          description: 'List of skills (e.g., python, sql, english)'
+          description: 'List of skills (e.g., python, sql, english)',
         },
         max_hours_weekly: { type: 'number', description: 'Maximum hours per week available' },
-        min_hourly_rate: { type: 'number', description: 'Minimum acceptable hourly rate' }
+        min_hourly_rate: { type: 'number', description: 'Minimum acceptable hourly rate' },
       },
-      required: ['skills']
-    }
+      required: ['skills'],
+    },
   },
 
   find_optimizations: {
@@ -159,16 +168,16 @@ export const TOOLS = {
         expense_categories: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Expense categories to optimize (e.g., rent, food, transport)'
+          description: 'Expense categories to optimize (e.g., rent, food, transport)',
         },
         current_expenses: {
           type: 'object',
           description: 'Current expense amounts by category',
-          additionalProperties: { type: 'number' }
-        }
+          additionalProperties: { type: 'number' },
+        },
       },
-      required: ['expense_categories']
-    }
+      required: ['expense_categories'],
+    },
   },
 
   career_projection: {
@@ -176,10 +185,10 @@ export const TOOLS = {
     inputSchema: {
       type: 'object',
       properties: {
-        diploma: { type: 'string', description: 'Current diploma ID (e.g., l2_info, master_dev)' }
+        diploma: { type: 'string', description: 'Current diploma ID (e.g., l2_info, master_dev)' },
       },
-      required: ['diploma']
-    }
+      required: ['diploma'],
+    },
   },
 
   explain_recommendation: {
@@ -189,10 +198,10 @@ export const TOOLS = {
       properties: {
         recommendation_type: { type: 'string', enum: ['job', 'optimization'] },
         source_id: { type: 'string', description: 'Source node ID (skill or expense)' },
-        target_id: { type: 'string', description: 'Target node ID (job or solution)' }
+        target_id: { type: 'string', description: 'Target node ID (job or solution)' },
       },
-      required: ['recommendation_type', 'source_id', 'target_id']
-    }
+      required: ['recommendation_type', 'source_id', 'target_id'],
+    },
   },
 
   // === ML Tools ===
@@ -206,10 +215,14 @@ export const TOOLS = {
         years_remaining: { type: 'number', description: 'Years until graduation' },
         job_hours_weekly: { type: 'number', description: 'Additional job hours per week' },
         job_hourly_rate: { type: 'number', description: 'Hourly rate for additional job' },
-        optimizations_applied: { type: 'array', items: { type: 'string' }, description: 'List of optimizations applied' }
+        optimizations_applied: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of optimizations applied',
+        },
       },
-      required: ['monthly_income', 'monthly_expenses', 'years_remaining']
-    }
+      required: ['monthly_income', 'monthly_expenses', 'years_remaining'],
+    },
   },
 
   predict_loan_payoff: {
@@ -219,11 +232,14 @@ export const TOOLS = {
       properties: {
         loan_amount: { type: 'number', description: 'Total loan amount' },
         interest_rate: { type: 'number', description: 'Annual interest rate (e.g., 0.02 for 2%)' },
-        monthly_payment: { type: 'number', description: 'Expected monthly payment after graduation' },
-        starting_salary: { type: 'number', description: 'Expected starting annual salary' }
+        monthly_payment: {
+          type: 'number',
+          description: 'Expected monthly payment after graduation',
+        },
+        starting_salary: { type: 'number', description: 'Expected starting annual salary' },
       },
-      required: ['loan_amount', 'monthly_payment']
-    }
+      required: ['loan_amount', 'monthly_payment'],
+    },
   },
 
   // === Visualization Tools ===
@@ -238,30 +254,44 @@ export const TOOLS = {
             type: 'object',
             properties: {
               category: { type: 'string' },
-              amount: { type: 'number' }
-            }
-          }
+              amount: { type: 'number' },
+            },
+          },
         },
-        chart_type: { type: 'string', enum: ['pie', 'doughnut'], default: 'doughnut' }
+        chart_type: { type: 'string', enum: ['pie', 'doughnut'], default: 'doughnut' },
       },
-      required: ['expenses']
-    }
+      required: ['expenses'],
+    },
   },
 
   // === Smart Suggestion Tool ===
   suggest_related_jobs: {
-    description: 'Suggest personalized jobs based on field of study with networking opportunities. Uses LLM to find creative job matches.',
+    description:
+      'Suggest personalized jobs based on field of study with networking opportunities. Uses LLM to find creative job matches.',
     inputSchema: {
       type: 'object',
       properties: {
-        diploma: { type: 'string', description: 'Current diploma (e.g., L2 Info, Master Psychologie)' },
-        field: { type: 'string', description: 'Field of study (e.g., informatique, langues, droit, psychologie)' },
+        diploma: {
+          type: 'string',
+          description: 'Current diploma (e.g., L2 Info, Master Psychologie)',
+        },
+        field: {
+          type: 'string',
+          description: 'Field of study (e.g., informatique, langues, droit, psychologie)',
+        },
         skills: { type: 'array', items: { type: 'string' }, description: 'Current skills' },
-        interests: { type: 'array', items: { type: 'string' }, description: 'Personal interests and hobbies' },
-        networking_priority: { type: 'boolean', description: 'Prioritize jobs that help build professional network' }
+        interests: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Personal interests and hobbies',
+        },
+        networking_priority: {
+          type: 'boolean',
+          description: 'Prioritize jobs that help build professional network',
+        },
       },
-      required: ['diploma', 'field']
-    }
+      required: ['diploma', 'field'],
+    },
   },
 
   // === Opik Tools ===
@@ -270,9 +300,9 @@ export const TOOLS = {
     inputSchema: {
       type: 'object',
       properties: {
-        trace_id: { type: 'string', description: 'Specific trace ID (optional)' }
-      }
-    }
+        trace_id: { type: 'string', description: 'Specific trace ID (optional)' },
+      },
+    },
   },
 
   log_feedback: {
@@ -282,15 +312,16 @@ export const TOOLS = {
       properties: {
         feedback: { type: 'string', enum: ['thumbs_up', 'thumbs_down'] },
         trace_id: { type: 'string', description: 'Trace ID to attach feedback to' },
-        comment: { type: 'string', description: 'Optional comment' }
+        comment: { type: 'string', description: 'Optional comment' },
       },
-      required: ['feedback']
-    }
+      required: ['feedback'],
+    },
   },
 
   // === Workflow Tool (Mastra Multi-Agent) ===
   analyze_student_profile: {
-    description: 'Complete student analysis workflow using Mastra agents. Combines budget analysis, job matching, optimizations, and graduation projection in one call. Traces are automatically sent to Opik.',
+    description:
+      'Complete student analysis workflow using Mastra agents. Combines budget analysis, job matching, optimizations, and graduation projection in one call. Traces are automatically sent to Opik.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -300,7 +331,7 @@ export const TOOLS = {
         skills: {
           type: 'array',
           items: { type: 'string' },
-          description: 'List of skills'
+          description: 'List of skills',
         },
         years_remaining: { type: 'number', description: 'Years until graduation' },
         incomes: {
@@ -309,11 +340,11 @@ export const TOOLS = {
             type: 'object',
             properties: {
               source: { type: 'string' },
-              amount: { type: 'number' }
+              amount: { type: 'number' },
             },
-            required: ['source', 'amount']
+            required: ['source', 'amount'],
           },
-          description: 'Income sources'
+          description: 'Income sources',
         },
         expenses: {
           type: 'array',
@@ -321,19 +352,26 @@ export const TOOLS = {
             type: 'object',
             properties: {
               category: { type: 'string' },
-              amount: { type: 'number' }
+              amount: { type: 'number' },
             },
-            required: ['category', 'amount']
+            required: ['category', 'amount'],
           },
-          description: 'Expense categories'
+          description: 'Expense categories',
         },
         max_work_hours: { type: 'number', description: 'Max work hours per week' },
         min_hourly_rate: { type: 'number', description: 'Minimum hourly rate' },
         has_loan: { type: 'boolean', description: 'Has student loan' },
-        loan_amount: { type: 'number', description: 'Loan amount if applicable' }
+        loan_amount: { type: 'number', description: 'Loan amount if applicable' },
       },
-      required: ['skills', 'years_remaining', 'incomes', 'expenses', 'max_work_hours', 'min_hourly_rate']
-    }
+      required: [
+        'skills',
+        'years_remaining',
+        'incomes',
+        'expenses',
+        'max_work_hours',
+        'min_hourly_rate',
+      ],
+    },
   },
 
   // === Voice Input Tools (NEW) ===
@@ -341,6 +379,9 @@ export const TOOLS = {
 
   // === Goal-Driven Mode Tools (NEW) ===
   ...GOAL_TOOLS,
+
+  // === Swipe Scenarios Tools (NEW) ===
+  ...SWIPE_TOOLS,
 };
 
 // Tool handlers
@@ -355,6 +396,11 @@ export async function handleTool(name: string, args: unknown): Promise<unknown> 
   // Check if it's a goal tool
   if (name in GOAL_TOOLS) {
     return handleGoalTool(name, typedArgs);
+  }
+
+  // Check if it's a swipe tool
+  if (name in SWIPE_TOOLS) {
+    return handleSwipeTool(name, typedArgs);
   }
 
   switch (name) {
@@ -427,8 +473,8 @@ async function handleAnalyzeBudget(args: Record<string, unknown>) {
                   title: 'Revenus',
                   value: analysis.totalIncome,
                   unit: '€/mois',
-                  trend: { direction: analysis.margin >= 0 ? 'up' : 'neutral', value: 0 }
-                }
+                  trend: { direction: analysis.margin >= 0 ? 'up' : 'neutral', value: 0 },
+                },
               },
               {
                 id: 'expenses',
@@ -436,8 +482,8 @@ async function handleAnalyzeBudget(args: Record<string, unknown>) {
                 params: {
                   title: 'Dépenses',
                   value: analysis.totalExpenses,
-                  unit: '€/mois'
-                }
+                  unit: '€/mois',
+                },
               },
               {
                 id: 'margin',
@@ -446,24 +492,27 @@ async function handleAnalyzeBudget(args: Record<string, unknown>) {
                   title: 'Marge',
                   value: analysis.margin,
                   unit: '€/mois',
-                  trend: { direction: analysis.margin >= 0 ? 'up' : 'down', value: Math.abs(analysis.margin) }
-                }
-              }
-            ]
-          }
+                  trend: {
+                    direction: analysis.margin >= 0 ? 'up' : 'down',
+                    value: Math.abs(analysis.margin),
+                  },
+                },
+              },
+            ],
+          },
         },
         {
           id: 'summary',
           type: 'text',
           params: {
             content: `## Analyse\n\n${analysis.summary}\n\n## Recommandations\n\n${analysis.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
-            markdown: true
-          }
-        }
+            markdown: true,
+          },
+        },
       ],
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -490,11 +539,11 @@ async function handleGenerateAdvice(args: Record<string, unknown>) {
       type: 'text',
       params: {
         content: advice,
-        markdown: true
+        markdown: true,
       },
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -510,7 +559,7 @@ async function handleMatchJobs(args: Record<string, unknown>) {
     });
 
     // Query knowledge graph for job matches
-    const skillsIn = skills.map(s => `'${s.toLowerCase()}'`).join(',');
+    const skillsIn = skills.map((s) => `'${s.toLowerCase()}'`).join(',');
     const sql = `
       SELECT
         j.name,
@@ -535,9 +584,27 @@ async function handleMatchJobs(args: Record<string, unknown>) {
       // Fallback to mock data if graph not initialized
       console.error('Graph query failed, using mock data:', error);
       jobs = [
-        { name: 'Dev Freelance Malt', match_score: 0.9, rate: 25, benefit: 'CV++', flexibility: 0.9 },
-        { name: 'Cours particuliers', match_score: 0.7, rate: 20, benefit: 'Renforce apprentissage', flexibility: 0.8 },
-        { name: 'Data Entry', match_score: 0.6, rate: 12, benefit: 'Automatisation', flexibility: 0.7 },
+        {
+          name: 'Dev Freelance Malt',
+          match_score: 0.9,
+          rate: 25,
+          benefit: 'CV++',
+          flexibility: 0.9,
+        },
+        {
+          name: 'Cours particuliers',
+          match_score: 0.7,
+          rate: 20,
+          benefit: 'Renforce apprentissage',
+          flexibility: 0.8,
+        },
+        {
+          name: 'Data Entry',
+          match_score: 0.6,
+          rate: 12,
+          benefit: 'Automatisation',
+          flexibility: 0.7,
+        },
       ];
     }
 
@@ -553,18 +620,18 @@ async function handleMatchJobs(args: Record<string, unknown>) {
           { key: 'name', label: 'Job' },
           { key: 'rate', label: '€/h' },
           { key: 'match_score', label: 'Match' },
-          { key: 'benefit', label: 'Co-bénéfice' }
+          { key: 'benefit', label: 'Co-bénéfice' },
         ],
-        rows: jobs.map(j => ({
+        rows: jobs.map((j) => ({
           name: j.name,
           rate: j.rate,
           match_score: `${Math.round(j.match_score * 100)}%`,
-          benefit: j.benefit || '-'
-        }))
+          benefit: j.benefit || '-',
+        })),
       },
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -579,7 +646,7 @@ async function handleFindOptimizations(args: Record<string, unknown>) {
     });
 
     // Query knowledge graph for optimizations
-    const categoriesIn = categories.map(c => `'${c.toLowerCase()}'`).join(',');
+    const categoriesIn = categories.map((c) => `'${c.toLowerCase()}'`).join(',');
     const sql = `
       SELECT
         exp.name as expense,
@@ -596,17 +663,40 @@ async function handleFindOptimizations(args: Record<string, unknown>) {
 
     let optimizations: Optimization[] = [];
     try {
-      const results = await query<{ expense: string; solution: string; savings_pct: number; monthly_cost: number }>(sql);
-      optimizations = results.map(r => ({
+      const results = await query<{
+        expense: string;
+        solution: string;
+        savings_pct: number;
+        monthly_cost: number;
+      }>(sql);
+      optimizations = results.map((r) => ({
         ...r,
-        potential_savings: Math.round(r.monthly_cost * r.savings_pct)
+        potential_savings: Math.round(r.monthly_cost * r.savings_pct),
       }));
     } catch (error) {
       console.error('Graph query failed, using mock data:', error);
       optimizations = [
-        { expense: 'Loyer', solution: 'Colocation', savings_pct: 0.30, monthly_cost: 500, potential_savings: 150 },
-        { expense: 'Alimentation', solution: 'Resto U CROUS', savings_pct: 0.50, monthly_cost: 200, potential_savings: 100 },
-        { expense: 'Transport', solution: 'Vélo/Marche', savings_pct: 0.80, monthly_cost: 50, potential_savings: 40 },
+        {
+          expense: 'Loyer',
+          solution: 'Colocation',
+          savings_pct: 0.3,
+          monthly_cost: 500,
+          potential_savings: 150,
+        },
+        {
+          expense: 'Alimentation',
+          solution: 'Resto U CROUS',
+          savings_pct: 0.5,
+          monthly_cost: 200,
+          potential_savings: 100,
+        },
+        {
+          expense: 'Transport',
+          solution: 'Vélo/Marche',
+          savings_pct: 0.8,
+          monthly_cost: 50,
+          potential_savings: 40,
+        },
       ];
     }
 
@@ -623,18 +713,18 @@ async function handleFindOptimizations(args: Record<string, unknown>) {
           { key: 'expense', label: 'Dépense' },
           { key: 'solution', label: 'Solution' },
           { key: 'savings_pct', label: 'Économie' },
-          { key: 'potential_savings', label: 'Gain/mois' }
+          { key: 'potential_savings', label: 'Gain/mois' },
         ],
-        rows: optimizations.map(o => ({
+        rows: optimizations.map((o) => ({
           expense: o.expense,
           solution: o.solution,
           savings_pct: `${Math.round(o.savings_pct * 100)}%`,
-          potential_savings: `${o.potential_savings}€`
-        }))
+          potential_savings: `${o.potential_savings}€`,
+        })),
       },
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -667,8 +757,20 @@ async function handleCareerProjection(args: Record<string, unknown>) {
     } catch (error) {
       console.error('Graph query failed, using mock data:', error);
       careers = [
-        { diploma: 'L2 Informatique', career: 'Développeur Junior', salary: 35000, years_after: 3, probability: 0.7 },
-        { diploma: 'L2 Informatique', career: 'Data Analyst', salary: 38000, years_after: 4, probability: 0.5 },
+        {
+          diploma: 'L2 Informatique',
+          career: 'Développeur Junior',
+          salary: 35000,
+          years_after: 3,
+          probability: 0.7,
+        },
+        {
+          diploma: 'L2 Informatique',
+          career: 'Data Analyst',
+          salary: 38000,
+          years_after: 4,
+          probability: 0.5,
+        },
       ];
     }
 
@@ -684,18 +786,18 @@ async function handleCareerProjection(args: Record<string, unknown>) {
           { key: 'career', label: 'Métier' },
           { key: 'salary', label: 'Salaire départ' },
           { key: 'years_after', label: 'Années' },
-          { key: 'probability', label: 'Probabilité' }
+          { key: 'probability', label: 'Probabilité' },
         ],
-        rows: careers.map(c => ({
+        rows: careers.map((c) => ({
           career: c.career,
           salary: `${c.salary.toLocaleString('fr-FR')}€`,
           years_after: `+${c.years_after} ans`,
-          probability: `${Math.round(c.probability * 100)}%`
-        }))
+          probability: `${Math.round(c.probability * 100)}%`,
+        })),
       },
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -732,19 +834,20 @@ async function handleExplainRecommendation(args: Record<string, unknown>) {
       console.error('Graph query failed:', error);
     }
 
-    const explanation = path.length > 0
-      ? `${path[0].source_name} → ${path[0].relation_type} (${Math.round((path[0].weight as number) * 100)}%) → ${path[0].target_name}${path[0].co_benefit ? ` | Bonus: ${path[0].co_benefit}` : ''}`
-      : `Relation ${sourceId} → ${targetId} non trouvée`;
+    const explanation =
+      path.length > 0
+        ? `${path[0].source_name} → ${path[0].relation_type} (${Math.round((path[0].weight as number) * 100)}%) → ${path[0].target_name}${path[0].co_benefit ? ` | Bonus: ${path[0].co_benefit}` : ''}`
+        : `Relation ${sourceId} → ${targetId} non trouvée`;
 
     return {
       type: 'text',
       params: {
         content: `## Explication\n\n${explanation}`,
-        markdown: true
+        markdown: true,
       },
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -759,15 +862,16 @@ async function handlePredictGraduationBalance(args: Record<string, unknown>) {
 
     // Calculate projections
     const currentMargin = monthlyIncome - monthlyExpenses;
-    const additionalJobIncome = jobHours && jobRate ? (jobHours * jobRate * 4) : 0;
+    const additionalJobIncome = jobHours && jobRate ? jobHours * jobRate * 4 : 0;
     const projectedMonthlyMargin = currentMargin + additionalJobIncome;
     const months = yearsRemaining * 12;
     const finalBalance = projectedMonthlyMargin * months;
 
     // Simple probability model based on margin
-    const probabilityDebtFree = Math.min(0.99, Math.max(0.01,
-      0.5 + (projectedMonthlyMargin / 500) * 0.3
-    ));
+    const probabilityDebtFree = Math.min(
+      0.99,
+      Math.max(0.01, 0.5 + (projectedMonthlyMargin / 500) * 0.3)
+    );
 
     // Confidence interval (±20%)
     const confidenceLow = Math.round(finalBalance * 0.8);
@@ -791,8 +895,11 @@ async function handlePredictGraduationBalance(args: Record<string, unknown>) {
           params: {
             title: 'Probabilité sans dette',
             value: `${Math.round(probabilityDebtFree * 100)}%`,
-            trend: { direction: probabilityDebtFree >= 0.6 ? 'up' : 'down', value: Math.round(probabilityDebtFree * 100) }
-          }
+            trend: {
+              direction: probabilityDebtFree >= 0.6 ? 'up' : 'down',
+              value: Math.round(probabilityDebtFree * 100),
+            },
+          },
         },
         {
           id: 'balance',
@@ -801,22 +908,22 @@ async function handlePredictGraduationBalance(args: Record<string, unknown>) {
             title: 'Balance projetée',
             value: finalBalance.toLocaleString('fr-FR'),
             unit: '€',
-            subtitle: `Intervalle: ${confidenceLow.toLocaleString('fr-FR')}€ - ${confidenceHigh.toLocaleString('fr-FR')}€`
-          }
+            subtitle: `Intervalle: ${confidenceLow.toLocaleString('fr-FR')}€ - ${confidenceHigh.toLocaleString('fr-FR')}€`,
+          },
         },
         {
           id: 'details',
           type: 'text',
           params: {
             content: `**Détails projection:**\n- Marge mensuelle: ${projectedMonthlyMargin}€\n- Revenu job additionnel: ${additionalJobIncome}€/mois\n- Durée: ${months} mois`,
-            markdown: true
-          }
-        }
+            markdown: true,
+          },
+        },
       ],
       metadata: {
         traceId: getCurrentTraceId(),
-        modelVersion: '1.0.0-formula'
-      }
+        modelVersion: '1.0.0-formula',
+      },
     };
   });
 }
@@ -856,8 +963,8 @@ async function handlePredictLoanPayoff(args: Record<string, unknown>) {
             title: 'Temps de remboursement',
             value: months,
             unit: 'mois',
-            subtitle: `${Math.floor(months / 12)} ans et ${months % 12} mois`
-          }
+            subtitle: `${Math.floor(months / 12)} ans et ${months % 12} mois`,
+          },
         },
         {
           id: 'total_paid',
@@ -865,13 +972,13 @@ async function handlePredictLoanPayoff(args: Record<string, unknown>) {
           params: {
             title: 'Total remboursé',
             value: (months * monthlyPayment).toLocaleString('fr-FR'),
-            unit: '€'
-          }
-        }
+            unit: '€',
+          },
+        },
       ],
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -894,21 +1001,23 @@ async function handleCreateBudgetChart(args: Record<string, unknown>) {
         title: 'Répartition Budget',
         type: chartType,
         data: {
-          labels: expenses.map(e => e.category),
-          datasets: [{
-            data: expenses.map(e => e.amount),
-            backgroundColor: expenses.map((_, i) => colors[i % colors.length])
-          }]
+          labels: expenses.map((e) => e.category),
+          datasets: [
+            {
+              data: expenses.map((e) => e.amount),
+              backgroundColor: expenses.map((_, i) => colors[i % colors.length]),
+            },
+          ],
         },
         options: {
           plugins: {
-            legend: { position: 'right' }
-          }
-        }
+            legend: { position: 'right' },
+          },
+        },
       },
       metadata: {
-        traceId: getCurrentTraceId()
-      }
+        traceId: getCurrentTraceId(),
+      },
     };
   });
 }
@@ -976,10 +1085,13 @@ Format ta réponse en JSON comme ceci:
 
     try {
       const { chat } = await import('../services/groq.js');
-      const response = await chat([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ], { temperature: 0.8 });
+      const response = await chat(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        { temperature: 0.8 }
+      );
 
       // Parse JSON response
       let suggestions: {
@@ -1024,24 +1136,26 @@ Format ta réponse en JSON comme ceci:
                 { key: 'hourly_rate', label: '€/h' },
                 { key: 'networking', label: 'Networking' },
                 { key: 'cv_impact', label: 'Impact CV' },
-                { key: 'platform', label: 'Où chercher' }
+                { key: 'platform', label: 'Où chercher' },
               ],
-              rows: suggestions.suggestions.map(s => ({
+              rows: suggestions.suggestions.map((s) => ({
                 job: s.job,
                 hourly_rate: `${s.hourly_rate}€`,
-                networking: s.networking === 'fort' ? '🌟🌟🌟' : s.networking === 'moyen' ? '🌟🌟' : '🌟',
-                cv_impact: s.cv_impact === 'fort' ? '💼💼💼' : s.cv_impact === 'moyen' ? '💼💼' : '💼',
-                platform: s.platform
-              }))
-            }
+                networking:
+                  s.networking === 'fort' ? '🌟🌟🌟' : s.networking === 'moyen' ? '🌟🌟' : '🌟',
+                cv_impact:
+                  s.cv_impact === 'fort' ? '💼💼💼' : s.cv_impact === 'moyen' ? '💼💼' : '💼',
+                platform: s.platform,
+              })),
+            },
           },
           {
             id: 'details',
             type: 'text',
             params: {
-              content: `## Détails\n\n${suggestions.suggestions.map(s => `### ${s.job}\n${s.relevance}`).join('\n\n')}\n\n---\n\n**💡 Conseil networking:** ${suggestions.conseil_networking}`,
-              markdown: true
-            }
+              content: `## Détails\n\n${suggestions.suggestions.map((s) => `### ${s.job}\n${s.relevance}`).join('\n\n')}\n\n---\n\n**💡 Conseil networking:** ${suggestions.conseil_networking}`,
+              markdown: true,
+            },
           },
           {
             id: 'action-explore',
@@ -1049,18 +1163,18 @@ Format ta réponse en JSON comme ceci:
             params: {
               type: 'button',
               variant: 'outline',
-              label: 'Explorer d\'autres pistes',
+              label: "Explorer d'autres pistes",
               action: 'tool-call',
               toolName: 'suggest_related_jobs',
-              params: { ...args, interests: [...(interests || []), 'autre piste'] }
-            }
-          }
+              params: { ...args, interests: [...(interests || []), 'autre piste'] },
+            },
+          },
         ],
         metadata: {
           traceId: getCurrentTraceId(),
           field,
-          diploma
-        }
+          diploma,
+        },
       };
     } catch (error) {
       console.error('LLM suggestion failed:', error);
@@ -1074,14 +1188,14 @@ Format ta réponse en JSON comme ceci:
             { key: 'job', label: 'Job' },
             { key: 'hourly_rate', label: '€/h' },
             { key: 'networking', label: 'Networking' },
-            { key: 'relevance', label: 'Pertinence' }
+            { key: 'relevance', label: 'Pertinence' },
           ],
-          rows: fallback.suggestions
+          rows: fallback.suggestions,
         },
         metadata: {
           traceId: getCurrentTraceId(),
-          fallback: true
-        }
+          fallback: true,
+        },
       };
     }
   });
@@ -1091,57 +1205,200 @@ Format ta réponse en JSON comme ceci:
 function generateFallbackSuggestions(field: string, diploma: string) {
   const fieldLower = field.toLowerCase();
 
-  const fieldSuggestions: Record<string, Array<{
-    job: string;
-    relevance: string;
-    networking: string;
-    cv_impact: string;
-    hourly_rate: number;
-    platform: string;
-  }>> = {
+  const fieldSuggestions: Record<
+    string,
+    Array<{
+      job: string;
+      relevance: string;
+      networking: string;
+      cv_impact: string;
+      hourly_rate: number;
+      platform: string;
+    }>
+  > = {
     informatique: [
-      { job: 'Dev freelance (Malt/Fiverr)', relevance: 'Pratique directe des compétences, portfolio', networking: 'moyen', cv_impact: 'fort', hourly_rate: 25, platform: 'Malt, Fiverr' },
-      { job: 'Tuteur en programmation', relevance: 'Renforce tes acquis, contacts avec enseignants', networking: 'fort', cv_impact: 'moyen', hourly_rate: 20, platform: 'Superprof, Kelprof' },
-      { job: 'Stage startup (temps partiel)', relevance: 'Réseau entrepreneurial, expérience concrète', networking: 'fort', cv_impact: 'fort', hourly_rate: 15, platform: 'Welcome to the Jungle' },
-      { job: 'Community manager tech', relevance: 'Connaissance écosystème, veille techno', networking: 'moyen', cv_impact: 'moyen', hourly_rate: 15, platform: 'LinkedIn' },
+      {
+        job: 'Dev freelance (Malt/Fiverr)',
+        relevance: 'Pratique directe des compétences, portfolio',
+        networking: 'moyen',
+        cv_impact: 'fort',
+        hourly_rate: 25,
+        platform: 'Malt, Fiverr',
+      },
+      {
+        job: 'Tuteur en programmation',
+        relevance: 'Renforce tes acquis, contacts avec enseignants',
+        networking: 'fort',
+        cv_impact: 'moyen',
+        hourly_rate: 20,
+        platform: 'Superprof, Kelprof',
+      },
+      {
+        job: 'Stage startup (temps partiel)',
+        relevance: 'Réseau entrepreneurial, expérience concrète',
+        networking: 'fort',
+        cv_impact: 'fort',
+        hourly_rate: 15,
+        platform: 'Welcome to the Jungle',
+      },
+      {
+        job: 'Community manager tech',
+        relevance: 'Connaissance écosystème, veille techno',
+        networking: 'moyen',
+        cv_impact: 'moyen',
+        hourly_rate: 15,
+        platform: 'LinkedIn',
+      },
     ],
     langues: [
-      { job: 'Traducteur freelance', relevance: 'Pratique professionnelle, clients internationaux', networking: 'moyen', cv_impact: 'fort', hourly_rate: 18, platform: 'Upwork, Fiverr' },
-      { job: 'Prof de langues en ligne', relevance: 'Contacts internationaux, pédagogie', networking: 'fort', cv_impact: 'moyen', hourly_rate: 20, platform: 'Preply, iTalki' },
-      { job: 'Assistant événementiel international', relevance: 'Networking pro, pratique orale', networking: 'fort', cv_impact: 'moyen', hourly_rate: 12, platform: 'Agences événementielles' },
-      { job: 'Guide touristique bilingue', relevance: 'Communication, culture, rencontres', networking: 'moyen', cv_impact: 'faible', hourly_rate: 15, platform: 'Offices tourisme' },
+      {
+        job: 'Traducteur freelance',
+        relevance: 'Pratique professionnelle, clients internationaux',
+        networking: 'moyen',
+        cv_impact: 'fort',
+        hourly_rate: 18,
+        platform: 'Upwork, Fiverr',
+      },
+      {
+        job: 'Prof de langues en ligne',
+        relevance: 'Contacts internationaux, pédagogie',
+        networking: 'fort',
+        cv_impact: 'moyen',
+        hourly_rate: 20,
+        platform: 'Preply, iTalki',
+      },
+      {
+        job: 'Assistant événementiel international',
+        relevance: 'Networking pro, pratique orale',
+        networking: 'fort',
+        cv_impact: 'moyen',
+        hourly_rate: 12,
+        platform: 'Agences événementielles',
+      },
+      {
+        job: 'Guide touristique bilingue',
+        relevance: 'Communication, culture, rencontres',
+        networking: 'moyen',
+        cv_impact: 'faible',
+        hourly_rate: 15,
+        platform: 'Offices tourisme',
+      },
     ],
     droit: [
-      { job: 'Assistant juridique cabinet', relevance: 'Expérience cabinet, réseau avocats', networking: 'fort', cv_impact: 'fort', hourly_rate: 15, platform: 'Barreau local, Indeed' },
-      { job: 'Rédacteur juridique web', relevance: 'Vulgarisation, portfolio, visibilité', networking: 'moyen', cv_impact: 'moyen', hourly_rate: 18, platform: 'Malt, TextBroker' },
-      { job: 'Permanence aide juridique', relevance: 'Expérience client, réseau associatif', networking: 'fort', cv_impact: 'moyen', hourly_rate: 0, platform: 'Associations, mairies' },
-      { job: 'Tuteur en droit', relevance: 'Révision active, contacts étudiants', networking: 'moyen', cv_impact: 'faible', hourly_rate: 20, platform: 'Superprof' },
+      {
+        job: 'Assistant juridique cabinet',
+        relevance: 'Expérience cabinet, réseau avocats',
+        networking: 'fort',
+        cv_impact: 'fort',
+        hourly_rate: 15,
+        platform: 'Barreau local, Indeed',
+      },
+      {
+        job: 'Rédacteur juridique web',
+        relevance: 'Vulgarisation, portfolio, visibilité',
+        networking: 'moyen',
+        cv_impact: 'moyen',
+        hourly_rate: 18,
+        platform: 'Malt, TextBroker',
+      },
+      {
+        job: 'Permanence aide juridique',
+        relevance: 'Expérience client, réseau associatif',
+        networking: 'fort',
+        cv_impact: 'moyen',
+        hourly_rate: 0,
+        platform: 'Associations, mairies',
+      },
+      {
+        job: 'Tuteur en droit',
+        relevance: 'Révision active, contacts étudiants',
+        networking: 'moyen',
+        cv_impact: 'faible',
+        hourly_rate: 20,
+        platform: 'Superprof',
+      },
     ],
     psychologie: [
-      { job: 'Assistant recherche labo', relevance: 'Méthodologie, réseau chercheurs', networking: 'fort', cv_impact: 'fort', hourly_rate: 12, platform: 'Universités' },
-      { job: 'Animateur prévention santé', relevance: 'Terrain, réseau associatif santé', networking: 'fort', cv_impact: 'moyen', hourly_rate: 13, platform: 'Associations santé' },
-      { job: 'Rédacteur articles psy', relevance: 'Veille scientifique, portfolio', networking: 'moyen', cv_impact: 'moyen', hourly_rate: 15, platform: 'Malt, médias santé' },
-      { job: 'Soutien scolaire adapté', relevance: 'Approche individuelle, contacts parents/écoles', networking: 'moyen', cv_impact: 'moyen', hourly_rate: 18, platform: 'Complétude, Acadomia' },
+      {
+        job: 'Assistant recherche labo',
+        relevance: 'Méthodologie, réseau chercheurs',
+        networking: 'fort',
+        cv_impact: 'fort',
+        hourly_rate: 12,
+        platform: 'Universités',
+      },
+      {
+        job: 'Animateur prévention santé',
+        relevance: 'Terrain, réseau associatif santé',
+        networking: 'fort',
+        cv_impact: 'moyen',
+        hourly_rate: 13,
+        platform: 'Associations santé',
+      },
+      {
+        job: 'Rédacteur articles psy',
+        relevance: 'Veille scientifique, portfolio',
+        networking: 'moyen',
+        cv_impact: 'moyen',
+        hourly_rate: 15,
+        platform: 'Malt, médias santé',
+      },
+      {
+        job: 'Soutien scolaire adapté',
+        relevance: 'Approche individuelle, contacts parents/écoles',
+        networking: 'moyen',
+        cv_impact: 'moyen',
+        hourly_rate: 18,
+        platform: 'Complétude, Acadomia',
+      },
     ],
   };
 
   // Find matching field or return generic suggestions
-  const matchingField = Object.keys(fieldSuggestions).find(f =>
-    fieldLower.includes(f) || f.includes(fieldLower)
+  const matchingField = Object.keys(fieldSuggestions).find(
+    (f) => fieldLower.includes(f) || f.includes(fieldLower)
   );
 
   const suggestions = matchingField
     ? fieldSuggestions[matchingField]
     : [
-      { job: 'Tuteur dans ta spécialité', relevance: 'Renforce tes acquis, réseau enseignants', networking: 'fort', cv_impact: 'moyen', hourly_rate: 18, platform: 'Superprof' },
-      { job: 'Stage temps partiel', relevance: 'Expérience terrain, réseau pro', networking: 'fort', cv_impact: 'fort', hourly_rate: 12, platform: 'Welcome to the Jungle' },
-      { job: 'Freelance dans ton domaine', relevance: 'Pratique concrète, portfolio', networking: 'moyen', cv_impact: 'fort', hourly_rate: 20, platform: 'Malt, Fiverr' },
-      { job: 'Assistant de recherche', relevance: 'Méthodologie, réseau académique', networking: 'fort', cv_impact: 'fort', hourly_rate: 12, platform: 'Universités' },
-    ];
+        {
+          job: 'Tuteur dans ta spécialité',
+          relevance: 'Renforce tes acquis, réseau enseignants',
+          networking: 'fort',
+          cv_impact: 'moyen',
+          hourly_rate: 18,
+          platform: 'Superprof',
+        },
+        {
+          job: 'Stage temps partiel',
+          relevance: 'Expérience terrain, réseau pro',
+          networking: 'fort',
+          cv_impact: 'fort',
+          hourly_rate: 12,
+          platform: 'Welcome to the Jungle',
+        },
+        {
+          job: 'Freelance dans ton domaine',
+          relevance: 'Pratique concrète, portfolio',
+          networking: 'moyen',
+          cv_impact: 'fort',
+          hourly_rate: 20,
+          platform: 'Malt, Fiverr',
+        },
+        {
+          job: 'Assistant de recherche',
+          relevance: 'Méthodologie, réseau académique',
+          networking: 'fort',
+          cv_impact: 'fort',
+          hourly_rate: 12,
+          platform: 'Universités',
+        },
+      ];
 
   return {
     suggestions,
-    conseil_networking: `Pour ${field}, privilégie les jobs qui te mettent en contact avec des professionnels du secteur. Les stages, même courts, et le tutorat sont excellents pour ça.`
+    conseil_networking: `Pour ${field}, privilégie les jobs qui te mettent en contact avec des professionnels du secteur. Les stages, même courts, et le tutorat sont excellents pour ça.`,
   };
 }
 
@@ -1154,8 +1411,8 @@ async function handleGetTraces(args: Record<string, unknown>) {
     params: {
       label: 'Voir traces Opik',
       url,
-      description: 'Visualiser les traces de traitement dans Opik'
-    }
+      description: 'Visualiser les traces de traitement dans Opik',
+    },
   };
 }
 
@@ -1170,8 +1427,8 @@ async function handleLogFeedback(args: Record<string, unknown>) {
     type: 'text',
     params: {
       content: `Merci pour votre feedback! ${feedback === 'thumbs_up' ? '👍' : '👎'}`,
-      markdown: false
-    }
+      markdown: false,
+    },
   };
 }
 
@@ -1232,7 +1489,7 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
                   title: 'Revenus',
                   value: result.budget.totalIncome,
                   unit: 'euro/mois',
-                }
+                },
               },
               {
                 id: 'expenses',
@@ -1241,7 +1498,7 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
                   title: 'Depenses',
                   value: result.budget.totalExpenses,
                   unit: 'euro/mois',
-                }
+                },
               },
               {
                 id: 'margin',
@@ -1252,12 +1509,12 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
                   unit: 'euro/mois',
                   trend: {
                     direction: result.budget.margin >= 0 ? 'up' : 'down',
-                    value: Math.abs(result.budget.margin)
-                  }
-                }
-              }
-            ]
-          }
+                    value: Math.abs(result.budget.margin),
+                  },
+                },
+              },
+            ],
+          },
         },
         // Jobs table
         {
@@ -1269,15 +1526,15 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
               { key: 'name', label: 'Job' },
               { key: 'hourlyRate', label: 'euro/h' },
               { key: 'matchScore', label: 'Match' },
-              { key: 'coBenefit', label: 'Co-benefice' }
+              { key: 'coBenefit', label: 'Co-benefice' },
             ],
-            rows: result.jobs.map(j => ({
+            rows: result.jobs.map((j) => ({
               name: j.name,
               hourlyRate: j.hourlyRate,
               matchScore: `${Math.round(j.matchScore * 100)}%`,
-              coBenefit: j.coBenefit || '-'
-            }))
-          }
+              coBenefit: j.coBenefit || '-',
+            })),
+          },
         },
         // Optimizations table
         {
@@ -1289,15 +1546,15 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
               { key: 'expense', label: 'Depense' },
               { key: 'solution', label: 'Solution' },
               { key: 'savingsPct', label: 'Economie' },
-              { key: 'potentialSavings', label: 'Gain/mois' }
+              { key: 'potentialSavings', label: 'Gain/mois' },
             ],
-            rows: result.optimizations.map(o => ({
+            rows: result.optimizations.map((o) => ({
               expense: o.expense,
               solution: o.solution,
               savingsPct: `${Math.round(o.savingsPct * 100)}%`,
-              potentialSavings: `${o.potentialSavings}euro`
-            }))
-          }
+              potentialSavings: `${o.potentialSavings}euro`,
+            })),
+          },
         },
         // Projection metrics
         {
@@ -1315,9 +1572,9 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
                   value: `${result.projection.probabilityDebtFree}%`,
                   trend: {
                     direction: result.projection.probabilityDebtFree >= 60 ? 'up' : 'down',
-                    value: result.projection.probabilityDebtFree
-                  }
-                }
+                    value: result.projection.probabilityDebtFree,
+                  },
+                },
               },
               {
                 id: 'balance',
@@ -1326,11 +1583,11 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
                   title: 'Balance projetee',
                   value: result.projection.finalBalance.toLocaleString('fr-FR'),
                   unit: 'euro',
-                  subtitle: `Intervalle: ${result.projection.confidenceInterval.low.toLocaleString('fr-FR')}euro - ${result.projection.confidenceInterval.high.toLocaleString('fr-FR')}euro`
-                }
-              }
-            ]
-          }
+                  subtitle: `Intervalle: ${result.projection.confidenceInterval.low.toLocaleString('fr-FR')}euro - ${result.projection.confidenceInterval.high.toLocaleString('fr-FR')}euro`,
+                },
+              },
+            ],
+          },
         },
         // Synthesis
         {
@@ -1338,8 +1595,8 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
           type: 'text',
           params: {
             content: result.synthesis,
-            markdown: true
-          }
+            markdown: true,
+          },
         },
         // Validation status
         {
@@ -1349,8 +1606,8 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
             content: result.validation.passed
               ? `**Guardian Validation**: Passe (confiance: ${Math.round(result.validation.confidence * 100)}%)`
               : `**Guardian Validation**: Echec - ${result.validation.issues.join(', ')}`,
-            markdown: true
-          }
+            markdown: true,
+          },
         },
         // Opik link
         {
@@ -1359,16 +1616,16 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
           params: {
             label: 'Voir traces Opik',
             url: getTraceUrl(),
-            description: 'Visualiser le workflow multi-agent dans Opik'
-          }
-        }
+            description: 'Visualiser le workflow multi-agent dans Opik',
+          },
+        },
       ],
       metadata: {
         traceId: getCurrentTraceId(),
         workflowVersion: '1.0.0-mastra',
         agentsUsed: ['budget-coach', 'job-matcher', 'projection-ml', 'guardian'],
-        validationPassed: result.validation.passed
-      }
+        validationPassed: result.validation.passed,
+      },
     };
   });
 }

@@ -5,7 +5,7 @@
  * Used to predict capacity and adjust weekly targets.
  */
 
-import { createSignal, Show } from 'solid-js';
+import { createSignal, Show, For } from 'solid-js';
 
 interface EnergyTrackerProps {
   onSubmit?: (data: {
@@ -28,9 +28,7 @@ export function EnergyTracker(props: EnergyTrackerProps) {
 
   // Calculate composite score
   const compositeScore = () => {
-    return Math.round(
-      ((energyLevel() + moodScore() + (6 - stressLevel())) / 15) * 100
-    );
+    return Math.round(((energyLevel() + moodScore() + (6 - stressLevel())) / 15) * 100);
   };
 
   // Get color based on composite score
@@ -80,20 +78,20 @@ export function EnergyTracker(props: EnergyTrackerProps) {
     }
   };
 
-  // Compact view (for embedding in other pages)
-  if (props.compact) {
-    return (
-      <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
-        <Show when={!submitted()}>
-          <p class="text-sm font-medium text-slate-700 mb-3">
-            Comment tu te sens aujourd'hui ?
-          </p>
-          <div class="flex items-center justify-between gap-2">
-            {/* Energy */}
-            <div class="flex flex-col items-center">
-              <span class="text-xs text-slate-500 mb-1">Energie</span>
-              <div class="flex gap-1">
-                {[1, 2, 3, 4, 5].map((level) => (
+  // Reactive accessor for compact prop (SolidJS pattern)
+  const isCompact = () => props.compact;
+
+  // Compact view component
+  const CompactView = () => (
+    <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
+      <Show when={!submitted()}>
+        <p class="text-sm font-medium text-slate-700 mb-3">Comment tu te sens aujourd'hui ?</p>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-col items-center">
+            <span class="text-xs text-slate-500 mb-1">Energie</span>
+            <div class="flex gap-1">
+              <For each={[1, 2, 3, 4, 5]}>
+                {(level) => (
                   <button
                     class={`w-8 h-8 rounded-full transition-all ${
                       energyLevel() === level
@@ -105,43 +103,40 @@ export function EnergyTracker(props: EnergyTrackerProps) {
                   >
                     <span class="text-sm">{energyEmojis[level - 1]}</span>
                   </button>
-                ))}
-              </div>
+                )}
+              </For>
             </div>
-
-            {/* Submit button */}
-            <button
-              class="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 disabled:opacity-50"
-              onClick={handleSubmit}
-              disabled={loading()}
-            >
-              {loading() ? '...' : 'OK'}
-            </button>
           </div>
-        </Show>
-
-        <Show when={submitted()}>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium text-green-700">Check-in enregistre !</p>
-              <p class="text-xs text-slate-500">
-                Score capacite: <span class={getScoreColor()}>{compositeScore()}%</span>
-              </p>
-            </div>
-            <button
-              class="text-xs text-slate-500 hover:text-slate-700"
-              onClick={() => setSubmitted(false)}
-            >
-              Modifier
-            </button>
+          <button
+            class="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 disabled:opacity-50"
+            onClick={handleSubmit}
+            disabled={loading()}
+          >
+            {loading() ? '...' : 'OK'}
+          </button>
+        </div>
+      </Show>
+      <Show when={submitted()}>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-green-700">Check-in enregistre !</p>
+            <p class="text-xs text-slate-500">
+              Score capacite: <span class={getScoreColor()}>{compositeScore()}%</span>
+            </p>
           </div>
-        </Show>
-      </div>
-    );
-  }
+          <button
+            class="text-xs text-slate-500 hover:text-slate-700"
+            onClick={() => setSubmitted(false)}
+          >
+            Modifier
+          </button>
+        </div>
+      </Show>
+    </div>
+  );
 
-  // Full view
-  return (
+  // Full view component
+  const FullView = () => (
     <div class="card">
       <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
         <span>📊</span> Check-in du jour
@@ -156,18 +151,20 @@ export function EnergyTracker(props: EnergyTrackerProps) {
               <span class="text-2xl">{energyEmojis[energyLevel() - 1]}</span>
             </div>
             <div class="flex justify-between gap-2">
-              {[1, 2, 3, 4, 5].map((level) => (
-                <button
-                  class={`flex-1 py-3 rounded-lg transition-all border-2 ${
-                    energyLevel() === level
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                  onClick={() => setEnergyLevel(level)}
-                >
-                  <span class="text-lg">{energyEmojis[level - 1]}</span>
-                </button>
-              ))}
+              <For each={[1, 2, 3, 4, 5]}>
+                {(level) => (
+                  <button
+                    class={`flex-1 py-3 rounded-lg transition-all border-2 ${
+                      energyLevel() === level
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                    onClick={() => setEnergyLevel(level)}
+                  >
+                    <span class="text-lg">{energyEmojis[level - 1]}</span>
+                  </button>
+                )}
+              </For>
             </div>
             <div class="flex justify-between text-xs text-slate-400 mt-1">
               <span>Epuise</span>
@@ -182,18 +179,20 @@ export function EnergyTracker(props: EnergyTrackerProps) {
               <span class="text-2xl">{moodEmojis[moodScore() - 1]}</span>
             </div>
             <div class="flex justify-between gap-2">
-              {[1, 2, 3, 4, 5].map((level) => (
-                <button
-                  class={`flex-1 py-3 rounded-lg transition-all border-2 ${
-                    moodScore() === level
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                  onClick={() => setMoodScore(level)}
-                >
-                  <span class="text-lg">{moodEmojis[level - 1]}</span>
-                </button>
-              ))}
+              <For each={[1, 2, 3, 4, 5]}>
+                {(level) => (
+                  <button
+                    class={`flex-1 py-3 rounded-lg transition-all border-2 ${
+                      moodScore() === level
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                    onClick={() => setMoodScore(level)}
+                  >
+                    <span class="text-lg">{moodEmojis[level - 1]}</span>
+                  </button>
+                )}
+              </For>
             </div>
             <div class="flex justify-between text-xs text-slate-400 mt-1">
               <span>Negatif</span>
@@ -208,18 +207,20 @@ export function EnergyTracker(props: EnergyTrackerProps) {
               <span class="text-2xl">{stressEmojis[stressLevel() - 1]}</span>
             </div>
             <div class="flex justify-between gap-2">
-              {[1, 2, 3, 4, 5].map((level) => (
-                <button
-                  class={`flex-1 py-3 rounded-lg transition-all border-2 ${
-                    stressLevel() === level
-                      ? 'border-orange-500 bg-orange-50'
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                  onClick={() => setStressLevel(level)}
-                >
-                  <span class="text-lg">{stressEmojis[level - 1]}</span>
-                </button>
-              ))}
+              <For each={[1, 2, 3, 4, 5]}>
+                {(level) => (
+                  <button
+                    class={`flex-1 py-3 rounded-lg transition-all border-2 ${
+                      stressLevel() === level
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                    onClick={() => setStressLevel(level)}
+                  >
+                    <span class="text-lg">{stressEmojis[level - 1]}</span>
+                  </button>
+                )}
+              </For>
             </div>
             <div class="flex justify-between text-xs text-slate-400 mt-1">
               <span>Zen</span>
@@ -256,17 +257,13 @@ export function EnergyTracker(props: EnergyTrackerProps) {
               {compositeScore() >= 70
                 ? 'Bonne capacite pour atteindre tes objectifs'
                 : compositeScore() >= 50
-                ? 'Capacite moyenne, adapte tes efforts'
-                : 'Prends soin de toi, reduis tes objectifs si besoin'}
+                  ? 'Capacite moyenne, adapte tes efforts'
+                  : 'Prends soin de toi, reduis tes objectifs si besoin'}
             </p>
           </div>
 
           {/* Submit Button */}
-          <button
-            class="w-full btn-primary"
-            onClick={handleSubmit}
-            disabled={loading()}
-          >
+          <button class="w-full btn-primary" onClick={handleSubmit} disabled={loading()}>
             {loading() ? 'Enregistrement...' : 'Enregistrer mon check-in'}
           </button>
         </div>
@@ -277,8 +274,7 @@ export function EnergyTracker(props: EnergyTrackerProps) {
           <div class="text-5xl mb-4">✅</div>
           <p class="text-lg font-medium text-green-700 mb-2">Check-in enregistre !</p>
           <p class="text-slate-500 mb-4">
-            Score capacite:{' '}
-            <span class={`font-bold ${getScoreColor()}`}>{compositeScore()}%</span>
+            Score capacite: <span class={`font-bold ${getScoreColor()}`}>{compositeScore()}%</span>
           </p>
           <button
             class="text-sm text-primary-600 hover:text-primary-700"
@@ -289,6 +285,12 @@ export function EnergyTracker(props: EnergyTrackerProps) {
         </div>
       </Show>
     </div>
+  );
+
+  return (
+    <Show when={isCompact()} fallback={<FullView />}>
+      <CompactView />
+    </Show>
   );
 }
 

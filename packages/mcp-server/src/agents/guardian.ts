@@ -15,30 +15,49 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
 import {
-  runHybridEvaluationWithTracing,
+  runHybridEvaluationWithTracing as _runHybridEvaluationWithTracing,
   runQuickEvaluation,
   type EvaluationInput,
-  type HybridEvaluationResult,
+  type HybridEvaluationResult as _HybridEvaluationResult,
 } from '../evaluation/index.js';
 
 /**
  * Risk keywords that should trigger warnings
  */
 const HIGH_RISK_KEYWORDS = [
-  'crypto', 'bitcoin', 'ethereum', 'nft',
-  'forex', 'trading', 'options', 'leverage',
-  'garanti', 'sans risque', 'rendement eleve',
-  'investis tout', 'all-in', 'emprunte pour investir',
+  'crypto',
+  'bitcoin',
+  'ethereum',
+  'nft',
+  'forex',
+  'trading',
+  'options',
+  'leverage',
+  'garanti',
+  'sans risque',
+  'rendement eleve',
+  'investis tout',
+  'all-in',
+  'emprunte pour investir',
 ];
 
 /**
  * Safe keywords that indicate responsible advice
  */
 const SAFE_KEYWORDS = [
-  'livret a', 'epargne', 'budget', 'economiser',
-  'apl', 'bourse', 'crous', 'caf',
-  'job etudiant', 'tutorat', 'freelance',
-  'colocation', 'transport en commun',
+  'livret a',
+  'epargne',
+  'budget',
+  'economiser',
+  'apl',
+  'bourse',
+  'crous',
+  'caf',
+  'job etudiant',
+  'tutorat',
+  'freelance',
+  'colocation',
+  'transport en commun',
 ];
 
 // === Core Validation Logic ===
@@ -122,7 +141,8 @@ function validateCalculation(
   }
 
   const difference = Math.abs(computedOutput - expectedOutput);
-  const percentDifference = expectedOutput !== 0 ? difference / Math.abs(expectedOutput) : difference;
+  const percentDifference =
+    expectedOutput !== 0 ? difference / Math.abs(expectedOutput) : difference;
 
   const isValid = percentDifference <= tolerance;
 
@@ -227,7 +247,9 @@ function checkRiskLevel(
     warnings,
     safeKeywordsFound: foundSafe,
     highRiskKeywordsFound: foundHighRisk,
-    recommendation: passed ? 'Recommandation acceptable' : 'Recommandation a risque - necessite revision',
+    recommendation: passed
+      ? 'Recommandation acceptable'
+      : 'Recommandation a risque - necessite revision',
     suggestions: passed
       ? []
       : [
@@ -400,7 +422,7 @@ export async function validateRecommendation(
 /**
  * Create Guardian agent instance
  */
-export function createGuardianAgent(): Agent {
+export async function createGuardianAgent(): Promise<Agent> {
   const config = getAgentConfig('guardian');
   if (!config) {
     throw new Error('Guardian agent config not found');

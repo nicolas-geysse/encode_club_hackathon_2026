@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "name": "Stride Code Review Guidelines",
+  "description": "AI-powered code review for Stride hackathon project",
+  "rules": {
+    "solidjs": {
+      "description": "SolidJS best practices",
+      "patterns": [
+        "Use createSignal for reactive state",
+        "Avoid useEffect patterns from React",
+        "Use Show/For components for conditional rendering",
+        "Prefer createMemo for derived state",
+        "Never destructure props in SolidJS components"
+      ]
+    },
+    "security": {
+      "description": "Security checks",
+      "patterns": [
+        "No hardcoded API keys",
+        "No console.log in production code",
+        "Validate user input",
+        "Use localStorage instead of sessionStorage for persistence"
+      ]
+    },
+    "logging": {
+      "description": "Logging standards",
+      "patterns": [
+        "Use createLogger() instead of console.log",
+        "Include correlation IDs for async operations",
+        "Log user actions with logUserAction()"
+      ]
+    },
+    "architecture": {
+      "description": "Project architecture rules",
+      "patterns": [
+        "Keep components in src/components/",
+        "Keep routes in src/routes/",
+        "Keep utilities in src/lib/",
+        "Keep data/mock files in src/data/",
+        "Use centralized config from src/lib/config.ts"
+      ]
+    }
+  },
+  "ignore": [
+    "node_modules/",
+    ".vinxi/",
+    ".output/",
+    "dist/",
+    "*.lock",
+    "pnpm-lock.yaml"
+  ]
+}

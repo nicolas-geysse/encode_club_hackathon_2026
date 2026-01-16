@@ -26,44 +26,46 @@ export interface Strategy {
   description: string;
 
   // Financial impact
-  oneTimeGain: number;          // For selling
-  monthlyGain: number;          // For recurring income
-  monthlySavings: number;       // For optimizations
+  oneTimeGain: number; // For selling
+  monthlyGain: number; // For recurring income
+  monthlySavings: number; // For optimizations
 
   // Effort and requirements
   effortLevel: 'low' | 'medium' | 'high';
-  timeInvestmentHours: number;  // Hours per week (0 for one-time)
+  timeInvestmentHours: number; // Hours per week (0 for one-time)
   startupCost: number;
   skillsRequired: string[];
 
   // Quality factors
-  flexibility: number;          // 0-1
-  sustainability: number;       // 0-1 (how long can this last?)
+  flexibility: number; // 0-1
+  sustainability: number; // 0-1 (how long can this last?)
   coBenefits: string[];
 
   // Metadata
-  source: string;               // Which agent/analysis suggested this
+  source: string; // Which agent/analysis suggested this
 }
 
 /**
  * Comparison result
  */
 export interface StrategyComparison {
-  strategies: Array<Strategy & {
-    scores: {
-      financial: number;        // Weighted financial impact
-      effort: number;           // Inverse of effort (higher = easier)
-      flexibility: number;
-      sustainability: number;
-      overall: number;          // Weighted average
-    };
-    rank: number;
-    monthlyEquivalent: number;  // Normalized to monthly value
-    timeToGoal?: number;        // Months to reach a goal
-  }>;
+  strategies: Array<
+    Strategy & {
+      scores: {
+        financial: number; // Weighted financial impact
+        effort: number; // Inverse of effort (higher = easier)
+        flexibility: number;
+        sustainability: number;
+        overall: number; // Weighted average
+      };
+      rank: number;
+      monthlyEquivalent: number; // Normalized to monthly value
+      timeToGoal?: number; // Months to reach a goal
+    }
+  >;
   bestOverall: string;
-  bestQuickWin: string;         // Best for immediate need
-  bestLongTerm: string;         // Best for sustainability
+  bestQuickWin: string; // Best for immediate need
+  bestLongTerm: string; // Best for sustainability
   recommendation: string;
   comparisonMatrix: Array<{
     strategyA: string;
@@ -107,9 +109,10 @@ function scoreStrategy(
   const monthlyEquiv = calculateMonthlyEquivalent(strategy);
 
   // Financial score (0-1) - normalized by impact relative to margin
-  const financialImpact = Math.abs(userContext.monthlyMargin) > 0
-    ? monthlyEquiv / Math.max(Math.abs(userContext.monthlyMargin), 100)
-    : monthlyEquiv / 100;
+  const financialImpact =
+    Math.abs(userContext.monthlyMargin) > 0
+      ? monthlyEquiv / Math.max(Math.abs(userContext.monthlyMargin), 100)
+      : monthlyEquiv / 100;
   const financial = Math.min(1, financialImpact * 0.5);
 
   // Effort score (inverse - lower effort = higher score)
@@ -151,10 +154,15 @@ function scoreStrategy(
 function generateComparisons(
   strategies: Array<Strategy & { scores: { overall: number } }>
 ): Array<{ strategyA: string; strategyB: string; winner: string; reason: string }> {
-  const comparisons: Array<{ strategyA: string; strategyB: string; winner: string; reason: string }> = [];
+  const comparisons: Array<{
+    strategyA: string;
+    strategyB: string;
+    winner: string;
+    reason: string;
+  }> = [];
 
   // Compare top strategies across different types
-  const byType = new Map<StrategyType, typeof strategies[0]>();
+  const byType = new Map<StrategyType, (typeof strategies)[0]>();
   for (const s of strategies) {
     const existing = byType.get(s.type);
     if (!existing || s.scores.overall > existing.scores.overall) {
@@ -246,11 +254,13 @@ export async function compareStrategies(
 
     // Find best for different criteria
     const bestOverall = scoredStrategies[0];
-    const bestQuickWin = [...scoredStrategies]
-      .filter((s) => s.type === 'selling' || s.effortLevel === 'low')
-      .sort((a, b) => b.scores.financial - a.scores.financial)[0] || bestOverall;
-    const bestLongTerm = [...scoredStrategies]
-      .sort((a, b) => b.scores.sustainability - a.scores.sustainability)[0];
+    const bestQuickWin =
+      [...scoredStrategies]
+        .filter((s) => s.type === 'selling' || s.effortLevel === 'low')
+        .sort((a, b) => b.scores.financial - a.scores.financial)[0] || bestOverall;
+    const bestLongTerm = [...scoredStrategies].sort(
+      (a, b) => b.scores.sustainability - a.scores.sustainability
+    )[0];
 
     // Generate comparisons
     const comparisonMatrix = generateComparisons(scoredStrategies);
@@ -290,14 +300,17 @@ export async function compareStrategies(
 /**
  * Create strategies from different sources
  */
-export function createStrategyFromJob(job: {
-  id: string;
-  name: string;
-  hourlyRate: number;
-  flexibility: number;
-  skills: string[];
-  coBenefit?: string;
-}, hoursPerWeek: number): Strategy {
+export function createStrategyFromJob(
+  job: {
+    id: string;
+    name: string;
+    hourlyRate: number;
+    flexibility: number;
+    skills: string[];
+    coBenefit?: string;
+  },
+  hoursPerWeek: number
+): Strategy {
   return {
     id: `job_${job.id}`,
     type: 'job',
@@ -317,15 +330,18 @@ export function createStrategyFromJob(job: {
   };
 }
 
-export function createStrategyFromHustle(hustle: {
-  id: string;
-  name: string;
-  hourlyRate: { min: number; max: number };
-  effort: 'low' | 'medium' | 'high';
-  flexibility: number;
-  startupCost: number;
-  coBenefit: string;
-}, hoursPerWeek: number): Strategy {
+export function createStrategyFromHustle(
+  hustle: {
+    id: string;
+    name: string;
+    hourlyRate: { min: number; max: number };
+    effort: 'low' | 'medium' | 'high';
+    flexibility: number;
+    startupCost: number;
+    coBenefit: string;
+  },
+  hoursPerWeek: number
+): Strategy {
   const avgRate = (hustle.hourlyRate.min + hustle.hourlyRate.max) / 2;
   return {
     id: `hustle_${hustle.id}`,
@@ -405,23 +421,25 @@ export const compareStrategiesTool = createTool({
   id: 'compare_strategies',
   description: 'Compare toutes les strategies (jobs vs hustles vs ventes vs optimisations)',
   inputSchema: z.object({
-    strategies: z.array(z.object({
-      id: z.string(),
-      type: z.enum(['job', 'hustle', 'selling', 'optimization']),
-      name: z.string(),
-      description: z.string(),
-      oneTimeGain: z.number(),
-      monthlyGain: z.number(),
-      monthlySavings: z.number(),
-      effortLevel: z.enum(['low', 'medium', 'high']),
-      timeInvestmentHours: z.number(),
-      startupCost: z.number(),
-      skillsRequired: z.array(z.string()),
-      flexibility: z.number(),
-      sustainability: z.number(),
-      coBenefits: z.array(z.string()),
-      source: z.string(),
-    })),
+    strategies: z.array(
+      z.object({
+        id: z.string(),
+        type: z.enum(['job', 'hustle', 'selling', 'optimization']),
+        name: z.string(),
+        description: z.string(),
+        oneTimeGain: z.number(),
+        monthlyGain: z.number(),
+        monthlySavings: z.number(),
+        effortLevel: z.enum(['low', 'medium', 'high']),
+        timeInvestmentHours: z.number(),
+        startupCost: z.number(),
+        skillsRequired: z.array(z.string()),
+        flexibility: z.number(),
+        sustainability: z.number(),
+        coBenefits: z.array(z.string()),
+        source: z.string(),
+      })
+    ),
     context: z.object({
       monthlyMargin: z.number(),
       hoursAvailable: z.number(),
@@ -441,30 +459,42 @@ export const compareStrategiesTool = createTool({
  */
 export const quickComparisonTool = createTool({
   id: 'quick_strategy_comparison',
-  description: 'Comparaison rapide: quel est le meilleur moyen d\'ameliorer ma situation?',
+  description: "Comparaison rapide: quel est le meilleur moyen d'ameliorer ma situation?",
   inputSchema: z.object({
     // Jobs available
-    jobs: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      hourlyRate: z.number(),
-      flexibility: z.number(),
-      skills: z.array(z.string()),
-      coBenefit: z.string().optional(),
-    })).optional(),
+    jobs: z
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          hourlyRate: z.number(),
+          flexibility: z.number(),
+          skills: z.array(z.string()),
+          coBenefit: z.string().optional(),
+        })
+      )
+      .optional(),
     // Items to sell
-    itemsToSell: z.array(z.object({
-      name: z.string(),
-      estimatedPrice: z.number(),
-      platform: z.string(),
-    })).optional(),
+    itemsToSell: z
+      .array(
+        z.object({
+          name: z.string(),
+          estimatedPrice: z.number(),
+          platform: z.string(),
+        })
+      )
+      .optional(),
     // Optimizations
-    optimizations: z.array(z.object({
-      expense: z.string(),
-      solution: z.string(),
-      savingsPct: z.number(),
-      currentAmount: z.number(),
-    })).optional(),
+    optimizations: z
+      .array(
+        z.object({
+          expense: z.string(),
+          solution: z.string(),
+          savingsPct: z.number(),
+          currentAmount: z.number(),
+        })
+      )
+      .optional(),
     // User context
     profile: z.object({
       monthlyMargin: z.number(),
@@ -519,7 +549,7 @@ registerTool('quick_strategy_comparison', quickComparisonTool);
 /**
  * Create Strategy Comparator agent
  */
-export function createStrategyComparatorAgent(): Agent {
+export async function createStrategyComparatorAgent(): Promise<Agent> {
   const config = {
     id: 'strategy-comparator',
     name: 'Strategy Comparator',

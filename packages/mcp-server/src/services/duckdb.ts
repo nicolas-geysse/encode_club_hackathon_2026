@@ -13,8 +13,8 @@ let db: duckdb.Database | null = null;
 let connection: duckdb.Connection | null = null;
 
 // Database file path (persisted in user's home directory)
-const DB_PATH = process.env.STUDENT_NAV_DB_PATH ||
-  path.join(process.env.HOME || '.', '.student-life-navigator', 'data.duckdb');
+const DB_PATH =
+  process.env.DUCKDB_PATH || path.join(process.env.HOME || '.', '.stride', 'data.duckdb');
 
 /**
  * Initialize the DuckDB database
@@ -40,6 +40,16 @@ export async function initDatabase(): Promise<void> {
  * Initialize database schema (knowledge graph + profiles)
  */
 async function initSchema(): Promise<void> {
+  // Install and load DuckPGQ extension for graph queries
+  try {
+    await execute('INSTALL duckpgq FROM community;');
+    await execute('LOAD duckpgq;');
+    console.error('DuckPGQ extension loaded successfully');
+  } catch (error) {
+    console.error('Warning: Could not load DuckPGQ extension:', error);
+    // Continue without graph extension - basic queries will still work
+  }
+
   const schemaPath = path.join(__dirname, '../graph/student-knowledge-graph.sql');
 
   // Check if tables already exist
@@ -55,6 +65,25 @@ async function initSchema(): Promise<void> {
       await execute(schema);
       console.error('Knowledge graph schema initialized');
     }
+  }
+
+  // Create property graph for knowledge graph queries (DuckPGQ)
+  try {
+    await execute(`
+      CREATE PROPERTY GRAPH IF NOT EXISTS student_graph
+      VERTEX TABLES (
+        student_nodes
+      )
+      EDGE TABLES (
+        student_edges
+          SOURCE KEY (source_id) REFERENCES student_nodes (id)
+          DESTINATION KEY (target_id) REFERENCES student_nodes (id)
+      );
+    `);
+    console.error('Property graph student_graph created');
+  } catch (error) {
+    console.error('Warning: Could not create property graph:', error);
+    // Continue without property graph
   }
 
   // Create profiles table if not exists

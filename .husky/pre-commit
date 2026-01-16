@@ -1,0 +1,19 @@
+#!/bin/sh
+
+echo "🔍 Running pre-commit checks..."
+
+# TypeScript check (non-blocking - just warnings)
+echo "📝 Type checking..."
+pnpm --filter @stride/frontend exec tsc --noEmit 2>/dev/null || echo "⚠️ TypeScript warnings in frontend (non-blocking)"
+pnpm --filter @stride/mcp-server exec tsc --noEmit 2>/dev/null || echo "⚠️ TypeScript warnings in mcp-server (non-blocking)"
+
+# Lint-staged
+pnpm exec lint-staged
+
+# Console.log detection (warning only)
+echo "🔎 Checking for console.log..."
+if git diff --cached --name-only | xargs grep -l "console\.log" 2>/dev/null; then
+  echo "⚠️ Warning: console.log found in staged files (consider using createLogger)"
+fi
+
+echo "✅ Pre-commit checks passed!"

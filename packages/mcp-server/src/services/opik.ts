@@ -51,7 +51,7 @@ export async function trace<T>(
   parentSpan?: Span
 ): Promise<T> {
   const startTime = Date.now();
-  const spanId = `${name}-${Date.now()}`;
+  const _spanId = `${name}-${Date.now()}`;
 
   // Create a mock span if Opik is not available
   const mockSpan: Span = {

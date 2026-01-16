@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "opik": {
+      "command": "npx",
+      "args": ["-y", "opik-mcp"],
+      "env": {
+        "OPIK_API_KEY": "${OPIK_API_KEY}"
+      }
+    }
+  }
+}

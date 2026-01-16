@@ -8,7 +8,7 @@
 import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { defaultModel } from '../mastra.config.js';
+import { defaultModel as _defaultModel } from '../mastra.config.js';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
 
 // === Tool Definitions ===
@@ -18,16 +18,20 @@ import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
  */
 export const analyzeBudgetTool = createTool({
   id: 'analyze_budget',
-  description: 'Analyse le budget mensuel d\'un etudiant (revenus vs depenses)',
+  description: "Analyse le budget mensuel d'un etudiant (revenus vs depenses)",
   inputSchema: z.object({
-    incomes: z.array(z.object({
-      source: z.string().describe('Source de revenu (APL, Parents, Job, Bourse)'),
-      amount: z.number().describe('Montant mensuel en euros'),
-    })),
-    expenses: z.array(z.object({
-      category: z.string().describe('Categorie de depense (Loyer, Alimentation, Transport)'),
-      amount: z.number().describe('Montant mensuel en euros'),
-    })),
+    incomes: z.array(
+      z.object({
+        source: z.string().describe('Source de revenu (APL, Parents, Job, Bourse)'),
+        amount: z.number().describe('Montant mensuel en euros'),
+      })
+    ),
+    expenses: z.array(
+      z.object({
+        category: z.string().describe('Categorie de depense (Loyer, Alimentation, Transport)'),
+        amount: z.number().describe('Montant mensuel en euros'),
+      })
+    ),
   }),
   execute: async ({ context }) => {
     const totalIncome = context.incomes.reduce((sum, i) => sum + i.amount, 0);
@@ -35,10 +39,13 @@ export const analyzeBudgetTool = createTool({
     const margin = totalIncome - totalExpenses;
 
     // Categorize expenses
-    const expenseBreakdown = context.expenses.reduce((acc, e) => {
-      acc[e.category] = (acc[e.category] || 0) + e.amount;
-      return acc;
-    }, {} as Record<string, number>);
+    const expenseBreakdown = context.expenses.reduce(
+      (acc, e) => {
+        acc[e.category] = (acc[e.category] || 0) + e.amount;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     // Calculate percentages
     const expensePercentages = Object.entries(expenseBreakdown).map(([category, amount]) => ({
@@ -49,7 +56,8 @@ export const analyzeBudgetTool = createTool({
 
     // Determine status
     const status = margin >= 0 ? 'positif' : 'deficit';
-    const severity = margin < -100 ? 'critique' : margin < 0 ? 'attention' : margin < 50 ? 'serré' : 'confortable';
+    const severity =
+      margin < -100 ? 'critique' : margin < 0 ? 'attention' : margin < 50 ? 'serré' : 'confortable';
 
     return {
       totalIncome,
@@ -84,11 +92,17 @@ export const generateAdviceTool = createTool({
     // Generate advice based on margin
     if (context.margin !== undefined) {
       if (context.margin < 0) {
-        advice.push('Priorite: reduire le deficit. Cherche des aides (APL, bourses) ou un petit job compatible.');
+        advice.push(
+          'Priorite: reduire le deficit. Cherche des aides (APL, bourses) ou un petit job compatible.'
+        );
         advice.push('Conseil: verifie ton eligibilite aux aides CROUS et CAF.');
       } else if (context.margin < 50) {
-        advice.push('Ta marge est serree. Constitution d\'un petit coussin de securite recommandee.');
-        advice.push('Astuce: les optimisations budget (CROUS, coloc) peuvent liberer 100-200e/mois.');
+        advice.push(
+          "Ta marge est serree. Constitution d'un petit coussin de securite recommandee."
+        );
+        advice.push(
+          'Astuce: les optimisations budget (CROUS, coloc) peuvent liberer 100-200e/mois.'
+        );
       } else if (context.margin < 200) {
         advice.push('Bon equilibre! Tu peux commencer a epargner regulierement.');
         advice.push('Objectif: viser 3 mois de depenses en reserve de securite.');
@@ -100,13 +114,19 @@ export const generateAdviceTool = createTool({
 
     // Advice based on loan
     if (context.hasLoan && context.loanAmount) {
-      advice.push(`Pret etudiant de ${context.loanAmount}e: commence a planifier le remboursement des maintenant.`);
-      advice.push('Strategie: des que possible, augmente tes revenus pour accelerer le remboursement.');
+      advice.push(
+        `Pret etudiant de ${context.loanAmount}e: commence a planifier le remboursement des maintenant.`
+      );
+      advice.push(
+        'Strategie: des que possible, augmente tes revenus pour accelerer le remboursement.'
+      );
     }
 
     // Skills-based advice
     if (context.skills && context.skills.length > 0) {
-      advice.push(`Tes competences (${context.skills.slice(0, 3).join(', ')}) sont monetisables: freelance, tutorat, stages.`);
+      advice.push(
+        `Tes competences (${context.skills.slice(0, 3).join(', ')}) sont monetisables: freelance, tutorat, stages.`
+      );
     }
 
     return {
@@ -134,30 +154,68 @@ export const findOptimizationsTool = createTool({
   }),
   execute: async ({ context }) => {
     // Optimization database
-    const optimizations: Record<string, Array<{
-      solution: string;
-      savingsPct: number;
-      effort: string;
-      condition: string;
-    }>> = {
+    const optimizations: Record<
+      string,
+      Array<{
+        solution: string;
+        savingsPct: number;
+        effort: string;
+        condition: string;
+      }>
+    > = {
       loyer: [
-        { solution: 'Colocation', savingsPct: 0.30, effort: 'moyen', condition: 'bon coloc' },
-        { solution: 'Residence CROUS', savingsPct: 0.40, effort: 'faible', condition: 'eligibilite' },
+        { solution: 'Colocation', savingsPct: 0.3, effort: 'moyen', condition: 'bon coloc' },
+        {
+          solution: 'Residence CROUS',
+          savingsPct: 0.4,
+          effort: 'faible',
+          condition: 'eligibilite',
+        },
         { solution: 'APL', savingsPct: 0.25, effort: 'faible', condition: 'declaration CAF' },
       ],
       alimentation: [
-        { solution: 'Resto U CROUS', savingsPct: 0.50, effort: 'faible', condition: 'proximite' },
-        { solution: 'Batch cooking', savingsPct: 0.30, effort: 'moyen', condition: 'temps disponible' },
-        { solution: 'Applis anti-gaspi', savingsPct: 0.20, effort: 'faible', condition: 'disponibilite stocks' },
+        { solution: 'Resto U CROUS', savingsPct: 0.5, effort: 'faible', condition: 'proximite' },
+        {
+          solution: 'Batch cooking',
+          savingsPct: 0.3,
+          effort: 'moyen',
+          condition: 'temps disponible',
+        },
+        {
+          solution: 'Applis anti-gaspi',
+          savingsPct: 0.2,
+          effort: 'faible',
+          condition: 'disponibilite stocks',
+        },
       ],
       transport: [
-        { solution: 'Velo/Marche', savingsPct: 0.80, effort: 'moyen', condition: 'ville adaptee' },
-        { solution: 'Carte jeune SNCF', savingsPct: 0.30, effort: 'faible', condition: 'voyages reguliers' },
-        { solution: 'Covoiturage', savingsPct: 0.50, effort: 'moyen', condition: 'trajets compatibles' },
+        { solution: 'Velo/Marche', savingsPct: 0.8, effort: 'moyen', condition: 'ville adaptee' },
+        {
+          solution: 'Carte jeune SNCF',
+          savingsPct: 0.3,
+          effort: 'faible',
+          condition: 'voyages reguliers',
+        },
+        {
+          solution: 'Covoiturage',
+          savingsPct: 0.5,
+          effort: 'moyen',
+          condition: 'trajets compatibles',
+        },
       ],
       telephone: [
-        { solution: 'Forfait etudiant', savingsPct: 0.40, effort: 'faible', condition: 'changement operateur' },
-        { solution: 'Forfait famille', savingsPct: 0.50, effort: 'faible', condition: 'accord famille' },
+        {
+          solution: 'Forfait etudiant',
+          savingsPct: 0.4,
+          effort: 'faible',
+          condition: 'changement operateur',
+        },
+        {
+          solution: 'Forfait famille',
+          savingsPct: 0.5,
+          effort: 'faible',
+          condition: 'accord famille',
+        },
       ],
     };
 
@@ -173,7 +231,8 @@ export const findOptimizationsTool = createTool({
     for (const category of context.expenseCategories) {
       const categoryLower = category.toLowerCase();
       const opts = optimizations[categoryLower] || [];
-      const currentAmount = context.currentExpenses?.[categoryLower] || context.currentExpenses?.[category] || 0;
+      const currentAmount =
+        context.currentExpenses?.[categoryLower] || context.currentExpenses?.[category] || 0;
 
       // Filter out constrained solutions
       const constraints = context.constraints || [];
@@ -215,7 +274,7 @@ registerTool('find_optimizations', findOptimizationsTool);
 /**
  * Create Budget Coach agent instance
  */
-export function createBudgetCoachAgent(): Agent {
+export async function createBudgetCoachAgent(): Promise<Agent> {
   const config = getAgentConfig('budget-coach');
   if (!config) {
     throw new Error('Budget Coach agent config not found');

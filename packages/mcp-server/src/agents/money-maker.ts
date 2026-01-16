@@ -17,7 +17,10 @@ import { trace } from '../services/opik.js';
 /**
  * Common sellable items categories with typical price ranges
  */
-export const ITEM_CATEGORIES: Record<string, { minPrice: number; maxPrice: number; platforms: string[] }> = {
+export const ITEM_CATEGORIES: Record<
+  string,
+  { minPrice: number; maxPrice: number; platforms: string[] }
+> = {
   electronics: {
     minPrice: 20,
     maxPrice: 500,
@@ -88,7 +91,7 @@ export const SIDE_HUSTLES: Array<{
   {
     id: 'pet_sitting',
     name: 'Pet Sitting',
-    description: 'Garde d\'animaux via Animaute/Rover',
+    description: "Garde d'animaux via Animaute/Rover",
     hourlyRate: { min: 8, max: 15 },
     skills: ['animaux', 'responsabilite'],
     effort: 'low',
@@ -285,9 +288,8 @@ function calculateBudgetImpact(
   projectionWithoutSale: number;
   recommendation: string;
 } {
-  const equivalentMonths = currentMonthlyMargin !== 0
-    ? itemsValue / Math.abs(currentMonthlyMargin)
-    : Infinity;
+  const equivalentMonths =
+    currentMonthlyMargin !== 0 ? itemsValue / Math.abs(currentMonthlyMargin) : Infinity;
 
   const projectionWithoutSale = currentMonthlyMargin * monthsRemaining;
   const projectionWithSale = projectionWithoutSale + itemsValue;
@@ -318,63 +320,62 @@ function suggestSideHustles(
   maxHoursWeekly: number,
   preferLowEffort: boolean
 ): Array<{
-  hustle: typeof SIDE_HUSTLES[0];
+  hustle: (typeof SIDE_HUSTLES)[0];
   matchScore: number;
   estimatedMonthlyEarnings: { min: number; max: number };
   whyGoodFit: string[];
 }> {
   const skillsLower = skills.map((s) => s.toLowerCase());
 
-  return SIDE_HUSTLES
-    .map((hustle) => {
-      // Calculate match score
-      let score = 0.5; // Base score
+  return SIDE_HUSTLES.map((hustle) => {
+    // Calculate match score
+    let score = 0.5; // Base score
 
-      // Skill match
-      const matchingSkills = hustle.skills.filter((s) =>
-        skillsLower.some((us) => us.includes(s) || s.includes(us))
-      );
-      score += matchingSkills.length * 0.15;
+    // Skill match
+    const matchingSkills = hustle.skills.filter((s) =>
+      skillsLower.some((us) => us.includes(s) || s.includes(us))
+    );
+    score += matchingSkills.length * 0.15;
 
-      // Effort preference
-      if (preferLowEffort && hustle.effort === 'low') score += 0.2;
-      if (!preferLowEffort && hustle.effort === 'high') score += 0.1;
+    // Effort preference
+    if (preferLowEffort && hustle.effort === 'low') score += 0.2;
+    if (!preferLowEffort && hustle.effort === 'high') score += 0.1;
 
-      // Flexibility bonus
-      score += hustle.flexibility * 0.2;
+    // Flexibility bonus
+    score += hustle.flexibility * 0.2;
 
-      // Zero startup cost bonus for students
-      if (hustle.startupCost === 0) score += 0.1;
+    // Zero startup cost bonus for students
+    if (hustle.startupCost === 0) score += 0.1;
 
-      score = Math.min(1, score);
+    score = Math.min(1, score);
 
-      // Calculate earnings
-      const hoursPerMonth = maxHoursWeekly * 4;
-      const minEarnings = Math.round(hustle.hourlyRate.min * hoursPerMonth);
-      const maxEarnings = Math.round(hustle.hourlyRate.max * hoursPerMonth);
+    // Calculate earnings
+    const hoursPerMonth = maxHoursWeekly * 4;
+    const minEarnings = Math.round(hustle.hourlyRate.min * hoursPerMonth);
+    const maxEarnings = Math.round(hustle.hourlyRate.max * hoursPerMonth);
 
-      // Why it's a good fit
-      const whyGoodFit: string[] = [];
-      if (matchingSkills.length > 0) {
-        whyGoodFit.push(`Utilise tes competences: ${matchingSkills.join(', ')}`);
-      }
-      if (hustle.flexibility > 0.8) {
-        whyGoodFit.push('Tres flexible, compatible avec les cours');
-      }
-      if (hustle.startupCost === 0) {
-        whyGoodFit.push('Aucun investissement initial');
-      }
-      if (hustle.coBenefit) {
-        whyGoodFit.push(`Bonus: ${hustle.coBenefit}`);
-      }
+    // Why it's a good fit
+    const whyGoodFit: string[] = [];
+    if (matchingSkills.length > 0) {
+      whyGoodFit.push(`Utilise tes competences: ${matchingSkills.join(', ')}`);
+    }
+    if (hustle.flexibility > 0.8) {
+      whyGoodFit.push('Tres flexible, compatible avec les cours');
+    }
+    if (hustle.startupCost === 0) {
+      whyGoodFit.push('Aucun investissement initial');
+    }
+    if (hustle.coBenefit) {
+      whyGoodFit.push(`Bonus: ${hustle.coBenefit}`);
+    }
 
-      return {
-        hustle,
-        matchScore: Math.round(score * 100) / 100,
-        estimatedMonthlyEarnings: { min: minEarnings, max: maxEarnings },
-        whyGoodFit,
-      };
-    })
+    return {
+      hustle,
+      matchScore: Math.round(score * 100) / 100,
+      estimatedMonthlyEarnings: { min: minEarnings, max: maxEarnings },
+      whyGoodFit,
+    };
+  })
     .filter((h) => h.matchScore > 0.4)
     .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, 5);
@@ -402,13 +403,22 @@ export const analyzeImageTool = createTool({
  */
 export const estimatePriceTool = createTool({
   id: 'estimate_item_price',
-  description: 'Estime le prix de vente d\'un objet via recherche web',
+  description: "Estime le prix de vente d'un objet via recherche web",
   inputSchema: z.object({
-    itemName: z.string().describe('Nom de l\'objet'),
+    itemName: z.string().describe("Nom de l'objet"),
     category: z
-      .enum(['electronics', 'clothing', 'books', 'furniture', 'sports', 'games', 'instruments', 'collectibles'])
+      .enum([
+        'electronics',
+        'clothing',
+        'books',
+        'furniture',
+        'sports',
+        'games',
+        'instruments',
+        'collectibles',
+      ])
       .describe('Categorie'),
-    condition: z.enum(['neuf', 'bon', 'correct', 'use']).describe('Etat de l\'objet'),
+    condition: z.enum(['neuf', 'bon', 'correct', 'use']).describe("Etat de l'objet"),
   }),
   execute: async ({ context }) => {
     return estimateItemPrice(context.itemName, context.category, context.condition);
@@ -420,11 +430,11 @@ export const estimatePriceTool = createTool({
  */
 export const budgetImpactTool = createTool({
   id: 'calculate_sale_impact',
-  description: 'Calcule l\'impact de la vente sur le budget etudiant',
+  description: "Calcule l'impact de la vente sur le budget etudiant",
   inputSchema: z.object({
     itemsValue: z.number().describe('Valeur totale des objets a vendre (€)'),
     currentMonthlyMargin: z.number().describe('Marge mensuelle actuelle (€)'),
-    monthsRemaining: z.number().describe('Mois d\'etudes restants'),
+    monthsRemaining: z.number().describe("Mois d'etudes restants"),
   }),
   execute: async ({ context }) => {
     return calculateBudgetImpact(
@@ -442,16 +452,12 @@ export const suggestHustlesTool = createTool({
   id: 'suggest_side_hustles',
   description: 'Suggere des sources de revenus complementaires adaptees au profil',
   inputSchema: z.object({
-    skills: z.array(z.string()).describe('Competences de l\'etudiant'),
+    skills: z.array(z.string()).describe("Competences de l'etudiant"),
     maxHoursWeekly: z.number().describe('Heures max par semaine'),
     preferLowEffort: z.boolean().default(false).describe('Prefere les options peu fatigantes'),
   }),
   execute: async ({ context }) => {
-    return suggestSideHustles(
-      context.skills,
-      context.maxHoursWeekly,
-      context.preferLowEffort
-    );
+    return suggestSideHustles(context.skills, context.maxHoursWeekly, context.preferLowEffort);
   },
 });
 
@@ -469,18 +475,27 @@ export const moneyMakerAnalysisTool = createTool({
         type: z.enum(['base64', 'url']),
       })
       .optional()
-      .describe('Image d\'objets a vendre (optionnel)'),
+      .describe("Image d'objets a vendre (optionnel)"),
     // Manual items list
     items: z
       .array(
         z.object({
           name: z.string(),
-          category: z.enum(['electronics', 'clothing', 'books', 'furniture', 'sports', 'games', 'instruments', 'collectibles']),
+          category: z.enum([
+            'electronics',
+            'clothing',
+            'books',
+            'furniture',
+            'sports',
+            'games',
+            'instruments',
+            'collectibles',
+          ]),
           condition: z.enum(['neuf', 'bon', 'correct', 'use']),
         })
       )
       .optional()
-      .describe('Liste manuelle d\'objets'),
+      .describe("Liste manuelle d'objets"),
     // Profile for side hustles
     profile: z.object({
       skills: z.array(z.string()),
@@ -610,12 +625,12 @@ registerTool('money_maker_analysis', moneyMakerAnalysisTool);
 /**
  * Create Money Maker agent instance
  */
-export function createMoneyMakerAgent(): Agent {
+export async function createMoneyMakerAgent(): Promise<Agent> {
   // Add config to factory if not exists
   const config = {
     id: 'money-maker',
     name: 'Money Maker',
-    description: 'Trouve des facons creatives de gagner de l\'argent',
+    description: "Trouve des facons creatives de gagner de l'argent",
     instructions: `Tu es un expert en side hustles et vente d'occasion pour etudiants.
 
 ROLE:

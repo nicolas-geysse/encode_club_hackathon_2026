@@ -24,8 +24,8 @@ export const groqModel = createGroq({
   apiKey: GROQ_API_KEY || '',
 });
 
-// Get the default model
-export const defaultModel = groqModel(GROQ_MODEL);
+// Get the default model (type is LanguageModelV3 from @ai-sdk/provider)
+export const defaultModel: unknown = groqModel(GROQ_MODEL);
 
 // Mastra instance with telemetry
 export const mastra = new Mastra({

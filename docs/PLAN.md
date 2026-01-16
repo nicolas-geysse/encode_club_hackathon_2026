@@ -3,13 +3,13 @@
 > **Projet**: Stride (anciennement "Student Life Navigator")
 > **Objectif**: MCP Server avec Mastra agents + Opik observability
 > **Track**: Financial Health ($5,000 prize)
-> **Cible**: ETUDIANTS (niche engagée avec problèmes concrets)
+> **Cible**: ETUDIANTS (niche engagee avec problemes concrets)
 
 ---
 
 ## Concept: Stride
 
-**Pitch**: Un GPS de vie étudiante qui t'aide à naviguer entre études, jobs et budget, avec **4 killer features** qui rendent la gestion financière fun et bienveillante.
+**Pitch**: Un GPS de vie etudiante qui t'aide a naviguer entre etudes, jobs et budget, avec **4 killer features** qui rendent la gestion financiere fun et bienveillante.
 
 ---
 
@@ -26,11 +26,11 @@
 
 ## Architecture Lean
 
-### 4 Agents (etait 6)
+### 4 Agents
 
 | Agent | Role | Killer Feature |
 |-------|------|----------------|
-| **Budget Coach** | Analyse budget + conseils personnalises | Foundation |
+| **Budget Coach** | Analyse budget + conseils personnalises + chat onboarding | Foundation |
 | **Job Matcher** | Skill Arbitrage + multi-criteria scoring | #2 Skill Arbitrage |
 | **Guardian** | Validation simplifiee (2 layers) | Quality control |
 | **Energy Calculator** | Capacity tracking + Comeback detection + Energy Debt | #1 & #4 |
@@ -40,21 +40,33 @@
 - ~~Strategy Comparator~~ (merge dans Job Matcher)
 - ~~Projection ML~~ (renomme en Energy Calculator)
 
-### 5 Ecrans (etait 7)
+### 3 Ecrans + 6 Tabs
 
 | # | Ecran | Route | Purpose |
 |---|-------|-------|---------|
-| 1 | **Onboarding** | `/` | Profile + skills + budget |
-| 2 | **Goal Setup** | `/goal-mode/setup` | Define goal + exams + commitments |
-| 3 | **Goal Plan** | `/goal-mode/plan` | Strategies + Swipe Scenarios |
-| 4 | **Goal Calendar** | `/goal-mode/calendar` | Retroplan with capacity visualization |
-| 5 | **Goal Track** | `/goal-mode/track` | Progress + Energy check-in + Achievements |
+| 0 | **Onboarding** | `/` | Chat conversationnel profil |
+| 1 | **Mon Plan** | `/plan` | 6 tabs configuration |
+| 2 | **Suivi** | `/suivi` | Dashboard unifie |
 
-**Supprime:**
-- ~~Dashboard~~ (fonctions mergees dans Goal Track)
-- ~~Chat~~ (voice input disponible sur autres ecrans)
+#### 6 Tabs (Mon Plan)
 
-### 2 Couches Evaluation (etait 4)
+| Tab | Contenu | Chat |
+|-----|---------|------|
+| Setup | Objectif, echeance, evenements | - |
+| Skills | Skill Arbitrage + scoring | addSkillChat |
+| A Vendre | Inventory objets | addItemChat |
+| Lifestyle | Logement, food, transport, abonnements | addLifestyleChat |
+| Trade | Emprunter/troquer | addTradeChat |
+| Swipe | Roll the Dice + Swipe Scenarios | - |
+
+> **Note Design: Chats isolés par tab (intentionnel)**
+> Les chats sont isolés par tab sans mémoire partagée. C'est un **choix de design délibéré**:
+> - Contexte isolé = moins de confusion pour l'utilisateur
+> - Chaque tab a son propre sujet spécifique
+> - L'onboarding (Screen 0) EST conversationnel avec questions progressives
+> - Alternative rejetée: mémoire cross-tab ajouterait de la complexité sans valeur ajoutée
+
+### 2 Couches Evaluation
 
 | Layer | Role | Latence |
 |-------|------|---------|
@@ -182,29 +194,14 @@ function updatePreferences(
 }
 ```
 
-**Stockage:**
-```sql
-CREATE TABLE swipe_history (
-  id VARCHAR PRIMARY KEY,
-  user_id VARCHAR,
-  scenario_id VARCHAR,
-  decision VARCHAR,  -- 'left' or 'right'
-  time_spent INTEGER,  -- milliseconds
-  created_at TIMESTAMP
-);
-
-CREATE TABLE user_preferences (
-  user_id VARCHAR PRIMARY KEY,
-  effort_sensitivity DECIMAL,
-  hourly_rate_priority DECIMAL,
-  time_flexibility DECIMAL,
-  updated_at TIMESTAMP
-);
-```
-
 ### #4 Energy Debt Gamification
 
 **Concept**: 3 semaines consecutives a basse energie = on reduit automatiquement les cibles et on recompense le self-care.
+
+> **Note: Energy Debt et Comeback Mode sont mutuellement exclusifs.**
+> - **Energy Debt** = protection active (énergie basse → on réduit les objectifs)
+> - **Comeback Mode** = rattrapage actif (énergie remonte APRÈS récupération)
+> - Si l'utilisateur est en Energy Debt, pas de Comeback possible (il faut d'abord récupérer)
 
 ```typescript
 interface EnergyDebt {
@@ -240,117 +237,6 @@ function adjustTargetForDebt(originalTarget: number, debt: EnergyDebt): number {
 }
 ```
 
-**Achievements:**
-```typescript
-const selfCareAchievements = [
-  {
-    id: 'self_care_champion',
-    trigger: 'accepted_target_reduction',
-    message: "Tu as ecoute ton corps. C'est la vraie victoire.",
-    badge: 'heart'
-  },
-  {
-    id: 'comeback_king',
-    trigger: 'completed_catch_up_plan',
-    message: "Retour en force! Tu as recupere ton retard.",
-    badge: 'crown'
-  },
-  {
-    id: 'energy_master',
-    trigger: '4_weeks_above_70_energy',
-    message: "4 semaines au-dessus de 70% d'energie. Bien joue!",
-    badge: 'lightning'
-  }
-];
-```
-
----
-
-## Modele de Donnees
-
-### Tables DuckDB
-
-```sql
--- Objectifs financiers
-CREATE TABLE goals (
-  id VARCHAR PRIMARY KEY,
-  user_id VARCHAR,
-  goal_name VARCHAR,
-  goal_amount DECIMAL,
-  goal_deadline DATE,
-  status VARCHAR,  -- 'active', 'completed', 'abandoned'
-  weekly_target DECIMAL,
-  feasibility_score DECIMAL
-);
-
--- Evenements academiques
-CREATE TABLE academic_events (
-  id VARCHAR PRIMARY KEY,
-  user_id VARCHAR,
-  event_type VARCHAR,  -- 'exam_period', 'vacation', 'internship'
-  event_name VARCHAR,
-  start_date DATE,
-  end_date DATE,
-  capacity_impact DECIMAL  -- 0.2 = 80% reduction
-);
-
--- Engagements recurrents
-CREATE TABLE commitments (
-  id VARCHAR PRIMARY KEY,
-  user_id VARCHAR,
-  commitment_type VARCHAR,  -- 'class', 'sport', 'family'
-  commitment_name VARCHAR,
-  hours_per_week DECIMAL
-);
-
--- Suivi energie/mood
-CREATE TABLE energy_logs (
-  id VARCHAR PRIMARY KEY,
-  user_id VARCHAR,
-  log_date DATE,
-  energy_level INTEGER,  -- 1-100
-  mood_score INTEGER,    -- 1-5
-  stress_level INTEGER   -- 1-5
-);
-
--- Historique swipes
-CREATE TABLE swipe_history (
-  id VARCHAR PRIMARY KEY,
-  user_id VARCHAR,
-  scenario_id VARCHAR,
-  decision VARCHAR,
-  time_spent INTEGER,
-  created_at TIMESTAMP
-);
-
--- Preferences apprises
-CREATE TABLE user_preferences (
-  user_id VARCHAR PRIMARY KEY,
-  effort_sensitivity DECIMAL,
-  hourly_rate_priority DECIMAL,
-  time_flexibility DECIMAL,
-  updated_at TIMESTAMP
-);
-```
-
-### Graph DuckPGQ (Knowledge Graph)
-
-```sql
--- Nodes: skills, jobs, diplomas, careers
--- Edges: enables (skill -> job), requires (job -> skill)
-
--- Exemple: Skill Arbitrage query
-SELECT j.name,
-       j.properties->>'hourly_rate' as rate,
-       j.properties->>'effort_level' as effort,
-       e.weight as match_score
-FROM student_edges e
-JOIN student_nodes s ON e.source_id = s.id
-JOIN student_nodes j ON e.target_id = j.id
-WHERE s.id = 'python' AND e.relation_type = 'enables'
-ORDER BY e.weight DESC;
-```
-
 ---
 
 ## Stack Technique
@@ -367,33 +253,111 @@ ORDER BY e.weight DESC;
 
 ---
 
+## Structure du Projet
+
+```
+packages/
+├── frontend/                      # SolidStart app
+│   └── src/
+│       ├── pages/
+│       │   ├── index.tsx          # Onboarding (chat conversationnel)
+│       │   ├── plan.tsx           # Mon Plan (6 tabs)
+│       │   └── suivi.tsx          # Suivi (dashboard unifie)
+│       ├── components/
+│       │   ├── chat/
+│       │   │   ├── OnboardingChat.tsx
+│       │   │   ├── SkillChat.tsx
+│       │   │   ├── ItemChat.tsx
+│       │   │   ├── LifestyleChat.tsx
+│       │   │   ├── TradeChat.tsx
+│       │   │   └── ChatInput.tsx
+│       │   ├── timeline/
+│       │   │   └── TimelineHero.tsx
+│       │   ├── swipe/
+│       │   │   ├── RollDice.tsx
+│       │   │   └── SwipeCard.tsx
+│       │   ├── suivi/
+│       │   │   ├── Retroplan.tsx
+│       │   │   ├── EnergyHistory.tsx
+│       │   │   ├── MissionList.tsx
+│       │   │   └── MissionCard.tsx
+│       │   ├── VoiceInput.tsx
+│       │   ├── GoalProgress.tsx
+│       │   └── AchievementBadge.tsx
+│       └── api/
+│           ├── chat.ts            # API chat (onboarding, skills, items, etc.)
+│           ├── goals.ts           # API goals
+│           ├── retroplan.ts       # API retroplanning
+│           ├── swipe.ts           # API swipe preferences
+│           ├── missions.ts        # API missions (validate/delete)
+│           └── voice.ts           # API transcription
+│
+└── mcp-server/                    # MCP Server
+    └── src/
+        ├── agents/
+        │   ├── budget-coach.ts
+        │   ├── job-matcher.ts
+        │   ├── guardian.ts
+        │   └── energy-calculator.ts
+        ├── tools/
+        │   ├── chat.ts
+        │   ├── goal.ts
+        │   ├── voice.ts
+        │   ├── swipe.ts
+        │   ├── energy.ts
+        │   └── missions.ts
+        ├── workflows/
+        │   ├── student-analysis.ts
+        │   └── goal-planning.ts
+        ├── algorithms/
+        │   ├── retroplanning.ts
+        │   ├── skill-arbitrage.ts
+        │   ├── comeback-detection.ts
+        │   └── energy-debt.ts
+        ├── evaluation/
+        │   ├── heuristics/
+        │   └── geval/
+        └── services/
+            ├── duckdb.ts
+            ├── groq.ts
+            └── opik.ts
+```
+
+---
+
 ## Scenario Demo
 
 ```
 Etudiant: "Je suis en L2 Info, j'ai 800 euros/mois, je veux economiser 500 euros pour les vacances"
 
--> SPAN 1: Budget Analysis
-   Income: 800 euros, Expenses: 750 euros, Margin: 50 euros
+-> SPAN 1: Onboarding Chat
+   Questions progressives, profil cree
+   Opik: onboarding_chat, profile_created
 
--> SPAN 2: Skill Arbitrage (Killer #2)
+-> SPAN 2: Tab Skills - Skill Arbitrage (Killer #2)
    Python -> 25 euros/h but HIGH effort (score: 6.2)
    SQL Coaching -> 22 euros/h, MODERATE effort (score: 8.7) <- Recommended
+   Opik: skill_added, score_calculation
 
--> SPAN 3: Swipe Session (Killer #3)
+-> SPAN 3: Tab Swipe - Roll the Dice + Session (Killer #3)
+   [Roll the Dice] -> Compile all tabs, freeze
    [Freelance] <- swipe left
    [Tutoring] -> swipe right
    [Selling items] -> swipe right
    Learned: prioritizes flexibility, moderate effort
+   Opik: roll_the_dice, scenarios_compiled, swipe_decision, preference_learning
 
--> SPAN 4: Energy Check (Killer #1 & #4)
+-> SPAN 4: Suivi - Energy Check (Killer #1 & #4)
    Current energy: 85%
    No debt detected
    Comeback mode: not needed (all good!)
+   Opik: energy_debt_check, timeline_updated
 
 -> SPAN 5: Guardian Validation
    Heuristics: PASS (math valid)
    G-Eval: 0.89 confidence
    Final: APPROVED
+   Opik: guardian_validation
 
 -> RESULT: "SQL Coaching 6h/week + sell 2 items = 500 euros in 7 weeks"
 ```
@@ -420,63 +384,6 @@ Etudiant: "Je suis en L2 Info, j'ai 800 euros/mois, je veux economiser 500 euros
 
 ---
 
-## Structure du Projet
-
-```
-packages/
-|-- frontend/                 # SolidStart app
-|   |-- src/
-|   |   |-- routes/
-|   |   |   |-- index.tsx           # Onboarding
-|   |   |   |-- goal-mode/
-|   |   |   |   |-- setup.tsx       # Define goal
-|   |   |   |   |-- plan.tsx        # Strategies + Swipe
-|   |   |   |   |-- calendar.tsx    # Retroplan visual
-|   |   |   |   |-- track.tsx       # Progress + Energy
-|   |   |   |-- api/
-|   |   |       |-- goals.ts        # API goals
-|   |   |       |-- retroplan.ts    # API retroplanning
-|   |   |       |-- voice.ts        # API transcription
-|   |   |       |-- swipe.ts        # API swipe preferences
-|   |   |-- components/
-|   |       |-- VoiceInput.tsx
-|   |       |-- SwipeCard.tsx
-|   |       |-- GoalProgress.tsx
-|   |       |-- MilestoneCard.tsx
-|   |       |-- AchievementBadge.tsx
-|   |       |-- EnergyTracker.tsx
-|
-|-- mcp-server/               # MCP Server
-    |-- src/
-    |   |-- agents/
-    |   |   |-- budget-coach.ts
-    |   |   |-- job-matcher.ts
-    |   |   |-- guardian.ts
-    |   |   |-- energy-calculator.ts
-    |   |-- tools/
-    |   |   |-- goal.ts
-    |   |   |-- voice.ts
-    |   |   |-- swipe.ts
-    |   |   |-- energy.ts
-    |   |-- workflows/
-    |   |   |-- student-analysis.ts
-    |   |   |-- goal-planning.ts
-    |   |-- algorithms/
-    |   |   |-- retroplanning.ts
-    |   |   |-- skill-arbitrage.ts
-    |   |   |-- comeback-detection.ts
-    |   |   |-- energy-debt.ts
-    |   |-- evaluation/
-    |   |   |-- heuristics/
-    |   |   |-- geval/
-    |   |-- services/
-    |       |-- duckdb.ts
-    |       |-- groq.ts
-    |       |-- opik.ts
-```
-
----
-
 ## Checklist Implementation
 
 ### 4 Killer Features
@@ -494,9 +401,9 @@ packages/
   - [ ] Opik traces for scoring breakdown
 
 - [ ] **#3 Swipe Scenarios**
+  - [ ] Roll the Dice button (compile + freeze)
   - [ ] SwipeCard component with animations
   - [ ] Preference learning algorithm
-  - [ ] swipe_history table
   - [ ] Recommendation reranking after swipes
   - [ ] Opik traces for preference updates
 
@@ -507,25 +414,65 @@ packages/
   - [ ] Recovery plan generation
   - [ ] Opik traces for debt calculations
 
+### Frontend
+
+- [ ] **Screen 0: Onboarding**
+  - [ ] OnboardingChat component
+  - [ ] Chat conversationnel (texte + voix)
+  - [ ] Questions progressives
+  - [ ] Character avatar (Bruno)
+
+- [ ] **Screen 1: Mon Plan**
+  - [ ] Tab navigation (6 tabs)
+  - [ ] Tab Setup - objectif, echeance, evenements
+  - [ ] Tab Skills - Skill Arbitrage + addSkillChat
+  - [ ] Tab A Vendre - Inventory + addItemChat
+  - [ ] Tab Lifestyle - optimisations + addLifestyleChat
+  - [ ] Tab Trade - emprunter/troquer + addTradeChat
+  - [ ] Tab Swipe - Roll the Dice + SwipeCards
+
+- [ ] **Screen 2: Suivi**
+  - [ ] Timeline Hero (temps + charge de travail)
+  - [ ] Retroplan + Comeback Alert
+  - [ ] Energy History + Recovery mode
+  - [ ] Missions du Swipe (valider/supprimer)
+  - [ ] Achievements
+
+- [ ] **Shared Components**
+  - [ ] ChatInput (reutilisable)
+  - [ ] VoiceInput
+  - [ ] GoalProgress
+  - [ ] AchievementBadge
+  - [ ] MissionCard
+
 ### Backend
 
 - [ ] 4 Agents Mastra configures
 - [ ] Hybrid Evaluation System (Heuristics + G-Eval)
-- [ ] DuckDB avec tables goals, energy_logs, swipe_history, user_preferences
+- [ ] DuckDB avec tables:
+  - [ ] goals
+  - [ ] academic_events
+  - [ ] commitments
+  - [ ] energy_logs
+  - [ ] swipe_history
+  - [ ] user_preferences
+  - [ ] missions
+  - [ ] lifestyle_items
+  - [ ] trade_items
 - [ ] DuckPGQ knowledge graph (skills -> jobs)
 - [ ] Workflow student-analysis
 - [ ] Workflow goal-planning avec retroplanning
-- [ ] Tools voice, goal, swipe, energy
-- [ ] Opik integration
+- [ ] Tools: chat, voice, goal, swipe, energy, missions
+- [ ] Opik integration (see OPIK.md)
 
-### Frontend
+### API Endpoints
 
-- [ ] Onboarding avec profil complet
-- [ ] Goal Mode - Setup (objectif + evenements + engagements)
-- [ ] Goal Mode - Plan (strategies + Swipe Scenarios)
-- [ ] Goal Mode - Calendar (retroplan visuel + capacity)
-- [ ] Goal Mode - Track (progression + energy check-in + achievements)
-- [ ] Composants: VoiceInput, SwipeCard, GoalProgress, AchievementBadge, EnergyTracker
+- [ ] `/api/chat` - onboarding, add_skill, add_item, add_lifestyle, add_trade
+- [ ] `/api/goals` - create, update_progress
+- [ ] `/api/retroplan` - events, commitments, energy, comeback
+- [ ] `/api/swipe` - roll_dice, record_decision, get_preferences
+- [ ] `/api/missions` - validate, delete
+- [ ] `/api/voice` - transcription
 
 ### Documentation
 

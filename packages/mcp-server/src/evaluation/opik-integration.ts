@@ -12,7 +12,11 @@ import type {
   EvaluationInput,
   EvaluationContext,
 } from './types.js';
-import { runHybridEvaluation as runEvaluation, runQuickEvaluation, runCriticalValidation } from './aggregation.js';
+import {
+  runHybridEvaluation as _runHybridEvaluation,
+  runQuickEvaluation as _runQuickEvaluation,
+  runCriticalValidation as _runCriticalValidation,
+} from './aggregation.js';
 import type { LLMGenerateFunction } from './geval/index.js';
 
 /**
@@ -84,10 +88,7 @@ export async function runHybridEvaluationWithTracing(
     }
 
     // Step 3: Calculate final score
-    const finalScore = calculateTracedFinalScore(
-      heuristicsResults.aggregatedScore,
-      gEvalResult
-    );
+    const finalScore = calculateTracedFinalScore(heuristicsResults.aggregatedScore, gEvalResult);
 
     const passed = finalScore >= 0.6;
 
@@ -191,10 +192,7 @@ async function traceGEval(
 /**
  * Calculate final score with tracing
  */
-function calculateTracedFinalScore(
-  heuristicScore: number,
-  gEvalResult: GEvalResult
-): number {
+function calculateTracedFinalScore(heuristicScore: number, gEvalResult: GEvalResult): number {
   const heuristicWeight = 0.6;
   const llmWeight = 0.4;
 

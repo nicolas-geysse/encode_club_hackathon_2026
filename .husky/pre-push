@@ -1,0 +1,13 @@
+#!/bin/sh
+
+echo "🚀 Running pre-push checks..."
+
+# Build verification
+echo "🔨 Building packages..."
+pnpm --filter @stride/frontend build || exit 1
+pnpm --filter @stride/mcp-server build || exit 1
+
+# Tests (if available)
+# pnpm test || exit 1
+
+echo "✅ Pre-push checks passed!"

@@ -111,25 +111,18 @@ function getDefaultCapacityImpact(eventType: AcademicEvent['type']): number {
 }
 
 // Calculate week capacity
-function calculateWeekCapacity(
-  weekStart: Date,
-  userId: string
-): WeekCapacity {
+function calculateWeekCapacity(weekStart: Date, userId: string): WeekCapacity {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
   // Get events for this week
   const events = Array.from(academicEventsStore.values()).filter(
     (e) =>
-      e.userId === userId &&
-      new Date(e.startDate) <= weekEnd &&
-      new Date(e.endDate) >= weekStart
+      e.userId === userId && new Date(e.startDate) <= weekEnd && new Date(e.endDate) >= weekStart
   );
 
   // Get commitments
-  const commitments = Array.from(commitmentsStore.values()).filter(
-    (c) => c.userId === userId
-  );
+  const commitments = Array.from(commitmentsStore.values()).filter((c) => c.userId === userId);
 
   // Get recent energy logs
   const energyLogs = Array.from(energyLogsStore.values())
@@ -138,20 +131,20 @@ function calculateWeekCapacity(
     .slice(0, 7);
 
   // Calculate multipliers
-  const academicMultiplier = events.reduce(
-    (mult, e) => Math.min(mult, e.capacityImpact),
-    1.0
-  );
+  const academicMultiplier = events.reduce((mult, e) => Math.min(mult, e.capacityImpact), 1.0);
 
-  const avgEnergy = energyLogs.length > 0
-    ? energyLogs.reduce((sum, e) => sum + e.energyLevel, 0) / energyLogs.length
-    : 3;
-  const avgMood = energyLogs.length > 0
-    ? energyLogs.reduce((sum, e) => sum + e.moodScore, 0) / energyLogs.length
-    : 3;
-  const avgStress = energyLogs.length > 0
-    ? energyLogs.reduce((sum, e) => sum + e.stressLevel, 0) / energyLogs.length
-    : 3;
+  const avgEnergy =
+    energyLogs.length > 0
+      ? energyLogs.reduce((sum, e) => sum + e.energyLevel, 0) / energyLogs.length
+      : 3;
+  const avgMood =
+    energyLogs.length > 0
+      ? energyLogs.reduce((sum, e) => sum + e.moodScore, 0) / energyLogs.length
+      : 3;
+  const avgStress =
+    energyLogs.length > 0
+      ? energyLogs.reduce((sum, e) => sum + e.stressLevel, 0) / energyLogs.length
+      : 3;
 
   const energyMultiplier = 0.6 + ((avgEnergy + avgMood + (6 - avgStress)) / 15) * 0.8;
 
@@ -162,9 +155,13 @@ function calculateWeekCapacity(
 
   const capacityScore = Math.round(academicMultiplier * energyMultiplier * 100);
   const capacityCategory: WeekCapacity['capacityCategory'] =
-    capacityScore < 30 ? 'protected' :
-    capacityScore < 60 ? 'low' :
-    capacityScore < 85 ? 'medium' : 'high';
+    capacityScore < 30
+      ? 'protected'
+      : capacityScore < 60
+        ? 'low'
+        : capacityScore < 85
+          ? 'medium'
+          : 'high';
 
   return {
     weekNumber: 0, // Will be set by caller
@@ -187,11 +184,14 @@ function generateRetroplanForGoal(
 ): Retroplan {
   const deadlineDate = new Date(deadline);
   const now = new Date();
-  const totalWeeks = Math.max(1, Math.ceil((deadlineDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000)));
+  const totalWeeks = Math.max(
+    1,
+    Math.ceil((deadlineDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
+  );
 
   // Calculate capacity for each week
   const weekCapacities: WeekCapacity[] = [];
-  let currentWeekStart = new Date(now);
+  const currentWeekStart = new Date(now);
   currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7)); // Monday
 
   for (let week = 1; week <= totalWeeks; week++) {
@@ -203,7 +203,8 @@ function generateRetroplanForGoal(
 
   // Calculate total capacity
   const totalCapacity = weekCapacities.reduce((sum, w) => sum + w.capacityScore, 0);
-  const targetPerCapacityPoint = totalCapacity > 0 ? goalAmount / totalCapacity : goalAmount / totalWeeks;
+  const targetPerCapacityPoint =
+    totalCapacity > 0 ? goalAmount / totalCapacity : goalAmount / totalWeeks;
 
   // Generate milestones
   let cumulative = 0;
@@ -212,9 +213,13 @@ function generateRetroplanForGoal(
     cumulative += adjustedTarget;
 
     const difficulty: DynamicMilestone['difficulty'] =
-      capacity.capacityCategory === 'protected' ? 'protected' :
-      capacity.capacityCategory === 'low' ? 'challenging' :
-      capacity.capacityCategory === 'medium' ? 'moderate' : 'easy';
+      capacity.capacityCategory === 'protected'
+        ? 'protected'
+        : capacity.capacityCategory === 'low'
+          ? 'challenging'
+          : capacity.capacityCategory === 'medium'
+            ? 'moderate'
+            : 'easy';
 
     return {
       weekNumber: capacity.weekNumber,
@@ -242,7 +247,9 @@ function generateRetroplanForGoal(
 
   // Calculate front-loading percentage
   const halfWay = Math.ceil(totalWeeks / 2);
-  const firstHalfTarget = milestones.slice(0, halfWay).reduce((sum, m) => sum + m.adjustedTarget, 0);
+  const firstHalfTarget = milestones
+    .slice(0, halfWay)
+    .reduce((sum, m) => sum + m.adjustedTarget, 0);
   const frontLoadedPercentage = (firstHalfTarget / goalAmount) * 100;
 
   // Identify risk factors
@@ -303,9 +310,7 @@ export async function POST(event: APIEvent) {
       }
 
       case 'list_academic_events': {
-        const events = Array.from(academicEventsStore.values()).filter(
-          (e) => e.userId === userId
-        );
+        const events = Array.from(academicEventsStore.values()).filter((e) => e.userId === userId);
 
         return new Response(JSON.stringify({ events }), {
           status: 200,
@@ -438,7 +443,10 @@ export async function POST(event: APIEvent) {
 
         if (!goalId || !goalAmount || !deadline) {
           return new Response(
-            JSON.stringify({ error: true, message: 'Missing required fields: goalId, goalAmount, deadline' }),
+            JSON.stringify({
+              error: true,
+              message: 'Missing required fields: goalId, goalAmount, deadline',
+            }),
             { status: 400, headers: { 'Content-Type': 'application/json' } }
           );
         }
@@ -453,15 +461,13 @@ export async function POST(event: APIEvent) {
 
       case 'get_retroplan': {
         const { goalId } = body;
-        const retroplan = Array.from(retroplansStore.values()).find(
-          (rp) => rp.goalId === goalId
-        );
+        const retroplan = Array.from(retroplansStore.values()).find((rp) => rp.goalId === goalId);
 
         if (!retroplan) {
-          return new Response(
-            JSON.stringify({ error: true, message: 'Retroplan not found' }),
-            { status: 404, headers: { 'Content-Type': 'application/json' } }
-          );
+          return new Response(JSON.stringify({ error: true, message: 'Retroplan not found' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' },
+          });
         }
 
         return new Response(JSON.stringify({ retroplan }), {
@@ -471,10 +477,10 @@ export async function POST(event: APIEvent) {
       }
 
       default:
-        return new Response(
-          JSON.stringify({ error: true, message: `Invalid action: ${action}` }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        );
+        return new Response(JSON.stringify({ error: true, message: `Invalid action: ${action}` }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
     }
   } catch (error) {
     console.error('Retroplan API error:', error);
