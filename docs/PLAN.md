@@ -3,234 +3,270 @@
 > **Projet**: Stride (anciennement "Student Life Navigator")
 > **Objectif**: MCP Server avec Mastra agents + Opik observability
 > **Track**: Financial Health ($5,000 prize)
-> **Cible**: 🎓 **ÉTUDIANTS** (niche engagée avec problèmes concrets)
+> **Cible**: ETUDIANTS (niche engagée avec problèmes concrets)
 
 ---
 
-## 🎓 Concept: Stride
+## Concept: Stride
 
-**Pitch**: Un GPS de vie étudiante qui t'aide à naviguer entre études, jobs et budget, avec un **Goal Mode intelligent** qui adapte tes objectifs à ta vie réelle.
-
-### 4 Piliers
-
-| Pilier | Ce qu'il fait | Tech |
-|--------|---------------|------|
-| 💰 **Budget Coach** | Gérer revenus vs dépenses + optimisations | LLM + DuckDB |
-| 🎯 **Job Matcher** | Trouver des jobs compatibles avec tes études | Graph (compétences → jobs) |
-| 📊 **Projection** | Prédictions probabilistes fin d'études | Formules + intervalles confiance |
-| 🎯 **Goal Mode** | Objectifs financiers avec retroplanning intelligent | Algorithme capacity-aware |
+**Pitch**: Un GPS de vie étudiante qui t'aide à naviguer entre études, jobs et budget, avec **4 killer features** qui rendent la gestion financière fun et bienveillante.
 
 ---
 
-## 🚀 Features Implémentées
+## 4 Killer Features
 
-### Core Features
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **Dashboard** | Analyse budget, jobs recommandés, optimisations | ✅ |
-| **Chat Assistant** | Conversation avec entrée vocale | ✅ |
-| **Goal Mode** | Objectifs avec Smart Retroplanning | ✅ |
-| **Voice Input** | Transcription Groq Whisper (FR/EN) | ✅ |
-| **Hybrid Evaluation** | Heuristics + LLM-as-Judge | ✅ |
-| **Opik Tracing** | Observabilité complète | ✅ |
-
-### Goal Mode - Smart Retroplanning
-
-**Innovation clé**: Distribution intelligente des objectifs selon la capacité réelle de l'étudiant.
-
-```
-Semaine normale:     ████████████████ 100% capacité → 63€ cible
-Semaine pré-exam:    ████████░░░░░░░░  50% capacité → 32€ cible
-Semaine examens:     ████░░░░░░░░░░░░  20% capacité → 15€ cible (protégée)
-Semaine vacances:    ████████████████████ 120% capacité → 75€ cible
-```
-
-**Fonctionnalités:**
-- Saisie des événements académiques (examens, vacances, stages)
-- Saisie des engagements récurrents (cours, sport, famille)
-- Check-in énergie/mood quotidien
-- Cibles hebdomadaires dynamiques selon capacité
-- Calendrier visuel avec codes couleur
-- Gamification avec achievements relatifs
+| # | Feature | Description | Impact |
+|---|---------|-------------|--------|
+| 1 | **Crunch Intelligent** | Detecte les "comeback windows" post-exams, cree des plans de rattrapage agressifs mais realistes | Recupere jusqu'a 126 euros en 3 semaines |
+| 2 | **Skill Arbitrage** | Job matching multi-criteres: pas juste "max money" mais equilibre taux/demande/effort/repos | SQL Coaching (22 euros/h) > Python Dev (25 euros/h) |
+| 3 | **Swipe Scenarios** | UX Tinder pour les strategies: swipe oui/non, l'app apprend les preferences | 4 swipes = profil de preferences complet |
+| 4 | **Energy Debt Gamification** | Psycho inversee: 3 semaines a 30% energie = reduction cible + reward self-care | Unlock "Self Care Champion" |
 
 ---
 
-## 📐 Architecture Technique
+## Architecture Lean
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FRONTEND (SolidStart)                     │
-│  7 écrans: Onboarding, Dashboard, Chat, Goal Setup/Plan/Cal/Track│
-│  Composants: VoiceInput, GoalProgress, EnergyTracker, etc.      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    API ROUTES (SolidStart)                       │
-│  /api/goals    - CRUD objectifs + progress tracking             │
-│  /api/retroplan - Events académiques, engagements, énergie      │
-│  /api/voice    - Transcription audio Whisper                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    MCP SERVER (Mastra + Opik)                    │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │ 6 AGENTS MASTRA:                                            │ │
-│  │  1. Budget Coach      - Analyse budget + conseils           │ │
-│  │  2. Job Matcher       - Graph compétences → jobs            │ │
-│  │  3. Projection        - Prédictions fin d'études            │ │
-│  │  4. Guardian          - Validation hybride (Heur+LLM)       │ │
-│  │  5. Money Maker       - Vente objets + side hustles         │ │
-│  │  6. Strategy Comparator - Cross-évaluation stratégies       │ │
-│  └────────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │ WORKFLOWS:                                                  │ │
-│  │  - Student Analysis   - Analyse multi-agent complète        │ │
-│  │  - Goal Planning      - Création plans + retroplanning      │ │
-│  └────────────────────────────────────────────────────────────┘ │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │ HYBRID EVALUATION:                                          │ │
-│  │  Layer 1: Heuristics (calculs, risques, lisibilité, ton)   │ │
-│  │  Layer 2: G-Eval LLM-as-Judge (4 critères)                 │ │
-│  │  Layer 3: Aggregation avec veto logic                       │ │
-│  │  Layer 4: Opik logging                                      │ │
-│  └────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         DATA LAYER                               │
-│  ┌─────────────────┐  ┌─────────────────┐                       │
-│  │    DuckDB       │  │   DuckPGQ       │                       │
-│  │ - goals         │  │ - student_nodes │                       │
-│  │ - academic_events│  │ - student_edges │                       │
-│  │ - commitments   │  │ (skills→jobs)   │                       │
-│  │ - energy_logs   │  │                 │                       │
-│  │ - retroplans    │  │                 │                       │
-│  └─────────────────┘  └─────────────────┘                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    OPIK SELF-HOSTED (Docker)                     │
-│  - Traces avec 10+ spans/requête                                │
-│  - Hybrid evaluation metrics                                     │
-│  - Feedback tracking                                             │
-└─────────────────────────────────────────────────────────────────┘
-```
+### 4 Agents (etait 6)
+
+| Agent | Role | Killer Feature |
+|-------|------|----------------|
+| **Budget Coach** | Analyse budget + conseils personnalises | Foundation |
+| **Job Matcher** | Skill Arbitrage + multi-criteria scoring | #2 Skill Arbitrage |
+| **Guardian** | Validation simplifiee (2 layers) | Quality control |
+| **Energy Calculator** | Capacity tracking + Comeback detection + Energy Debt | #1 & #4 |
+
+**Supprime:**
+- ~~Money Maker~~ (merge dans conseils Budget Coach)
+- ~~Strategy Comparator~~ (merge dans Job Matcher)
+- ~~Projection ML~~ (renomme en Energy Calculator)
+
+### 5 Ecrans (etait 7)
+
+| # | Ecran | Route | Purpose |
+|---|-------|-------|---------|
+| 1 | **Onboarding** | `/` | Profile + skills + budget |
+| 2 | **Goal Setup** | `/goal-mode/setup` | Define goal + exams + commitments |
+| 3 | **Goal Plan** | `/goal-mode/plan` | Strategies + Swipe Scenarios |
+| 4 | **Goal Calendar** | `/goal-mode/calendar` | Retroplan with capacity visualization |
+| 5 | **Goal Track** | `/goal-mode/track` | Progress + Energy check-in + Achievements |
+
+**Supprime:**
+- ~~Dashboard~~ (fonctions mergees dans Goal Track)
+- ~~Chat~~ (voice input disponible sur autres ecrans)
+
+### 2 Couches Evaluation (etait 4)
+
+| Layer | Role | Latence |
+|-------|------|---------|
+| **Heuristics** | Checks rapides (calculs, risques) | ~50ms |
+| **G-Eval LLM** | LLM-as-Judge scoring | ~500ms |
+
+**Simplifie:**
+- Aggregation = score pondere simple (60% heuristiques + 40% LLM)
+- Opik = monitoring separe, pas dans le path d'evaluation
 
 ---
 
-## 🤖 6 Agents Mastra
+## Algorithmes Killer Features
 
-| Agent | Rôle | Tools |
-|-------|------|-------|
-| **Budget Coach** | Analyse budget + conseils personnalisés | `analyze_budget`, `generate_advice`, `find_optimizations` |
-| **Job Matcher** | Matching compétences → jobs via graph | `match_jobs`, `explain_job_match`, `compare_jobs` |
-| **Projection** | Prédictions probabilistes fin d'études | `predict_graduation_balance`, `simulate_scenarios` |
-| **Guardian** | Validation hybride (Heuristics + LLM) | `validate_calculation`, `check_risk_level`, `hybrid_evaluation` |
-| **Money Maker** | Objets à vendre + side hustles | `analyze_image`, `estimate_price`, `suggest_hustles` |
-| **Strategy Comparator** | Cross-évaluation stratégies | `compare_strategies`, `quick_comparison` |
+### #1 Crunch Intelligent (Comeback Mode)
 
-### Tools Goal Mode (Nouveaux)
-
-| Tool | Description |
-|------|-------------|
-| `transcribe_audio` | Speech-to-text via Groq Whisper (FR/EN) |
-| `create_goal_plan` | Créer un plan financier avec milestones |
-| `update_goal_progress` | Enregistrer les progrès hebdomadaires |
-| `add_academic_event` | Ajouter un événement académique |
-| `add_commitment` | Ajouter un engagement récurrent |
-| `log_energy` | Enregistrer le check-in énergie/mood |
-| `generate_retroplan` | Générer un retroplan capacity-aware |
-
----
-
-## 🎯 Hybrid Evaluation System
-
-### Pipeline 4 Couches
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  LAYER 1: HEURISTIC CHECKS (~50ms, déterministe)                │
-│  • calculation_validation (CRITICAL) - marge, projection        │
-│  • risk_keywords (CRITICAL) - crypto, forex, garanti            │
-│  • readability - Flesch-Kincaid grade 8-12                      │
-│  • tone - sentiment analysis                                     │
-│  • disclaimers - mises en garde                                  │
-└─────────────────────────────────────────────────────────────────┘
-       │
-       ▼ VETO: Calcul faux ou risque critique → REJET
-       │
-┌─────────────────────────────────────────────────────────────────┐
-│  LAYER 2: G-EVAL LLM-AS-JUDGE (~500ms)                          │
-│  • Appropriateness (30%) - adapté au budget étudiant?           │
-│  • Safety (35%) - pas de conseils dangereux?                    │
-│  • Coherence (15%) - logique du raisonnement?                   │
-│  • Actionability (20%) - étapes concrètes?                      │
-└─────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  LAYER 3: AGGREGATION                                            │
-│  Score = 60% Heuristique + 40% LLM (ajusté par confidence)      │
-└─────────────────────────────────────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  LAYER 4: OPIK LOGGING - métriques custom par span              │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🎯 Goal Mode - Algorithme Retroplanning
-
-### Concept: Capacité Variable
-
-L'objectif total reste le même, mais la répartition s'adapte à la vie réelle de l'étudiant.
-
-### Données Prises en Compte
-
-| Source | Impact sur Capacité |
-|--------|---------------------|
-| **Événements académiques** | Examens = 20%, Vacances = 120% |
-| **Engagements récurrents** | Réduction heures disponibles |
-| **Historique énergie/mood** | Multiplicateur prédictif |
-
-### Algorithme
+**Concept**: Quand l'energie remonte apres une periode difficile, on detecte cette "fenetre de comeback" et on propose un plan de rattrapage.
 
 ```typescript
-function calculateWeekCapacity(week, academicEvents, commitments, energyHistory) {
-  // Base: 168h/semaine - sommeil - cours - engagements
-  const baseHours = 168 - 56 - classHours - commitmentHours - 21;
+function detectComebackWindow(energyHistory: number[]): ComebackWindow | null {
+  // 1. Identifier les semaines "difficiles" (energie < 40%)
+  const lowWeeks = energyHistory.filter(e => e < 40);
 
-  // Multiplicateur académique (examens = 0.2, vacances = 1.5)
-  const academicMultiplier = getAcademicMultiplier(week, academicEvents);
+  // 2. Detecter la recuperation (energie remonte > 80%)
+  const currentEnergy = energyHistory[energyHistory.length - 1];
+  const previousEnergy = energyHistory[energyHistory.length - 2];
 
-  // Multiplicateur énergie (basé sur historique)
-  const energyMultiplier = predictEnergy(week, energyHistory);
-
-  return baseHours * academicMultiplier * energyMultiplier;
+  if (lowWeeks.length >= 2 && currentEnergy > 80 && previousEnergy < 50) {
+    return {
+      detected: true,
+      recoveryWeek: energyHistory.length,
+      deficitWeeks: lowWeeks.length,
+      suggestedCatchUpWeeks: Math.min(3, Math.ceil(lowWeeks.length * 1.5))
+    };
+  }
+  return null;
 }
 
-function distributeGoal(goalAmount, weekCapacities) {
-  const totalCapacity = sum(weekCapacities.map(w => w.capacityScore));
-  return weekCapacities.map(week => ({
-    adjustedTarget: (week.capacityScore / totalCapacity) * goalAmount
-  }));
+function generateCatchUpPlan(deficit: number, catchUpWeeks: number, capacities: number[]) {
+  // Distribution proportionnelle a la capacite
+  const totalCapacity = capacities.reduce((a, b) => a + b, 0);
+  return capacities.map(cap => (cap / totalCapacity) * deficit);
 }
 ```
 
-### Front-Loading
+**Exemple:**
+```
+Semaine 1-4: 50% of target (exams)     <- Protected
+Semaine 5:   Energy recovers to 90%    <- Comeback detected!
+Semaine 5-7: Aggressive catch-up       <- 50 + 45 + 31 = 126 euros recovered
+```
 
-Stratégie qui déplace les cibles vers les semaines haute-capacité du début pour créer un buffer.
+### #2 Skill Arbitrage (Multi-Criteria Scoring)
+
+**Concept**: Le job qui paye le plus n'est pas forcement le meilleur. On equilibre 4 criteres.
+
+```typescript
+interface JobScore {
+  hourlyRate: number;      // euros/h
+  marketDemand: number;    // 1-5 stars
+  cognitiveEffort: number; // 1-5 (1=low, 5=exhausting)
+  restNeeded: number;      // hours needed to recover
+}
+
+function calculateArbitrageScore(job: JobScore, weights: Weights): number {
+  const normalizedRate = job.hourlyRate / 30;  // Max 30 euros/h
+  const normalizedDemand = job.marketDemand / 5;
+  const normalizedEffort = 1 - (job.cognitiveEffort / 5);  // Inverse: low effort = good
+  const normalizedRest = 1 - (job.restNeeded / 8);  // Inverse: less rest needed = good
+
+  return (
+    weights.rate * normalizedRate +
+    weights.demand * normalizedDemand +
+    weights.effort * normalizedEffort +
+    weights.rest * normalizedRest
+  ) * 10;  // Score on 10
+}
+
+// Default weights
+const defaultWeights = {
+  rate: 0.30,
+  demand: 0.25,
+  effort: 0.25,
+  rest: 0.20
+};
+```
+
+**Exemple:**
+```
+| Job | Rate | Demand | Effort | Rest | Score |
+|-----|------|--------|--------|------|-------|
+| Python Dev | 25 euros | 5 stars | Very High | Low | 6.2/10 |
+| SQL Coaching | 22 euros | 4 stars | Moderate | High | 8.7/10 |
+| Data Entry | 12 euros | 4 stars | Very Low | High | 7.1/10 |
+```
+
+### #3 Swipe Scenarios (Preference Learning)
+
+**Concept**: Chaque swipe met a jour les poids de preference de l'utilisateur.
+
+```typescript
+interface SwipeDecision {
+  scenarioId: string;
+  decision: 'left' | 'right';
+  timeSpent: number;  // ms
+}
+
+function updatePreferences(
+  currentWeights: Weights,
+  scenario: Scenario,
+  decision: SwipeDecision
+): Weights {
+  const learningRate = 0.1;
+  const multiplier = decision.decision === 'right' ? 1 : -1;
+
+  // Update weights based on scenario attributes
+  return {
+    effort_sensitivity: currentWeights.effort_sensitivity +
+      (learningRate * multiplier * scenario.effort_level),
+    hourly_rate_priority: currentWeights.hourly_rate_priority +
+      (learningRate * multiplier * (scenario.hourly_rate > 20 ? 1 : -1)),
+    time_flexibility: currentWeights.time_flexibility +
+      (learningRate * multiplier * scenario.flexibility_score)
+  };
+}
+```
+
+**Stockage:**
+```sql
+CREATE TABLE swipe_history (
+  id VARCHAR PRIMARY KEY,
+  user_id VARCHAR,
+  scenario_id VARCHAR,
+  decision VARCHAR,  -- 'left' or 'right'
+  time_spent INTEGER,  -- milliseconds
+  created_at TIMESTAMP
+);
+
+CREATE TABLE user_preferences (
+  user_id VARCHAR PRIMARY KEY,
+  effort_sensitivity DECIMAL,
+  hourly_rate_priority DECIMAL,
+  time_flexibility DECIMAL,
+  updated_at TIMESTAMP
+);
+```
+
+### #4 Energy Debt Gamification
+
+**Concept**: 3 semaines consecutives a basse energie = on reduit automatiquement les cibles et on recompense le self-care.
+
+```typescript
+interface EnergyDebt {
+  consecutiveLowWeeks: number;
+  severity: 'low' | 'medium' | 'high';
+  accumulatedDebt: number;
+}
+
+function detectEnergyDebt(energyHistory: number[], threshold = 40): EnergyDebt | null {
+  let consecutiveLow = 0;
+  for (let i = energyHistory.length - 1; i >= 0; i--) {
+    if (energyHistory[i] < threshold) consecutiveLow++;
+    else break;
+  }
+
+  if (consecutiveLow >= 3) {
+    return {
+      consecutiveLowWeeks: consecutiveLow,
+      severity: consecutiveLow >= 5 ? 'high' : consecutiveLow >= 4 ? 'medium' : 'low',
+      accumulatedDebt: consecutiveLow * 30  // Points de dette
+    };
+  }
+  return null;
+}
+
+function adjustTargetForDebt(originalTarget: number, debt: EnergyDebt): number {
+  const reductionFactors = {
+    'low': 0.5,     // 50% reduction
+    'medium': 0.75, // 75% reduction
+    'high': 0.85    // 85% reduction (only 15% of original target)
+  };
+  return originalTarget * (1 - reductionFactors[debt.severity]);
+}
+```
+
+**Achievements:**
+```typescript
+const selfCareAchievements = [
+  {
+    id: 'self_care_champion',
+    trigger: 'accepted_target_reduction',
+    message: "Tu as ecoute ton corps. C'est la vraie victoire.",
+    badge: 'heart'
+  },
+  {
+    id: 'comeback_king',
+    trigger: 'completed_catch_up_plan',
+    message: "Retour en force! Tu as recupere ton retard.",
+    badge: 'crown'
+  },
+  {
+    id: 'energy_master',
+    trigger: '4_weeks_above_70_energy',
+    message: "4 semaines au-dessus de 70% d'energie. Bien joue!",
+    badge: 'lightning'
+  }
+];
+```
 
 ---
 
-## 🗃️ Modèle de Données
+## Modele de Donnees
 
 ### Tables DuckDB
 
@@ -247,7 +283,7 @@ CREATE TABLE goals (
   feasibility_score DECIMAL
 );
 
--- Événements académiques
+-- Evenements academiques
 CREATE TABLE academic_events (
   id VARCHAR PRIMARY KEY,
   user_id VARCHAR,
@@ -255,10 +291,10 @@ CREATE TABLE academic_events (
   event_name VARCHAR,
   start_date DATE,
   end_date DATE,
-  capacity_impact DECIMAL  -- 0.2 = 80% réduction
+  capacity_impact DECIMAL  -- 0.2 = 80% reduction
 );
 
--- Engagements récurrents
+-- Engagements recurrents
 CREATE TABLE commitments (
   id VARCHAR PRIMARY KEY,
   user_id VARCHAR,
@@ -267,43 +303,57 @@ CREATE TABLE commitments (
   hours_per_week DECIMAL
 );
 
--- Suivi énergie/mood
+-- Suivi energie/mood
 CREATE TABLE energy_logs (
   id VARCHAR PRIMARY KEY,
   user_id VARCHAR,
   log_date DATE,
-  energy_level INTEGER,  -- 1-5
+  energy_level INTEGER,  -- 1-100
   mood_score INTEGER,    -- 1-5
   stress_level INTEGER   -- 1-5
 );
 
--- Retroplans générés
-CREATE TABLE retroplans (
+-- Historique swipes
+CREATE TABLE swipe_history (
   id VARCHAR PRIMARY KEY,
-  goal_id VARCHAR,
-  milestones JSONB,
-  feasibility_score DECIMAL,
-  front_loaded_percentage DECIMAL
+  user_id VARCHAR,
+  scenario_id VARCHAR,
+  decision VARCHAR,
+  time_spent INTEGER,
+  created_at TIMESTAMP
+);
+
+-- Preferences apprises
+CREATE TABLE user_preferences (
+  user_id VARCHAR PRIMARY KEY,
+  effort_sensitivity DECIMAL,
+  hourly_rate_priority DECIMAL,
+  time_flexibility DECIMAL,
+  updated_at TIMESTAMP
 );
 ```
 
 ### Graph DuckPGQ (Knowledge Graph)
 
 ```sql
--- Nodes: skills, jobs, diplomas, careers, expenses, solutions
--- Edges: enables, requires, pays, leads_to, reduces
+-- Nodes: skills, jobs, diplomas, careers
+-- Edges: enables (skill -> job), requires (job -> skill)
 
--- Exemple: Quel job avec Python?
-SELECT j.name, e.weight as match_score, j.properties->>'hourly_rate'
+-- Exemple: Skill Arbitrage query
+SELECT j.name,
+       j.properties->>'hourly_rate' as rate,
+       j.properties->>'effort_level' as effort,
+       e.weight as match_score
 FROM student_edges e
 JOIN student_nodes s ON e.source_id = s.id
 JOIN student_nodes j ON e.target_id = j.id
-WHERE s.id = 'python' AND e.relation_type = 'enables';
+WHERE s.id = 'python' AND e.relation_type = 'enables'
+ORDER BY e.weight DESC;
 ```
 
 ---
 
-## 🔧 Stack Technique
+## Stack Technique
 
 | Composant | Technologie |
 |-----------|-------------|
@@ -317,166 +367,173 @@ WHERE s.id = 'python' AND e.relation_type = 'enables';
 
 ---
 
-## 📊 Projection Financière
+## Scenario Demo
 
-> **Note**: Le système utilise des **formules mathématiques** avec intervalles de confiance, pas du ML au sens strict.
+```
+Etudiant: "Je suis en L2 Info, j'ai 800 euros/mois, je veux economiser 500 euros pour les vacances"
 
-### Calculs Implémentés
+-> SPAN 1: Budget Analysis
+   Income: 800 euros, Expenses: 750 euros, Margin: 50 euros
 
-```typescript
-// Projection fin d'études
-function predictGraduationBalance(profile) {
-  const monthlyNet = income - expenses + jobIncome;
-  const totalMonths = yearsRemaining * 12;
-  const finalBalance = monthlyNet * totalMonths;
+-> SPAN 2: Skill Arbitrage (Killer #2)
+   Python -> 25 euros/h but HIGH effort (score: 6.2)
+   SQL Coaching -> 22 euros/h, MODERATE effort (score: 8.7) <- Recommended
 
-  // Intervalle de confiance ±20%
-  const confidence = 0.78;
-  const interval = [finalBalance * 0.8, finalBalance * 1.2];
+-> SPAN 3: Swipe Session (Killer #3)
+   [Freelance] <- swipe left
+   [Tutoring] -> swipe right
+   [Selling items] -> swipe right
+   Learned: prioritizes flexibility, moderate effort
 
-  // Probabilité sans dette
-  const probDebtFree = finalBalance > 0 ? Math.min(0.95, 0.5 + finalBalance/20000) : 0.1;
+-> SPAN 4: Energy Check (Killer #1 & #4)
+   Current energy: 85%
+   No debt detected
+   Comeback mode: not needed (all good!)
 
-  return { finalBalance, interval, probDebtFree, confidence };
-}
+-> SPAN 5: Guardian Validation
+   Heuristics: PASS (math valid)
+   G-Eval: 0.89 confidence
+   Final: APPROVED
+
+-> RESULT: "SQL Coaching 6h/week + sell 2 items = 500 euros in 7 weeks"
 ```
 
 ---
 
-## 🎬 Scénario Demo
+## Points Cles pour le Jury
 
-```
-Étudiant: "Je suis en L2 Info, j'ai 800€/mois, je veux économiser 500€ pour les vacances"
-
-→ SPAN 1: budget_analysis
-  "Revenus: 800€, Dépenses: 750€, Marge: 50€"
-
-→ SPAN 2: goal_feasibility
-  "500€ en 8 semaines = 63€/sem, mais examens S4"
-
-→ SPAN 3: retroplan_generation
-  "Cibles ajustées: S1-S3: 75€, S4: 15€ (examens), S5-S8: 70€"
-
-→ SPAN 4: strategy_selection
-  "Freelance Dev (25€/h) + vente ancien PC (80€)"
-
-→ SPAN 5: guardian_validation
-  "OK - calculs vérifiés, pas de risque"
-
-→ OUTPUT:
-  - Plan avec 8 milestones adaptés
-  - Calendrier visuel avec capacités
-  - Stratégies recommandées
-  - Achievements à débloquer
-  - Lien Opik traces
-```
-
----
-
-## 🏆 Points Clés pour le Jury
-
-| Critère | Notre Réponse |
+| Critere | Notre Reponse |
 |---------|---------------|
-| **Functionality** | 7 écrans, 6 agents, Goal Mode complet |
-| **Real-world** | Cible étudiants = problèmes concrets immédiats |
-| **LLM/Agents** | Multi-agents + hybrid evaluation + voice input |
-| **Opik** | 10+ spans/requête, métriques custom, feedback |
-| **Goal Alignment** | Aide étudiants à gérer budget + atteindre objectifs |
+| **Functionality** | 4 killer features, not just a chatbot |
+| **Real-world** | Student niche = concrete, immediate problems |
+| **LLM/Agents** | 4 Mastra agents with multi-criteria intelligence |
+| **Opik** | Full traceability for every recommendation |
+| **Goal Alignment** | Help students balance money, time, and wellness |
 
-### Différenciateurs
+### Differenciateurs
 
-1. **Smart Retroplanning** - Aucune app étudiante n'adapte les objectifs aux examens
-2. **Voice Input** - UX moderne avec Whisper
-3. **Gamification relative** - Achievements basés sur l'effort vs capacité
-4. **Hybrid Evaluation** - Sécurité des conseils financiers
-5. **Observabilité** - Traces complètes visibles par l'utilisateur
+1. **Crunch Intelligent** - Aucune app etudiante ne detecte les comeback windows
+2. **Skill Arbitrage** - Multi-criteria job scoring prevents burnout
+3. **Swipe Scenarios** - UX Tinder rend la planification fun
+4. **Energy Debt** - Psycho inversee recompense le self-care
+5. **Observability** - Traces completes visibles par l'utilisateur
 
 ---
 
-## 📁 Structure du Projet
+## Structure du Projet
 
 ```
 packages/
-├── frontend/                 # SolidStart app
-│   ├── src/
-│   │   ├── routes/
-│   │   │   ├── index.tsx           # Onboarding
-│   │   │   ├── dashboard.tsx       # Dashboard
-│   │   │   ├── chat.tsx            # Chat assistant
-│   │   │   ├── goal-mode/
-│   │   │   │   ├── setup.tsx       # Définir objectif
-│   │   │   │   ├── plan.tsx        # Voir le plan
-│   │   │   │   ├── calendar.tsx    # Calendrier retroplan
-│   │   │   │   └── track.tsx       # Suivi progression
-│   │   │   └── api/
-│   │   │       ├── goals.ts        # API objectifs
-│   │   │       ├── retroplan.ts    # API retroplanning
-│   │   │       └── voice.ts        # API transcription
-│   │   └── components/
-│   │       ├── VoiceInput.tsx
-│   │       ├── GoalProgress.tsx
-│   │       ├── MilestoneCard.tsx
-│   │       ├── AchievementBadge.tsx
-│   │       └── EnergyTracker.tsx
-│
-└── mcp-server/               # MCP Server
-    ├── src/
-    │   ├── agents/
-    │   │   ├── budget-coach.ts
-    │   │   ├── job-matcher.ts
-    │   │   ├── projection-ml.ts
-    │   │   ├── guardian.ts
-    │   │   ├── money-maker.ts
-    │   │   └── strategy-comparator.ts
-    │   ├── tools/
-    │   │   ├── goal.ts             # Tools Goal Mode
-    │   │   ├── voice.ts            # Tools Voice
-    │   │   └── index.ts            # Registry
-    │   ├── workflows/
-    │   │   ├── student-analysis.ts
-    │   │   └── goal-planning.ts
-    │   ├── algorithms/
-    │   │   └── retroplanning.ts    # Algorithme capacité
-    │   ├── evaluation/
-    │   │   ├── heuristics/
-    │   │   └── geval/
-    │   ├── services/
-    │   │   ├── duckdb.ts
-    │   │   ├── groq.ts
-    │   │   └── opik.ts
-    │   └── types/
-    │       └── retroplanning.ts
+|-- frontend/                 # SolidStart app
+|   |-- src/
+|   |   |-- routes/
+|   |   |   |-- index.tsx           # Onboarding
+|   |   |   |-- goal-mode/
+|   |   |   |   |-- setup.tsx       # Define goal
+|   |   |   |   |-- plan.tsx        # Strategies + Swipe
+|   |   |   |   |-- calendar.tsx    # Retroplan visual
+|   |   |   |   |-- track.tsx       # Progress + Energy
+|   |   |   |-- api/
+|   |   |       |-- goals.ts        # API goals
+|   |   |       |-- retroplan.ts    # API retroplanning
+|   |   |       |-- voice.ts        # API transcription
+|   |   |       |-- swipe.ts        # API swipe preferences
+|   |   |-- components/
+|   |       |-- VoiceInput.tsx
+|   |       |-- SwipeCard.tsx
+|   |       |-- GoalProgress.tsx
+|   |       |-- MilestoneCard.tsx
+|   |       |-- AchievementBadge.tsx
+|   |       |-- EnergyTracker.tsx
+|
+|-- mcp-server/               # MCP Server
+    |-- src/
+    |   |-- agents/
+    |   |   |-- budget-coach.ts
+    |   |   |-- job-matcher.ts
+    |   |   |-- guardian.ts
+    |   |   |-- energy-calculator.ts
+    |   |-- tools/
+    |   |   |-- goal.ts
+    |   |   |-- voice.ts
+    |   |   |-- swipe.ts
+    |   |   |-- energy.ts
+    |   |-- workflows/
+    |   |   |-- student-analysis.ts
+    |   |   |-- goal-planning.ts
+    |   |-- algorithms/
+    |   |   |-- retroplanning.ts
+    |   |   |-- skill-arbitrage.ts
+    |   |   |-- comeback-detection.ts
+    |   |   |-- energy-debt.ts
+    |   |-- evaluation/
+    |   |   |-- heuristics/
+    |   |   |-- geval/
+    |   |-- services/
+    |       |-- duckdb.ts
+    |       |-- groq.ts
+    |       |-- opik.ts
 ```
 
 ---
 
-## ✅ Checklist Implémentation
+## Checklist Implementation
+
+### 4 Killer Features
+
+- [ ] **#1 Crunch Intelligent**
+  - [ ] Comeback window detection algorithm
+  - [ ] Catch-up plan generation
+  - [ ] "Comeback King" achievement
+  - [ ] Opik traces for energy trend analysis
+
+- [ ] **#2 Skill Arbitrage**
+  - [ ] Multi-criteria scoring function
+  - [ ] Graph query for skill -> job matching
+  - [ ] Score visualization in UI
+  - [ ] Opik traces for scoring breakdown
+
+- [ ] **#3 Swipe Scenarios**
+  - [ ] SwipeCard component with animations
+  - [ ] Preference learning algorithm
+  - [ ] swipe_history table
+  - [ ] Recommendation reranking after swipes
+  - [ ] Opik traces for preference updates
+
+- [ ] **#4 Energy Debt Gamification**
+  - [ ] Energy debt detection algorithm
+  - [ ] Automatic target reduction
+  - [ ] Self-care achievements
+  - [ ] Recovery plan generation
+  - [ ] Opik traces for debt calculations
 
 ### Backend
-- [x] 6 Agents Mastra configurés
-- [x] Hybrid Evaluation System (5 heuristics + G-Eval)
-- [x] DuckDB avec tables goals, academic_events, commitments, energy_logs
-- [x] DuckPGQ knowledge graph (skills → jobs)
-- [x] Workflow student-analysis
-- [x] Workflow goal-planning avec retroplanning
-- [x] Tools voice (transcribe_audio)
-- [x] Tools goal (create_goal_plan, update_progress, etc.)
-- [x] Opik integration
+
+- [ ] 4 Agents Mastra configures
+- [ ] Hybrid Evaluation System (Heuristics + G-Eval)
+- [ ] DuckDB avec tables goals, energy_logs, swipe_history, user_preferences
+- [ ] DuckPGQ knowledge graph (skills -> jobs)
+- [ ] Workflow student-analysis
+- [ ] Workflow goal-planning avec retroplanning
+- [ ] Tools voice, goal, swipe, energy
+- [ ] Opik integration
 
 ### Frontend
-- [x] Onboarding avec profil complet
-- [x] Dashboard avec métriques, jobs, optimisations
-- [x] Chat avec voice input
-- [x] Goal Mode - Setup (objectif + événements + engagements)
-- [x] Goal Mode - Plan (stratégies + milestones)
-- [x] Goal Mode - Calendar (retroplan visuel)
-- [x] Goal Mode - Track (progression + energy check-in)
-- [x] Composants: VoiceInput, GoalProgress, MilestoneCard, AchievementBadge, EnergyTracker
+
+- [ ] Onboarding avec profil complet
+- [ ] Goal Mode - Setup (objectif + evenements + engagements)
+- [ ] Goal Mode - Plan (strategies + Swipe Scenarios)
+- [ ] Goal Mode - Calendar (retroplan visuel + capacity)
+- [ ] Goal Mode - Track (progression + energy check-in + achievements)
+- [ ] Composants: VoiceInput, SwipeCard, GoalProgress, AchievementBadge, EnergyTracker
 
 ### Documentation
+
 - [x] PLAN.md (ce fichier)
-- [x] SCREENS_AND_EVALS.md (écrans + évaluations)
+- [x] SCREENS_AND_EVALS.md (ecrans + evaluations)
+- [x] OPIK.md (observability pour les 4 killer features)
+- [x] README.md (hero 4 killer features)
 
 ---
 
-*Document mis à jour - Janvier 2026*
+*Document mis a jour - Janvier 2026*
