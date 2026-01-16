@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stride - Démo 4 Killer Features</title>
+    <title>Stride - Demo Complete</title>
     <style>
         :root {
             --color-primary: #38bdf8;
@@ -19,6 +19,7 @@
             --color-success: #22c55e;
             --color-warning: #ef4444;
             --color-info: #3b82f6;
+            --color-orange: #f59e0b;
             --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.4);
             --shadow-md: 0 4px 15px rgba(0, 0, 0, 0.2);
             --radius-lg: 16px;
@@ -26,36 +27,27 @@
             --radius-sm: 8px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             background: var(--color-bg-base);
             color: var(--color-text-primary);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
         }
 
-        .container {
-            display: flex;
-            height: 100vh;
-            width: 100%;
-        }
+        .container { display: flex; height: 100vh; width: 100%; }
 
-        /* SIDEBAR NAVIGATION */
+        /* SIDEBAR */
         .sidebar {
-            width: 280px;
+            width: 300px;
             background: var(--color-bg-elevated);
             border-right: 1px solid var(--color-bg-surface);
-            padding: 24px 16px;
+            padding: 20px 16px;
             display: flex;
             flex-direction: column;
-            gap: 32px;
+            gap: 20px;
             overflow-y: auto;
         }
 
@@ -63,214 +55,384 @@
             font-size: 24px;
             font-weight: 700;
             color: var(--color-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--color-bg-surface);
         }
 
-        .nav-section {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .nav-section { display: flex; flex-direction: column; gap: 6px; }
 
         .nav-section-title {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
             color: var(--color-text-muted);
             padding: 0 12px;
             margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .nav-button {
-            padding: 12px 16px;
+            padding: 10px 14px;
             border-radius: var(--radius-md);
             border: none;
             background: transparent;
             color: var(--color-text-secondary);
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             text-align: left;
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+            position: relative;
         }
 
-        .nav-button:hover {
+        .nav-button:hover { background: var(--color-bg-surface); color: var(--color-text-primary); }
+        .nav-button.active { background: var(--color-primary); color: var(--color-bg-base); }
+        .nav-button.active .menu-badge { background: var(--color-bg-base); color: var(--color-primary); }
+
+        .nav-emoji { font-size: 14px; min-width: 24px; text-align: center; }
+        .nav-text { flex: 1; }
+
+        /* Menu Badges */
+        .menu-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+        .menu-badge.info { background: var(--color-info); color: white; }
+        .menu-badge.success { background: var(--color-success); color: white; }
+        .menu-badge.warning { background: var(--color-warning); color: white; }
+        .menu-badge.pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Profile Section */
+        .profile-section {
             background: var(--color-bg-surface);
+            border-radius: var(--radius-md);
+            padding: 12px;
+        }
+
+        .profile-select {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--color-bg-muted);
+            border: 1px solid var(--color-bg-surface);
+            border-radius: var(--radius-sm);
             color: var(--color-text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 8px;
         }
 
-        .nav-button.active {
-            background: var(--color-primary);
-            color: var(--color-bg-base);
+        .profile-info {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            padding: 8px;
+            background: var(--color-bg-base);
+            border-radius: var(--radius-sm);
+            display: none;
         }
+        .profile-info.show { display: block; }
 
-        .nav-emoji {
-            font-size: 18px;
-            min-width: 20px;
-        }
-
-        /* MAIN CONTENT */
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
+        /* Notifications Panel */
+        .notifications-panel {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-md);
             overflow: hidden;
         }
+
+        .panel-header {
+            padding: 10px 12px;
+            background: var(--color-bg-muted);
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .notif-count {
+            background: var(--color-warning);
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+
+        .notification-list { max-height: 200px; overflow-y: auto; }
+
+        .notification-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--color-bg-muted);
+            display: flex;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .notification-item:hover { background: var(--color-bg-muted); }
+        .notification-item.unread { background: rgba(56, 189, 248, 0.1); }
+        .notification-item:last-child { border-bottom: none; }
+
+        .notif-icon { font-size: 16px; }
+        .notif-content { flex: 1; }
+        .notif-text { font-size: 12px; color: var(--color-text-primary); }
+        .notif-time { font-size: 10px; color: var(--color-text-muted); margin-top: 2px; }
+
+        /* MAIN CONTENT */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
         .header {
             background: var(--color-bg-surface);
             border-bottom: 1px solid var(--color-bg-muted);
-            padding: 20px 32px;
+            padding: 16px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            height: 80px;
         }
 
-        .header-title {
-            font-size: 28px;
-            font-weight: 700;
-        }
+        .header-title { font-size: 22px; font-weight: 700; }
+        .header-subtitle { font-size: 13px; color: var(--color-text-secondary); margin-top: 2px; }
 
-        .header-subtitle {
-            font-size: 14px;
-            color: var(--color-text-secondary);
-            margin-top: 4px;
-        }
+        .header-actions { display: flex; gap: 12px; align-items: center; }
 
         .reset-btn {
-            padding: 10px 20px;
-            background: var(--color-primary);
-            color: var(--color-bg-base);
+            padding: 8px 16px;
+            background: var(--color-bg-muted);
+            color: var(--color-text-primary);
             border: none;
-            border-radius: var(--radius-md);
-            font-weight: 600;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s ease;
         }
-
-        .reset-btn:hover {
-            background: var(--color-primary-hover);
-        }
+        .reset-btn:hover { background: var(--color-bg-surface); }
 
         .content {
             flex: 1;
             overflow-y: auto;
-            padding: 32px;
+            padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 20px;
         }
 
-        /* CASE CARDS */
-        .case-container {
+        /* Interaction Prompt */
+        .interaction-prompt {
+            background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-bg-surface) 100%);
+            border: 1px solid var(--color-primary);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
             display: none;
-            flex-direction: column;
-            gap: 24px;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
         }
+        .interaction-prompt.show { display: flex; }
 
-        .case-container.active {
-            display: flex;
+        .prompt-icon { font-size: 28px; }
+        .prompt-content { flex: 1; }
+        .prompt-title { font-weight: 600; font-size: 14px; }
+        .prompt-text { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+        .prompt-actions { display: flex; gap: 8px; }
+        .prompt-actions button {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
         }
+        .prompt-actions .primary { background: var(--color-primary); color: var(--color-bg-base); }
+        .prompt-actions .secondary { background: var(--color-bg-muted); color: var(--color-text-primary); }
 
-        .case-header {
-            border-bottom: 2px solid var(--color-primary);
-            padding-bottom: 16px;
-        }
+        /* Case containers */
+        .case-container { display: none; flex-direction: column; gap: 20px; }
+        .case-container.active { display: flex; }
 
-        .case-title {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
+        .case-header { border-bottom: 2px solid var(--color-primary); padding-bottom: 12px; }
+        .case-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .case-description { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
 
-        .case-description {
-            font-size: 14px;
-            color: var(--color-text-secondary);
-        }
-
-        /* CARD STYLES */
         .card {
             background: var(--color-bg-surface);
             border: 1px solid var(--color-bg-muted);
             border-radius: var(--radius-lg);
-            padding: 24px;
+            padding: 20px;
             box-shadow: var(--shadow-md);
-            transition: all 0.3s ease;
         }
 
-        .card:hover {
-            border-color: var(--color-primary);
-            box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
+        /* ONBOARDING CHAT */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
         }
 
-        /* CASE 1: CRUNCH MODE */
-        .crunch-alert {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            border-left: 4px solid #fca5a5;
-            padding: 16px 20px;
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chat-message {
+            max-width: 80%;
+            padding: 12px 16px;
             border-radius: var(--radius-md);
-            margin-bottom: 24px;
+            font-size: 14px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .crunch-alert-title {
-            font-weight: 700;
-            margin-bottom: 4px;
+        .chat-message.bot {
+            background: var(--color-bg-muted);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-message.user {
+            background: var(--color-primary);
+            color: var(--color-bg-base);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-message.confirmation {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid var(--color-success);
+            align-self: flex-start;
+        }
+
+        .confirmation-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .confirmation-buttons button {
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .confirm-yes { background: var(--color-success); color: white; }
+        .confirm-no { background: var(--color-bg-muted); color: var(--color-text-primary); }
+
+        .chat-input-zone {
+            padding: 16px;
+            background: var(--color-bg-muted);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input-zone input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--color-bg-surface);
+            border: 1px solid var(--color-bg-surface);
+            border-radius: var(--radius-md);
+            color: var(--color-text-primary);
+            font-size: 14px;
+        }
+        .chat-input-zone input:focus { outline: none; border-color: var(--color-primary); }
+
+        .voice-btn, .send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            transition: all 0.2s;
         }
+        .voice-btn { background: var(--color-bg-surface); color: var(--color-text-primary); }
+        .voice-btn:hover { background: var(--color-warning); color: white; }
+        .voice-btn.recording { background: var(--color-warning); color: white; animation: pulse 1s infinite; }
+        .send-btn { background: var(--color-primary); color: var(--color-bg-base); }
+        .send-btn:hover { background: var(--color-primary-hover); }
 
-        .crunch-alert-text {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.95);
+        /* Onboarding Summary */
+        .onboarding-summary {
+            display: none;
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
         }
+        .onboarding-summary.show { display: block; animation: fadeIn 0.3s ease; }
 
-        .crunch-stats {
+        .summary-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 16px 0;
         }
-
-        .stat-box {
+        .summary-item {
             background: var(--color-bg-muted);
-            padding: 16px;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+        }
+        .summary-label { font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; }
+        .summary-value { font-size: 14px; font-weight: 600; margin-top: 4px; }
+
+        .next-steps { margin-top: 20px; }
+        .next-steps h4 { font-size: 14px; margin-bottom: 12px; }
+        .next-steps ol { padding-left: 20px; }
+        .next-steps li { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px; }
+
+        .start-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--color-primary);
+            color: var(--color-bg-base);
+            border: none;
             border-radius: var(--radius-md);
-            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
         }
+        .start-btn:hover { background: var(--color-primary-hover); }
 
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--color-primary);
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: var(--color-text-muted);
-            text-transform: uppercase;
-        }
-
-        .comeback-plan {
-            background: var(--color-bg-muted);
-            border-left: 4px solid var(--color-success);
-            padding: 16px;
+        /* Existing case styles */
+        .crunch-alert, .energy-warning {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border-left: 4px solid #fca5a5;
+            padding: 14px 18px;
             border-radius: var(--radius-md);
-            margin-bottom: 16px;
         }
+        .crunch-alert-title, .warning-title { font-weight: 700; margin-bottom: 4px; }
+        .crunch-alert-text, .warning-text { font-size: 13px; color: rgba(255,255,255,0.95); }
 
-        .comeback-plan-title {
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--color-success);
-        }
+        .crunch-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+        .stat-box { background: var(--color-bg-muted); padding: 14px; border-radius: var(--radius-md); text-align: center; }
+        .stat-value { font-size: 24px; font-weight: 700; color: var(--color-primary); }
+        .stat-label { font-size: 11px; color: var(--color-text-muted); text-transform: uppercase; margin-top: 4px; }
+
+        .comeback-plan { background: var(--color-bg-muted); border-left: 4px solid var(--color-success); padding: 14px; border-radius: var(--radius-md); }
+        .comeback-plan-title { font-weight: 700; color: var(--color-success); margin-bottom: 8px; }
 
         .achievement-badge {
             display: inline-flex;
@@ -278,323 +440,151 @@
             gap: 8px;
             background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
             color: var(--color-bg-base);
-            padding: 12px 16px;
+            padding: 10px 14px;
             border-radius: var(--radius-md);
             font-weight: 600;
+            font-size: 13px;
             margin-top: 12px;
         }
 
-        /* CASE 2: SKILL ARBITRAGE */
-        .comparison-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-            margin-top: 16px;
-        }
+        .comparison-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .comparison-table th, .comparison-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--color-bg-muted); }
+        .comparison-table th { background: var(--color-bg-muted); font-weight: 600; }
 
-        .comparison-table th,
-        .comparison-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--color-bg-muted);
-        }
-
-        .comparison-table th {
-            background: var(--color-bg-muted);
-            font-weight: 700;
-            color: var(--color-text-primary);
-        }
-
-        .comparison-table tr:hover {
-            background: var(--color-bg-muted);
-        }
-
-        /* CASE 3: SWIPE SCENARIOS */
-        .swipe-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 400px;
-            position: relative;
-        }
-
+        /* Swipe */
+        .swipe-container { display: flex; flex-direction: column; align-items: center; padding: 20px 0; }
         .swipe-card {
-            width: 320px;
+            width: 280px;
             background: var(--color-bg-surface);
             border: 2px solid var(--color-bg-muted);
             border-radius: var(--radius-lg);
             padding: 24px;
-            box-shadow: var(--shadow-lg);
             text-align: center;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-            cursor: grab;
-            position: relative;
-            touch-action: none;
-            user-select: none;
         }
-
-        .swipe-card.dragging {
-            cursor: grabbing;
-        }
-
-        .swipe-emoji {
-            font-size: 48px;
-            margin-bottom: 16px;
-        }
-
-        .swipe-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .swipe-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--color-primary);
-            margin-bottom: 8px;
-        }
-
-        .swipe-description {
-            font-size: 13px;
-            color: var(--color-text-secondary);
-            margin-bottom: 16px;
-            line-height: 1.5;
-        }
-
-        .swipe-controls {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            margin-top: 20px;
-        }
-
+        .swipe-emoji { font-size: 40px; margin-bottom: 12px; }
+        .swipe-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+        .swipe-value { font-size: 20px; font-weight: 700; color: var(--color-primary); margin-bottom: 8px; }
+        .swipe-description { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+        .swipe-controls { display: flex; gap: 16px; justify-content: center; margin-top: 16px; }
         .swipe-btn {
-            width: 50px;
-            height: 50px;
+            width: 48px; height: 48px;
             border-radius: 50%;
             border: 2px solid;
             background: transparent;
             cursor: pointer;
-            font-size: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
+            font-size: 20px;
         }
+        .swipe-btn.no { border-color: var(--color-warning); color: var(--color-warning); }
+        .swipe-btn.yes { border-color: var(--color-success); color: var(--color-success); }
+        .swipe-counter { margin-top: 16px; font-size: 13px; color: var(--color-text-muted); }
+        .swipe-selected { margin-top: 20px; padding: 16px; background: var(--color-bg-muted); border-radius: var(--radius-md); display: none; }
+        .swipe-selected.show { display: block; }
 
-        .swipe-btn.no {
-            border-color: var(--color-warning);
-            color: var(--color-warning);
-        }
-
-        .swipe-btn.no:hover {
-            background: rgba(239, 68, 68, 0.1);
-            transform: scale(1.1);
-        }
-
-        .swipe-btn.yes {
-            border-color: var(--color-success);
-            color: var(--color-success);
-        }
-
-        .swipe-btn.yes:hover {
-            background: rgba(34, 197, 94, 0.1);
-            transform: scale(1.1);
-        }
-
-        .swipe-counter {
-            text-align: center;
-            margin-top: 24px;
-            font-size: 14px;
-            color: var(--color-text-muted);
-        }
-
-        .swipe-selected {
-            margin-top: 24px;
-            padding: 16px;
-            background: var(--color-bg-muted);
-            border-radius: var(--radius-md);
-            display: none;
-        }
-
-        .swipe-selected.show {
-            display: block;
-            animation: slideUp 0.3s ease;
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* CASE 4: ENERGY DEBT */
-        .energy-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
+        /* Energy */
+        .energy-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 16px 0; }
         .energy-item {
             background: var(--color-bg-muted);
-            padding: 16px;
+            padding: 14px 8px;
             border-radius: var(--radius-md);
             text-align: center;
             border: 2px solid transparent;
             cursor: pointer;
-            transition: all 0.2s ease;
         }
-
-        .energy-item:hover {
-            border-color: var(--color-primary);
-        }
-
-        .energy-item.selected {
-            background: var(--color-primary);
-            border-color: var(--color-primary);
-            color: var(--color-bg-base);
-        }
-
-        .energy-emoji {
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
-
-        .energy-label {
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
+        .energy-item:hover { border-color: var(--color-primary); }
+        .energy-item.selected { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-bg-base); }
+        .energy-emoji { font-size: 24px; margin-bottom: 6px; }
+        .energy-label { font-size: 10px; font-weight: 600; text-transform: uppercase; }
 
         .energy-week {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: var(--color-bg-muted);
             border-radius: var(--radius-md);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
+        .energy-week-label { font-size: 13px; font-weight: 600; min-width: 80px; }
+        .energy-bar-container { flex: 1; height: 8px; background: var(--color-bg-surface); border-radius: 4px; margin: 0 12px; }
+        .energy-bar { height: 100%; background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #22c55e 100%); border-radius: 4px; }
+        .energy-week-value { font-size: 13px; font-weight: 700; color: var(--color-primary); min-width: 40px; text-align: right; }
 
-        .energy-week-label {
-            font-weight: 600;
-        }
+        .action-plan { background: var(--color-bg-muted); padding: 14px; border-radius: var(--radius-md); border-left: 4px solid var(--color-success); }
+        .action-title { font-weight: 700; color: var(--color-success); margin-bottom: 10px; }
+        .action-item { display: flex; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+        .action-bullet { color: var(--color-success); font-weight: 700; min-width: 20px; }
 
-        .energy-bar-container {
-            flex: 1;
-            height: 8px;
+        /* Why disruptive box */
+        .disruptive-box {
+            margin-top: 16px;
+            padding: 14px;
             background: var(--color-bg-surface);
-            border-radius: 4px;
-            margin: 0 16px;
+            border-radius: var(--radius-md);
+            border-left: 4px solid var(--color-primary);
+        }
+        .disruptive-box h4 { font-size: 13px; margin-bottom: 8px; }
+        .disruptive-box p { font-size: 12px; color: var(--color-text-secondary); line-height: 1.6; }
+
+        /* Opik Panel */
+        .opik-panel {
+            background: var(--color-bg-surface);
+            border-radius: var(--radius-md);
+            margin-top: auto;
             overflow: hidden;
         }
-
-        .energy-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #22c55e 100%);
-            transition: width 0.3s ease;
-        }
-
-        .energy-week-value {
-            font-weight: 700;
-            color: var(--color-primary);
-            min-width: 40px;
-            text-align: right;
-        }
-
-        .energy-warning {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            border-left: 4px solid #fca5a5;
-            padding: 16px 20px;
-            border-radius: var(--radius-md);
-            margin-bottom: 24px;
-        }
-
-        .warning-title {
-            font-weight: 700;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .warning-text {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.95);
-        }
-
-        .action-plan {
-            background: var(--color-bg-muted);
-            padding: 16px;
-            border-radius: var(--radius-md);
-            margin-bottom: 16px;
-            border-left: 4px solid var(--color-success);
-        }
-
-        .action-title {
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--color-success);
-        }
-
-        .action-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            margin-bottom: 6px;
-            font-size: 14px;
-        }
-
-        .action-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .action-bullet {
-            color: var(--color-success);
-            font-weight: 700;
-            min-width: 20px;
-        }
-
-        /* BUTTONS */
-        .btn {
-            padding: 12px 24px;
-            background: var(--color-primary);
-            color: var(--color-bg-base);
-            border: none;
-            border-radius: var(--radius-md);
+        .opik-header {
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+            font-size: 12px;
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 16px;
+            display: flex;
+            justify-content: space-between;
         }
-
-        .btn:hover {
-            background: var(--color-primary-hover);
-            transform: translateY(-2px);
-        }
-
-        /* SCROLLBAR */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
+        .opik-header a { color: white; text-decoration: none; font-size: 11px; }
+        .opik-trace-list { padding: 8px; }
+        .trace-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 8px;
+            font-size: 11px;
             background: var(--color-bg-muted);
             border-radius: 4px;
+            margin-bottom: 4px;
         }
+        .trace-name { font-family: monospace; color: var(--color-primary); }
+        .trace-duration { color: var(--color-text-muted); }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--color-bg-surface);
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
         }
+        .toast {
+            background: var(--color-bg-surface);
+            border: 1px solid var(--color-bg-muted);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.3s ease;
+        }
+        .toast.show { display: flex; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast.success { border-left: 4px solid var(--color-success); }
+        .toast-icon { font-size: 16px; }
+        .toast-message { font-size: 13px; }
+        .toast-close { background: none; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 16px; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--color-bg-muted); border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -603,24 +593,65 @@
         <div class="sidebar">
             <div class="logo">Stride</div>
 
+            <!-- Profile Selector -->
+            <div class="profile-section">
+                <div class="nav-section-title">Profils Demo</div>
+                <select class="profile-select" id="profileSelect" onchange="loadProfile(this.value)">
+                    <option value="">Selectionner un profil...</option>
+                    <option value="new">Nouvel utilisateur</option>
+                    <option value="active">Etudiant actif (S3)</option>
+                    <option value="comeback">Post-exams (comeback)</option>
+                    <option value="energy_debt">Energy debt detecte</option>
+                </select>
+                <div class="profile-info" id="profileInfo"></div>
+            </div>
+
+            <!-- Navigation -->
             <div class="nav-section">
-                <div class="nav-section-title">4 Killer Features</div>
-                <button class="nav-button active" onclick="switchCase(1)">
+                <div class="nav-section-title">Parcours</div>
+                <button class="nav-button active" id="nav-0" onclick="switchCase(0)">
+                    <span class="nav-emoji">0.</span>
+                    <span class="nav-text">Onboarding</span>
+                    <span class="menu-badge warning" id="badge-0" style="display:none">!</span>
+                </button>
+                <button class="nav-button" id="nav-1" onclick="switchCase(1)">
                     <span class="nav-emoji">1.</span>
-                    <span>Crunch Intelligent</span>
+                    <span class="nav-text">Crunch Intelligent</span>
+                    <span class="menu-badge info" id="badge-1" style="display:none">2</span>
                 </button>
-                <button class="nav-button" onclick="switchCase(2)">
+                <button class="nav-button" id="nav-2" onclick="switchCase(2)">
                     <span class="nav-emoji">2.</span>
-                    <span>Skill Arbitrage</span>
+                    <span class="nav-text">Skill Arbitrage</span>
+                    <span class="menu-badge success" id="badge-2" style="display:none">1</span>
                 </button>
-                <button class="nav-button" onclick="switchCase(3)">
+                <button class="nav-button" id="nav-3" onclick="switchCase(3)">
                     <span class="nav-emoji">3.</span>
-                    <span>Swipe Scenarios</span>
+                    <span class="nav-text">Swipe Scenarios</span>
+                    <span class="menu-badge info" id="badge-3" style="display:none">!</span>
                 </button>
-                <button class="nav-button" onclick="switchCase(4)">
+                <button class="nav-button" id="nav-4" onclick="switchCase(4)">
                     <span class="nav-emoji">4.</span>
-                    <span>Energy Debt</span>
+                    <span class="nav-text">Energy Debt</span>
+                    <span class="menu-badge warning pulse" id="badge-4" style="display:none">!</span>
                 </button>
+            </div>
+
+            <!-- Notifications Panel -->
+            <div class="notifications-panel">
+                <div class="panel-header" onclick="toggleNotifications()">
+                    <span>Notifications</span>
+                    <span class="notif-count" id="notifCount">0</span>
+                </div>
+                <div class="notification-list" id="notificationList"></div>
+            </div>
+
+            <!-- Opik Panel -->
+            <div class="opik-panel">
+                <div class="opik-header">
+                    <span>Traces Opik</span>
+                    <a href="http://localhost:5173" target="_blank">Dashboard</a>
+                </div>
+                <div class="opik-trace-list" id="opikTraces"></div>
             </div>
         </div>
 
@@ -628,81 +659,91 @@
         <div class="main">
             <div class="header">
                 <div>
-                    <div class="header-title">4 Killer Features de Stride</div>
+                    <div class="header-title" id="headerTitle">Stride Demo</div>
                     <div class="header-subtitle">Navigate student life, one smart step at a time</div>
                 </div>
-                <button class="reset-btn" onclick="location.reload()">Reset Demo</button>
+                <div class="header-actions">
+                    <button class="reset-btn" onclick="location.reload()">Reset Demo</button>
+                </div>
             </div>
 
             <div class="content">
+                <!-- Interaction Prompt -->
+                <div class="interaction-prompt" id="interactionPrompt">
+                    <div class="prompt-icon" id="promptIcon">!</div>
+                    <div class="prompt-content">
+                        <div class="prompt-title" id="promptTitle">Action requise</div>
+                        <div class="prompt-text" id="promptText">...</div>
+                    </div>
+                    <div class="prompt-actions">
+                        <button class="primary" onclick="respondToPrompt()">Repondre</button>
+                        <button class="secondary" onclick="dismissPrompt()">Plus tard</button>
+                    </div>
+                </div>
+
+                <!-- CASE 0: ONBOARDING -->
+                <div class="case-container active" id="case-0">
+                    <div class="case-header">
+                        <div class="case-title">#0 Onboarding (Chat Conversationnel)</div>
+                        <div class="case-description">Reponds aux questions par texte ou voix. Stride reformule pour confirmer ta comprehension.</div>
+                    </div>
+
+                    <div class="chat-container" id="chatContainer">
+                        <div class="chat-messages" id="chatMessages"></div>
+                        <div class="chat-input-zone">
+                            <input type="text" id="chatInput" placeholder="Tape ta reponse..." onkeypress="handleChatKeypress(event)">
+                            <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">Mic</button>
+                            <button class="send-btn" onclick="sendChatMessage()">Go</button>
+                        </div>
+                    </div>
+
+                    <div class="onboarding-summary" id="onboardingSummary">
+                        <h3>Recapitulatif de ton profil</h3>
+                        <div class="summary-grid" id="summaryGrid"></div>
+                        <div class="next-steps">
+                            <h4>Prochaines etapes</h4>
+                            <ol>
+                                <li>Voir les strategies recommandees (Skill Arbitrage)</li>
+                                <li>Swiper tes preferences (Swipe Scenarios)</li>
+                                <li>Configurer le calendrier de suivi</li>
+                            </ol>
+                        </div>
+                        <button class="start-btn" onclick="completeOnboarding()">Commencer mon parcours</button>
+                    </div>
+                </div>
+
                 <!-- CASE 1: CRUNCH INTELLIGENT -->
-                <div class="case-container active" id="case-1">
+                <div class="case-container" id="case-1">
                     <div class="case-header">
                         <div class="case-title">#1 Crunch Intelligent (Comeback Mode)</div>
-                        <div class="case-description">"Failed a few weeks? We detect your comeback window." L'etudiant etait a 50% de sa cible S1-S4 (exams). Il revient S5 avec 90% d'energie. Stride detecte le "comeback window" et genere un plan agressif mais faisable.</div>
+                        <div class="case-description">"Failed a few weeks? We detect your comeback window."</div>
                     </div>
 
                     <div class="crunch-alert">
                         <div class="crunch-alert-title">Comeback Window Detected!</div>
-                        <div class="crunch-alert-text">Tu avais 50% de ta cible S1-S4. Ton energie est a 90% S5. On peut creer un plan rattrapage agressif!</div>
+                        <div class="crunch-alert-text">Tu avais 50% de ta cible S1-S4. Ton energie est a 90% S5. Plan rattrapage disponible!</div>
                     </div>
 
                     <div class="crunch-stats">
-                        <div class="stat-box">
-                            <div class="stat-value">126 EUR</div>
-                            <div class="stat-label">Deficit</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value">3 sem</div>
-                            <div class="stat-label">Catch-up</div>
-                        </div>
-                        <div class="stat-box">
-                            <div class="stat-value">85%</div>
-                            <div class="stat-label">Faisable</div>
-                        </div>
+                        <div class="stat-box"><div class="stat-value">126 EUR</div><div class="stat-label">Deficit</div></div>
+                        <div class="stat-box"><div class="stat-value">3 sem</div><div class="stat-label">Catch-up</div></div>
+                        <div class="stat-box"><div class="stat-value">85%</div><div class="stat-label">Faisable</div></div>
                     </div>
 
                     <div class="card">
-                        <div class="comeback-plan">
-                            <div class="comeback-plan-title">Plan Rattrapage Agressif</div>
-                        </div>
-
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-                            <tr style="border-bottom: 1px solid #334155;">
-                                <td style="padding: 8px 0; font-weight: 600;">Semaine</td>
-                                <td style="padding: 8px 0; text-align: right; font-weight: 600;">Cible</td>
-                                <td style="padding: 8px 0; text-align: right; font-weight: 600;">Strategie</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #334155;">
-                                <td style="padding: 8px 0;">S5 (90% energie)</td>
-                                <td style="padding: 8px 0; text-align: right; color: #22c55e;">50 EUR</td>
-                                <td style="padding: 8px 0; text-align: right;">SQL Coaching (4h)</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #334155;">
-                                <td style="padding: 8px 0;">S6 (85% energie)</td>
-                                <td style="padding: 8px 0; text-align: right; color: #22c55e;">45 EUR</td>
-                                <td style="padding: 8px 0; text-align: right;">+ vendre 2 items</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0;">S7 (80% energie)</td>
-                                <td style="padding: 8px 0; text-align: right; color: #22c55e;">31 EUR</td>
-                                <td style="padding: 8px 0; text-align: right;">Tutoring (2h)</td>
-                            </tr>
+                        <div class="comeback-plan"><div class="comeback-plan-title">Plan Rattrapage Agressif</div></div>
+                        <table style="width:100%; margin-top:12px; font-size:13px;">
+                            <tr style="border-bottom:1px solid #334155;"><td style="padding:8px 0; font-weight:600;">Semaine</td><td style="text-align:right; font-weight:600;">Cible</td><td style="text-align:right; font-weight:600;">Strategie</td></tr>
+                            <tr style="border-bottom:1px solid #334155;"><td style="padding:8px 0;">S5 (90% energie)</td><td style="text-align:right; color:#22c55e;">50 EUR</td><td style="text-align:right;">SQL Coaching (4h)</td></tr>
+                            <tr style="border-bottom:1px solid #334155;"><td style="padding:8px 0;">S6 (85% energie)</td><td style="text-align:right; color:#22c55e;">45 EUR</td><td style="text-align:right;">+ vendre 2 items</td></tr>
+                            <tr><td style="padding:8px 0;">S7 (80% energie)</td><td style="text-align:right; color:#22c55e;">31 EUR</td><td style="text-align:right;">Tutoring (2h)</td></tr>
                         </table>
-
-                        <div class="achievement-badge">
-                            Badge "Comeback King" unlocked!
-                        </div>
+                        <div class="achievement-badge">Badge "Comeback King" unlocked!</div>
                     </div>
 
-                    <div style="margin-top: 12px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 4px solid #38bdf8;">
-                        <div style="font-weight: 600; margin-bottom: 6px;">Why it's disruptive:</div>
-                        <div style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
-                            - Detects "comeback windows" automatically<br/>
-                            - Creates aggressive but realistic catch-up plans<br/>
-                            - Gamification for post-exam motivation<br/>
-                            - Solves real post-exam depression
-                        </div>
+                    <div class="disruptive-box">
+                        <h4>Why it's disruptive:</h4>
+                        <p>- Detects comeback windows automatically<br>- Creates aggressive but realistic catch-up plans<br>- Gamification for post-exam motivation</p>
                     </div>
                 </div>
 
@@ -710,86 +751,29 @@
                 <div class="case-container" id="case-2">
                     <div class="case-header">
                         <div class="case-title">#2 Skill Arbitrage (Smart Job Matching)</div>
-                        <div class="case-description">"Not just max money - the job that fits YOUR life." Multi-criteria scoring: hourly rate + market demand + cognitive effort + rest needed.</div>
+                        <div class="case-description">"Not just max money - the job that fits YOUR life."</div>
                     </div>
 
                     <div class="card">
-                        <div style="margin-bottom: 16px;">
-                            <div style="font-weight: 600; margin-bottom: 12px; font-size: 16px;">Tes competences - Analyse d'arbitrage</div>
-                            <div style="font-size: 13px; color: #94a3b8;">Score = 30% Rate + 25% Demand + 25% Effort + 20% Rest</div>
-                        </div>
-
+                        <div style="margin-bottom:12px;"><strong>Analyse d'arbitrage</strong><br><span style="font-size:12px; color:#94a3b8;">Score = 30% Rate + 25% Demand + 25% Effort + 20% Rest</span></div>
                         <table class="comparison-table">
-                            <thead>
-                                <tr>
-                                    <th>Job</th>
-                                    <th>Rate</th>
-                                    <th>Demand</th>
-                                    <th>Effort</th>
-                                    <th>Rest</th>
-                                    <th>Score</th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>Job</th><th>Rate</th><th>Demand</th><th>Effort</th><th>Rest</th><th>Score</th></tr></thead>
                             <tbody>
-                                <tr>
-                                    <td>Python Dev</td>
-                                    <td><strong>25 EUR/h</strong></td>
-                                    <td>5 stars</td>
-                                    <td style="color: #ef4444;">Very High</td>
-                                    <td style="color: #ef4444;">Low</td>
-                                    <td style="color: #ef4444;">6.2/10</td>
-                                </tr>
-                                <tr>
-                                    <td>SQL Coaching</td>
-                                    <td><strong>22 EUR/h</strong></td>
-                                    <td>4 stars</td>
-                                    <td style="color: #eab308;">Moderate</td>
-                                    <td style="color: #22c55e;">High</td>
-                                    <td style="color: #22c55e; font-weight: 700;">8.7/10</td>
-                                </tr>
-                                <tr>
-                                    <td>Data Entry</td>
-                                    <td><strong>12 EUR/h</strong></td>
-                                    <td>4 stars</td>
-                                    <td style="color: #22c55e;">Very Low</td>
-                                    <td style="color: #22c55e;">High</td>
-                                    <td style="color: #38bdf8;">7.1/10</td>
-                                </tr>
+                                <tr><td>Python Dev</td><td><strong>25 EUR/h</strong></td><td>5 stars</td><td style="color:#ef4444;">Very High</td><td style="color:#ef4444;">Low</td><td style="color:#ef4444;">6.2/10</td></tr>
+                                <tr><td>SQL Coaching</td><td><strong>22 EUR/h</strong></td><td>4 stars</td><td style="color:#eab308;">Moderate</td><td style="color:#22c55e;">High</td><td style="color:#22c55e; font-weight:700;">8.7/10</td></tr>
+                                <tr><td>Data Entry</td><td><strong>12 EUR/h</strong></td><td>4 stars</td><td style="color:#22c55e;">Very Low</td><td style="color:#22c55e;">High</td><td style="color:#38bdf8;">7.1/10</td></tr>
                             </tbody>
                         </table>
                     </div>
 
                     <div class="card">
-                        <div style="font-weight: 600; margin-bottom: 12px;">Recommandation Personalisee</div>
-                        <div style="padding: 12px; background: #334155; border-radius: 8px; margin-bottom: 12px;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Meilleur Trade-Off: SQL Coaching (22 EUR/h) - Score 8.7/10</div>
-                            <div style="font-size: 14px; color: #cbd5e1;">
-                                - Excellent hourly rate (22 EUR vs 12-18 EUR)<br/>
-                                - Moderate cognitive effort (no burnout)<br/>
-                                - Stable demand (4 stars)<br/>
-                                - High rest time preserved for studies
-                            </div>
-                        </div>
-
-                        <div style="padding: 12px; background: #1e293b; border-radius: 8px; border-left: 4px solid #ef4444;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Avoid: Python Dev Freelance (6.2/10)</div>
-                            <div style="font-size: 14px; color: #cbd5e1;">
-                                Although the rate is maximal (25 EUR), very high cognitive effort risks:<br/>
-                                - Impacts grades<br/>
-                                - Long-term burnout<br/>
-                                - Reduces rest time
-                            </div>
-                        </div>
+                        <div style="font-weight:600; margin-bottom:10px;">Recommandation: SQL Coaching (22 EUR/h) - Score 8.7/10</div>
+                        <p style="font-size:13px; color:#cbd5e1;">Excellent balance entre taux horaire et effort cognitif. Preserve le temps de repos pour les etudes.</p>
                     </div>
 
-                    <div style="margin-top: 12px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 4px solid #38bdf8;">
-                        <div style="font-weight: 600; margin-bottom: 6px;">Why it's disruptive:</div>
-                        <div style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
-                            - Multi-criteria: not just "max money"<br/>
-                            - Considers mental health & grades<br/>
-                            - Discourages default choice (highest paying)<br/>
-                            - Recommends realistic "smart jobs"
-                        </div>
+                    <div class="disruptive-box">
+                        <h4>Why it's disruptive:</h4>
+                        <p>- Multi-criteria: not just "max money"<br>- Considers mental health & grades<br>- Recommends realistic "smart jobs"</p>
                     </div>
                 </div>
 
@@ -797,46 +781,31 @@
                 <div class="case-container" id="case-3">
                     <div class="case-header">
                         <div class="case-title">#3 Swipe Scenarios (Tinder for Strategies)</div>
-                        <div class="case-description">"Swipe through money strategies like you swipe profiles." Swipe right = interested, left = not interested. Stride learns your preferences.</div>
+                        <div class="case-description">"Swipe through money strategies like you swipe profiles."</div>
                     </div>
 
                     <div class="swipe-container">
                         <div class="swipe-card" id="swipeCard">
-                            <div class="swipe-emoji">💼</div>
+                            <div class="swipe-emoji">Briefcase</div>
                             <div class="swipe-title">Freelance Dev</div>
                             <div class="swipe-value">+120 EUR/mois</div>
-                            <div class="swipe-description">
-                                Rate: 25 EUR/h<br/>
-                                Effort: High<br/>
-                                Time: 10h/week
-                            </div>
-
+                            <div class="swipe-description">Rate: 25 EUR/h<br>Effort: High<br>Time: 10h/week</div>
                             <div class="swipe-controls">
                                 <button class="swipe-btn no" onclick="swipeNo()">X</button>
                                 <button class="swipe-btn yes" onclick="swipeYes()">OK</button>
                             </div>
                         </div>
-
-                        <div class="swipe-counter">
-                            Scenario <span id="currentScenario">1</span> / 4
-                        </div>
-
+                        <div class="swipe-counter">Scenario <span id="currentScenario">1</span> / 4</div>
                         <div class="swipe-selected" id="swipeSelected">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Your selections</div>
-                            <div id="selectedList" style="font-size: 14px; color: #cbd5e1;"></div>
-                            <div id="learnedPrefs" style="margin-top: 12px; padding: 8px; background: #1e293b; border-radius: 8px; font-size: 13px;"></div>
-                            <button class="btn" onclick="finalizePlan()">Finalize my plan</button>
+                            <div style="font-weight:600; margin-bottom:8px;">Tes selections</div>
+                            <div id="selectedList"></div>
+                            <div id="learnedPrefs" style="margin-top:10px; padding:8px; background:#1e293b; border-radius:8px; font-size:12px;"></div>
                         </div>
                     </div>
 
-                    <div style="margin-top: 24px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 4px solid #38bdf8;">
-                        <div style="font-weight: 600; margin-bottom: 6px;">Why it's disruptive:</div>
-                        <div style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
-                            - Addictive UX like Tinder<br/>
-                            - More engaging than reading recommendations<br/>
-                            - Stride learns your preferences<br/>
-                            - After 4 swipes, we know you prioritize flexibility over max income
-                        </div>
+                    <div class="disruptive-box">
+                        <h4>Why it's disruptive:</h4>
+                        <p>- Addictive UX like Tinder<br>- Stride learns your preferences<br>- After 4 swipes, profile is optimized</p>
                     </div>
                 </div>
 
@@ -844,140 +813,427 @@
                 <div class="case-container" id="case-4">
                     <div class="case-header">
                         <div class="case-title">#4 Energy Debt Gamification</div>
-                        <div class="case-description">"3 weeks at 30% energy? Time to reward self-care." Reverse psychology: rest is a strategy, not a failure. We reduce targets automatically and reward self-care.</div>
+                        <div class="case-description">"3 weeks at 30% energy? Time to reward self-care."</div>
                     </div>
 
                     <div class="energy-warning">
                         <div class="warning-title">Energy Debt Detected!</div>
-                        <div class="warning-text">Your energy has been at 32% for 3 consecutive weeks (S1-S3). You're accumulating "energy debt". We're reducing your S4 target to 10 EUR (vs 63 EUR) for recovery.</div>
+                        <div class="warning-text">Ton energie est a 32% depuis 3 semaines. Cible S4 reduite: 10 EUR (vs 63 EUR).</div>
                     </div>
 
-                    <div style="margin-bottom: 24px;">
-                        <div style="font-weight: 600; margin-bottom: 12px;">Energy History (last 4 weeks)</div>
-                        <div class="energy-week">
-                            <div class="energy-week-label">S1</div>
-                            <div class="energy-bar-container">
-                                <div class="energy-bar" style="width: 35%;"></div>
-                            </div>
-                            <div class="energy-week-value">35%</div>
-                        </div>
-                        <div class="energy-week">
-                            <div class="energy-week-label">S2</div>
-                            <div class="energy-bar-container">
-                                <div class="energy-bar" style="width: 30%;"></div>
-                            </div>
-                            <div class="energy-week-value">30%</div>
-                        </div>
-                        <div class="energy-week">
-                            <div class="energy-week-label">S3</div>
-                            <div class="energy-bar-container">
-                                <div class="energy-bar" style="width: 32%;"></div>
-                            </div>
-                            <div class="energy-week-value">32%</div>
-                        </div>
-                        <div class="energy-week">
-                            <div class="energy-week-label">S4 (Today)</div>
-                            <div class="energy-bar-container">
-                                <div class="energy-bar" style="width: 65%;"></div>
-                            </div>
-                            <div class="energy-week-value">65%</div>
-                        </div>
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:10px;">Energy History</div>
+                        <div class="energy-week"><div class="energy-week-label">S1</div><div class="energy-bar-container"><div class="energy-bar" style="width:35%;"></div></div><div class="energy-week-value">35%</div></div>
+                        <div class="energy-week"><div class="energy-week-label">S2</div><div class="energy-bar-container"><div class="energy-bar" style="width:30%;"></div></div><div class="energy-week-value">30%</div></div>
+                        <div class="energy-week"><div class="energy-week-label">S3</div><div class="energy-bar-container"><div class="energy-bar" style="width:32%;"></div></div><div class="energy-week-value">32%</div></div>
+                        <div class="energy-week"><div class="energy-week-label">S4 (Today)</div><div class="energy-bar-container"><div class="energy-bar" style="width:65%;"></div></div><div class="energy-week-value">65%</div></div>
                     </div>
 
-                    <div style="margin-bottom: 24px;">
-                        <div style="font-weight: 600; margin-bottom: 12px;">Energy Check-in - S4 (Today)</div>
+                    <div style="margin-bottom:20px;">
+                        <div style="font-weight:600; margin-bottom:10px;">Energy Check-in</div>
                         <div class="energy-grid">
-                            <div class="energy-item" onclick="selectEnergy(this, 1)">
-                                <div class="energy-emoji">-_-</div>
-                                <div class="energy-label">Exhausted</div>
-                            </div>
-                            <div class="energy-item" onclick="selectEnergy(this, 2)">
-                                <div class="energy-emoji">:/</div>
-                                <div class="energy-label">Tired</div>
-                            </div>
-                            <div class="energy-item selected" onclick="selectEnergy(this, 3)">
-                                <div class="energy-emoji">:|</div>
-                                <div class="energy-label">Neutral</div>
-                            </div>
-                            <div class="energy-item" onclick="selectEnergy(this, 4)">
-                                <div class="energy-emoji">:)</div>
-                                <div class="energy-label">Good</div>
-                            </div>
-                            <div class="energy-item" onclick="selectEnergy(this, 5)">
-                                <div class="energy-emoji">:D</div>
-                                <div class="energy-label">Excellent</div>
-                            </div>
+                            <div class="energy-item" onclick="selectEnergy(this)"><div class="energy-emoji">-_-</div><div class="energy-label">Exhausted</div></div>
+                            <div class="energy-item" onclick="selectEnergy(this)"><div class="energy-emoji">:/</div><div class="energy-label">Tired</div></div>
+                            <div class="energy-item selected" onclick="selectEnergy(this)"><div class="energy-emoji">:|</div><div class="energy-label">Neutral</div></div>
+                            <div class="energy-item" onclick="selectEnergy(this)"><div class="energy-emoji">:)</div><div class="energy-label">Good</div></div>
+                            <div class="energy-item" onclick="selectEnergy(this)"><div class="energy-emoji">:D</div><div class="energy-label">Excellent</div></div>
                         </div>
                     </div>
 
                     <div class="action-plan">
                         <div class="action-title">Recovery Plan Activated</div>
-                        <div class="action-item">
-                            <div class="action-bullet">1.</div>
-                            <div>S4 target reduced: 10 EUR (vs 63 EUR normally)</div>
-                        </div>
-                        <div class="action-item">
-                            <div class="action-bullet">2.</div>
-                            <div>Focus on rest & your studies</div>
-                        </div>
-                        <div class="action-item">
-                            <div class="action-bullet">3.</div>
-                            <div>If you recover, S5-S7: progressive catch-up</div>
-                        </div>
-                        <div class="action-item">
-                            <div class="action-bullet">4.</div>
-                            <div>Achievement unlocked: "Self Care Champion"</div>
+                        <div class="action-item"><div class="action-bullet">1.</div><div>S4 target: 10 EUR (vs 63 EUR)</div></div>
+                        <div class="action-item"><div class="action-bullet">2.</div><div>Focus on rest & studies</div></div>
+                        <div class="action-item"><div class="action-bullet">3.</div><div>S5-S7: progressive catch-up</div></div>
+                    </div>
+
+                    <div class="card" style="margin-top:16px;">
+                        <div style="display:flex; align-items:center; gap:12px; padding:12px; background:linear-gradient(135deg, #22c55e, #16a34a); border-radius:8px;">
+                            <div style="font-size:32px;">Heart</div>
+                            <div><div style="font-weight:700;">Self Care Champion - Unlocked!</div><div style="font-size:12px; color:rgba(255,255,255,0.9);">You listened to your body.</div></div>
                         </div>
                     </div>
 
-                    <div class="card">
-                        <div style="font-weight: 600; margin-bottom: 12px;">Self Care Champion Badge</div>
-                        <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 8px;">
-                            <div style="font-size: 40px;">&lt;3</div>
-                            <div>
-                                <div style="font-weight: 700;">Unlocked!</div>
-                                <div style="font-size: 13px; color: rgba(255, 255, 255, 0.9);">You listened to your body and took rest. That's the real victory.</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="margin-top: 12px; padding: 12px; background: #1e293b; border-radius: 8px; border-left: 4px solid #38bdf8;">
-                        <div style="font-weight: 600; margin-bottom: 6px;">Why it's disruptive:</div>
-                        <div style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">
-                            - Prevents real burnout<br/>
-                            - Reverse gamification: not just "achieve", but "be smart"<br/>
-                            - Listens to body's psychological signals<br/>
-                            - Values self-care at the same level as performance
-                        </div>
+                    <div class="disruptive-box">
+                        <h4>Why it's disruptive:</h4>
+                        <p>- Prevents real burnout<br>- Reverse gamification: rewards self-care<br>- Values rest at the same level as performance</p>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
 
+    <!-- Toast -->
+    <div class="toast-container">
+        <div class="toast success" id="toast">
+            <span class="toast-icon">OK</span>
+            <span class="toast-message" id="toastMessage">Action completed!</span>
+            <button class="toast-close" onclick="hideToast()">x</button>
+        </div>
+    </div>
+
     <script>
+        // ========== STATE ==========
+        let currentCase = 0;
         let currentScenarioIndex = 0;
         let selectedScenarios = [];
+        let chatStep = 0;
+        let userAnswers = {};
+        let currentProfile = null;
 
-        const scenarios = [
-            { emoji: '💼', title: 'Freelance Dev', value: '+120 EUR/mois', details: 'Rate: 25 EUR/h\nEffort: High\nTime: 10h/week' },
-            { emoji: '📚', title: 'Tutoring Math', value: '+80 EUR/mois', details: 'Rate: 20 EUR/h\nEffort: Moderate\nTime: 6h/week' },
-            { emoji: '📦', title: 'Sell 3 Items', value: '+80 EUR one-time', details: 'Effort: Low\nTime: 2h\nOccasional' },
-            { emoji: '✍️', title: 'SQL Coaching', value: '+90 EUR/mois', details: 'Rate: 22 EUR/h\nEffort: Moderate\nTime: 6h/week' }
+        // ========== PROFILES ==========
+        const profiles = {
+            new: {
+                name: "Nouvel utilisateur",
+                description: "Profil vide - Onboarding non fait",
+                onboarding_complete: false,
+                notifications: [
+                    { id: 1, icon: "Wave", text: "Bienvenue! Complete ton profil", time: "Now", target: 0, type: "warning" }
+                ],
+                badges: { 0: { show: true, type: "warning", text: "!" } },
+                traces: [
+                    { name: "session_start", duration: "12ms" },
+                    { name: "onboarding_init", duration: "8ms" }
+                ],
+                startScreen: 0
+            },
+            active: {
+                name: "Etudiant actif (S3)",
+                description: "Semaine 3/8 - 45% progress - Energy 75%",
+                onboarding_complete: true,
+                notifications: [
+                    { id: 1, icon: "Target", text: "45% de ton objectif atteint!", time: "2h", target: 1, type: "info" },
+                    { id: 2, icon: "Lightning", text: "Energy check-in hebdo", time: "Now", target: 4, type: "warning" }
+                ],
+                badges: {
+                    1: { show: true, type: "info", text: "1" },
+                    4: { show: true, type: "warning", text: "!" }
+                },
+                traces: [
+                    { name: "budget_analysis", duration: "67ms" },
+                    { name: "skill_matching", duration: "89ms" },
+                    { name: "preference_update", duration: "45ms" }
+                ],
+                startScreen: 1
+            },
+            comeback: {
+                name: "Post-exams (comeback)",
+                description: "S5 - Energy 90% - Deficit 126 EUR - Comeback detecte!",
+                onboarding_complete: true,
+                notifications: [
+                    { id: 1, icon: "Fire", text: "Comeback window detecte!", time: "2h", target: 1, type: "info" },
+                    { id: 2, icon: "Document", text: "Nouveau plan disponible", time: "1h", target: 1, type: "success" }
+                ],
+                badges: {
+                    1: { show: true, type: "info", text: "2" }
+                },
+                traces: [
+                    { name: "energy_trend_analysis", duration: "45ms" },
+                    { name: "comeback_detection", duration: "23ms" },
+                    { name: "catchup_plan_generation", duration: "156ms" },
+                    { name: "guardian_validation", duration: "342ms" }
+                ],
+                startScreen: 1,
+                prompt: { icon: "Fire", title: "Comeback Window!", text: "Tu es pret pour rattraper ton retard?" }
+            },
+            energy_debt: {
+                name: "Energy debt detecte",
+                description: "S4 - Energy 32% - 3 semaines low - Target reduit",
+                onboarding_complete: true,
+                notifications: [
+                    { id: 1, icon: "Warning", text: "Energy debt accumule", time: "Now", target: 4, type: "warning" },
+                    { id: 2, icon: "Trophy", text: "Badge Self Care debloque!", time: "1h", target: 4, type: "success" }
+                ],
+                badges: {
+                    4: { show: true, type: "warning", text: "2" }
+                },
+                traces: [
+                    { name: "energy_aggregation", duration: "34ms" },
+                    { name: "debt_detection", duration: "23ms" },
+                    { name: "target_reduction", duration: "18ms" },
+                    { name: "achievement_unlock", duration: "12ms" }
+                ],
+                startScreen: 4,
+                prompt: { icon: "Lightning", title: "Energy Check-in", text: "Comment te sens-tu cette semaine?" }
+            }
+        };
+
+        // ========== CHAT QUESTIONS ==========
+        const chatQuestions = [
+            { q: "Quel est ton niveau d'etudes?", field: "level", reformulate: v => `Niveau: ${v}` },
+            { q: "Quels sont tes revenus mensuels?", field: "income", reformulate: v => `Revenus: ${v}` },
+            { q: "Quelles sont tes depenses principales?", field: "expenses", reformulate: v => `Depenses: ${v}` },
+            { q: "Quelles sont tes competences?", field: "skills", reformulate: v => `Skills: ${v}` },
+            { q: "Quel est ton objectif financier?", field: "goal", reformulate: v => `Objectif: ${v}` },
+            { q: "Quelle est ton echeance?", field: "deadline", reformulate: v => `Echeance: ${v}` },
+            { q: "Y a-t-il des periodes difficiles prevues (exams, etc)?", field: "difficult", reformulate: v => `Periodes difficiles: ${v}` }
         ];
 
+        const defaultAnswers = {
+            level: "L2 Informatique",
+            income: "800 EUR/mois",
+            expenses: "750 EUR (loyer 450, courses 150, transport 50, loisirs 100)",
+            skills: "Python, SQL, Anglais B2",
+            goal: "Economiser 500 EUR pour les vacances",
+            deadline: "8 semaines",
+            difficult: "Examens semaine 4"
+        };
+
+        const scenarios = [
+            { emoji: "Briefcase", title: "Freelance Dev", value: "+120 EUR/mois", details: "Rate: 25 EUR/h\nEffort: High\nTime: 10h/week" },
+            { emoji: "Book", title: "Tutoring Math", value: "+80 EUR/mois", details: "Rate: 20 EUR/h\nEffort: Moderate\nTime: 6h/week" },
+            { emoji: "Package", title: "Sell 3 Items", value: "+80 EUR one-time", details: "Effort: Low\nTime: 2h\nOccasional" },
+            { emoji: "Pen", title: "SQL Coaching", value: "+90 EUR/mois", details: "Rate: 22 EUR/h\nEffort: Moderate\nTime: 6h/week" }
+        ];
+
+        // ========== INIT ==========
+        function init() {
+            addChatMessage("Bienvenue sur Stride! Je vais te poser quelques questions pour personnaliser ton experience.", "bot");
+            setTimeout(() => askNextQuestion(), 800);
+        }
+
+        // ========== PROFILE MANAGEMENT ==========
+        function loadProfile(profileId) {
+            if (!profileId) return;
+            currentProfile = profiles[profileId];
+            if (!currentProfile) return;
+
+            // Update profile info
+            const info = document.getElementById("profileInfo");
+            info.textContent = currentProfile.description;
+            info.classList.add("show");
+
+            // Reset all badges
+            for (let i = 0; i <= 4; i++) {
+                document.getElementById(`badge-${i}`).style.display = "none";
+            }
+
+            // Set badges from profile
+            if (currentProfile.badges) {
+                Object.entries(currentProfile.badges).forEach(([idx, badge]) => {
+                    if (badge.show) {
+                        const el = document.getElementById(`badge-${idx}`);
+                        el.style.display = "inline";
+                        el.textContent = badge.text;
+                        el.className = `menu-badge ${badge.type}`;
+                        if (badge.type === "warning") el.classList.add("pulse");
+                    }
+                });
+            }
+
+            // Update notifications
+            updateNotifications(currentProfile.notifications || []);
+
+            // Update Opik traces
+            updateOpikTraces(currentProfile.traces || []);
+
+            // Switch to start screen
+            switchCase(currentProfile.startScreen);
+
+            // Show prompt if exists
+            if (currentProfile.prompt) {
+                showPrompt(currentProfile.prompt.icon, currentProfile.prompt.title, currentProfile.prompt.text);
+            } else {
+                dismissPrompt();
+            }
+
+            // Handle onboarding state
+            if (!currentProfile.onboarding_complete) {
+                document.getElementById("chatMessages").innerHTML = "";
+                chatStep = 0;
+                userAnswers = {};
+                document.getElementById("onboardingSummary").classList.remove("show");
+                init();
+            }
+
+            showToast(`Profil "${currentProfile.name}" charge!`);
+        }
+
+        function updateNotifications(notifications) {
+            const list = document.getElementById("notificationList");
+            const count = document.getElementById("notifCount");
+
+            count.textContent = notifications.length;
+            list.innerHTML = notifications.map(n => `
+                <div class="notification-item unread" onclick="handleNotification(${n.target})">
+                    <span class="notif-icon">${n.icon}</span>
+                    <div class="notif-content">
+                        <div class="notif-text">${n.text}</div>
+                        <div class="notif-time">${n.time}</div>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        function updateOpikTraces(traces) {
+            const container = document.getElementById("opikTraces");
+            container.innerHTML = traces.map(t => `
+                <div class="trace-item">
+                    <span class="trace-name">${t.name}</span>
+                    <span class="trace-duration">${t.duration}</span>
+                </div>
+            `).join("");
+        }
+
+        function handleNotification(target) {
+            switchCase(target);
+        }
+
+        // ========== NAVIGATION ==========
         function switchCase(caseNum) {
-            document.querySelectorAll('.case-container').forEach(el => el.classList.remove('active'));
-            document.getElementById(`case-${caseNum}`).classList.add('active');
+            currentCase = caseNum;
+            document.querySelectorAll(".case-container").forEach(el => el.classList.remove("active"));
+            document.getElementById(`case-${caseNum}`).classList.add("active");
 
-            document.querySelectorAll('.nav-button').forEach(el => el.classList.remove('active'));
-            event.target.closest('.nav-button').classList.add('active');
+            document.querySelectorAll(".nav-button").forEach(el => el.classList.remove("active"));
+            document.getElementById(`nav-${caseNum}`).classList.add("active");
+
+            const titles = ["Onboarding", "Crunch Intelligent", "Skill Arbitrage", "Swipe Scenarios", "Energy Debt"];
+            document.getElementById("headerTitle").textContent = titles[caseNum];
         }
 
-        function swipeNo() {
-            nextScenario();
+        // ========== CHAT SYSTEM ==========
+        function addChatMessage(text, type, showConfirmation = false) {
+            const messages = document.getElementById("chatMessages");
+            const msg = document.createElement("div");
+            msg.className = `chat-message ${type}`;
+
+            if (showConfirmation) {
+                msg.className = "chat-message confirmation";
+                msg.innerHTML = `
+                    <div>OK ${text}</div>
+                    <div class="confirmation-buttons">
+                        <button class="confirm-yes" onclick="confirmAnswer()">Oui</button>
+                        <button class="confirm-no" onclick="modifyAnswer()">Modifier</button>
+                    </div>
+                `;
+            } else {
+                msg.textContent = text;
+            }
+
+            messages.appendChild(msg);
+            messages.scrollTop = messages.scrollHeight;
         }
+
+        function askNextQuestion() {
+            if (chatStep >= chatQuestions.length) {
+                showOnboardingSummary();
+                return;
+            }
+            addChatMessage(chatQuestions[chatStep].q, "bot");
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById("chatInput");
+            const text = input.value.trim();
+            if (!text) return;
+
+            addChatMessage(text, "user");
+            input.value = "";
+
+            const field = chatQuestions[chatStep].field;
+            userAnswers[field] = text;
+
+            setTimeout(() => {
+                const reformulated = chatQuestions[chatStep].reformulate(text);
+                addChatMessage(reformulated, "bot", true);
+            }, 500);
+        }
+
+        function handleChatKeypress(e) {
+            if (e.key === "Enter") sendChatMessage();
+        }
+
+        function confirmAnswer() {
+            chatStep++;
+            setTimeout(() => askNextQuestion(), 300);
+        }
+
+        function modifyAnswer() {
+            addChatMessage("D'accord, reformule ta reponse.", "bot");
+        }
+
+        function toggleVoice() {
+            const btn = document.getElementById("voiceBtn");
+            if (btn.classList.contains("recording")) {
+                btn.classList.remove("recording");
+                // Simulate voice transcription
+                const field = chatQuestions[chatStep].field;
+                const answer = defaultAnswers[field];
+                document.getElementById("chatInput").value = answer;
+                setTimeout(() => sendChatMessage(), 300);
+            } else {
+                btn.classList.add("recording");
+                showToast("Enregistrement...");
+                setTimeout(() => {
+                    if (btn.classList.contains("recording")) {
+                        toggleVoice();
+                    }
+                }, 2000);
+            }
+        }
+
+        function showOnboardingSummary() {
+            addChatMessage("Parfait! Voici le recapitulatif de ton profil.", "bot");
+
+            const grid = document.getElementById("summaryGrid");
+            grid.innerHTML = Object.entries(userAnswers).map(([k, v]) => `
+                <div class="summary-item">
+                    <div class="summary-label">${k}</div>
+                    <div class="summary-value">${v}</div>
+                </div>
+            `).join("");
+
+            setTimeout(() => {
+                document.getElementById("onboardingSummary").classList.add("show");
+            }, 500);
+        }
+
+        function completeOnboarding() {
+            // Hide onboarding badge
+            document.getElementById("badge-0").style.display = "none";
+
+            // Add badges to other screens
+            document.getElementById("badge-2").style.display = "inline";
+            document.getElementById("badge-3").style.display = "inline";
+
+            // Update notifications
+            updateNotifications([
+                { id: 1, icon: "Briefcase", text: "Nouveau job matche: SQL Coaching", time: "Now", target: 2, type: "success" },
+                { id: 2, icon: "Cards", text: "Swipe tes preferences", time: "Now", target: 3, type: "info" }
+            ]);
+
+            // Update traces
+            updateOpikTraces([
+                { name: "profile_creation", duration: "45ms" },
+                { name: "budget_analysis", duration: "67ms" },
+                { name: "skill_extraction", duration: "89ms" },
+                { name: "job_matching", duration: "112ms" }
+            ]);
+
+            showToast("Profil cree! Bienvenue sur Stride");
+            switchCase(2); // Go to Skill Arbitrage
+        }
+
+        // ========== PROMPTS ==========
+        function showPrompt(icon, title, text) {
+            document.getElementById("promptIcon").textContent = icon;
+            document.getElementById("promptTitle").textContent = title;
+            document.getElementById("promptText").textContent = text;
+            document.getElementById("interactionPrompt").classList.add("show");
+        }
+
+        function respondToPrompt() {
+            dismissPrompt();
+            showToast("Reponse enregistree!");
+        }
+
+        function dismissPrompt() {
+            document.getElementById("interactionPrompt").classList.remove("show");
+        }
+
+        // ========== SWIPE ==========
+        function swipeNo() { nextScenario(); }
 
         function swipeYes() {
             selectedScenarios.push(scenarios[currentScenarioIndex].title);
@@ -989,42 +1245,73 @@
             if (currentScenarioIndex < scenarios.length - 1) {
                 currentScenarioIndex++;
                 updateScenarioCard();
-                document.getElementById('currentScenario').textContent = currentScenarioIndex + 1;
+                document.getElementById("currentScenario").textContent = currentScenarioIndex + 1;
             } else {
-                showSelectedList();
+                showSwipeResults();
             }
         }
 
         function updateScenarioCard() {
-            const scenario = scenarios[currentScenarioIndex];
-            document.querySelector('.swipe-emoji').textContent = scenario.emoji;
-            document.querySelector('.swipe-title').textContent = scenario.title;
-            document.querySelector('.swipe-value').textContent = scenario.value;
-            document.querySelector('.swipe-description').innerHTML = scenario.details.replace(/\n/g, '<br>');
+            const s = scenarios[currentScenarioIndex];
+            const card = document.getElementById("swipeCard");
+            card.innerHTML = `
+                <div class="swipe-emoji">${s.emoji}</div>
+                <div class="swipe-title">${s.title}</div>
+                <div class="swipe-value">${s.value}</div>
+                <div class="swipe-description">${s.details.replace(/\n/g, "<br>")}</div>
+                <div class="swipe-controls">
+                    <button class="swipe-btn no" onclick="swipeNo()">X</button>
+                    <button class="swipe-btn yes" onclick="swipeYes()">OK</button>
+                </div>
+            `;
         }
 
         function updateSelectedList() {
-            const list = document.getElementById('selectedList');
-            list.innerHTML = selectedScenarios.map(s => `<div>+ ${s}</div>`).join('');
+            document.getElementById("selectedList").innerHTML = selectedScenarios.map(s => `<div>+ ${s}</div>`).join("");
         }
 
-        function showSelectedList() {
-            document.getElementById('swipeSelected').classList.add('show');
-            document.getElementById('learnedPrefs').innerHTML =
-                '<strong>Learned preferences:</strong><br>' +
-                '- Effort sensitivity: +15%<br>' +
-                '- Hourly rate priority: -10%<br>' +
-                '- Time flexibility: +20%';
+        function showSwipeResults() {
+            document.getElementById("swipeSelected").classList.add("show");
+            document.getElementById("learnedPrefs").innerHTML = `
+                <strong>Preferences apprises:</strong><br>
+                - Effort sensitivity: +15%<br>
+                - Hourly rate priority: -10%<br>
+                - Time flexibility: +20%
+            `;
+            document.getElementById("badge-3").style.display = "none";
+
+            updateOpikTraces([
+                { name: "swipe_session", duration: "3.2s" },
+                { name: "preference_learning", duration: "67ms" },
+                { name: "recommendation_rerank", duration: "45ms" }
+            ]);
         }
 
-        function finalizePlan() {
-            alert(`Plan finalized with ${selectedScenarios.length} scenario(s): ${selectedScenarios.join(', ')}\n\nYour profile is now optimized based on your preferences!`);
+        // ========== ENERGY ==========
+        function selectEnergy(el) {
+            document.querySelectorAll(".energy-item").forEach(e => e.classList.remove("selected"));
+            el.classList.add("selected");
+            showToast("Energy check-in enregistre!");
+            document.getElementById("badge-4").style.display = "none";
         }
 
-        function selectEnergy(element, level) {
-            document.querySelectorAll('.energy-item').forEach(el => el.classList.remove('selected'));
-            element.classList.add('selected');
+        // ========== TOAST ==========
+        function showToast(message) {
+            document.getElementById("toastMessage").textContent = message;
+            document.getElementById("toast").classList.add("show");
+            setTimeout(hideToast, 3000);
         }
+
+        function hideToast() {
+            document.getElementById("toast").classList.remove("show");
+        }
+
+        function toggleNotifications() {
+            // Could expand/collapse notification list
+        }
+
+        // ========== START ==========
+        init();
     </script>
 </body>
 </html>
