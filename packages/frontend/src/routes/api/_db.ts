@@ -83,6 +83,15 @@ export async function query<T = Record<string, unknown>>(sql: string): Promise<T
 
   return new Promise((resolve, reject) => {
     conn.all<T>(sql, (err: Error | null, result: T[]) => {
+      // Close connection after use to avoid connection exhaustion
+      try {
+        conn.close((closeErr: Error | null) => {
+          if (closeErr) console.error('[DuckDB] Connection close error:', closeErr.message);
+        });
+      } catch {
+        // Ignore close errors
+      }
+
       if (err) {
         console.error('[DuckDB] Query error:', err.message);
         reject(err);
@@ -101,6 +110,15 @@ export async function execute(sql: string): Promise<void> {
 
   return new Promise((resolve, reject) => {
     conn.exec(sql, (err: Error | null) => {
+      // Close connection after use to avoid connection exhaustion
+      try {
+        conn.close((closeErr: Error | null) => {
+          if (closeErr) console.error('[DuckDB] Connection close error:', closeErr.message);
+        });
+      } catch {
+        // Ignore close errors
+      }
+
       if (err) {
         console.error('[DuckDB] Execute error:', err.message);
         reject(err);

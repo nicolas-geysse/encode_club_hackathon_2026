@@ -15,6 +15,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  source?: 'mastra' | 'groq' | 'fallback';
 }
 
 interface AcademicEvent {
@@ -193,6 +194,7 @@ Want to update your profile or go straight to your plan?`,
     extractedData: Record<string, unknown>;
     nextStep: OnboardingStep;
     traceId?: string;
+    source?: 'mastra' | 'groq' | 'fallback';
   }> => {
     try {
       const response = await fetch('/api/chat', {
@@ -229,6 +231,7 @@ Want to update your profile or go straight to your plan?`,
     extractedData: Record<string, unknown>;
     nextStep: OnboardingStep;
     traceId?: string;
+    source?: 'mastra' | 'groq' | 'fallback';
   } => {
     const flow: OnboardingStep[] = [
       'greeting',
@@ -272,6 +275,7 @@ Want to update your profile or go straight to your plan?`,
       response: fallbackResponses[nextStep] || "Let's continue!",
       extractedData,
       nextStep,
+      source: 'fallback' as const,
     };
   };
 
@@ -467,13 +471,19 @@ Want to update your profile or go straight to your plan?`,
         setIsComplete(true);
       }
 
-      // Add assistant message
+      // Add assistant message with source indicator
       const assistantMsg: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: result.response,
+        source: result.source,
       };
       setMessages([...messages(), assistantMsg]);
+
+      // Log source for debugging
+      if (result.source) {
+        console.log(`[Chat] Response source: ${result.source}`);
+      }
     } catch (error) {
       console.error('Chat error:', error);
       // Add error message
@@ -503,6 +513,7 @@ Want to update your profile or go straight to your plan?`,
               content={msg.content}
               avatar="B"
               name={msg.role === 'assistant' ? 'Bruno' : undefined}
+              badge={msg.source}
             />
           )}
         </For>

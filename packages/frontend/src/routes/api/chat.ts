@@ -158,6 +158,8 @@ interface ChatResponse {
   nextStep: OnboardingStep;
   /** Trace ID for this turn (useful for feedback) */
   traceId?: string;
+  /** Source of the response: 'mastra', 'groq', or 'fallback' */
+  source?: 'mastra' | 'groq' | 'fallback';
 }
 
 // POST: Handle chat message
@@ -224,14 +226,16 @@ export async function POST(event: APIEvent) {
           extractedData: mastraResult.extractedData,
           nextStep: mastraResult.nextStep as OnboardingStep,
           traceId: traceId || undefined,
+          source: 'mastra',
         };
 
+        console.error('[Chat] Response from Mastra agent');
         return new Response(JSON.stringify(result), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       } catch (mastraError) {
-        console.error('Mastra agent failed, falling back to Groq:', mastraError);
+        console.error('[Chat] Mastra agent failed, falling back to Groq:', mastraError);
         // Fall through to legacy Groq approach
       }
     }
@@ -240,7 +244,9 @@ export async function POST(event: APIEvent) {
     const client = getGroqClient();
     if (!client) {
       // Fallback: return simple response without LLM
-      return new Response(JSON.stringify(getFallbackResponse(message, step, context)), {
+      console.error('[Chat] Response from fallback (no LLM)');
+      const fallbackResult = getFallbackResponse(message, step, context);
+      return new Response(JSON.stringify({ ...fallbackResult, source: 'fallback' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -329,11 +335,13 @@ export async function POST(event: APIEvent) {
           extractedData,
           nextStep,
           traceId: currentTraceId || undefined,
+          source: 'groq',
         } as ChatResponse;
       },
       traceOptions // Use full trace options with threadId
     );
 
+    console.error('[Chat] Response from Groq (legacy path)');
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

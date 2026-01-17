@@ -6,6 +6,8 @@ interface ChatMessageProps {
   content: string;
   avatar?: string;
   name?: string;
+  /** Source badge (e.g., 'mastra', 'groq', 'fallback') */
+  badge?: string;
 }
 
 // Safe text parser - no innerHTML needed
@@ -59,9 +61,24 @@ export function ChatMessage(props: ChatMessageProps) {
           }`}
         >
           <Show when={isAssistant() && props.name}>
-            <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 mb-1">
-              {props.name}
-            </p>
+            <div class="flex items-center gap-2 mb-1">
+              <p class="text-xs font-semibold text-primary-600 dark:text-primary-400">
+                {props.name}
+              </p>
+              <Show when={props.badge}>
+                <span
+                  class={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                    props.badge === 'mastra'
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                      : props.badge === 'groq'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                  }`}
+                >
+                  {props.badge}
+                </span>
+              </Show>
+            </div>
           </Show>
           <div
             class={`whitespace-pre-wrap ${isAssistant() ? 'text-slate-800 dark:text-slate-200' : 'text-white'}`}

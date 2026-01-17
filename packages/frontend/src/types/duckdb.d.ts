@@ -43,6 +43,11 @@ export interface DuckDBConnection {
    * Execute a single statement (no results returned)
    */
   run(sql: string, callback: (err: Error | null) => void): void;
+
+  /**
+   * Close the connection
+   */
+  close(callback?: (err: Error | null) => void): void;
 }
 
 /**
