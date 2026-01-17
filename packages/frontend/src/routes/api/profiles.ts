@@ -25,6 +25,7 @@ async function ensureProfilesSchema(): Promise<void> {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         diploma VARCHAR,
+        field VARCHAR,
         skills VARCHAR[],
         city VARCHAR,
         city_size VARCHAR,
@@ -48,6 +49,14 @@ async function ensureProfilesSchema(): Promise<void> {
         is_active BOOLEAN DEFAULT FALSE
       )
     `);
+
+    // Migration: Add field column if missing (for existing databases)
+    try {
+      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS field VARCHAR`);
+    } catch {
+      // Column might already exist or syntax not supported, ignore
+    }
+
     schemaInitialized = true;
     console.log('[Profiles] Schema initialized');
   } catch {
@@ -63,6 +72,7 @@ interface ProfileRow {
   created_at: string;
   updated_at: string;
   diploma: string | null;
+  field: string | null;
   skills: string[] | null;
   city: string | null;
   city_size: string | null;
@@ -86,6 +96,7 @@ function rowToProfile(row: ProfileRow) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     diploma: row.diploma || undefined,
+    field: row.field || undefined,
     skills: row.skills || undefined,
     city: row.city || undefined,
     citySize: row.city_size || undefined,
@@ -220,6 +231,7 @@ export async function POST(event: APIEvent) {
           name = ${escapeSQL(body.name)},
           updated_at = CURRENT_TIMESTAMP,
           diploma = ${escapeSQL(body.diploma)},
+          field = ${escapeSQL(body.field)},
           city = ${escapeSQL(body.city)},
           city_size = ${escapeSQL(body.citySize)},
           income_sources = ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
@@ -242,7 +254,7 @@ export async function POST(event: APIEvent) {
       // Insert new
       await execute(`
         INSERT INTO profiles (
-          id, name, diploma, city, city_size, income_sources, expenses,
+          id, name, diploma, field, city, city_size, income_sources, expenses,
           monthly_income, monthly_expenses, monthly_margin,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
           plan_data, followup_data, achievements, is_active
@@ -250,6 +262,7 @@ export async function POST(event: APIEvent) {
           ${escapedProfileId},
           ${escapeSQL(body.name)},
           ${escapeSQL(body.diploma)},
+          ${escapeSQL(body.field)},
           ${escapeSQL(body.city)},
           ${escapeSQL(body.citySize)},
           ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},

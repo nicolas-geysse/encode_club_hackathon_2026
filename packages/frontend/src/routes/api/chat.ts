@@ -43,6 +43,29 @@ type OnboardingStep =
   | 'lifestyle' // NEW: Subscriptions
   | 'complete';
 
+/**
+ * Chat modes:
+ * - onboarding: Initial guided flow for new users
+ * - conversation: Free-form chat after onboarding is complete
+ * - profile-edit: User wants to update their profile
+ */
+type ChatMode = 'onboarding' | 'conversation' | 'profile-edit';
+
+/**
+ * Detected intent from user message
+ */
+interface DetectedIntent {
+  mode: ChatMode;
+  action?: string;
+  field?: string;
+  extractedValue?: unknown;
+  extractedGoal?: {
+    name?: string;
+    amount?: number;
+    deadline?: string;
+  };
+}
+
 // System prompts (from prompts.yaml - hardcoded fallback if service not available)
 const SYSTEM_PROMPTS = {
   onboarding: `You are Bruno, a friendly and enthusiastic financial coach for students.
@@ -145,6 +168,8 @@ JSON:`;
 interface ChatRequest {
   message: string;
   step: OnboardingStep;
+  /** Chat mode: onboarding, conversation, or profile-edit */
+  mode?: ChatMode;
   context?: Record<string, unknown>;
   /** Thread ID for grouping conversation turns in Opik */
   threadId?: string;
@@ -156,6 +181,8 @@ interface ChatResponse {
   response: string;
   extractedData: Record<string, unknown>;
   nextStep: OnboardingStep;
+  /** Detected intent from the message */
+  intent?: DetectedIntent;
   /** Trace ID for this turn (useful for feedback) */
   traceId?: string;
   /** Source of the response: 'groq' (JSON mode), 'groq_legacy' (text mode), or 'fallback' (regex) */
@@ -166,13 +193,28 @@ interface ChatResponse {
 export async function POST(event: APIEvent) {
   try {
     const body = (await event.request.json()) as ChatRequest;
-    const { message, step, context = {}, threadId, profileId } = body;
+    const { message, step, mode = 'onboarding', context = {}, threadId, profileId } = body;
 
     if (!message || !step) {
       return new Response(
         JSON.stringify({ error: true, message: 'message and step are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Handle conversation mode (after onboarding is complete)
+    if (mode === 'conversation' || mode === 'profile-edit') {
+      const conversationResult = await handleConversationMode(
+        message,
+        mode,
+        context,
+        threadId,
+        profileId
+      );
+      return new Response(JSON.stringify(conversationResult), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Build trace options with threadId for conversation grouping
@@ -182,6 +224,7 @@ export async function POST(event: APIEvent) {
       input: {
         message: message.substring(0, 500),
         step,
+        mode,
         profileId,
       },
       tags: ['onboarding', step],
@@ -816,7 +859,6 @@ function extractDataWithRegex(
   }
 
   // Numbers with context
-  const moneyMatch = original.match(/(\d+)\s*[€$£]/g) || original.match(/[€$£]\s*(\d+)/g);
   const numbers = original.match(/\d+/g)?.map(Number) || [];
 
   // Goal name detection
@@ -993,7 +1035,7 @@ const SAFE_KEYWORDS = [
 // Quick evaluation of chat response (heuristics only, non-blocking)
 async function runResponseEvaluation(
   response: string,
-  context: Record<string, unknown>
+  _context: Record<string, unknown>
 ): Promise<{ passed: boolean; score: number; issues: string[] } | null> {
   try {
     const responseLower = response.toLowerCase();
@@ -1041,4 +1083,361 @@ async function runResponseEvaluation(
     console.error('Evaluation error:', error);
     return null;
   }
+}
+
+// =============================================================================
+// Conversation Mode (Post-Onboarding)
+// =============================================================================
+
+/**
+ * Detect user intent from message in conversation mode
+ */
+function detectIntent(message: string, _context: Record<string, unknown>): DetectedIntent {
+  const lower = message.toLowerCase();
+
+  // RESTART ONBOARDING (new profile): User wants to create a completely new profile
+  if (
+    lower.match(/\b(new profile|nouveau profil|fresh start|from scratch)\b/i) ||
+    lower.match(/\b(reset|effacer|supprimer).*\b(profile?|profil|data|données)\b/i)
+  ) {
+    return { mode: 'onboarding', action: 'restart_new_profile' };
+  }
+
+  // RE-ONBOARDING (update profile): User wants to redo onboarding but keep same profile
+  if (
+    lower.match(/\b(restart|recommencer|start over|start again|redo onboarding)\b/i) ||
+    lower.match(/\bje (veux|voudrais|souhaite) recommencer\b/i) ||
+    lower.match(/\b(update|mettre à jour).*\b(all|tout|profile?|profil)\b/i)
+  ) {
+    return { mode: 'onboarding', action: 'restart_update_profile' };
+  }
+
+  // RE-ONBOARDING: User gives their name again (might want to update or restart)
+  // Only trigger if message is SHORT and looks like just a name
+  const isShortNameMessage =
+    message.length < 30 &&
+    lower.match(/^(?:je (?:suis|m'appelle)|my name is|i'm|i am|call me)?\s*([a-zA-ZÀ-ÿ]+)$/i);
+  if (isShortNameMessage) {
+    const nameMatch = message.match(
+      /(?:je (?:suis|m'appelle)|my name is|i'm|i am|call me)?\s*([a-zA-ZÀ-ÿ]+)$/i
+    );
+    const extractedName = nameMatch ? nameMatch[1].trim() : message.trim();
+    // Only if it looks like a proper name (capitalized, no numbers)
+    if (extractedName.match(/^[A-ZÀ-ÿ][a-zà-ÿ]+$/)) {
+      return {
+        mode: 'profile-edit',
+        action: 'update_name',
+        field: 'name',
+        extractedValue: extractedName,
+      };
+    }
+  }
+
+  // Profile edit intents
+  if (lower.match(/\b(change|update|edit|modify)\b.*\b(my|the)\b/i)) {
+    // Detect which field they want to update
+    if (lower.match(/\b(city|location|live|move)\b/i)) {
+      // Try to extract the new city value
+      const cityMatch = lower.match(/(?:to|in)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/i);
+      return {
+        mode: 'profile-edit',
+        action: 'update',
+        field: 'city',
+        extractedValue: cityMatch ? cityMatch[1] : undefined,
+      };
+    }
+    if (lower.match(/\b(name)\b/i)) {
+      return { mode: 'profile-edit', action: 'update', field: 'name' };
+    }
+    if (lower.match(/\b(skills?)\b/i)) {
+      return { mode: 'profile-edit', action: 'update', field: 'skills' };
+    }
+    if (lower.match(/\b(work|hours|rate)\b/i)) {
+      return { mode: 'profile-edit', action: 'update', field: 'work_preferences' };
+    }
+    if (lower.match(/\b(budget|income|expense|spend)\b/i)) {
+      return { mode: 'profile-edit', action: 'update', field: 'budget' };
+    }
+    // Generic profile edit
+    return { mode: 'profile-edit', action: 'update' };
+  }
+
+  // New goal intents - try to extract goal details
+  if (lower.match(/\b(new goal|add goal|save for|want to buy|saving for|save \$|save €)\b/i)) {
+    // Try to extract amount: "$500", "500$", "500 dollars", "€500", etc.
+    const amountMatch = message.match(
+      /[$€]?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:[$€]|dollars?|euros?)?/i
+    );
+    const amount = amountMatch ? parseInt(amountMatch[1].replace(/,/g, '')) : undefined;
+
+    // Try to extract goal name: "for a laptop", "for vacation", "to buy a car"
+    const nameMatch = message.match(
+      /(?:for\s+(?:a\s+)?|to\s+buy\s+(?:a\s+)?|saving\s+for\s+(?:a\s+)?)([a-zA-Z0-9\s]+?)(?:\s+by|\s+until|\s+before|\s*$)/i
+    );
+    const goalName = nameMatch ? nameMatch[1].trim() : undefined;
+
+    // Try to extract deadline: "by June", "until December", "before summer"
+    const deadlineMatch = message.match(
+      /(?:by|until|before)\s+([a-zA-Z]+(?:\s+\d{1,2})?(?:,?\s*\d{4})?)/i
+    );
+    const deadline = deadlineMatch ? deadlineMatch[1].trim() : undefined;
+
+    return {
+      mode: 'conversation',
+      action: 'new_goal',
+      extractedGoal: {
+        name: goalName,
+        amount,
+        deadline,
+      },
+    };
+  }
+
+  // Progress check intents
+  if (lower.match(/\b(progress|how.*(doing|going)|status|where.*am)\b/i)) {
+    return { mode: 'conversation', action: 'check_progress' };
+  }
+
+  // Advice intents
+  if (lower.match(/\b(advice|help|suggest|recommend|how can i|tips?)\b/i)) {
+    return { mode: 'conversation', action: 'get_advice' };
+  }
+
+  // Plan/goal related questions
+  if (lower.match(/\b(my plan|my goal|current goal)\b/i)) {
+    return { mode: 'conversation', action: 'view_plan' };
+  }
+
+  // Default conversation
+  return { mode: 'conversation' };
+}
+
+/**
+ * Handle conversation mode chat (after onboarding)
+ */
+async function handleConversationMode(
+  message: string,
+  currentMode: ChatMode,
+  context: Record<string, unknown>,
+  threadId?: string,
+  profileId?: string
+): Promise<ChatResponse> {
+  // Pre-detect intent for tags
+  const preIntent = detectIntent(message, context);
+
+  const traceOptions: TraceOptions = {
+    source: 'frontend_api',
+    threadId,
+    input: {
+      message: message.substring(0, 500),
+      mode: currentMode,
+      profileId,
+      goalName: context.goalName,
+      goalAmount: context.goalAmount,
+    },
+    tags: [
+      'conversation',
+      currentMode,
+      `action:${preIntent.action || 'general'}`,
+      preIntent.field ? `field:${preIntent.field}` : undefined,
+    ].filter(Boolean) as string[],
+  };
+
+  return trace(
+    'chat.conversation',
+    async (span) => {
+      // Use pre-detected intent
+      const intent = preIntent;
+      span.setAttributes({
+        'chat.mode': currentMode,
+        'chat.intent.mode': intent.mode,
+        'chat.intent.action': intent.action || 'none',
+        'chat.intent.field': intent.field || 'none',
+        'user.profile_id': profileId || 'anonymous',
+        'user.has_goal': Boolean(context.goalName),
+      });
+
+      // Generate response based on intent
+      let response: string;
+      const extractedData: Record<string, unknown> = {};
+
+      switch (intent.action) {
+        case 'restart_new_profile':
+          // Signal frontend to reset ALL state and create a new profile
+          response = `No problem! Let's start with a brand new profile. 🆕\n\n**What's your name?**`;
+          return {
+            response,
+            extractedData: { _restartNewProfile: true },
+            nextStep: 'name' as OnboardingStep,
+            source: 'groq',
+            intent: { mode: 'onboarding', action: 'restart_new_profile' },
+          };
+
+        case 'restart_update_profile':
+          // Signal frontend to restart onboarding but KEEP the same profile ID (update mode)
+          response = `Sure! Let's update your profile information. 🔄\n\n**What's your name?** (currently: ${context.name || 'not set'})`;
+          return {
+            response,
+            extractedData: { _restartUpdateProfile: true },
+            nextStep: 'name' as OnboardingStep,
+            source: 'groq',
+            intent: { mode: 'onboarding', action: 'restart_update_profile' },
+          };
+
+        case 'update_name':
+          if (intent.extractedValue) {
+            extractedData.name = intent.extractedValue;
+            response = `Got it! I've updated your name to **${intent.extractedValue}**. 👋\n\nIs there anything else you'd like to change?`;
+          } else {
+            response = `What would you like to change your name to?`;
+          }
+          break;
+
+        case 'update':
+          if (intent.field === 'city' && intent.extractedValue) {
+            extractedData.city = intent.extractedValue;
+            response = `Done! I've updated your city to **${intent.extractedValue}**. 🏙️\n\nYou can see this change in the **Profile** tab.`;
+          } else if (intent.field) {
+            response = `Sure, I can help you update your ${intent.field.replace('_', ' ')}. What's the new value?`;
+          } else {
+            response = `I can help you update your profile. What would you like to change?\n\n- Name, diploma, city, skills\n- Work preferences (hours, hourly rate)\n- Budget (income, expenses)`;
+          }
+          break;
+
+        case 'new_goal': {
+          const extractedGoal = intent.extractedGoal;
+          const hasName = extractedGoal?.name && extractedGoal.name.length > 0;
+          const hasAmount = extractedGoal?.amount && extractedGoal.amount > 0;
+
+          if (hasName && hasAmount) {
+            // We have enough info to create the goal
+            const goalName = extractedGoal.name!;
+            const goalAmount = extractedGoal.amount!;
+
+            // Parse deadline or default to 3 months from now
+            let deadlineDate: Date;
+            if (extractedGoal.deadline) {
+              // Try to parse the deadline string
+              const monthNames = [
+                'january',
+                'february',
+                'march',
+                'april',
+                'may',
+                'june',
+                'july',
+                'august',
+                'september',
+                'october',
+                'november',
+                'december',
+              ];
+              const monthMatch = extractedGoal.deadline.toLowerCase();
+              const monthIndex = monthNames.findIndex((m) => monthMatch.includes(m));
+              if (monthIndex !== -1) {
+                const year = new Date().getFullYear();
+                const targetMonth = monthIndex;
+                deadlineDate = new Date(year, targetMonth + 1, 0); // Last day of month
+                if (deadlineDate < new Date()) {
+                  deadlineDate = new Date(year + 1, targetMonth + 1, 0); // Next year
+                }
+              } else {
+                deadlineDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // Default 3 months
+              }
+            } else {
+              deadlineDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // Default 3 months
+            }
+
+            const deadline = deadlineDate.toISOString().split('T')[0];
+
+            // Store goal data in extractedData for the frontend to save
+            extractedData.newGoal = {
+              name: goalName,
+              amount: goalAmount,
+              deadline,
+              status: 'active',
+              priority: 1,
+            };
+
+            response = `I've created a new goal for you!\n\n🎯 **${goalName}**\n💰 Target: $${goalAmount}\n📅 Deadline: ${deadline}\n\nYou can view and manage this goal in the **Goals** tab of My Plan!`;
+          } else if (hasName || hasAmount) {
+            // Partial info - ask for the missing piece
+            if (hasName && !hasAmount) {
+              response = `Great, saving for **${extractedGoal?.name}**! How much do you need to save for it?`;
+            } else {
+              response = `Got it, $${extractedGoal?.amount}! What are you saving for?`;
+            }
+          } else {
+            response = `Great idea to set a new goal! Tell me:\n\n1. **What** are you saving for?\n2. **How much** do you need?\n3. **By when** do you need it?\n\nFor example: "Save $500 for a vacation by June"`;
+          }
+          break;
+        }
+
+        case 'check_progress': {
+          const goalName = context.goalName || 'your goal';
+          const goalAmount = context.goalAmount || 'your target';
+          response = `You're working towards **${goalName}** with a target of **$${goalAmount}**.\n\nHead to **My Plan** to see your detailed progress, timeline, and weekly targets!`;
+          break;
+        }
+
+        case 'get_advice':
+          response = `Here are some tips to save more:\n\n- **Track expenses** - Small purchases add up\n- **Cook at home** - Campus cafeteria is cheaper than restaurants\n- **Sell unused items** - Textbooks, electronics, clothes\n- **Freelance your skills** - Even a few hours/week helps\n\nWant me to analyze your specific situation?`;
+          break;
+
+        case 'view_plan':
+          response = `Your plan is ready in **My Plan**! There you can:\n\n- View your savings timeline\n- Track weekly progress\n- See job recommendations\n- Explore "what if" scenarios\n\nClick on "My Plan" to get started!`;
+          break;
+
+        default: {
+          // Try to use LLM for general conversation
+          const client = getGroqClient();
+          if (client) {
+            try {
+              const completion = await client.chat.completions.create({
+                model: GROQ_MODEL,
+                messages: [
+                  {
+                    role: 'system',
+                    content: `${SYSTEM_PROMPTS.onboarding}
+
+The user has already completed onboarding. Their profile: ${JSON.stringify(context)}.
+Help them with general questions about their finances, savings plan, or profile.
+Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed information.`,
+                  },
+                  { role: 'user', content: message },
+                ],
+                temperature: 0.7,
+                max_tokens: 300,
+              });
+              response =
+                completion.choices[0]?.message?.content ||
+                "I'm here to help! You can ask about your plan, update your profile, or get savings advice.";
+            } catch {
+              response =
+                "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+            }
+          } else {
+            response =
+              "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+          }
+        }
+      }
+
+      const traceId = getCurrentTraceId();
+      span.setAttributes({
+        'chat.response_length': response.length,
+        'chat.extracted_fields': Object.keys(extractedData).length,
+      });
+
+      return {
+        response,
+        extractedData,
+        nextStep: 'complete' as OnboardingStep,
+        intent,
+        traceId: traceId || undefined,
+        source: 'groq' as const,
+      };
+    },
+    traceOptions
+  );
 }

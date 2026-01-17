@@ -114,6 +114,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
   };
 
   const _totalCurrent = () => items().reduce((sum, i) => sum + i.currentCost, 0);
+  void _totalCurrent; // Suppress unused warning - reserved for comparison display
   const totalOptimized = () =>
     items().reduce(
       (sum, i) => sum + (i.applied ? (i.optimizedCost ?? i.currentCost) : i.currentCost),

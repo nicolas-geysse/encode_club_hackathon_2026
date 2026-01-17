@@ -1,14 +1,15 @@
 /**
  * My Plan Page (plan.tsx)
  *
- * 6 tabs: Setup, Skills, Inventory, Lifestyle, Trade, Swipe
+ * 7 tabs: Profile, Goals, Skills, Inventory, Lifestyle, Trade, Swipe
  * Now uses profileService for DuckDB persistence instead of localStorage.
  */
 
 import { createSignal, Show, createEffect, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { TabNavigation, type TabId } from '~/components/tabs/TabNavigation';
-import { SetupTab } from '~/components/tabs/SetupTab';
+import { ProfileTab } from '~/components/tabs/ProfileTab';
+import { GoalsTab } from '~/components/tabs/GoalsTab';
 import { SkillsTab } from '~/components/tabs/SkillsTab';
 import { InventoryTab } from '~/components/tabs/InventoryTab';
 import { LifestyleTab } from '~/components/tabs/LifestyleTab';
@@ -119,7 +120,7 @@ interface PlanData {
 
 export default function PlanPage() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = createSignal<TabId>('setup');
+  const [activeTab, setActiveTab] = createSignal<TabId>('profile');
   const [isLoading, setIsLoading] = createSignal(true);
   const [hasProfile, setHasProfile] = createSignal(false);
   const [activeProfile, setActiveProfile] = createSignal<FullProfile | null>(null);
@@ -187,18 +188,23 @@ export default function PlanPage() {
 
   const markTabComplete = (tab: TabId) => {
     const current = planData();
-    if (!current.completedTabs.includes(tab)) {
+    const completedTabs = current.completedTabs || [];
+    if (!completedTabs.includes(tab)) {
       setPlanData({
         ...current,
-        completedTabs: [...current.completedTabs, tab],
+        completedTabs: [...completedTabs, tab],
       });
     }
   };
 
   const handleSetupComplete = (data: SetupData) => {
     setPlanData({ ...planData(), setup: data });
-    markTabComplete('setup');
+    markTabComplete('goals');
     setActiveTab('skills');
+  };
+
+  const handleProfileChange = () => {
+    markTabComplete('profile');
   };
 
   const handleSkillsChange = (skills: Skill[]) => {
@@ -267,8 +273,12 @@ export default function PlanPage() {
 
           {/* Tab Content */}
           <div class="flex-1 overflow-y-auto">
-            <Show when={activeTab() === 'setup'}>
-              <SetupTab onComplete={handleSetupComplete} initialData={planData().setup} />
+            <Show when={activeTab() === 'profile'}>
+              <ProfileTab onProfileChange={handleProfileChange} />
+            </Show>
+
+            <Show when={activeTab() === 'goals'}>
+              <GoalsTab onComplete={handleSetupComplete} initialData={planData().setup} />
             </Show>
 
             <Show when={activeTab() === 'skills'}>

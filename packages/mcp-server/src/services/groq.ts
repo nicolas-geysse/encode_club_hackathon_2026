@@ -13,6 +13,27 @@ import { trace } from './opik.js';
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
 
+// Groq pricing per million tokens (USD)
+// Prices as of 2024 - https://groq.com/pricing
+const GROQ_PRICING: Record<string, { input: number; output: number }> = {
+  'llama-3.1-70b-versatile': { input: 0.59, output: 0.79 },
+  'llama-3.1-8b-instant': { input: 0.05, output: 0.08 },
+  'llama-3.2-90b-vision-preview': { input: 0.9, output: 0.9 },
+  'mixtral-8x7b-32768': { input: 0.24, output: 0.24 },
+  'gemma2-9b-it': { input: 0.2, output: 0.2 },
+  default: { input: 0.15, output: 0.6 },
+};
+
+/**
+ * Calculate estimated cost based on token usage
+ */
+function calculateCost(model: string, promptTokens: number, completionTokens: number): number {
+  const pricing = GROQ_PRICING[model] || GROQ_PRICING['default'];
+  const inputCost = (promptTokens / 1_000_000) * pricing.input;
+  const outputCost = (completionTokens / 1_000_000) * pricing.output;
+  return inputCost + outputCost;
+}
+
 // Groq client instance
 let groqClient: Groq | null = null;
 
@@ -70,10 +91,28 @@ export async function chat(
 
     const content = response.choices[0]?.message?.content || '';
 
-    span.setAttributes({
-      tokens_used: response.usage?.total_tokens,
-      completion_tokens: response.usage?.completion_tokens,
-    });
+    // Calculate cost and set token usage at root level for Opik UI display
+    if (response.usage) {
+      const promptTokens = response.usage.prompt_tokens || 0;
+      const completionTokens = response.usage.completion_tokens || 0;
+      const cost = calculateCost(MODEL, promptTokens, completionTokens);
+
+      span.setUsage({
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: response.usage.total_tokens || 0,
+        cost,
+      });
+
+      // Also keep in attributes for metadata
+      span.setAttributes({
+        tokens_used: response.usage.total_tokens,
+        completion_tokens: completionTokens,
+        prompt_tokens: promptTokens,
+        estimated_cost_usd: cost,
+        model: MODEL,
+      });
+    }
 
     return content;
   });
@@ -112,15 +151,33 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
 
     const content = response.choices[0]?.message?.content || '{}';
 
-    span.setAttributes({
-      tokens_used: response.usage?.total_tokens,
-      completion_tokens: response.usage?.completion_tokens,
-      response_length: content.length,
-    });
+    // Calculate cost and set token usage at root level for Opik UI display
+    if (response.usage) {
+      const promptTokens = response.usage.prompt_tokens || 0;
+      const completionTokens = response.usage.completion_tokens || 0;
+      const cost = calculateCost(MODEL, promptTokens, completionTokens);
+
+      span.setUsage({
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: response.usage.total_tokens || 0,
+        cost,
+      });
+
+      // Also keep in attributes for metadata
+      span.setAttributes({
+        tokens_used: response.usage.total_tokens,
+        completion_tokens: completionTokens,
+        prompt_tokens: promptTokens,
+        estimated_cost_usd: cost,
+        model: MODEL,
+        response_length: content.length,
+      });
+    }
 
     try {
       return JSON.parse(content) as T;
-    } catch (error) {
+    } catch {
       span.setAttributes({
         parse_error: true,
         raw_content: content.substring(0, 500),

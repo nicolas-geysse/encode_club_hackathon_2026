@@ -5,7 +5,7 @@
  * Uses Groq Whisper for speech-to-text.
  */
 
-import { createSignal, Show, onCleanup } from 'solid-js';
+import { createSignal, createEffect, Show, onCleanup } from 'solid-js';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -29,13 +29,16 @@ export function ChatInput(props: ChatInputProps) {
   let textareaRef: HTMLTextAreaElement | null = null;
 
   // Expose focus method to parent via ref
-  if (props.ref) {
-    props.ref({
-      focus: () => {
-        textareaRef?.focus();
-      },
-    });
-  }
+  createEffect(() => {
+    const refCallback = props.ref;
+    if (refCallback) {
+      refCallback({
+        focus: () => {
+          textareaRef?.focus();
+        },
+      });
+    }
+  });
 
   // Cleanup on unmount
   onCleanup(() => {

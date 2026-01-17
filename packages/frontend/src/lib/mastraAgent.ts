@@ -12,6 +12,25 @@ import { trace, type TraceOptions } from './opik';
 let groqClient: Groq | null = null;
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
 
+/**
+ * Mapping from onboarding steps to the tabs they populate
+ * This helps with tracing and debugging which tab each step feeds
+ */
+const STEP_TO_TAB: Record<string, string> = {
+  greeting: 'profile',
+  name: 'profile',
+  studies: 'profile',
+  skills: 'skills',
+  location: 'profile',
+  budget: 'profile',
+  work_preferences: 'profile',
+  goal: 'setup',
+  academic_events: 'setup',
+  inventory: 'inventory',
+  lifestyle: 'lifestyle',
+  complete: 'setup',
+};
+
 // Groq pricing per 1M tokens (as of 2026)
 // See: https://console.groq.com/docs/models
 const GROQ_PRICING: Record<string, { input: number; output: number }> = {
@@ -245,6 +264,8 @@ async function extractWithGroq(
  */
 export async function processWithMastraAgent(input: OnboardingInput): Promise<OnboardingOutput> {
   // Build trace options with input for Opik visibility
+  // Include tab tag to show which tab this step feeds
+  const targetTab = STEP_TO_TAB[input.currentStep] || 'unknown';
   const traceOptions: TraceOptions = {
     source: 'groq_json_mode',
     input: {
@@ -252,7 +273,7 @@ export async function processWithMastraAgent(input: OnboardingInput): Promise<On
       currentStep: input.currentStep,
       existingProfile: input.existingProfile,
     },
-    tags: ['onboarding', input.currentStep],
+    tags: ['onboarding', input.currentStep, `tab:${targetTab}`],
   };
 
   return trace(
@@ -280,21 +301,20 @@ export async function processWithMastraAgent(input: OnboardingInput): Promise<On
         tokenUsage = groqResult.usage;
         source = 'groq';
 
-        // Add token usage to span attributes (Opik standard fields)
+        // Set attributes for metadata (non-usage info)
         span.setAttributes({
           'output.method': 'groq_json_mode',
           'output.extracted_fields': Object.keys(extractedData).length,
           'output.extracted_keys': Object.keys(extractedData).join(','),
-          // Token usage - Opik standard naming
-          'usage.prompt_tokens': tokenUsage.promptTokens,
-          'usage.completion_tokens': tokenUsage.completionTokens,
-          'usage.total_tokens': tokenUsage.totalTokens,
-          total_estimated_cost: tokenUsage.estimatedCost,
-          // Alternative naming for compatibility
-          'llm.token_count.prompt': tokenUsage.promptTokens,
-          'llm.token_count.completion': tokenUsage.completionTokens,
-          'llm.token_count.total': tokenUsage.totalTokens,
+          'llm.model': GROQ_MODEL,
           'llm.cost.total': tokenUsage.estimatedCost,
+        });
+
+        // Use setUsage() for token counts - this sets at root level for proper Opik display
+        span.setUsage({
+          prompt_tokens: tokenUsage.promptTokens,
+          completion_tokens: tokenUsage.completionTokens,
+          total_tokens: tokenUsage.totalTokens,
         });
       } else if (groqResult) {
         // Groq returned but no data extracted - still log usage
@@ -305,10 +325,15 @@ export async function processWithMastraAgent(input: OnboardingInput): Promise<On
           'output.method': 'regex_fallback',
           'output.extracted_fields': Object.keys(extractedData).length,
           'output.groq_empty': true,
-          'usage.prompt_tokens': tokenUsage.promptTokens,
-          'usage.completion_tokens': tokenUsage.completionTokens,
-          'usage.total_tokens': tokenUsage.totalTokens,
-          total_estimated_cost: tokenUsage.estimatedCost,
+          'llm.model': GROQ_MODEL,
+          'llm.cost.total': tokenUsage.estimatedCost,
+        });
+
+        // Still set usage even when falling back to regex
+        span.setUsage({
+          prompt_tokens: tokenUsage.promptTokens,
+          completion_tokens: tokenUsage.completionTokens,
+          total_tokens: tokenUsage.totalTokens,
         });
       } else {
         // Groq failed completely
@@ -420,7 +445,7 @@ function getClarificationMessage(step: string): string {
  * - step='studies' → we're collecting SKILLS
  * etc.
  */
-function extractWithRegex(message: string, step: string, existing: ProfileData): ProfileData {
+function extractWithRegex(message: string, step: string, _existing: ProfileData): ProfileData {
   const extracted: ProfileData = {};
   const msg = message.trim();
 

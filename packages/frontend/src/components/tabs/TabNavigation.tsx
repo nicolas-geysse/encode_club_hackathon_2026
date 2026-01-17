@@ -2,12 +2,15 @@
  * Tab Navigation Component
  *
  * Horizontal tab navigation for My Plan page.
- * 6 tabs: Setup, Skills, Inventory, Lifestyle, Trade, Swipe
+ * 7 tabs: Profile, Goals, Skills, Inventory, Lifestyle, Trade, Swipe
  */
 
 import { For } from 'solid-js';
 
-export type TabId = 'setup' | 'skills' | 'inventory' | 'lifestyle' | 'trade' | 'swipe';
+export type TabId = 'profile' | 'goals' | 'skills' | 'inventory' | 'lifestyle' | 'trade' | 'swipe';
+
+// Backward compatibility alias for 'setup' -> 'goals'
+export type LegacyTabId = TabId | 'setup';
 
 interface Tab {
   id: TabId;
@@ -16,7 +19,8 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: 'setup', label: 'Setup', icon: '🎯' },
+  { id: 'profile', label: 'Profile', icon: '👤' },
+  { id: 'goals', label: 'Goals', icon: '🎯' },
   { id: 'skills', label: 'Skills', icon: '💼' },
   { id: 'inventory', label: 'Inventory', icon: '📦' },
   { id: 'lifestyle', label: 'Lifestyle', icon: '🏠' },

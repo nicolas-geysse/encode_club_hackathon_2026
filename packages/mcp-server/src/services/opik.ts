@@ -8,6 +8,8 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let opikClient: any = null;
 let currentTraceId: string | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let currentTraceHandle: any = null;
 let flushFn: (() => Promise<void>) | null = null;
 let initialized = false;
 
@@ -21,11 +23,25 @@ const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
 const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
 
 /**
+ * Token usage information for LLM calls
+ * Cost is in USD (e.g., 0.001 = $0.001)
+ */
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  /** Estimated cost in USD */
+  cost?: number;
+}
+
+/**
  * Span interface for tracing
  */
 export interface Span {
   setAttributes(attrs: Record<string, unknown>): void;
   addEvent(name: string, attrs?: Record<string, unknown>): void;
+  /** Set token usage at root level (not in metadata) for proper Opik display */
+  setUsage(usage: TokenUsage): void;
   end(): void;
 }
 
@@ -94,6 +110,7 @@ export async function trace<T>(
 ): Promise<T> {
   const startTime = new Date();
   const collectedAttrs: Record<string, unknown> = {};
+  let usageData: TokenUsage | null = null;
 
   // Create a mock span if Opik is not available
   const mockSpan: Span = {
@@ -103,11 +120,17 @@ export async function trace<T>(
     addEvent: (eventName, attrs) => {
       Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
     },
+    setUsage: (usage) => {
+      usageData = usage;
+      console.error(`[Trace:${name}] Usage:`, JSON.stringify(usage));
+    },
     end: () => {
       const duration = Date.now() - startTime.getTime();
       console.error(
         `[Trace:${name}] Duration: ${duration}ms, Attrs:`,
-        JSON.stringify(collectedAttrs)
+        JSON.stringify(collectedAttrs),
+        'Usage:',
+        JSON.stringify(usageData)
       );
     },
   };
@@ -126,7 +149,8 @@ export async function trace<T>(
         startTime,
         metadata: {},
       });
-      currentTraceId = traceHandle.data?.id;
+      currentTraceId = traceHandle.data?.id || traceHandle.id;
+      currentTraceHandle = traceHandle;
 
       span = {
         setAttributes: (attrs) => {
@@ -135,9 +159,18 @@ export async function trace<T>(
         addEvent: (eventName, attrs) => {
           Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
         },
+        setUsage: (usage) => {
+          usageData = usage;
+        },
         end: () => {
           if (traceHandle) {
-            traceHandle.update({ metadata: collectedAttrs });
+            // Update with metadata and usage at root level
+            const updateData: Record<string, unknown> = { metadata: collectedAttrs };
+            // IMPORTANT: Set usage at root level, not in metadata, for Opik to display correctly
+            if (usageData) {
+              updateData.usage = usageData;
+            }
+            traceHandle.update(updateData);
             traceHandle.end();
           }
         },
@@ -220,13 +253,140 @@ export function getCurrentTraceId(): string | null {
   return currentTraceId;
 }
 
+/**
+ * Create a child span under the current trace
+ * This creates a nested span hierarchy visible in Opik UI
+ *
+ * @param name - Name of the child span
+ * @param fn - Function to execute within the span
+ * @returns Promise with the function result
+ *
+ * @example
+ * // Creates: parent_trace -> child_span
+ * await trace('parent_trace', async (parentSpan) => {
+ *   await createSpan('child_operation', async (childSpan) => {
+ *     childSpan.setAttributes({ step: 'processing' });
+ *     // do work...
+ *   });
+ * });
+ */
+export async function createSpan<T>(
+  name: string,
+  fn: (span: Span) => Promise<T>,
+  options?: {
+    input?: Record<string, unknown>;
+    tags?: string[];
+  }
+): Promise<T> {
+  const startTime = new Date();
+  const collectedAttrs: Record<string, unknown> = {};
+  let usageData: TokenUsage | null = null;
+
+  // Create a mock span for when no parent trace exists
+  const mockSpan: Span = {
+    setAttributes: (attrs) => {
+      Object.assign(collectedAttrs, attrs);
+    },
+    addEvent: (eventName, attrs) => {
+      Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
+    },
+    setUsage: (usage) => {
+      usageData = usage;
+      console.error(`[Span:${name}] Usage:`, JSON.stringify(usage));
+    },
+    end: () => {
+      const duration = Date.now() - startTime.getTime();
+      console.error(
+        `[Span:${name}] Duration: ${duration}ms, Attrs:`,
+        JSON.stringify(collectedAttrs),
+        'Usage:',
+        JSON.stringify(usageData)
+      );
+    },
+  };
+
+  let span: Span = mockSpan;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let spanHandle: any = null;
+
+  // Only create real span if we have a current trace handle
+  if (currentTraceHandle) {
+    try {
+      // Create child span under current trace
+      const spanConfig: Record<string, unknown> = {
+        name,
+        startTime,
+      };
+
+      if (options?.input) {
+        spanConfig.input = options.input;
+      }
+
+      if (options?.tags && options.tags.length > 0) {
+        spanConfig.tags = options.tags;
+      }
+
+      spanHandle = currentTraceHandle.span(spanConfig);
+
+      span = {
+        setAttributes: (attrs) => {
+          Object.assign(collectedAttrs, attrs);
+        },
+        addEvent: (eventName, attrs) => {
+          Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
+        },
+        setUsage: (usage) => {
+          usageData = usage;
+        },
+        end: () => {
+          if (spanHandle) {
+            const updateData: Record<string, unknown> = { metadata: collectedAttrs };
+            if (usageData) {
+              updateData.usage = usageData;
+            }
+            spanHandle.update(updateData);
+            spanHandle.end();
+          }
+        },
+      };
+    } catch (error) {
+      console.error('[Opik] Error creating span:', error);
+      span = mockSpan;
+    }
+  }
+
+  try {
+    const result = await fn(span);
+    collectedAttrs.duration_ms = Date.now() - startTime.getTime();
+    collectedAttrs.status = 'success';
+    span.end();
+    return result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    collectedAttrs.duration_ms = Date.now() - startTime.getTime();
+    collectedAttrs.status = 'error';
+    collectedAttrs.error_message = errorMessage;
+    span.end();
+    throw error;
+  }
+}
+
+/**
+ * Get the current trace handle for advanced usage
+ */
+export function getCurrentTraceHandle(): unknown {
+  return currentTraceHandle;
+}
+
 // Export service
 export const opik = {
   init: initOpik,
   trace,
+  createSpan,
   logFeedback,
   getTraceUrl,
   getCurrentTraceId,
+  getCurrentTraceHandle,
 };
 
 export default opik;

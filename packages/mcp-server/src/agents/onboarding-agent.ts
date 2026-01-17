@@ -9,7 +9,7 @@
 import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
+import { registerTool, createStrideAgent } from './factory.js';
 import { trace } from '../services/opik.js';
 
 // === Schemas ===

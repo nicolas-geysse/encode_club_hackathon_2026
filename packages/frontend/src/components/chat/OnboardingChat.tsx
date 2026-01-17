@@ -10,6 +10,7 @@ import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { profileService } from '~/lib/profileService';
+import { goalService } from '~/lib/goalService';
 
 interface Message {
   id: string;
@@ -73,12 +74,47 @@ type OnboardingStep =
   | 'lifestyle'
   | 'complete';
 
+/**
+ * Chat modes:
+ * - onboarding: Initial guided flow for new users
+ * - conversation: Free-form chat after onboarding is complete
+ * - profile-edit: User wants to update their profile
+ */
+type ChatMode = 'onboarding' | 'conversation' | 'profile-edit';
+
+/**
+ * Intent detection result from API
+ */
+interface DetectedIntent {
+  mode: ChatMode;
+  action?: string;
+  field?: string;
+}
+
 // Initial greeting message
 const GREETING_MESSAGE = `Hey! I'm **Bruno**, your personal financial coach.
 
 I'll help you navigate student life and reach your goals.
 
 To start, **what's your name?**`;
+
+// Welcome back message for returning users (conversation mode)
+const getWelcomeBackMessage = (name: string) => `Hey **${name}**! What can I help you with?
+
+You can:
+- **Ask about your plan** - "How's my progress?"
+- **Update your profile** - "Change my city to Paris"
+- **Add a new goal** - "I want to save for a new laptop"
+- **Get savings advice** - "How can I save more?"
+- **Start fresh** - "Restart onboarding" or "New profile"`;
+
+// Profile edit mode message
+const PROFILE_EDIT_MESSAGE = `Sure, I can help you update your profile.
+
+What would you like to change?
+- Name, diploma, city, skills
+- Work preferences (hours, hourly rate)
+- Budget (income, expenses)`;
 
 // Generate a unique thread ID for Opik conversation grouping
 function generateThreadId(): string {
@@ -90,6 +126,7 @@ export function OnboardingChat() {
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [step, setStep] = createSignal<OnboardingStep>('greeting');
+  const [chatMode, setChatMode] = createSignal<ChatMode>('onboarding');
   const [profile, setProfile] = createSignal<Partial<ProfileData>>({
     skills: [],
     incomes: [],
@@ -136,8 +173,10 @@ export function OnboardingChat() {
       const apiProfile = await profileService.loadActiveProfile();
 
       if (apiProfile && apiProfile.name) {
-        // Profile exists in DB - show welcome back
+        // Profile exists in DB - switch to conversation mode
         setProfileId(apiProfile.id);
+        setChatMode('conversation');
+        setStep('complete');
         setProfile({
           name: apiProfile.name,
           diploma: apiProfile.diploma,
@@ -150,14 +189,15 @@ export function OnboardingChat() {
           minHourlyRate: apiProfile.minHourlyRate,
           hasLoan: apiProfile.hasLoan,
           loanAmount: apiProfile.loanAmount,
+          goalName: apiProfile.goalName,
+          goalAmount: apiProfile.goalAmount,
+          goalDeadline: apiProfile.goalDeadline,
         });
         setMessages([
           {
             id: 'welcome-back',
             role: 'assistant',
-            content: `Hey **${apiProfile.name}**! Good to see you again.
-
-Want to update your profile or go straight to your plan?`,
+            content: getWelcomeBackMessage(apiProfile.name),
           },
         ]);
         setIsComplete(true);
@@ -173,14 +213,14 @@ Want to update your profile or go straight to your plan?`,
       try {
         const existingProfile = JSON.parse(stored);
         setProfile(existingProfile);
-        // If profile exists, show welcome back message
+        setChatMode('conversation');
+        setStep('complete');
+        // If profile exists, show welcome back message with conversation options
         setMessages([
           {
             id: 'welcome-back',
             role: 'assistant',
-            content: `Hey **${existingProfile.name}**! Good to see you again.
-
-Want to update your profile or go straight to your plan?`,
+            content: getWelcomeBackMessage(existingProfile.name || 'there'),
           },
         ]);
         setIsComplete(true);
@@ -210,11 +250,13 @@ Want to update your profile or go straight to your plan?`,
   const callChatAPI = async (
     message: string,
     currentStep: OnboardingStep,
-    context: Record<string, unknown>
+    context: Record<string, unknown>,
+    mode: ChatMode
   ): Promise<{
     response: string;
     extractedData: Record<string, unknown>;
     nextStep: OnboardingStep;
+    intent?: DetectedIntent;
     traceId?: string;
     source?: 'mastra' | 'groq' | 'fallback';
   }> => {
@@ -225,6 +267,7 @@ Want to update your profile or go straight to your plan?`,
         body: JSON.stringify({
           message,
           step: currentStep,
+          mode, // NEW: Include chat mode for intent detection
           context,
           threadId: threadId(), // For Opik conversation grouping
           profileId: profileId(), // For trace metadata
@@ -239,7 +282,7 @@ Want to update your profile or go straight to your plan?`,
     } catch (error) {
       console.error('Chat API error:', error);
       // Return fallback response
-      return getFallbackResponse(message, currentStep, context);
+      return getFallbackResponse(message, currentStep, context, mode);
     }
   };
 
@@ -247,14 +290,62 @@ Want to update your profile or go straight to your plan?`,
   const getFallbackResponse = (
     message: string,
     currentStep: OnboardingStep,
-    _context: Record<string, unknown>
+    _context: Record<string, unknown>,
+    mode: ChatMode
   ): {
     response: string;
     extractedData: Record<string, unknown>;
     nextStep: OnboardingStep;
+    intent?: DetectedIntent;
     traceId?: string;
     source?: 'mastra' | 'groq' | 'fallback';
   } => {
+    // Handle conversation mode
+    if (mode === 'conversation' || mode === 'profile-edit') {
+      const lowerMessage = message.toLowerCase();
+
+      // Simple intent detection for fallback
+      if (lowerMessage.match(/change|update|edit|modify/)) {
+        return {
+          response: PROFILE_EDIT_MESSAGE,
+          extractedData: {},
+          nextStep: 'complete',
+          intent: { mode: 'profile-edit', action: 'update' },
+          source: 'fallback' as const,
+        };
+      }
+
+      if (lowerMessage.match(/new goal|save for|want to buy|save \$|save €/)) {
+        return {
+          response: `Great! What would you like to save for? Tell me the goal name, target amount, and when you need it by.`,
+          extractedData: {},
+          nextStep: 'complete',
+          intent: { mode: 'conversation', action: 'new_goal' },
+          source: 'fallback' as const,
+        };
+      }
+
+      if (lowerMessage.match(/progress|how.*doing|status/)) {
+        return {
+          response: `You're making good progress! Head to **My Plan** to see your detailed status and timeline.`,
+          extractedData: {},
+          nextStep: 'complete',
+          intent: { mode: 'conversation', action: 'check_progress' },
+          source: 'fallback' as const,
+        };
+      }
+
+      // Default conversation response
+      return {
+        response: `I can help with that! For detailed changes, go to **My Plan** or tell me specifically what you'd like to update.`,
+        extractedData: {},
+        nextStep: 'complete',
+        intent: { mode: 'conversation' },
+        source: 'fallback' as const,
+      };
+    }
+
+    // Onboarding mode flow
     const flow: OnboardingStep[] = [
       'greeting',
       'name',
@@ -301,8 +392,57 @@ Want to update your profile or go straight to your plan?`,
     };
   };
 
+  // Reset state for NEW profile (completely fresh)
+  const resetForNewProfile = () => {
+    // Reset profile to defaults
+    setProfile({
+      skills: [],
+      incomes: [],
+      expenses: [],
+      maxWorkHours: 15,
+      minHourlyRate: 12,
+      hasLoan: false,
+      loanAmount: 0,
+      academicEvents: [],
+      inventoryItems: [],
+      subscriptions: [],
+    });
+    // Clear profile ID - will create NEW profile on completion
+    setProfileId(undefined);
+    // Switch to onboarding mode
+    setChatMode('onboarding');
+    setStep('name');
+    setIsComplete(false);
+    // Generate new thread for Opik
+    setThreadId(generateThreadId());
+  };
+
+  // Reset state for UPDATE profile (keep same profile ID)
+  const resetForUpdateProfile = () => {
+    // Keep current profile data (can be overwritten during re-onboarding)
+    // KEEP profile ID - will UPDATE existing profile on completion
+    // Switch to onboarding mode
+    setChatMode('onboarding');
+    setStep('name');
+    setIsComplete(false);
+    // Generate new thread for Opik (new conversation)
+    setThreadId(generateThreadId());
+  };
+
   // Update profile from extracted data
   const updateProfileFromExtracted = (data: Record<string, unknown>) => {
+    // Handle restart with NEW profile signal
+    if (data._restartNewProfile) {
+      resetForNewProfile();
+      return; // Don't process other fields on restart
+    }
+
+    // Handle restart with UPDATE profile signal
+    if (data._restartUpdateProfile) {
+      resetForUpdateProfile();
+      return; // Don't process other fields on restart
+    }
+
     const currentProfile = profile();
     const updates: Partial<ProfileData> = {};
 
@@ -329,10 +469,48 @@ Want to update your profile or go straight to your plan?`,
       ];
     }
 
-    // NEW: Handle goal data
+    // NEW: Handle goal data (from onboarding)
     if (data.goalName) updates.goalName = String(data.goalName);
     if (data.goalAmount) updates.goalAmount = Number(data.goalAmount);
     if (data.goalDeadline) updates.goalDeadline = String(data.goalDeadline);
+
+    // NEW: Handle newGoal object from conversation mode
+    if (data.newGoal && typeof data.newGoal === 'object') {
+      const newGoal = data.newGoal as {
+        name?: string;
+        amount?: number;
+        deadline?: string;
+        status?: string;
+        priority?: number;
+      };
+      const currentProfileId = profileId();
+
+      // IMPORTANT: Only create goal if we have a valid profile ID
+      // This prevents orphaned goals that aren't linked to any profile
+      if (!currentProfileId) {
+        console.error(
+          '[OnboardingChat] Cannot create goal: No profile ID available. Complete onboarding first.'
+        );
+        return;
+      }
+
+      // Create goal via goalService
+      goalService
+        .createGoal({
+          profileId: currentProfileId,
+          name: newGoal.name || 'New Goal',
+          amount: newGoal.amount || 100,
+          deadline: newGoal.deadline,
+          status: (newGoal.status as 'active' | 'waiting' | 'completed' | 'paused') || 'active',
+          priority: newGoal.priority || 1,
+        })
+        .then((_createdGoal) => {
+          // Goal created successfully
+        })
+        .catch((err) => {
+          console.error('[OnboardingChat] Failed to create goal:', err);
+        });
+    }
 
     // NEW: Handle academic events
     if (data.academicEvents && Array.isArray(data.academicEvents)) {
@@ -405,15 +583,58 @@ Want to update your profile or go straight to your plan?`,
         expenses: currentProfile.expenses?.reduce((sum, e) => sum + e.amount, 0),
         maxWorkHours: currentProfile.maxWorkHours,
         minHourlyRate: currentProfile.minHourlyRate,
+        // Goal data for conversation mode
+        goalName: currentProfile.goalName,
+        goalAmount: currentProfile.goalAmount,
+        goalDeadline: currentProfile.goalDeadline,
       };
 
-      // Call LLM API
+      // Call LLM API with current mode
       const currentStep = step();
-      const result = await callChatAPI(text, currentStep, context);
+      const currentMode = chatMode();
+      const result = await callChatAPI(text, currentStep, context, currentMode);
+
+      // Handle mode changes based on detected intent
+      if (result.intent?.mode && result.intent.mode !== currentMode) {
+        setChatMode(result.intent.mode);
+      }
 
       // Update profile with extracted data
       if (result.extractedData && Object.keys(result.extractedData).length > 0) {
         updateProfileFromExtracted(result.extractedData);
+
+        // In conversation mode, save profile updates immediately to DuckDB
+        if (currentMode === 'conversation' || currentMode === 'profile-edit') {
+          const currentProfileId = profileId();
+          const updatedProfile = profile();
+          if (currentProfileId && updatedProfile.name) {
+            profileService
+              .saveProfile(
+                {
+                  id: currentProfileId,
+                  name: updatedProfile.name,
+                  diploma: updatedProfile.diploma,
+                  field: updatedProfile.field,
+                  city: updatedProfile.city,
+                  citySize: updatedProfile.citySize,
+                  skills: updatedProfile.skills,
+                  incomeSources: updatedProfile.incomes,
+                  expenses: updatedProfile.expenses,
+                  maxWorkHoursWeekly: updatedProfile.maxWorkHours,
+                  minHourlyRate: updatedProfile.minHourlyRate,
+                  hasLoan: updatedProfile.hasLoan,
+                  loanAmount: updatedProfile.loanAmount,
+                  goalName: updatedProfile.goalName,
+                  goalAmount: updatedProfile.goalAmount,
+                  goalDeadline: updatedProfile.goalDeadline,
+                },
+                { immediate: true }
+              )
+              .catch((err) => {
+                console.error('[OnboardingChat] Failed to save profile update:', err);
+              });
+          }
+        }
       }
 
       // Update step
@@ -462,7 +683,10 @@ Want to update your profile or go straight to your plan?`,
         };
 
         // Normalize field names for API
+        // Include existing profile ID to UPDATE instead of creating new
+        const existingProfileId = profileId();
         const normalizedProfile = {
+          ...(existingProfileId && { id: existingProfileId }),
           name: finalProfile.name || 'My Profile',
           diploma: finalProfile.diploma,
           skills: finalProfile.skills,
@@ -478,12 +702,19 @@ Want to update your profile or go straight to your plan?`,
           goalName: finalProfile.goalName,
           goalAmount: finalProfile.goalAmount,
           goalDeadline: finalProfile.goalDeadline,
-          planData, // NEW: Include planData for all tabs
+          planData, // Include planData for all tabs
         };
 
         // Save to API first
         try {
-          await profileService.saveProfile(normalizedProfile, { immediate: true, setActive: true });
+          const result = await profileService.saveProfile(normalizedProfile, {
+            immediate: true,
+            setActive: true,
+          });
+          // Store the profile ID for future updates
+          if (result.profileId && !existingProfileId) {
+            setProfileId(result.profileId);
+          }
         } catch (error) {
           console.error('Failed to save profile to API:', error);
         }
@@ -502,10 +733,7 @@ Want to update your profile or go straight to your plan?`,
       };
       setMessages([...messages(), assistantMsg]);
 
-      // Log source for debugging
-      if (result.source) {
-        console.log(`[Chat] Response source: ${result.source}`);
-      }
+      // Source available on badge in UI (no console logging needed)
     } catch (error) {
       console.error('Chat error:', error);
       // Add error message

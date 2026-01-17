@@ -25,6 +25,7 @@ export interface FullProfile {
   createdAt?: string;
   updatedAt?: string;
   diploma?: string;
+  field?: string;
   skills?: string[];
   city?: string;
   citySize?: string;

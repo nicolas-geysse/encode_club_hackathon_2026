@@ -7,7 +7,6 @@
  */
 
 import { Agent } from '@mastra/core/agent';
-import { createTool } from '@mastra/core/tools';
 
 /**
  * Agent configuration interface

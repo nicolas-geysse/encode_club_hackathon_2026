@@ -24,6 +24,18 @@ let currentThreadId: string | null = null;
 let flushFn: (() => Promise<void>) | null = null;
 
 /**
+ * Token usage information for LLM calls
+ * Cost is in USD (e.g., 0.001 = $0.001)
+ */
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  /** Estimated cost in USD */
+  cost?: number;
+}
+
+/**
  * Span interface for tracing
  */
 export interface Span {
@@ -31,6 +43,8 @@ export interface Span {
   addEvent(name: string, attrs?: Record<string, unknown>): void;
   /** Set output data that will be visible in Opik UI */
   setOutput(output: Record<string, unknown>): void;
+  /** Set token usage at root level (not in metadata) for proper Opik display */
+  setUsage(usage: TokenUsage): void;
   end(): void;
 }
 
@@ -121,6 +135,9 @@ export async function trace<T>(
   const collectedAttrs: Record<string, unknown> = { ...metadata };
   let outputData: Record<string, unknown> | null = null;
 
+  // Track usage data separately from attributes
+  let usageData: TokenUsage | null = null;
+
   // Create a mock span for logging when Opik is not available
   const mockSpan: Span = {
     setAttributes: (attrs) => {
@@ -132,13 +149,19 @@ export async function trace<T>(
     setOutput: (output) => {
       outputData = output;
     },
+    setUsage: (usage) => {
+      usageData = usage;
+      console.error(`[Trace:${name}] Usage:`, JSON.stringify(usage));
+    },
     end: () => {
       const duration = Date.now() - startTime.getTime();
       console.error(
         `[Trace:${name}] Duration: ${duration}ms, Attrs:`,
         JSON.stringify(collectedAttrs),
         'Output:',
-        JSON.stringify(outputData)
+        JSON.stringify(outputData),
+        'Usage:',
+        JSON.stringify(usageData)
       );
     },
   };
@@ -178,6 +201,7 @@ export async function trace<T>(
 
       traceHandle = client.trace(traceConfig);
       currentTraceId = traceHandle.data?.id || traceHandle.id;
+      currentTraceHandle = traceHandle;
 
       span = {
         setAttributes: (attrs) => {
@@ -190,12 +214,19 @@ export async function trace<T>(
         setOutput: (output) => {
           outputData = output;
         },
+        setUsage: (usage) => {
+          usageData = usage;
+        },
         end: () => {
           if (traceHandle) {
-            // Update with metadata and output
+            // Update with metadata, output, and usage at root level
             const updateData: Record<string, unknown> = { metadata: collectedAttrs };
             if (outputData) {
               updateData.output = outputData;
+            }
+            // IMPORTANT: Set usage at root level, not in metadata, for Opik to display correctly
+            if (usageData) {
+              updateData.usage = usageData;
             }
             traceHandle.update(updateData);
             traceHandle.end();
@@ -241,6 +272,134 @@ export async function trace<T>(
  */
 export function getCurrentTraceId(): string | null {
   return currentTraceId;
+}
+
+// Store current trace handle for span creation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let currentTraceHandle: any = null;
+
+/**
+ * Create a child span under the current trace
+ * This creates a nested span hierarchy visible in Opik UI
+ *
+ * @param name - Name of the child span
+ * @param fn - Function to execute within the span
+ * @returns Promise with the function result
+ *
+ * @example
+ * // Creates: parent_trace -> child_span
+ * await trace('parent_trace', async (parentSpan) => {
+ *   await createSpan('child_operation', async (childSpan) => {
+ *     childSpan.setAttributes({ step: 'processing' });
+ *     // do work...
+ *   });
+ * });
+ */
+export async function createSpan<T>(
+  name: string,
+  fn: (span: Span) => Promise<T>,
+  options?: {
+    input?: Record<string, unknown>;
+    tags?: string[];
+  }
+): Promise<T> {
+  const startTime = new Date();
+  const collectedAttrs: Record<string, unknown> = {};
+  let usageData: TokenUsage | null = null;
+  let outputData: Record<string, unknown> | null = null;
+
+  // Create a mock span for when no parent trace exists
+  const mockSpan: Span = {
+    setAttributes: (attrs) => {
+      Object.assign(collectedAttrs, attrs);
+    },
+    addEvent: (eventName, attrs) => {
+      Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
+    },
+    setOutput: (output) => {
+      outputData = output;
+    },
+    setUsage: (usage) => {
+      usageData = usage;
+    },
+    end: () => {
+      const duration = Date.now() - startTime.getTime();
+      console.error(
+        `[Span:${name}] Duration: ${duration}ms, Attrs:`,
+        JSON.stringify(collectedAttrs)
+      );
+    },
+  };
+
+  let span: Span = mockSpan;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let spanHandle: any = null;
+
+  // Only create real span if we have a current trace handle
+  if (currentTraceHandle) {
+    try {
+      const spanConfig: Record<string, unknown> = {
+        name,
+        startTime,
+      };
+
+      if (options?.input) {
+        spanConfig.input = options.input;
+      }
+
+      if (options?.tags && options.tags.length > 0) {
+        spanConfig.tags = options.tags;
+      }
+
+      spanHandle = currentTraceHandle.span(spanConfig);
+
+      span = {
+        setAttributes: (attrs) => {
+          Object.assign(collectedAttrs, attrs);
+        },
+        addEvent: (eventName, attrs) => {
+          Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
+        },
+        setOutput: (output) => {
+          outputData = output;
+        },
+        setUsage: (usage) => {
+          usageData = usage;
+        },
+        end: () => {
+          if (spanHandle) {
+            const updateData: Record<string, unknown> = { metadata: collectedAttrs };
+            if (outputData) {
+              updateData.output = outputData;
+            }
+            if (usageData) {
+              updateData.usage = usageData;
+            }
+            spanHandle.update(updateData);
+            spanHandle.end();
+          }
+        },
+      };
+    } catch (error) {
+      console.error('[Opik Frontend] Error creating span:', error);
+      span = mockSpan;
+    }
+  }
+
+  try {
+    const result = await fn(span);
+    collectedAttrs.duration_ms = Date.now() - startTime.getTime();
+    collectedAttrs.status = 'success';
+    span.end();
+    return result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    collectedAttrs.duration_ms = Date.now() - startTime.getTime();
+    collectedAttrs.status = 'error';
+    collectedAttrs.error_message = errorMessage;
+    span.end();
+    throw error;
+  }
 }
 
 /**
@@ -362,6 +521,9 @@ export {
   // Feedback Definitions
   createFeedbackDefinition,
   listFeedbackDefinitions,
+  // Traces
+  listTraces,
+  aggregateTracesByTags,
   // Metrics
   getProjectStats,
   getMetricDailyData,
@@ -383,6 +545,8 @@ export type {
   FeedbackType,
   CreateFeedbackDefinitionRequest,
   FeedbackDefinition,
+  TraceSummary,
+  TraceListResponse,
   ProjectStats,
   MetricDataPoint,
 } from './opikRest';

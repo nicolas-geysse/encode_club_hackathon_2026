@@ -14,7 +14,8 @@
 const OPIK_API_KEY = process.env.OPIK_API_KEY;
 const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE || 'default';
 const OPIK_BASE_URL = process.env.OPIK_BASE_URL || 'https://www.comet.com/opik/api';
-const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
+// OPIK_PROJECT used in metrics.ts via getProjectStats calls
+export const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
 
 /**
  * Base API client for Opik REST endpoints
@@ -407,6 +408,146 @@ export async function listFeedbackDefinitions(): Promise<FeedbackDefinition[]> {
 }
 
 // ============================================================
+// TRACES (for aggregation)
+// ============================================================
+
+/**
+ * Trace summary from API
+ */
+export interface TraceSummary {
+  id: string;
+  name: string;
+  projectName: string;
+  startTime: string;
+  endTime?: string;
+  duration?: number;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    cost?: number;
+  };
+  feedbackScores?: Array<{ name: string; value: number }>;
+}
+
+/**
+ * Trace list response
+ */
+export interface TraceListResponse {
+  content: TraceSummary[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+/**
+ * List traces with optional filters
+ */
+export async function listTraces(options: {
+  projectName?: string;
+  startDate?: Date;
+  endDate?: Date;
+  tags?: string[];
+  page?: number;
+  size?: number;
+}): Promise<TraceListResponse> {
+  const params = new URLSearchParams();
+
+  if (options.projectName) {
+    params.set('project_name', options.projectName);
+  }
+  if (options.startDate) {
+    params.set('start_time', options.startDate.toISOString());
+  }
+  if (options.endDate) {
+    params.set('end_time', options.endDate.toISOString());
+  }
+  if (options.tags && options.tags.length > 0) {
+    params.set('tags', options.tags.join(','));
+  }
+  params.set('page', String(options.page || 1));
+  params.set('size', String(options.size || 100));
+
+  return opikFetch<TraceListResponse>(`/traces?${params.toString()}`);
+}
+
+/**
+ * Aggregate traces by tags
+ * Extracts tag prefixes (action:, tab:, field:) and counts occurrences
+ */
+export function aggregateTracesByTags(traces: TraceSummary[]): {
+  byAction: Record<string, number>;
+  byTab: Record<string, number>;
+  byField: Record<string, number>;
+  byStatus: Record<string, number>;
+  totalTokens: number;
+  totalCost: number;
+  avgDurationMs: number;
+  errorRate: number;
+} {
+  const byAction: Record<string, number> = {};
+  const byTab: Record<string, number> = {};
+  const byField: Record<string, number> = {};
+  const byStatus: Record<string, number> = { success: 0, error: 0 };
+
+  let totalTokens = 0;
+  let totalCost = 0;
+  let totalDuration = 0;
+  let errorCount = 0;
+
+  for (const trace of traces) {
+    // Aggregate by tags
+    for (const tag of trace.tags || []) {
+      if (tag.startsWith('action:')) {
+        const action = tag.replace('action:', '');
+        byAction[action] = (byAction[action] || 0) + 1;
+      } else if (tag.startsWith('tab:')) {
+        const tab = tag.replace('tab:', '');
+        byTab[tab] = (byTab[tab] || 0) + 1;
+      } else if (tag.startsWith('field:')) {
+        const field = tag.replace('field:', '');
+        byField[field] = (byField[field] || 0) + 1;
+      }
+    }
+
+    // Aggregate usage
+    if (trace.usage) {
+      totalTokens += trace.usage.total_tokens || 0;
+      totalCost += trace.usage.cost || 0;
+    }
+
+    // Aggregate duration
+    if (trace.duration) {
+      totalDuration += trace.duration;
+    }
+
+    // Track errors from metadata
+    const status = trace.metadata?.status as string;
+    if (status === 'error') {
+      errorCount++;
+      byStatus.error++;
+    } else {
+      byStatus.success++;
+    }
+  }
+
+  const traceCount = traces.length;
+
+  return {
+    byAction,
+    byTab,
+    byField,
+    byStatus,
+    totalTokens,
+    totalCost,
+    avgDurationMs: traceCount > 0 ? totalDuration / traceCount : 0,
+    errorRate: traceCount > 0 ? errorCount / traceCount : 0,
+  };
+}
+
+// ============================================================
 // METRICS AND STATISTICS
 // ============================================================
 
@@ -727,6 +868,9 @@ export default {
   // Feedback Definitions
   createFeedbackDefinition,
   listFeedbackDefinitions,
+  // Traces
+  listTraces,
+  aggregateTracesByTags,
   // Metrics
   getProjectStats,
   getMetricDailyData,
