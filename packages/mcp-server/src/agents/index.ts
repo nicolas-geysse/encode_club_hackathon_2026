@@ -74,6 +74,19 @@ export {
   type StrategyComparison,
 } from './strategy-comparator.js';
 
+// Onboarding Agent
+export {
+  extractProfileDataTool,
+  generateOnboardingResponseTool,
+  validateProfileTool,
+  getOnboardingAgent,
+  processOnboardingMessage,
+  ONBOARDING_AGENT_CONFIG,
+  type ProfileData,
+  type OnboardingInput,
+  type OnboardingOutput,
+} from './onboarding-agent.js';
+
 // Initialize all tools (must be called before creating agents)
 import './budget-coach.js';
 import './job-matcher.js';
@@ -81,3 +94,4 @@ import './projection-ml.js';
 import './guardian.js';
 import './money-maker.js';
 import './strategy-comparator.js';
+import './onboarding-agent.js';

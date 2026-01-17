@@ -8,8 +8,8 @@ const __dirname = dirname(__filename);
 export default defineConfig({
   server: {
     preset: "node-server",
-    // Keep native modules external (not bundled by Nitro)
-    externals: ["duckdb"],
+    // Keep native modules and workspace packages external (not bundled by Nitro)
+    externals: ["duckdb", "@stride/mcp-server"],
   },
   vite: {
     server: {
@@ -21,13 +21,27 @@ export default defineConfig({
         "~": resolve(__dirname, "./src"),
       },
     },
-    // SSR config: don't bundle native modules
+    // SSR config: don't bundle native modules and workspace packages
     ssr: {
-      external: ["duckdb"],
+      external: ["duckdb", "@stride/mcp-server", "@mastra/core", "opik"],
       noExternal: [],
     },
     optimizeDeps: {
-      exclude: ["duckdb"],
+      exclude: ["duckdb", "@stride/mcp-server"],
+    },
+    build: {
+      rollupOptions: {
+        external: [
+          "duckdb",
+          "@stride/mcp-server",
+          "@stride/mcp-server/agents",
+          "@stride/mcp-server/services",
+          "@mastra/core",
+          "@mastra/core/agent",
+          "@mastra/core/tools",
+          "opik",
+        ],
+      },
     },
   },
 });

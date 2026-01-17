@@ -2,12 +2,17 @@
  * Chat API Route
  *
  * Handles LLM-powered chat for onboarding and general conversation.
- * Uses Groq for completion and Opik for tracing.
+ * Uses Mastra agent for intelligent extraction (with Groq fallback).
+ * Traces everything to Opik for observability.
  */
 
 import type { APIEvent } from '@solidjs/start/server';
 import Groq from 'groq-sdk';
 import { trace } from '../../lib/opik';
+import { processWithMastraAgent, type ProfileData } from '../../lib/mastraAgent';
+
+// Feature flag for Mastra agent (set to false to use legacy Groq-only approach)
+const USE_MASTRA_AGENT = process.env.USE_MASTRA_AGENT !== 'false';
 
 // Groq configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -162,6 +167,33 @@ export async function POST(event: APIEvent) {
       );
     }
 
+    // Try Mastra agent first (if enabled)
+    if (USE_MASTRA_AGENT) {
+      try {
+        const mastraResult = await processWithMastraAgent({
+          message,
+          currentStep: step,
+          existingProfile: context as ProfileData,
+        });
+
+        // Convert to ChatResponse format
+        const result: ChatResponse = {
+          response: mastraResult.response,
+          extractedData: mastraResult.extractedData,
+          nextStep: mastraResult.nextStep as OnboardingStep,
+        };
+
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (mastraError) {
+        console.error('Mastra agent failed, falling back to Groq:', mastraError);
+        // Fall through to legacy Groq approach
+      }
+    }
+
+    // Legacy Groq-only approach (fallback)
     const client = getGroqClient();
     if (!client) {
       // Fallback: return simple response without LLM
@@ -173,12 +205,13 @@ export async function POST(event: APIEvent) {
 
     // Wrap entire chat flow with trace
     const result = await trace(
-      'chat.onboarding',
+      'chat.onboarding.legacy',
       async (span) => {
         span.setAttributes({
           'chat.step': step,
           'chat.message_length': message.length,
           'chat.context_keys': Object.keys(context).length,
+          'chat.mode': 'legacy_groq',
         });
 
         // Step 1: Extract data from user message

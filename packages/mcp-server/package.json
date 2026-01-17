@@ -4,6 +4,11 @@
   "description": "Stride MCP Server - Navigate student life, one smart step at a time",
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./agents": "./dist/agents/index.js",
+    "./services": "./dist/services/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
