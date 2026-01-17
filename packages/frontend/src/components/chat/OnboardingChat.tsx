@@ -79,6 +79,11 @@ I'll help you navigate student life and reach your goals.
 
 To start, **what's your name?**`;
 
+// Generate a unique thread ID for Opik conversation grouping
+function generateThreadId(): string {
+  return `thread_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export function OnboardingChat() {
   const navigate = useNavigate();
   const [messages, setMessages] = createSignal<Message[]>([]);
@@ -97,6 +102,8 @@ export function OnboardingChat() {
     subscriptions: [],
   });
   const [isComplete, setIsComplete] = createSignal(false);
+  const [threadId, setThreadId] = createSignal<string>(generateThreadId());
+  const [profileId, setProfileId] = createSignal<string | undefined>(undefined);
 
   // Check for existing profile on mount
   // Priority: 1. API (DuckDB), 2. localStorage fallback
@@ -107,6 +114,7 @@ export function OnboardingChat() {
 
       if (apiProfile && apiProfile.name) {
         // Profile exists in DB - show welcome back
+        setProfileId(apiProfile.id);
         setProfile({
           name: apiProfile.name,
           diploma: apiProfile.diploma,
@@ -184,12 +192,19 @@ Want to update your profile or go straight to your plan?`,
     response: string;
     extractedData: Record<string, unknown>;
     nextStep: OnboardingStep;
+    traceId?: string;
   }> => {
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, step: currentStep, context }),
+        body: JSON.stringify({
+          message,
+          step: currentStep,
+          context,
+          threadId: threadId(), // For Opik conversation grouping
+          profileId: profileId(), // For trace metadata
+        }),
       });
 
       if (!response.ok) {
@@ -209,7 +224,12 @@ Want to update your profile or go straight to your plan?`,
     message: string,
     currentStep: OnboardingStep,
     _context: Record<string, unknown>
-  ): { response: string; extractedData: Record<string, unknown>; nextStep: OnboardingStep } => {
+  ): {
+    response: string;
+    extractedData: Record<string, unknown>;
+    nextStep: OnboardingStep;
+    traceId?: string;
+  } => {
     const flow: OnboardingStep[] = [
       'greeting',
       'name',
@@ -536,6 +556,9 @@ Want to update your profile or go straight to your plan?`,
                 });
                 // Clear localStorage
                 localStorage.removeItem('studentProfile');
+                // Generate new threadId for new conversation
+                setThreadId(generateThreadId());
+                setProfileId(undefined);
                 setIsComplete(false);
                 setStep('greeting');
                 setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);

@@ -8,7 +8,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import Groq from 'groq-sdk';
-import { trace } from '../../lib/opik';
+import { trace, logFeedbackScores, getCurrentTraceId, type TraceOptions } from '../../lib/opik';
 import { processWithMastraAgent, type ProfileData } from '../../lib/mastraAgent';
 
 // Feature flag for Mastra agent (set to false to use legacy Groq-only approach)
@@ -146,19 +146,25 @@ interface ChatRequest {
   message: string;
   step: OnboardingStep;
   context?: Record<string, unknown>;
+  /** Thread ID for grouping conversation turns in Opik */
+  threadId?: string;
+  /** Profile ID for user identification */
+  profileId?: string;
 }
 
 interface ChatResponse {
   response: string;
   extractedData: Record<string, unknown>;
   nextStep: OnboardingStep;
+  /** Trace ID for this turn (useful for feedback) */
+  traceId?: string;
 }
 
 // POST: Handle chat message
 export async function POST(event: APIEvent) {
   try {
     const body = (await event.request.json()) as ChatRequest;
-    const { message, step, context = {} } = body;
+    const { message, step, context = {}, threadId, profileId } = body;
 
     if (!message || !step) {
       return new Response(
@@ -166,6 +172,18 @@ export async function POST(event: APIEvent) {
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    // Build trace options with threadId for conversation grouping
+    const traceOptions: TraceOptions = {
+      source: 'frontend_api',
+      threadId: threadId, // Groups all turns of a conversation in Opik UI
+      input: {
+        message: message.substring(0, 500),
+        step,
+        profileId,
+      },
+      tags: ['onboarding', step],
+    };
 
     // Try Mastra agent first (if enabled)
     if (USE_MASTRA_AGENT) {
@@ -176,11 +194,36 @@ export async function POST(event: APIEvent) {
           existingProfile: context as ProfileData,
         });
 
+        // Get trace ID for response
+        const traceId = getCurrentTraceId();
+
+        // Log automatic feedback scores based on extraction quality
+        if (traceId) {
+          const extractedCount = Object.keys(mastraResult.extractedData).length;
+          const didAdvance = mastraResult.nextStep !== step;
+
+          // Non-blocking feedback logging
+          logFeedbackScores(traceId, [
+            {
+              name: 'extraction_success',
+              value: extractedCount > 0 ? 1 : 0,
+              reason:
+                extractedCount > 0 ? `Extracted ${extractedCount} fields` : 'No fields extracted',
+            },
+            {
+              name: 'conversation_progress',
+              value: didAdvance ? 1 : 0.5,
+              reason: didAdvance ? 'Advanced to next step' : 'Stayed on same step',
+            },
+          ]).catch(() => {});
+        }
+
         // Convert to ChatResponse format
         const result: ChatResponse = {
           response: mastraResult.response,
           extractedData: mastraResult.extractedData,
           nextStep: mastraResult.nextStep as OnboardingStep,
+          traceId: traceId || undefined,
         };
 
         return new Response(JSON.stringify(result), {
@@ -212,7 +255,9 @@ export async function POST(event: APIEvent) {
           'chat.message_length': message.length,
           'chat.context_keys': Object.keys(context).length,
           'chat.mode': 'legacy_groq',
+          'chat.profile_id': profileId || 'anonymous',
         });
+        // threadId is handled by trace options
 
         // Step 1: Extract data from user message
         const extractedData = await extractDataFromMessage(client, message, context);
@@ -258,13 +303,35 @@ export async function POST(event: APIEvent) {
           'output.next_step': nextStep,
         });
 
+        // Get trace ID for feedback
+        const currentTraceId = getCurrentTraceId();
+
+        // Log feedback scores for legacy path too
+        if (currentTraceId) {
+          const extractedCount = Object.keys(extractedData).length;
+          logFeedbackScores(currentTraceId, [
+            {
+              name: 'extraction_success',
+              value: extractedCount > 0 ? 1 : 0,
+              reason:
+                extractedCount > 0 ? `Extracted ${extractedCount} fields` : 'No fields extracted',
+            },
+            {
+              name: 'conversation_progress',
+              value: didAdvance ? 1 : 0.5,
+              reason: didAdvance ? 'Advanced to next step' : 'Stayed on same step',
+            },
+          ]).catch(() => {});
+        }
+
         return {
           response,
           extractedData,
           nextStep,
+          traceId: currentTraceId || undefined,
         } as ChatResponse;
       },
-      { source: 'frontend_api' }
+      traceOptions // Use full trace options with threadId
     );
 
     return new Response(JSON.stringify(result), {

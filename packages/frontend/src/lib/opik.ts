@@ -3,6 +3,12 @@
  *
  * Provides observability for API endpoints and LLM interactions.
  * Connects to Opik Cloud or self-hosted instance.
+ *
+ * Features:
+ * - Traces: Individual operations/requests
+ * - Spans: Nested operations within traces
+ * - Threads: Group related traces (e.g., conversations)
+ * - Feedback Scores: Evaluation metrics on traces
  */
 
 // Configuration from environment
@@ -14,6 +20,7 @@ const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let opikClient: any = null;
 let currentTraceId: string | null = null;
+let currentThreadId: string | null = null;
 let flushFn: (() => Promise<void>) | null = null;
 
 /**
@@ -72,14 +79,40 @@ async function getOpikClient() {
 }
 
 /**
+ * Trace options for advanced configuration
+ */
+export interface TraceOptions {
+  /** Custom metadata to attach to the trace */
+  source?: string;
+  /** Thread ID to group related traces (e.g., conversation ID) */
+  threadId?: string;
+  /** Input data for the trace */
+  input?: Record<string, unknown>;
+  /** Tags for filtering in dashboard */
+  tags?: string[];
+}
+
+/**
  * Create a trace wrapper for a function
  * Automatically tracks duration, success/failure, and custom attributes
+ *
+ * @param name - Name of the trace (e.g., 'chat.onboarding')
+ * @param fn - Function to execute within the trace
+ * @param options - Additional trace options (threadId, input, tags)
  */
 export async function trace<T>(
   name: string,
   fn: (span: Span) => Promise<T>,
-  metadata?: Record<string, unknown>
+  options?: TraceOptions | Record<string, unknown>
 ): Promise<T> {
+  // Normalize options (support legacy metadata format)
+  const traceOptions: TraceOptions =
+    options &&
+    ('threadId' in options || 'input' in options || 'tags' in options || 'source' in options)
+      ? (options as TraceOptions)
+      : { source: (options as Record<string, unknown>)?.source as string };
+
+  const metadata = traceOptions.source ? { source: traceOptions.source } : {};
   const startTime = new Date();
   const collectedAttrs: Record<string, unknown> = { ...metadata };
 
@@ -107,15 +140,34 @@ export async function trace<T>(
   const client = await getOpikClient();
   if (client) {
     try {
-      traceHandle = client.trace({
+      // Build trace config with optional threadId for conversation grouping
+      const traceConfig: Record<string, unknown> = {
         name,
         projectName: OPIK_PROJECT,
         startTime,
         metadata: {
           ...metadata,
         },
-      });
-      currentTraceId = traceHandle.data?.id;
+      };
+
+      // Add threadId if provided (groups traces into conversations in Opik UI)
+      if (traceOptions.threadId) {
+        traceConfig.threadId = traceOptions.threadId;
+        currentThreadId = traceOptions.threadId;
+      }
+
+      // Add input if provided (shows in trace details)
+      if (traceOptions.input) {
+        traceConfig.input = traceOptions.input;
+      }
+
+      // Add tags if provided
+      if (traceOptions.tags && traceOptions.tags.length > 0) {
+        traceConfig.tags = traceOptions.tags;
+      }
+
+      traceHandle = client.trace(traceConfig);
+      currentTraceId = traceHandle.data?.id || traceHandle.id;
 
       span = {
         setAttributes: (attrs) => {
@@ -185,4 +237,95 @@ export function getTraceUrl(traceId?: string): string {
     return `${baseUrl}/${workspace}/${OPIK_PROJECT}`;
   }
   return `${baseUrl}/${workspace}/${OPIK_PROJECT}/traces/${id}`;
+}
+
+/**
+ * Get the current thread ID (for conversation grouping)
+ */
+export function getCurrentThreadId(): string | null {
+  return currentThreadId;
+}
+
+/**
+ * Feedback score definition
+ */
+export interface FeedbackScore {
+  /** Name of the metric (e.g., 'relevance', 'accuracy', 'helpfulness') */
+  name: string;
+  /** Score value between 0 and 1 */
+  value: number;
+  /** Optional reason explaining the score */
+  reason?: string;
+}
+
+/**
+ * Log feedback scores to a trace
+ * Used for evaluation and quality monitoring
+ *
+ * @param traceId - The trace ID to attach feedback to (defaults to current trace)
+ * @param scores - Array of feedback scores
+ *
+ * @example
+ * await logFeedbackScores(traceId, [
+ *   { name: 'relevance', value: 0.9, reason: 'Answer was relevant to the question' },
+ *   { name: 'accuracy', value: 0.85 },
+ *   { name: 'helpfulness', value: 0.95 }
+ * ]);
+ */
+export async function logFeedbackScores(
+  traceId: string | null,
+  scores: FeedbackScore[]
+): Promise<boolean> {
+  const id = traceId || currentTraceId;
+  if (!id) {
+    console.error('[Opik Frontend] No trace ID available for feedback scores');
+    return false;
+  }
+
+  const client = await getOpikClient();
+  if (!client) {
+    console.error('[Opik Frontend] Client not available for feedback scores');
+    return false;
+  }
+
+  try {
+    // Format scores for Opik API
+    const formattedScores = scores.map((score) => ({
+      id,
+      name: score.name,
+      value: score.value,
+      reason: score.reason,
+    }));
+
+    await client.logTracesFeedbackScores(formattedScores);
+
+    // Flush to ensure scores are sent
+    if (flushFn) {
+      await flushFn();
+    }
+
+    console.error(`[Opik Frontend] Logged ${scores.length} feedback scores to trace ${id}`);
+    return true;
+  } catch (error) {
+    console.error('[Opik Frontend] Error logging feedback scores:', error);
+    return false;
+  }
+}
+
+/**
+ * Set the current thread ID for grouping subsequent traces
+ * Useful for starting a new conversation
+ */
+export function setThreadId(threadId: string): void {
+  currentThreadId = threadId;
+}
+
+/**
+ * Generate a new unique thread ID
+ * Use this when starting a new conversation
+ */
+export function generateThreadId(): string {
+  const id = `thread_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  currentThreadId = id;
+  return id;
 }
