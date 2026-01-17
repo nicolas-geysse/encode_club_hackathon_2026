@@ -329,3 +329,42 @@ export function generateThreadId(): string {
   currentThreadId = id;
   return id;
 }
+
+// Re-export REST API functions for advanced Opik features
+export {
+  // Evaluators (Online Evaluation Rules)
+  createEvaluator,
+  listEvaluators,
+  deleteEvaluator,
+  updateEvaluator,
+  // Annotation Queues
+  createAnnotationQueue,
+  listAnnotationQueues,
+  addToAnnotationQueue,
+  // Feedback Definitions
+  createFeedbackDefinition,
+  listFeedbackDefinitions,
+  // Metrics
+  getProjectStats,
+  getMetricDailyData,
+  // Stride presets
+  STRIDE_EVALUATORS,
+  STRIDE_FEEDBACK_DEFINITIONS,
+  initializeStrideOpikSetup,
+  isOpikRestAvailable,
+} from './opikRest';
+
+export type {
+  EvaluatorType,
+  LLMAsJudgeConfig,
+  CreateEvaluatorRequest,
+  Evaluator,
+  AnnotationScope,
+  CreateAnnotationQueueRequest,
+  AnnotationQueue,
+  FeedbackType,
+  CreateFeedbackDefinitionRequest,
+  FeedbackDefinition,
+  ProjectStats,
+  MetricDataPoint,
+} from './opikRest';
