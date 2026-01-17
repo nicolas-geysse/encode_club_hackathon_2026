@@ -238,17 +238,17 @@ export const DEMO_PROFILES: DemoProfile[] = [
   {
     id: 'marie-skill-arbitrage',
     name: 'Marie',
-    description: 'Skill Arbitrage - Comparison multi-criteres',
+    description: 'Skill Arbitrage - Multi-criteria comparison',
     killerFeature: '#2',
     studentProfile: {
       name: 'Marie',
       diploma: 'M1',
       field: 'Business',
       yearsRemaining: 2,
-      skills: ['excel', 'anglais', 'social_media', 'comptabilite'],
+      skills: ['excel', 'english', 'social_media', 'accounting'],
       city: 'Paris',
       incomes: [
-        { source: 'apl', amount: 200 },
+        { source: 'housing_aid', amount: 200 },
         { source: 'family', amount: 500 },
         { source: 'job', amount: 300 },
       ],
@@ -365,7 +365,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
       missions: [
         {
           id: 'm1',
-          title: 'Excel Formation',
+          title: 'Excel Training',
           description: 'Excel training for SMBs',
           category: 'tutoring',
           weeklyHours: 4,
@@ -400,9 +400,9 @@ export const DEMO_PROFILES: DemoProfile[] = [
     studentProfile: {
       name: 'Emma',
       diploma: 'L2',
-      field: 'Psychologie',
+      field: 'Psychology',
       yearsRemaining: 4,
-      skills: ['redaction', 'anglais'],
+      skills: ['writing', 'english'],
       city: 'Bordeaux',
       incomes: [
         { source: 'scholarship', amount: 400 },
@@ -429,7 +429,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
       skills: [
         {
           id: 's1',
-          name: 'Redaction Web',
+          name: 'Web Writing',
           level: 'intermediate',
           hourlyRate: 15,
           marketDemand: 3,
@@ -451,7 +451,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
       inventory: [
         {
           id: 'i1',
-          name: 'Manuels psycho',
+          name: 'Psychology Textbooks',
           category: 'books',
           estimatedValue: 80,
           condition: 'good',
@@ -480,7 +480,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
       diploma: 'M2',
       field: 'Law',
       yearsRemaining: 1,
-      skills: ['redaction', 'anglais'],
+      skills: ['writing', 'english'],
       city: 'Toulouse',
       incomes: [
         { source: 'scholarship', amount: 500 },
@@ -498,7 +498,7 @@ export const DEMO_PROFILES: DemoProfile[] = [
     },
     planData: {
       setup: {
-        goalName: 'Fonds urgence',
+        goalName: 'Emergency Fund',
         goalAmount: 1000,
         goalDeadline: weeksFromNow(8),
         academicEvents: [
@@ -510,12 +510,12 @@ export const DEMO_PROFILES: DemoProfile[] = [
             endDate: weekAgo(2).split('T')[0],
           },
         ],
-        commitments: [{ id: 'stage', type: 'other', name: 'Stage tribunal', hoursPerWeek: 20 }],
+        commitments: [{ id: 'stage', type: 'other', name: 'Court Internship', hoursPerWeek: 20 }],
       },
       skills: [
         {
           id: 's1',
-          name: 'Redaction juridique',
+          name: 'Legal Writing',
           level: 'advanced',
           hourlyRate: 25,
           marketDemand: 3,
