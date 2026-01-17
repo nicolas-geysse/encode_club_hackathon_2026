@@ -452,16 +452,48 @@ export async function PUT(event: APIEvent) {
   }
 }
 
-// DELETE: Delete goal
+// DELETE: Delete goal(s) - supports single id or bulk by profileId
 export async function DELETE(event: APIEvent) {
   try {
     await ensureGoalsSchema();
 
     const url = new URL(event.request.url);
     const goalId = url.searchParams.get('id');
+    const profileId = url.searchParams.get('profileId');
 
+    // Bulk delete by profileId (for re-onboarding)
+    if (profileId && !goalId) {
+      const escapedProfileId = escapeSQL(profileId);
+
+      // First get all goal IDs for this profile to delete their components
+      const goalIds = await query<{ id: string }>(
+        `SELECT id FROM goals WHERE profile_id = ${escapedProfileId}`
+      );
+
+      // Delete components for all these goals
+      for (const { id } of goalIds) {
+        await execute(`DELETE FROM goal_components WHERE goal_id = ${escapeSQL(id)}`);
+      }
+
+      // Now delete all goals for this profile
+      const countResult = await query<{ count: bigint }>(
+        `SELECT COUNT(*) as count FROM goals WHERE profile_id = ${escapedProfileId}`
+      );
+      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
+      const count = Number(countResult[0]?.count || 0);
+
+      await execute(`DELETE FROM goals WHERE profile_id = ${escapedProfileId}`);
+
+      console.log(`[Goals] Bulk deleted ${count} goals for profile ${profileId}`);
+      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Single goal delete by id
     if (!goalId) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
+      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });

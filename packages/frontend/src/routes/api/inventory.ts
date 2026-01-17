@@ -163,10 +163,25 @@ export async function POST(event: APIEvent) {
       profileId,
       name,
       category = 'other',
-      estimatedValue = 50,
+      estimatedValue,
       condition = 'good',
       platform,
     } = body;
+
+    // Use provided value or smart default based on category
+    const DEFAULT_VALUES: Record<string, number> = {
+      electronics: 100,
+      books: 25,
+      clothing: 30,
+      furniture: 75,
+      other: 50,
+    };
+    const finalValue = estimatedValue ?? DEFAULT_VALUES[category] ?? 50;
+
+    // Log when using default (helps debug extraction issues)
+    if (estimatedValue === undefined) {
+      console.log(`[Inventory] No value provided for "${name}", using default: $${finalValue}`);
+    }
 
     if (!profileId || !name) {
       return new Response(
@@ -188,7 +203,7 @@ export async function POST(event: APIEvent) {
         ${escapeSQL(profileId)},
         ${escapeSQL(name)},
         ${escapeSQL(category)},
-        ${estimatedValue},
+        ${finalValue},
         ${escapeSQL(condition)},
         ${platform ? escapeSQL(platform) : 'NULL'},
         'available'
@@ -298,16 +313,36 @@ export async function PUT(event: APIEvent) {
   }
 }
 
-// DELETE: Delete inventory item
+// DELETE: Delete inventory item(s) - supports single id or bulk by profileId
 export async function DELETE(event: APIEvent) {
   try {
     await ensureInventorySchema();
 
     const url = new URL(event.request.url);
     const itemId = url.searchParams.get('id');
+    const profileId = url.searchParams.get('profileId');
 
+    // Bulk delete by profileId (for re-onboarding)
+    if (profileId && !itemId) {
+      const escapedProfileId = escapeSQL(profileId);
+      const countResult = await query<{ count: bigint }>(
+        `SELECT COUNT(*) as count FROM inventory_items WHERE profile_id = ${escapedProfileId}`
+      );
+      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
+      const count = Number(countResult[0]?.count || 0);
+
+      await execute(`DELETE FROM inventory_items WHERE profile_id = ${escapedProfileId}`);
+
+      console.log(`[Inventory] Bulk deleted ${count} items for profile ${profileId}`);
+      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Single item delete by id
     if (!itemId) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
+      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });

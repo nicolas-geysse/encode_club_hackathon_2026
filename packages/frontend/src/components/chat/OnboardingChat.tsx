@@ -46,6 +46,7 @@ interface ProfileData {
   diploma: string;
   field: string;
   yearsRemaining: number;
+  currency?: 'USD' | 'EUR' | 'GBP'; // User's preferred currency based on region
   skills: string[];
   certifications?: string[]; // Professional certifications (BAFA, PSC1, TEFL, etc.)
   city: string;
@@ -67,6 +68,7 @@ interface ProfileData {
 
 type OnboardingStep =
   | 'greeting'
+  | 'region' // Currency/region selection
   | 'name'
   | 'studies'
   | 'skills'
@@ -77,6 +79,7 @@ type OnboardingStep =
   | 'goal'
   | 'academic_events'
   | 'inventory'
+  | 'trade' // Trade opportunities
   | 'lifestyle'
   | 'complete';
 
@@ -145,12 +148,12 @@ interface DetectedIntent {
   field?: string;
 }
 
-// Initial greeting message
+// Initial greeting message - now asks for region first for currency selection
 const GREETING_MESSAGE = `Hey! I'm **Bruno**, your personal financial coach.
 
 I'll help you navigate student life and reach your goals.
 
-To start, **what's your name?**`;
+First, **are you in the US, UK, or Europe?** (This helps me show amounts in your currency)`;
 
 // Welcome back message for returning users (conversation mode)
 const getWelcomeBackMessage = (name: string) => `Hey **${name}**! What can I help you with?
@@ -540,6 +543,7 @@ export function OnboardingChat() {
     // Onboarding mode flow
     const flow: OnboardingStep[] = [
       'greeting',
+      'region', // Currency/region selection
       'name',
       'studies',
       'skills',
@@ -550,6 +554,7 @@ export function OnboardingChat() {
       'goal',
       'academic_events',
       'inventory',
+      'trade', // Trade opportunities
       'lifestyle',
       'complete',
     ];
@@ -564,6 +569,7 @@ export function OnboardingChat() {
 
     const fallbackResponses: Record<OnboardingStep, string> = {
       greeting: GREETING_MESSAGE,
+      region: `Got it! What's your name?`,
       name: `Great ${extractedData.name || message.trim()}! Nice to meet you.\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`,
       studies: `Cool!\n\nWhat are your skills? (coding, languages, design, sports...)`,
       skills: `Nice skills!\n\nDo you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
@@ -573,7 +579,8 @@ export function OnboardingChat() {
       work_preferences: `Great work preferences!\n\nNow, what's your savings goal? What do you want to save for, how much, and by when?`,
       goal: `Great goal!\n\nAny important academic events coming up? (exams, vacations, busy periods)`,
       academic_events: `Thanks for sharing!\n\nDo you have any items you could sell? (textbooks, electronics, etc.)`,
-      inventory: `Good to know!\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
+      inventory: `Good to know!\n\nAre there things you could borrow instead of buying, or skills you could trade with friends? (or say 'none')`,
+      trade: `Thanks!\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
       lifestyle: `Perfect! I have everything I need.\n\nClick on "My Plan" to get started!`,
       complete: '',
     };
@@ -977,6 +984,7 @@ export function OnboardingChat() {
           name: finalProfile.name || 'My Profile',
           diploma: finalProfile.diploma,
           field: finalProfile.field, // Bug fix: field of study was missing
+          currency: finalProfile.currency || 'USD', // User's currency preference
           skills: finalProfile.skills,
           certifications: finalProfile.certifications, // Bug fix: certifications were missing
           city: finalProfile.city,
@@ -1077,7 +1085,7 @@ export function OnboardingChat() {
                   finalProfile.subscriptions.map((sub) => ({
                     name: sub.name,
                     category: 'subscriptions' as const,
-                    currentCost: sub.currentCost,
+                    currentCost: sub.currentCost ?? 10, // Default $10/month for subscriptions
                   }))
                 );
               } catch (lifestyleError) {
@@ -1179,7 +1187,7 @@ export function OnboardingChat() {
             </button>
             <button
               class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              onClick={() => {
+              onClick={async () => {
                 // Clear profile completely for fresh start
                 setProfile({
                   skills: [],
@@ -1196,10 +1204,49 @@ export function OnboardingChat() {
                 });
                 // Clear localStorage
                 localStorage.removeItem('studentProfile');
+
+                // Clear old data from DB if we have a profileId (prevents duplicate data after re-onboarding)
+                // IMPORTANT: Get profileId BEFORE clearing anything
+                const oldProfileId = profileId();
+                console.log('[OnboardingChat] Restart clicked, profileId:', oldProfileId);
+
+                if (oldProfileId) {
+                  try {
+                    // Delete old goals, skills, inventory, lifestyle for this profile
+                    // Check each response for success
+                    const deleteResults = await Promise.all([
+                      fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                    ]);
+
+                    // Log results for debugging
+                    const names = ['goals', 'skills', 'inventory', 'lifestyle'];
+                    for (let i = 0; i < deleteResults.length; i++) {
+                      const res = deleteResults[i];
+                      if (!res.ok) {
+                        console.error(
+                          `[OnboardingChat] Failed to delete ${names[i]}: ${res.status} ${res.statusText}`
+                        );
+                      } else {
+                        const data = await res.json();
+                        console.log(`[OnboardingChat] Deleted ${names[i]}:`, data);
+                      }
+                    }
+                    console.log('[OnboardingChat] Cleared old data for profile:', oldProfileId);
+                  } catch (e) {
+                    console.warn('[OnboardingChat] Failed to clear old data:', e);
+                  }
+                } else {
+                  console.log('[OnboardingChat] No profileId to clear, starting fresh');
+                }
+
                 // Generate new threadId for new conversation
                 setThreadId(generateThreadId());
-                setProfileId(undefined);
+                setProfileId(undefined); // Force new profile
                 setIsComplete(false);
+                setChatMode('onboarding');
                 setStep('greeting');
                 setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
               }}

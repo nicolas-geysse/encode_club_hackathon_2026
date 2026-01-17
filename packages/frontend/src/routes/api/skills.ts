@@ -212,6 +212,22 @@ export async function POST(event: APIEvent) {
       );
     }
 
+    // Check for existing skill with same name (case-insensitive) to prevent duplicates
+    const escapedProfileId = escapeSQL(profileId);
+    const escapedName = escapeSQL(name.toLowerCase());
+    const existing = await query<SkillRow>(
+      `SELECT * FROM skills WHERE profile_id = ${escapedProfileId} AND LOWER(name) = ${escapedName}`
+    );
+
+    if (existing.length > 0) {
+      // Skill already exists - return it instead of creating duplicate
+      console.log(`[Skills] Skill "${name}" already exists for profile, skipping duplicate`);
+      return new Response(JSON.stringify(rowToSkill(existing[0])), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const skillId = uuidv4();
 
     // Calculate score
@@ -347,16 +363,36 @@ export async function PUT(event: APIEvent) {
   }
 }
 
-// DELETE: Delete skill
+// DELETE: Delete skill(s) - supports single id or bulk by profileId
 export async function DELETE(event: APIEvent) {
   try {
     await ensureSkillsSchema();
 
     const url = new URL(event.request.url);
     const skillId = url.searchParams.get('id');
+    const profileId = url.searchParams.get('profileId');
 
+    // Bulk delete by profileId (for re-onboarding)
+    if (profileId && !skillId) {
+      const escapedProfileId = escapeSQL(profileId);
+      const countResult = await query<{ count: bigint }>(
+        `SELECT COUNT(*) as count FROM skills WHERE profile_id = ${escapedProfileId}`
+      );
+      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
+      const count = Number(countResult[0]?.count || 0);
+
+      await execute(`DELETE FROM skills WHERE profile_id = ${escapedProfileId}`);
+
+      console.log(`[Skills] Bulk deleted ${count} skills for profile ${profileId}`);
+      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Single skill delete by id
     if (!skillId) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
+      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });

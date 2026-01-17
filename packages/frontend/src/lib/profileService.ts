@@ -26,6 +26,7 @@ export interface FullProfile {
   updatedAt?: string;
   diploma?: string;
   field?: string;
+  currency?: 'USD' | 'EUR' | 'GBP'; // User's preferred currency based on region
   skills?: string[];
   city?: string;
   citySize?: string;

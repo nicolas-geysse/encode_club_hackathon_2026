@@ -37,6 +37,7 @@ interface SetupData {
 interface GoalsTabProps {
   onComplete: (data: SetupData) => void;
   initialData?: Partial<SetupData>;
+  currencySymbol?: string;
 }
 
 // Component form item
@@ -50,6 +51,9 @@ interface ComponentFormItem {
 }
 
 export function GoalsTab(props: GoalsTabProps) {
+  // Currency symbol from props, defaults to $
+  const currencySymbol = () => props.currencySymbol || '$';
+
   const [loading, setLoading] = createSignal(true);
   const [goals, setGoals] = createSignal<Goal[]>([]);
   const [profileId, setProfileId] = createSignal<string | null>(null);
@@ -626,14 +630,9 @@ export function GoalsTab(props: GoalsTabProps) {
         <div class="space-y-6">
           {/* Form Header */}
           <Show when={showNewGoalForm() && goals().length > 0}>
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {editingGoalId() ? 'Edit Goal' : 'New Goal'}
-              </h3>
-              <button type="button" class="text-slate-500 hover:text-slate-700" onClick={resetForm}>
-                Cancel
-              </button>
-            </div>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {editingGoalId() ? 'Edit Goal' : 'New Goal'}
+            </h3>
           </Show>
 
           {/* Goal Presets */}
@@ -761,7 +760,10 @@ export function GoalsTab(props: GoalsTabProps) {
                                 <span>{comp.estimatedHours}h</span>
                               </Show>
                               <Show when={comp.estimatedCost > 0}>
-                                <span>${comp.estimatedCost}</span>
+                                <span>
+                                  {currencySymbol()}
+                                  {comp.estimatedCost}
+                                </span>
                               </Show>
                               <Show when={comp.dependsOn.length > 0}>
                                 <span class="text-amber-600">
@@ -842,7 +844,9 @@ export function GoalsTab(props: GoalsTabProps) {
                       })
                     }
                   />
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
+                    {currencySymbol()}
+                  </span>
                 </div>
               </div>
 
@@ -1126,8 +1130,13 @@ export function GoalsTab(props: GoalsTabProps) {
             </button>
           </div>
 
-          {/* Save Button */}
-          <div class="flex justify-center">
+          {/* Action Buttons */}
+          <div class="flex justify-center gap-3">
+            <Show when={showNewGoalForm() && goals().length > 0}>
+              <button type="button" class="btn-secondary text-lg px-8 py-3" onClick={resetForm}>
+                Cancel
+              </button>
+            </Show>
             <button
               type="button"
               class="btn-primary text-lg px-8 py-3"

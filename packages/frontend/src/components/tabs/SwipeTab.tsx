@@ -34,6 +34,7 @@ interface SwipeTabProps {
   items?: { name: string; estimatedValue: number }[];
   lifestyle?: { name: string; optimizedCost?: number; currentCost: number }[];
   trades?: { name: string; value: number }[];
+  currencySymbol?: string;
   onPreferencesChange?: (prefs: UserPreferences) => void;
   onScenariosSelected?: (scenarios: Scenario[]) => void;
 }
@@ -172,6 +173,9 @@ function generateScenarios(
 }
 
 export function SwipeTab(props: SwipeTabProps) {
+  // Currency symbol from props, defaults to $
+  const currencySymbol = () => props.currencySymbol || '$';
+
   const [phase, setPhase] = createSignal<'idle' | 'rolling' | 'swiping' | 'complete'>('idle');
   const [scenarios, setScenarios] = createSignal<Scenario[]>([]);
   const [selectedScenarios, setSelectedScenarios] = createSignal<Scenario[]>([]);
@@ -260,48 +264,48 @@ export function SwipeTab(props: SwipeTabProps) {
         <div class="space-y-6">
           <div class="text-center">
             <div class="text-4xl mb-4">📋</div>
-            <h2 class="text-2xl font-bold text-slate-900">Review Your Plan</h2>
-            <p class="text-slate-500 mt-2">
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Review Your Plan</h2>
+            <p class="text-slate-500 dark:text-slate-400 mt-2">
               I've learned your preferences. Review your selections before validating.
             </p>
           </div>
 
           {/* Preference Summary */}
-          <div class="card bg-gradient-to-br from-primary-50 to-primary-100">
-            <h3 class="font-medium text-primary-900 mb-3">Your profile</h3>
+          <div class="card bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30">
+            <h3 class="font-medium text-primary-900 dark:text-primary-100 mb-3">Your profile</h3>
             <div class="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span class="text-primary-600">Effort tolerance:</span>
-                <div class="mt-1 h-2 bg-primary-200 rounded-full">
+                <span class="text-primary-600 dark:text-primary-400">💪 Effort tolerance:</span>
+                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
                   <div
-                    class="h-full bg-primary-600 rounded-full"
+                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
                     style={{ width: `${(1 - preferences().effortSensitivity) * 100}%` }}
                   />
                 </div>
               </div>
               <div>
-                <span class="text-primary-600">Pay priority:</span>
-                <div class="mt-1 h-2 bg-primary-200 rounded-full">
+                <span class="text-primary-600 dark:text-primary-400">💰 Pay priority:</span>
+                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
                   <div
-                    class="h-full bg-primary-600 rounded-full"
+                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
                     style={{ width: `${preferences().hourlyRatePriority * 100}%` }}
                   />
                 </div>
               </div>
               <div>
-                <span class="text-primary-600">Schedule flexibility:</span>
-                <div class="mt-1 h-2 bg-primary-200 rounded-full">
+                <span class="text-primary-600 dark:text-primary-400">📅 Schedule flexibility:</span>
+                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
                   <div
-                    class="h-full bg-primary-600 rounded-full"
+                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
                     style={{ width: `${preferences().timeFlexibility * 100}%` }}
                   />
                 </div>
               </div>
               <div>
-                <span class="text-primary-600">Income stability:</span>
-                <div class="mt-1 h-2 bg-primary-200 rounded-full">
+                <span class="text-primary-600 dark:text-primary-400">🛡️ Income stability:</span>
+                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
                   <div
-                    class="h-full bg-primary-600 rounded-full"
+                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
                     style={{ width: `${preferences().incomeStability * 100}%` }}
                   />
                 </div>
@@ -310,31 +314,33 @@ export function SwipeTab(props: SwipeTabProps) {
           </div>
 
           {/* Selected Scenarios */}
-          <div class="card">
-            <h3 class="font-medium text-slate-900 mb-3">
+          <div class="card bg-white dark:bg-slate-800">
+            <h3 class="font-medium text-slate-900 dark:text-slate-100 mb-3">
               Selected scenarios ({selectedScenarios().length})
             </h3>
             <div class="space-y-2">
               <For each={selectedScenarios()}>
                 {(scenario) => (
-                  <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <div>
-                      <p class="font-medium text-green-900">{scenario.title}</p>
-                      <p class="text-sm text-green-600">
-                        {scenario.weeklyHours}h/wk • ${scenario.weeklyEarnings}/wk
+                      <p class="font-medium text-green-900 dark:text-green-100">{scenario.title}</p>
+                      <p class="text-sm text-green-600 dark:text-green-400">
+                        {scenario.weeklyHours}h/wk • {currencySymbol()}
+                        {scenario.weeklyEarnings}/wk
                       </p>
                     </div>
-                    <span class="text-green-500 text-xl">✓</span>
+                    <span class="text-green-500 dark:text-green-400 text-xl">✓</span>
                   </div>
                 )}
               </For>
             </div>
 
-            <div class="mt-4 pt-4 border-t border-slate-200">
-              <div class="flex justify-between text-lg font-bold">
+            <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <div class="flex justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
                 <span>Total potential:</span>
-                <span class="text-green-600">
-                  ${selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0)}/wk
+                <span class="text-green-600 dark:text-green-400">
+                  {currencySymbol()}
+                  {selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0)}/wk
                 </span>
               </div>
             </div>

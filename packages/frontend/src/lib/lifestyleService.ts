@@ -220,9 +220,11 @@ export async function bulkCreateItems(
   const created: LifestyleItem[] = [];
 
   for (const itemInput of items) {
+    // Ensure currentCost has a value (defense in depth)
     const item = await createItem({
       profileId,
       ...itemInput,
+      currentCost: itemInput.currentCost ?? 10, // Default $10/month
     });
     if (item) {
       created.push(item);

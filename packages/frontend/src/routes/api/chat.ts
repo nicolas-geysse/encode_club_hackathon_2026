@@ -15,10 +15,10 @@ import {
   type TraceOptions,
   type TraceContext,
 } from '../../lib/opik';
-import { processWithMastraAgent, type ProfileData } from '../../lib/onboardingExtractor';
+import { processWithGroqExtractor, type ProfileData } from '../../lib/onboardingExtractor';
 
-// Feature flag for Mastra agent (set to false to use legacy Groq-only approach)
-const USE_MASTRA_AGENT = process.env.USE_MASTRA_AGENT !== 'false';
+// Feature flag for Groq extractor (set to false to use legacy Groq-only approach without JSON mode)
+const USE_GROQ_EXTRACTOR = process.env.USE_GROQ_EXTRACTOR !== 'false';
 
 // Groq configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -299,10 +299,10 @@ export async function POST(event: APIEvent) {
       tags: ['onboarding', step],
     };
 
-    // Try Mastra agent first (if enabled)
-    if (USE_MASTRA_AGENT) {
+    // Try Groq extractor with JSON mode first (if enabled)
+    if (USE_GROQ_EXTRACTOR) {
       try {
-        const mastraResult = await processWithMastraAgent({
+        const groqResult = await processWithGroqExtractor({
           message,
           currentStep: step,
           existingProfile: context as ProfileData,
@@ -315,8 +315,8 @@ export async function POST(event: APIEvent) {
 
         // Log automatic feedback scores based on extraction quality
         if (traceId) {
-          const extractedCount = Object.keys(mastraResult.extractedData).length;
-          const didAdvance = mastraResult.nextStep !== step;
+          const extractedCount = Object.keys(groqResult.extractedData).length;
+          const didAdvance = groqResult.nextStep !== step;
 
           // Non-blocking feedback logging
           logFeedbackScores(traceId, [
@@ -336,20 +336,20 @@ export async function POST(event: APIEvent) {
 
         // Convert to ChatResponse format - use actual source from result
         const result: ChatResponse = {
-          response: mastraResult.response,
-          extractedData: mastraResult.extractedData as Record<string, unknown>,
-          nextStep: mastraResult.nextStep as OnboardingStep,
+          response: groqResult.response,
+          extractedData: groqResult.extractedData as Record<string, unknown>,
+          nextStep: groqResult.nextStep as OnboardingStep,
           traceId: traceId || undefined,
-          source: mastraResult.source === 'groq' ? 'groq' : 'fallback',
+          source: groqResult.source === 'groq' ? 'groq' : 'fallback',
         };
 
-        console.error(`[Chat] Response source: ${mastraResult.source}`);
+        console.error(`[Chat] Response source: ${groqResult.source}`);
         return new Response(JSON.stringify(result), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
-      } catch (mastraError) {
-        console.error('[Chat] Mastra agent failed, falling back to Groq:', mastraError);
+      } catch (groqError) {
+        console.error('[Chat] Groq extractor failed, falling back to legacy:', groqError);
         // Fall through to legacy Groq approach
       }
     }

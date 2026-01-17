@@ -119,6 +119,21 @@ interface PlanData {
   completedTabs: TabId[];
 }
 
+// Currency type
+type Currency = 'USD' | 'EUR' | 'GBP';
+
+// Helper to get currency symbol
+function getCurrencySymbol(currency?: Currency): string {
+  switch (currency) {
+    case 'EUR':
+      return '\u20AC'; // €
+    case 'GBP':
+      return '\u00A3'; // £
+    default:
+      return '$';
+  }
+}
+
 export default function PlanPage() {
   const navigate = useNavigate();
   // Get inventory and lifestyle from profile context (DB-backed data)
@@ -281,17 +296,26 @@ export default function PlanPage() {
             </Show>
 
             <Show when={activeTab() === 'goals'}>
-              <GoalsTab onComplete={handleSetupComplete} initialData={planData().setup} />
+              <GoalsTab
+                onComplete={handleSetupComplete}
+                initialData={planData().setup}
+                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+              />
             </Show>
 
             <Show when={activeTab() === 'skills'}>
-              <SkillsTab initialSkills={planData().skills} onSkillsChange={handleSkillsChange} />
+              <SkillsTab
+                initialSkills={planData().skills}
+                onSkillsChange={handleSkillsChange}
+                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+              />
             </Show>
 
             <Show when={activeTab() === 'inventory'}>
               <InventoryTab
                 initialItems={planData().inventory}
                 onItemsChange={handleInventoryChange}
+                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
               />
             </Show>
 
@@ -299,6 +323,7 @@ export default function PlanPage() {
               <LifestyleTab
                 initialItems={planData().lifestyle}
                 onItemsChange={handleLifestyleChange}
+                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
               />
             </Show>
 
@@ -308,6 +333,7 @@ export default function PlanPage() {
                 onTradesChange={handleTradesChange}
                 goalName={planData().setup?.goalName}
                 goalAmount={planData().setup?.goalAmount}
+                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
                 inventoryItems={contextInventory()
                   .filter((i) => i.status === 'available')
                   .map((i) => ({
@@ -346,6 +372,7 @@ export default function PlanPage() {
                   name: t.name,
                   value: t.value,
                 }))}
+                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
                 onPreferencesChange={handleSwipePreferencesChange}
                 onScenariosSelected={handleScenariosSelected}
               />

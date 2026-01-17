@@ -103,6 +103,7 @@ async function ensureProfilesSchema(): Promise<void> {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         diploma VARCHAR,
         field VARCHAR,
+        currency VARCHAR DEFAULT 'USD',
         skills VARCHAR[],
         city VARCHAR,
         city_size VARCHAR,
@@ -134,6 +135,13 @@ async function ensureProfilesSchema(): Promise<void> {
       // Column might already exist or syntax not supported, ignore
     }
 
+    // Migration: Add currency column if missing (for existing databases)
+    try {
+      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS currency VARCHAR DEFAULT 'USD'`);
+    } catch {
+      // Column might already exist or syntax not supported, ignore
+    }
+
     schemaInitialized = true;
     console.log('[Profiles] Schema initialized');
 
@@ -158,6 +166,7 @@ interface ProfileRow {
   updated_at: string;
   diploma: string | null;
   field: string | null;
+  currency: string | null;
   skills: string[] | null;
   city: string | null;
   city_size: string | null;
@@ -189,6 +198,7 @@ function rowToProfile(row: ProfileRow) {
     updatedAt: row.updated_at,
     diploma: row.diploma || undefined,
     field: row.field || undefined,
+    currency: (row.currency as 'USD' | 'EUR' | 'GBP') || 'USD',
     skills: row.skills || undefined,
     city: row.city || undefined,
     citySize: row.city_size || undefined,
@@ -337,6 +347,7 @@ export async function POST(event: APIEvent) {
           updated_at = CURRENT_TIMESTAMP,
           diploma = ${escapeSQL(body.diploma)},
           field = ${escapeSQL(body.field)},
+          currency = ${escapeSQL(body.currency || 'USD')},
           skills = ${skillsSQL},
           city = ${escapeSQL(body.city)},
           city_size = ${escapeSQL(body.citySize)},
@@ -364,7 +375,7 @@ export async function POST(event: APIEvent) {
       // Insert new
       await execute(`
         INSERT INTO profiles (
-          id, name, diploma, field, skills, city, city_size, income_sources, expenses,
+          id, name, diploma, field, currency, skills, city, city_size, income_sources, expenses,
           max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
           monthly_income, monthly_expenses, monthly_margin,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
@@ -374,6 +385,7 @@ export async function POST(event: APIEvent) {
           ${escapeSQL(body.name)},
           ${escapeSQL(body.diploma)},
           ${escapeSQL(body.field)},
+          ${escapeSQL(body.currency || 'USD')},
           ${skillsSQL},
           ${escapeSQL(body.city)},
           ${escapeSQL(body.citySize)},

@@ -27,6 +27,7 @@ interface LegacyLifestyleItem {
 interface LifestyleTabProps {
   initialItems?: LegacyLifestyleItem[];
   onItemsChange?: (items: LegacyLifestyleItem[]) => void;
+  currencySymbol?: string;
 }
 
 const CATEGORIES = [
@@ -105,11 +106,15 @@ function itemToLegacy(item: LifestyleItem): LegacyLifestyleItem {
 }
 
 export function LifestyleTab(props: LifestyleTabProps) {
+  // Currency symbol from props, defaults to $
+  const currencySymbol = () => props.currencySymbol || '$';
+
   const { profile, lifestyle: contextLifestyle, refreshLifestyle } = useProfile();
   const [localItems, setLocalItems] = createSignal<LifestyleItem[]>([]);
   const [activeCategory, setActiveCategory] = createSignal<string>('subscriptions');
   const [showAddForm, setShowAddForm] = createSignal(false);
   const [isLoading, setIsLoading] = createSignal(false);
+  const [editingItemId, setEditingItemId] = createSignal<string | null>(null);
   const [newItem, setNewItem] = createSignal<Partial<CreateLifestyleItemInput>>({
     name: '',
     category: 'subscriptions',
@@ -246,6 +251,70 @@ export function LifestyleTab(props: LifestyleTabProps) {
 
   const resetNewItem = () => {
     setNewItem({ name: '', category: 'subscriptions', currentCost: 0 });
+    setEditingItemId(null);
+  };
+
+  const handleEdit = (item: LifestyleItem) => {
+    setEditingItemId(item.id);
+    setNewItem({
+      name: item.name,
+      category: item.category,
+      currentCost: item.currentCost,
+      optimizedCost: item.optimizedCost,
+      suggestion: item.suggestion,
+    });
+    setShowAddForm(true);
+  };
+
+  const updateItem = async () => {
+    const itemId = editingItemId();
+    if (!itemId) return;
+
+    const currentProfile = profile();
+    const data = newItem();
+
+    if (!currentProfile?.id) {
+      // Local-only mode - update in local array
+      const updated = items().map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              name: data.name || item.name,
+              category: data.category || item.category,
+              currentCost: data.currentCost ?? item.currentCost,
+              optimizedCost: data.optimizedCost,
+              suggestion: data.suggestion,
+            }
+          : item
+      );
+      setLocalItems(updated);
+      props.onItemsChange?.(updated.map(itemToLegacy));
+      setShowAddForm(false);
+      resetNewItem();
+      return;
+    }
+
+    // Use service to update item in DB
+    setIsLoading(true);
+    try {
+      const updated = await lifestyleService.updateItem({
+        id: itemId,
+        name: data.name,
+        category: data.category,
+        currentCost: data.currentCost,
+        optimizedCost: data.optimizedCost,
+        suggestion: data.suggestion,
+      });
+
+      if (updated) {
+        await refreshLifestyle();
+        props.onItemsChange?.(contextLifestyle().map(itemToLegacy));
+      }
+    } finally {
+      setIsLoading(false);
+      setShowAddForm(false);
+      resetNewItem();
+    }
   };
 
   const totalOptimized = () =>
@@ -267,14 +336,16 @@ export function LifestyleTab(props: LifestyleTabProps) {
         <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
           <div class="text-sm text-green-600 dark:text-green-400">Optimized</div>
           <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
-            ${totalOptimized()}
+            {currencySymbol()}
+            {totalOptimized()}
           </div>
           <div class="text-xs text-green-500 dark:text-green-400">/month</div>
         </div>
         <div class="card bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30">
           <div class="text-sm text-amber-600 dark:text-amber-400">Potential savings</div>
           <div class="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">
-            +${potentialSavings()}
+            +{currencySymbol()}
+            {potentialSavings()}
           </div>
           <div class="text-xs text-amber-500 dark:text-amber-400">/month</div>
         </div>
@@ -367,14 +438,19 @@ export function LifestyleTab(props: LifestyleTabProps) {
               <div class="flex items-center gap-4">
                 <div class="text-right">
                   <Show when={item.optimizedCost !== undefined && !item.applied}>
-                    <div class="text-sm text-slate-400 line-through">${item.currentCost}</div>
+                    <div class="text-sm text-slate-400 line-through">
+                      {currencySymbol()}
+                      {item.currentCost}
+                    </div>
                     <div class="font-bold text-green-600 dark:text-green-400">
-                      ${item.optimizedCost}
+                      {currencySymbol()}
+                      {item.optimizedCost}
                     </div>
                   </Show>
                   <Show when={item.applied}>
                     <div class="font-bold text-green-600 dark:text-green-400">
-                      ${item.optimizedCost}
+                      {currencySymbol()}
+                      {item.optimizedCost}
                     </div>
                   </Show>
                   <Show
@@ -386,7 +462,8 @@ export function LifestyleTab(props: LifestyleTabProps) {
                     }
                   >
                     <div class="font-bold text-slate-900 dark:text-slate-100">
-                      ${item.currentCost}
+                      {currencySymbol()}
+                      {item.currentCost}
                     </div>
                   </Show>
                 </div>
@@ -404,9 +481,27 @@ export function LifestyleTab(props: LifestyleTabProps) {
 
                 <button
                   type="button"
+                  class="text-slate-400 hover:text-primary-500 transition-colors disabled:opacity-50"
+                  onClick={() => handleEdit(item)}
+                  disabled={isLoading()}
+                  title="Edit expense"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
                   class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
                   onClick={() => removeItem(item.id)}
                   disabled={isLoading()}
+                  title="Delete expense"
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -429,12 +524,12 @@ export function LifestyleTab(props: LifestyleTabProps) {
         </Show>
       </div>
 
-      {/* Add Form Modal */}
+      {/* Add/Edit Form Modal */}
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
             <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              New expense
+              {editingItemId() ? 'Edit expense' : 'New expense'}
             </h3>
 
             <div class="space-y-4">
@@ -495,17 +590,26 @@ export function LifestyleTab(props: LifestyleTabProps) {
               <button
                 type="button"
                 class="btn-secondary flex-1"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  resetNewItem();
+                }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 class="btn-primary flex-1"
-                onClick={() => addItem()}
+                onClick={() => (editingItemId() ? updateItem() : addItem())}
                 disabled={!newItem().name || isLoading()}
               >
-                {isLoading() ? 'Adding...' : 'Add'}
+                {isLoading()
+                  ? editingItemId()
+                    ? 'Updating...'
+                    : 'Adding...'
+                  : editingItemId()
+                    ? 'Update'
+                    : 'Add'}
               </button>
             </div>
           </div>

@@ -36,6 +36,7 @@ interface TradeTabProps {
   onTradesChange?: (trades: TradeItem[]) => void;
   goalName?: string;
   goalAmount?: number;
+  currencySymbol?: string;
   inventoryItems?: InventoryItemForTrade[];
   lifestyleItems?: LifestyleItemForTrade[];
 }
@@ -191,14 +192,47 @@ function getSuggestions(
 }
 
 const TRADE_TYPES = [
-  { id: 'borrow', label: 'Borrow', icon: '📥', color: 'blue' },
-  { id: 'lend', label: 'Lend', icon: '📤', color: 'orange' },
-  { id: 'trade', label: 'Trade', icon: '🔄', color: 'purple' },
-  { id: 'sell', label: 'Sell', icon: '💰', color: 'green' },
-  { id: 'optimize', label: 'Cut', icon: '✂️', color: 'amber' },
+  {
+    id: 'borrow',
+    label: 'Borrow',
+    icon: '📥',
+    color: 'blue',
+    description: 'Items you need without buying',
+  },
+  {
+    id: 'lend',
+    label: 'Lend',
+    icon: '📤',
+    color: 'orange',
+    description: 'Share unused items with friends',
+  },
+  {
+    id: 'trade',
+    label: 'Trade',
+    icon: '🔄',
+    color: 'purple',
+    description: 'Exchange skills or items',
+  },
+  {
+    id: 'sell',
+    label: 'Sell',
+    icon: '💰',
+    color: 'green',
+    description: 'One-time sales for income',
+  },
+  {
+    id: 'optimize',
+    label: 'Cut',
+    icon: '✂️',
+    color: 'amber',
+    description: 'Reduce recurring expenses',
+  },
 ];
 
 export function TradeTab(props: TradeTabProps) {
+  // Currency symbol from props, defaults to $
+  const currencySymbol = () => props.currencySymbol || '$';
+
   const [trades, setTrades] = createSignal<TradeItem[]>(props.initialTrades || []);
   const [activeType, setActiveType] = createSignal<string>('borrow');
   const [showAddForm, setShowAddForm] = createSignal(false);
@@ -260,8 +294,20 @@ export function TradeTab(props: TradeTabProps) {
       .filter((t) => t.type === 'lend' && t.status === 'active')
       .reduce((sum, t) => sum + t.value, 0);
 
+  // Total from completed sales
+  const soldValue = () =>
+    trades()
+      .filter((t) => t.type === 'sell' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.value, 0);
+
+  // Total savings from optimizations (Cut expenses)
+  const optimizedValue = () =>
+    trades()
+      .filter((t) => t.type === 'optimize' && (t.status === 'active' || t.status === 'completed'))
+      .reduce((sum, t) => sum + t.value, 0);
+
   // Total savings from borrowing (money not spent)
-  const totalSavings = () => borrowedValue();
+  const totalSavings = () => borrowedValue() + soldValue() + optimizedValue();
 
   // Savings percentage of goal
   const savingsPercent = () => {
@@ -322,38 +368,70 @@ export function TradeTab(props: TradeTabProps) {
   return (
     <div class="p-6 space-y-6 max-w-3xl mx-auto">
       {/* Summary Cards */}
-      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
-          <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">I borrowed</div>
+          <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">📥 Borrowed</div>
           <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
-            ${borrowedValue()}
+            {currencySymbol()}
+            {borrowedValue()}
           </div>
           <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
             {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
           </div>
         </div>
         <div class="card bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30">
-          <div class="text-sm text-orange-600 dark:text-orange-400 font-medium">I lent</div>
+          <div class="text-sm text-orange-600 dark:text-orange-400 font-medium">📤 Lent</div>
           <div class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-1">
-            ${lentValue()}
+            {currencySymbol()}
+            {lentValue()}
           </div>
           <div class="text-xs text-orange-500 dark:text-orange-400 mt-1">
             {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} active
           </div>
         </div>
-        {/* Savings card - shows when there's a goal */}
-        <Show when={props.goalAmount && props.goalAmount > 0}>
-          <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
-            <div class="text-sm text-green-600 dark:text-green-400 font-medium">Savings</div>
-            <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
-              ${totalSavings()}
-            </div>
-            <div class="text-xs text-green-500 dark:text-green-400 mt-1">
-              {savingsPercent()}% of goal
-            </div>
+        <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
+          <div class="text-sm text-green-600 dark:text-green-400 font-medium">💰 From Sales</div>
+          <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
+            {currencySymbol()}
+            {soldValue()}
           </div>
-        </Show>
+          <div class="text-xs text-green-500 dark:text-green-400 mt-1">
+            {trades().filter((t) => t.type === 'sell' && t.status === 'completed').length} sold
+          </div>
+        </div>
+        <div class="card bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30">
+          <div class="text-sm text-amber-600 dark:text-amber-400 font-medium">✂️ Monthly Cuts</div>
+          <div class="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">
+            {currencySymbol()}
+            {optimizedValue()}/mo
+          </div>
+          <div class="text-xs text-amber-500 dark:text-amber-400 mt-1">
+            {trades().filter((t) => t.type === 'optimize').length} optimizations
+          </div>
+        </div>
       </div>
+
+      {/* Goal Progress - shows when there's a goal */}
+      <Show when={props.goalAmount && props.goalAmount > 0}>
+        <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-primary-700 dark:text-primary-300 font-medium">
+              Total Progress: {currencySymbol()}
+              {totalSavings()} / {currencySymbol()}
+              {props.goalAmount}
+            </span>
+            <span class="text-lg font-bold text-primary-900 dark:text-primary-100">
+              {savingsPercent()}%
+            </span>
+          </div>
+          <div class="h-3 bg-primary-200 dark:bg-primary-800 rounded-full overflow-hidden">
+            <div
+              class="h-full bg-primary-600 dark:bg-primary-400 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(savingsPercent(), 100)}%` }}
+            />
+          </div>
+        </div>
+      </Show>
 
       {/* Suggestions based on goal, inventory, and lifestyle */}
       <Show when={suggestions().length > 0}>
@@ -382,7 +460,8 @@ export function TradeTab(props: TradeTabProps) {
                       </div>
                       <div class="text-right">
                         <div class="text-green-600 dark:text-green-400 font-bold">
-                          +${suggestion.estimatedSavings}
+                          +{currencySymbol()}
+                          {suggestion.estimatedSavings}
                         </div>
                         <div class="text-xs text-slate-400">income</div>
                       </div>
@@ -417,7 +496,8 @@ export function TradeTab(props: TradeTabProps) {
                       </div>
                       <div class="text-right">
                         <div class="text-amber-600 dark:text-amber-400 font-bold">
-                          -${suggestion.estimatedSavings}/mo
+                          -{currencySymbol()}
+                          {suggestion.estimatedSavings}/mo
                         </div>
                         <div class="text-xs text-slate-400">savings</div>
                       </div>
@@ -452,7 +532,8 @@ export function TradeTab(props: TradeTabProps) {
                       </div>
                       <div class="text-right">
                         <div class="text-green-600 dark:text-green-400 font-bold">
-                          -${suggestion.estimatedSavings}
+                          -{currencySymbol()}
+                          {suggestion.estimatedSavings}
                         </div>
                         <div class="text-xs text-slate-400">to save</div>
                       </div>
@@ -466,7 +547,7 @@ export function TradeTab(props: TradeTabProps) {
       </Show>
 
       {/* Type Tabs */}
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <For each={TRADE_TYPES}>
           {(type) => (
             <button
@@ -477,6 +558,7 @@ export function TradeTab(props: TradeTabProps) {
                   : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
               }`}
               onClick={() => setActiveType(type.id)}
+              title={type.description}
             >
               <span>{type.icon}</span>
               <span>{type.label}</span>
@@ -540,7 +622,10 @@ export function TradeTab(props: TradeTabProps) {
 
               {/* Value */}
               <div class="flex-shrink-0 text-right">
-                <div class="font-bold text-slate-900 dark:text-slate-100">${trade.value}</div>
+                <div class="font-bold text-slate-900 dark:text-slate-100">
+                  {currencySymbol()}
+                  {trade.value}
+                </div>
               </div>
 
               {/* Actions */}

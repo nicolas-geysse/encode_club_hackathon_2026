@@ -159,7 +159,7 @@ export async function POST(event: APIEvent) {
       profileId,
       name,
       category = 'subscriptions',
-      currentCost,
+      currentCost = 10, // Default $10/month (final safety net)
       optimizedCost,
       suggestion,
       essential = false,
@@ -295,16 +295,36 @@ export async function PUT(event: APIEvent) {
   }
 }
 
-// DELETE: Delete lifestyle item
+// DELETE: Delete lifestyle item(s) - supports single id or bulk by profileId
 export async function DELETE(event: APIEvent) {
   try {
     await ensureLifestyleSchema();
 
     const url = new URL(event.request.url);
     const itemId = url.searchParams.get('id');
+    const profileId = url.searchParams.get('profileId');
 
+    // Bulk delete by profileId (for re-onboarding)
+    if (profileId && !itemId) {
+      const escapedProfileId = escapeSQL(profileId);
+      const countResult = await query<{ count: bigint }>(
+        `SELECT COUNT(*) as count FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`
+      );
+      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
+      const count = Number(countResult[0]?.count || 0);
+
+      await execute(`DELETE FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`);
+
+      console.log(`[Lifestyle] Bulk deleted ${count} items for profile ${profileId}`);
+      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Single item delete by id
     if (!itemId) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
+      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });

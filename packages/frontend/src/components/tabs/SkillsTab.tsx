@@ -24,6 +24,7 @@ interface LegacySkill {
 interface SkillsTabProps {
   initialSkills?: LegacySkill[];
   onSkillsChange?: (skills: LegacySkill[]) => void;
+  currencySymbol?: string;
 }
 
 // Convert new skill to legacy format for backward compat with plan.tsx
@@ -113,10 +114,14 @@ function calculateArbitrageScore(skill: Skill): number {
 }
 
 export function SkillsTab(props: SkillsTabProps) {
+  // Currency symbol from props, defaults to $
+  const currencySymbol = () => props.currencySymbol || '$';
+
   const { profile, skills: contextSkills, refreshSkills } = useProfile();
   const [localSkills, setLocalSkills] = createSignal<Skill[]>([]);
   const [showAddForm, setShowAddForm] = createSignal(false);
   const [isLoading, setIsLoading] = createSignal(false);
+  const [editingSkillId, setEditingSkillId] = createSignal<string | null>(null);
   const [newSkill, setNewSkill] = createSignal<Partial<CreateSkillInput>>({
     name: '',
     level: 'intermediate',
@@ -256,6 +261,80 @@ export function SkillsTab(props: SkillsTabProps) {
       cognitiveEffort: 3,
       restNeeded: 1,
     });
+    setEditingSkillId(null);
+  };
+
+  const handleEdit = (skill: Skill) => {
+    setEditingSkillId(skill.id);
+    setNewSkill({
+      name: skill.name,
+      level: skill.level,
+      hourlyRate: skill.hourlyRate,
+      marketDemand: skill.marketDemand,
+      cognitiveEffort: skill.cognitiveEffort,
+      restNeeded: skill.restNeeded,
+    });
+    setShowAddForm(true);
+  };
+
+  const updateSkill = async () => {
+    const skillId = editingSkillId();
+    if (!skillId) return;
+
+    const currentProfile = profile();
+    const data = newSkill();
+
+    if (!currentProfile?.id) {
+      // Local-only mode - update in local array
+      const updated = skills().map((s) =>
+        s.id === skillId
+          ? {
+              ...s,
+              name: data.name || s.name,
+              level: (data.level as Skill['level']) || s.level,
+              hourlyRate: data.hourlyRate ?? s.hourlyRate,
+              marketDemand: data.marketDemand ?? s.marketDemand,
+              cognitiveEffort: data.cognitiveEffort ?? s.cognitiveEffort,
+              restNeeded: data.restNeeded ?? s.restNeeded,
+              score: calculateArbitrageScore({
+                ...s,
+                hourlyRate: data.hourlyRate ?? s.hourlyRate,
+                marketDemand: data.marketDemand ?? s.marketDemand,
+                cognitiveEffort: data.cognitiveEffort ?? s.cognitiveEffort,
+                restNeeded: data.restNeeded ?? s.restNeeded,
+              }),
+            }
+          : s
+      );
+      setLocalSkills(updated.sort((a, b) => (b.score || 0) - (a.score || 0)));
+      props.onSkillsChange?.(updated.map(skillToLegacy));
+      setShowAddForm(false);
+      resetNewSkill();
+      return;
+    }
+
+    // Use service to update skill in DB
+    setIsLoading(true);
+    try {
+      const updated = await skillService.updateSkill({
+        id: skillId,
+        name: data.name,
+        level: data.level,
+        hourlyRate: data.hourlyRate,
+        marketDemand: data.marketDemand,
+        cognitiveEffort: data.cognitiveEffort,
+        restNeeded: data.restNeeded,
+      });
+
+      if (updated) {
+        await refreshSkills();
+        props.onSkillsChange?.(contextSkills().map(skillToLegacy));
+      }
+    } finally {
+      setIsLoading(false);
+      setShowAddForm(false);
+      resetNewSkill();
+    }
   };
 
   const getScoreColor = (score: number) => {
@@ -333,7 +412,10 @@ export function SkillsTab(props: SkillsTabProps) {
                     </Show>
                   </div>
                   <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    <span>{skill.hourlyRate}$/h</span>
+                    <span>
+                      {skill.hourlyRate}
+                      {currencySymbol()}/h
+                    </span>
                     <span>{'⭐'.repeat(skill.marketDemand)}</span>
                     <span>Effort: {getEffortLabel(skill.cognitiveEffort)}</span>
                   </div>
@@ -348,22 +430,41 @@ export function SkillsTab(props: SkillsTabProps) {
                   {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}/10
                 </div>
 
-                {/* Remove */}
-                <button
-                  type="button"
-                  class="flex-shrink-0 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                  onClick={() => removeSkill(skill.id)}
-                  disabled={isLoading()}
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                {/* Edit & Remove */}
+                <div class="flex-shrink-0 flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="text-slate-400 hover:text-primary-500 transition-colors disabled:opacity-50"
+                    onClick={() => handleEdit(skill)}
+                    disabled={isLoading()}
+                    title="Edit skill"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                    onClick={() => removeSkill(skill.id)}
+                    disabled={isLoading()}
+                    title="Delete skill"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             )}
           </For>
@@ -386,11 +487,13 @@ export function SkillsTab(props: SkillsTabProps) {
         </div>
       </Show>
 
-      {/* Add Form Modal */}
+      {/* Add/Edit Form Modal */}
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">New skill</h3>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+              {editingSkillId() ? 'Edit skill' : 'New skill'}
+            </h3>
 
             <div class="space-y-4">
               <div>
@@ -493,17 +596,26 @@ export function SkillsTab(props: SkillsTabProps) {
               <button
                 type="button"
                 class="btn-secondary flex-1"
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  resetNewSkill();
+                }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 class="btn-primary flex-1"
-                onClick={() => addSkill()}
+                onClick={() => (editingSkillId() ? updateSkill() : addSkill())}
                 disabled={!newSkill().name || isLoading()}
               >
-                {isLoading() ? 'Adding...' : 'Add'}
+                {isLoading()
+                  ? editingSkillId()
+                    ? 'Updating...'
+                    : 'Adding...'
+                  : editingSkillId()
+                    ? 'Update'
+                    : 'Add'}
               </button>
             </div>
           </div>

@@ -28,6 +28,7 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
  */
 const STEP_TO_TAB: Record<string, string> = {
   greeting: 'profile',
+  region: 'profile', // Currency/region selection
   name: 'profile',
   studies: 'profile',
   skills: 'skills',
@@ -38,6 +39,7 @@ const STEP_TO_TAB: Record<string, string> = {
   goal: 'setup',
   academic_events: 'setup',
   inventory: 'inventory',
+  trade: 'trade', // Trade opportunities (borrow, lend, trade, sell, cut)
   lifestyle: 'lifestyle',
   complete: 'setup',
 };
@@ -90,6 +92,8 @@ export interface AcademicEvent {
   type: 'exam' | 'vacation' | 'busy';
   startDate?: string;
   endDate?: string;
+  duration?: string; // "1 day", "1 week", "3 hours", etc.
+  difficulty?: 1 | 2 | 3 | 4 | 5; // 1=easy, 5=very hard (for exams)
 }
 
 export interface InventoryItem {
@@ -103,11 +107,20 @@ export interface Subscription {
   currentCost: number;
 }
 
+export interface TradeOpportunity {
+  type: 'borrow' | 'lend' | 'trade' | 'sell' | 'cut';
+  description: string;
+  withPerson?: string; // e.g., "Alex" for "borrow from Alex"
+  forWhat?: string; // e.g., "web design" for "trade tutoring for web design"
+  estimatedValue?: number;
+}
+
 export interface ProfileData {
   name?: string;
   diploma?: string;
   field?: string;
   city?: string;
+  currency?: 'USD' | 'EUR' | 'GBP'; // User's preferred currency based on region
   skills?: string[];
   certifications?: string[]; // Certification codes like 'BAFA', 'PSC1', 'TEFL'
   income?: number;
@@ -119,7 +132,9 @@ export interface ProfileData {
   goalDeadline?: string;
   academicEvents?: AcademicEvent[];
   inventoryItems?: InventoryItem[];
+  tradeOpportunities?: TradeOpportunity[];
   subscriptions?: Subscription[];
+  missingInfo?: string[]; // Fields that need clarification (e.g., ["field of study"])
 }
 
 export interface OnboardingInput {
@@ -149,9 +164,15 @@ const EXTRACTION_SYSTEM_PROMPT = `You are an extraction assistant. Extract profi
 Return ONLY a JSON object with the extracted fields. Only include fields that are clearly mentioned.
 
 Available fields:
+- currency: "USD", "EUR", or "GBP" based on user's region/country
+  Extract from: "US", "America", "dollar" → "USD"
+                "UK", "Britain", "pound", "£" → "GBP"
+                "Europe", "France", "Germany", "euro", "€" → "EUR"
 - name: first name (string)
 - diploma: study level like "Master", "Bachelor", "PhD", "Freshman" (string)
 - field: field of study like "Computer Science", "Law" (string)
+  IMPORTANT: If user gives diploma level without field (e.g., "Master 1"), extract the diploma and add "field of study" to missingInfo array
+- missingInfo: array of strings listing important missing information (e.g., ["field of study"])
 - city: city name (string)
 - skills: list of skills (array of strings)
 - certifications: professional certification codes (array of strings)
@@ -162,8 +183,15 @@ Available fields:
 - goalName: what they're saving for (string)
 - goalAmount: target savings amount (number)
 - goalDeadline: when they want to reach the goal (string)
-- academicEvents: array of {name, type} for exams/vacations
-- inventoryItems: array of {name, category} for items to sell
+- academicEvents: array of {name, type, startDate?, duration?, difficulty?} for exams/vacations
+  Extract relative dates when mentioned: "exam next week" → calculate startDate from today
+  Extract duration if mentioned: "for 3 hours", "1 day exam", "week-long vacation" → duration: "3 hours", "1 day", "1 week"
+  For exams, extract difficulty if mentioned: "easy exam", "very hard final" → difficulty: 1-5 (1=easy, 5=very hard)
+- inventoryItems: array of {name, category, estimatedValue?} for items to sell
+  IMPORTANT: Always extract the monetary value if mentioned. Examples:
+  "laptop 1000€" → { name: "laptop", estimatedValue: 1000 }
+  "phone worth $500" → { name: "phone", estimatedValue: 500 }
+  "old books" → { name: "old books" } (no value = user will estimate later)
 - subscriptions: array of {name, currentCost} for subscriptions
 
 Be generous with extraction. Accept common variations:
@@ -172,6 +200,9 @@ Be generous with extraction. Accept common variations:
 - "Paris" or "I live in Paris" → city: "Paris"
 - "Python, JavaScript" or "I know Python and JS" → skills: ["Python", "JavaScript"]
 - "none" or "nothing" for optional fields → empty array []
+
+IMPORTANT: Remove trailing punctuation (!?.,-;:) from names.
+Example: "Kiki !" → name: "Kiki"
 
 Common certifications to recognize:
 - France: BAFA, BNSSA, PSC1, SST
@@ -187,7 +218,9 @@ IMPORTANT: Netflix, Spotify, Amazon are subscriptions, NOT names.`;
 function getExtractionPrompt(step: string, message: string, existing: ProfileData): string {
   // Tell the model what we're looking for based on the current step
   const stepContext: Record<string, string> = {
-    greeting: 'We are asking for their NAME.',
+    greeting:
+      'We are asking for their REGION/CURRENCY (US, UK, or Europe). Extract currency: USD, EUR, or GBP.',
+    region: 'We are asking for their NAME.',
     name: 'We are asking about their STUDIES (diploma level and field).',
     studies: 'We are asking about their SKILLS (programming, languages, tutoring, etc.).',
     skills:
@@ -430,7 +463,13 @@ async function extractWithGroq(
     const cleaned: ProfileData = {};
     for (const [key, value] of Object.entries(extracted)) {
       if (value !== null && value !== undefined && value !== '') {
-        if (Array.isArray(value) && value.length === 0) {
+        // Strip trailing punctuation from name (fixes "Kiki !" becoming "Kiki")
+        if (key === 'name' && typeof value === 'string') {
+          (cleaned as Record<string, unknown>)[key] = value
+            .trim()
+            .replace(/[!?.,:;]+$/, '')
+            .trim();
+        } else if (Array.isArray(value) && value.length === 0) {
           // Keep empty arrays for "none" responses
           (cleaned as Record<string, unknown>)[key] = value;
         } else if (!Array.isArray(value) || value.length > 0) {
@@ -469,7 +508,7 @@ async function extractWithGroq(
  *   ├── agent.data_merge (child span, type: tool)
  *   └── agent.response_generation (child span, type: general)
  */
-export async function processWithMastraAgent(input: OnboardingInput): Promise<OnboardingOutput> {
+export async function processWithGroqExtractor(input: OnboardingInput): Promise<OnboardingOutput> {
   // Build trace options with input for Opik visibility
   // Include tab tag to show which tab this step feeds
   const targetTab = STEP_TO_TAB[input.currentStep] || 'unknown';
@@ -616,9 +655,17 @@ export async function processWithMastraAgent(input: OnboardingInput): Promise<On
             'response.next_step': nextStep,
           });
 
-          const response = hasExtracted
+          let response = hasExtracted
             ? getAdvanceMessage(nextStep, mergedProfile)
             : getClarificationMessage(input.currentStep);
+
+          // Check for missing info and append clarifying question
+          const missingInfo = extractedData.missingInfo as string[] | undefined;
+          if (missingInfo && missingInfo.length > 0) {
+            const missingText = missingInfo.join(' and ');
+            response += `\n\nCould you also tell me your ${missingText}?`;
+            span.setAttributes({ 'response.has_missing_info': true });
+          }
 
           span.setOutput({
             response_length: response.length,
@@ -684,15 +731,19 @@ export async function processWithMastraAgent(input: OnboardingInput): Promise<On
  * When extraction fails, we stay on the same step and re-ask for the data we need.
  * Key = current step (what we're trying to collect AT this step)
  *
- * - At 'greeting': collecting NAME
+ * - At 'greeting': collecting REGION/CURRENCY
+ * - At 'region': collecting NAME
  * - At 'name': collecting STUDIES
  * - At 'studies': collecting SKILLS
  * - etc.
  */
 function getClarificationMessage(step: string): string {
   const clarifications: Record<string, string> = {
-    // At greeting step, we're collecting NAME
-    greeting: "I didn't catch your name. What should I call you?",
+    // At greeting step, we're collecting REGION/CURRENCY
+    greeting:
+      'Just need to know your region! Are you in the US, UK, or Europe? (This helps me show amounts in your currency)',
+    // At region step, we're collecting NAME
+    region: "I didn't catch your name. What should I call you?",
     // At name step, we're collecting STUDIES (not name!)
     name: "I'd love to know about your studies! What's your education level and field?\n\nExamples: Bachelor 2nd year Computer Science, Master 1 Business, PhD Physics",
     // At studies step, we're collecting SKILLS
@@ -726,7 +777,8 @@ function getClarificationMessage(step: string): string {
  * Extract data using regex patterns (fallback when Mastra agent unavailable)
  *
  * IMPORTANT: Step names indicate what was JUST collected, not what we're collecting.
- * - step='greeting' → we're collecting NAME
+ * - step='greeting' → we're collecting CURRENCY/REGION
+ * - step='region' → we're collecting NAME
  * - step='name' → we're collecting STUDIES (diploma/field)
  * - step='studies' → we're collecting SKILLS
  * etc.
@@ -810,7 +862,46 @@ function extractWithRegex(message: string, step: string, _existing: ProfileData)
 
   switch (step) {
     case 'greeting': {
-      // At greeting step, we're collecting NAME
+      // At greeting step, we're collecting CURRENCY/REGION
+      const lower = msg.toLowerCase();
+      if (
+        lower.includes('us') ||
+        lower.includes('america') ||
+        lower.includes('dollar') ||
+        lower.includes('united states')
+      ) {
+        extracted.currency = 'USD';
+      } else if (
+        lower.includes('uk') ||
+        lower.includes('britain') ||
+        lower.includes('pound') ||
+        lower.includes('£') ||
+        lower.includes('england') ||
+        lower.includes('scotland') ||
+        lower.includes('wales')
+      ) {
+        extracted.currency = 'GBP';
+      } else if (
+        lower.includes('euro') ||
+        lower.includes('europe') ||
+        lower.includes('€') ||
+        lower.includes('france') ||
+        lower.includes('germany') ||
+        lower.includes('italy') ||
+        lower.includes('spain') ||
+        lower.includes('netherlands') ||
+        lower.includes('belgium') ||
+        lower.includes('portugal') ||
+        lower.includes('austria') ||
+        lower.includes('ireland')
+      ) {
+        extracted.currency = 'EUR';
+      }
+      break;
+    }
+
+    case 'region': {
+      // At region step, we're collecting NAME
       extractName();
       break;
     }
@@ -1084,8 +1175,12 @@ function extractWithRegex(message: string, step: string, _existing: ProfileData)
         }
       }
 
+      // If only amount provided without purpose, ask for clarification instead of auto-filling
       if (extracted.goalAmount && !extracted.goalName) {
-        extracted.goalName = 'Savings Goal';
+        extracted.missingInfo = [
+          ...(extracted.missingInfo || []),
+          'goal purpose (what are you saving for?)',
+        ];
       }
       break;
     }
@@ -1099,9 +1194,80 @@ function extractWithRegex(message: string, step: string, _existing: ProfileData)
           .split(/[,;&]|\band\b/i)
           .map((s) => s.trim())
           .filter((s) => s.length >= 2)
-          .map((name) => ({ name, type: 'busy' as const }));
+          .map((text) => {
+            const lower = text.toLowerCase();
+
+            // Determine type
+            let type: 'exam' | 'vacation' | 'busy' = 'busy';
+            if (/\b(exam|test|final|midterm|quiz|partiel|examen)\b/i.test(text)) {
+              type = 'exam';
+            } else if (/\b(vacation|holiday|break|vacances|congé)\b/i.test(text)) {
+              type = 'vacation';
+            }
+
+            // Parse duration
+            let duration: string | undefined;
+            const durationMatch = text.match(
+              /(\d+)\s*(hour|hr|h|day|week|month|heure|jour|semaine|mois)s?/i
+            );
+            if (durationMatch) {
+              const num = durationMatch[1];
+              const unit = durationMatch[2].toLowerCase();
+              const unitMap: Record<string, string> = {
+                hour: 'hour',
+                hr: 'hour',
+                h: 'hour',
+                heure: 'hour',
+                day: 'day',
+                jour: 'day',
+                week: 'week',
+                semaine: 'week',
+                month: 'month',
+                mois: 'month',
+              };
+              duration = `${num} ${unitMap[unit] || unit}${parseInt(num) > 1 ? 's' : ''}`;
+            }
+
+            // Parse difficulty for exams
+            let difficulty: 1 | 2 | 3 | 4 | 5 | undefined;
+            if (type === 'exam') {
+              if (/\b(very\s*easy|super\s*easy|trivial)\b/i.test(lower)) {
+                difficulty = 1;
+              } else if (/\b(easy|simple|facile)\b/i.test(lower)) {
+                difficulty = 2;
+              } else if (/\b(medium|moderate|normal|moyen)\b/i.test(lower)) {
+                difficulty = 3;
+              } else if (/\b(hard|difficult|tough|dur|difficile)\b/i.test(lower)) {
+                difficulty = 4;
+              } else if (/\b(very\s*hard|super\s*hard|brutal|killer)\b/i.test(lower)) {
+                difficulty = 5;
+              }
+            }
+
+            // Clean up name (remove parsed parts)
+            const name = text
+              .replace(/\d+\s*(hour|hr|h|day|week|month|heure|jour|semaine|mois)s?/gi, '')
+              .replace(
+                /\b(very\s*)?(easy|hard|simple|difficult|tough|medium|moderate|normal|facile|dur|difficile|moyen|brutal|killer|super\s*easy|super\s*hard|trivial)\b/gi,
+                ''
+              )
+              .trim();
+
+            return { name: name || text, type, duration, difficulty };
+          });
+
         if (events.length > 0) {
           extracted.academicEvents = events;
+
+          // If any exam doesn't have difficulty, add to missingInfo
+          const examsWithoutDifficulty = events.filter((e) => e.type === 'exam' && !e.difficulty);
+          if (examsWithoutDifficulty.length > 0) {
+            const examNames = examsWithoutDifficulty.map((e) => e.name).join(', ');
+            extracted.missingInfo = [
+              ...(extracted.missingInfo || []),
+              `how difficult is ${examNames}? (1=easy, 5=very hard)`,
+            ];
+          }
         }
       }
       break;
@@ -1125,7 +1291,65 @@ function extractWithRegex(message: string, step: string, _existing: ProfileData)
     }
 
     case 'inventory': {
-      // At inventory step, we're collecting LIFESTYLE (subscriptions)
+      // At inventory step, we're collecting TRADE opportunities
+      if (/\b(none|nothing|rien|pas|no|non|skip)\b/i.test(msg)) {
+        extracted.tradeOpportunities = [];
+      } else if (msg.length >= 2) {
+        const trades: TradeOpportunity[] = [];
+
+        // Parse "borrow X from Y"
+        const borrowMatches = msg.matchAll(/borrow\s+(.+?)\s+from\s+(\w+)/gi);
+        for (const match of borrowMatches) {
+          trades.push({
+            type: 'borrow',
+            description: match[1].trim(),
+            withPerson: match[2].trim(),
+          });
+        }
+
+        // Parse "lend X to Y"
+        const lendMatches = msg.matchAll(/lend\s+(.+?)\s+to\s+(\w+)/gi);
+        for (const match of lendMatches) {
+          trades.push({
+            type: 'lend',
+            description: match[1].trim(),
+            withPerson: match[2].trim(),
+          });
+        }
+
+        // Parse "trade X for Y"
+        const tradeMatches = msg.matchAll(/trade\s+(.+?)\s+for\s+(.+)/gi);
+        for (const match of tradeMatches) {
+          trades.push({
+            type: 'trade',
+            description: match[1].trim(),
+            forWhat: match[2].trim(),
+          });
+        }
+
+        // If no structured patterns found, treat as generic trade descriptions
+        if (trades.length === 0) {
+          const items = msg
+            .split(/[,;&]|\band\b/i)
+            .map((s) => s.trim())
+            .filter((s) => s.length >= 2);
+          for (const item of items) {
+            trades.push({
+              type: 'trade',
+              description: item,
+            });
+          }
+        }
+
+        if (trades.length > 0) {
+          extracted.tradeOpportunities = trades;
+        }
+      }
+      break;
+    }
+
+    case 'trade': {
+      // At trade step, we're collecting LIFESTYLE (subscriptions)
       if (/\b(none|nothing|rien|pas|no|non|skip)\b/i.test(msg)) {
         extracted.subscriptions = [];
       } else if (msg.length >= 2) {
@@ -1172,17 +1396,19 @@ function extractWithRegex(message: string, step: string, _existing: ProfileData)
  */
 function getNextStep(currentStep: string): string {
   const flow = [
-    'greeting',
-    'name',
+    'greeting', // collect currency/region
+    'region', // collect name (new step)
+    'name', // collect studies
     'studies',
     'skills',
-    'certifications', // New step after skills
+    'certifications',
     'location',
     'budget',
     'work_preferences',
     'goal',
     'academic_events',
     'inventory',
+    'trade', // collect trade opportunities (borrow, lend, trade, sell, cut)
     'lifestyle',
     'complete',
   ];
@@ -1200,15 +1426,19 @@ function getNextStep(currentStep: string): string {
  * Key = step we're moving TO
  * Message = asks for what we collect AT that step
  *
- * Flow: greeting→name→studies→skills→location→budget→work_preferences→goal→academic_events→inventory→lifestyle→complete
- * - At 'greeting': collect name → advance to 'name'
+ * Flow: greeting→region→name→studies→skills→certifications→location→budget→work_preferences→goal→academic_events→inventory→trade→lifestyle→complete
+ * - At 'greeting': collect currency/region → advance to 'region'
+ * - At 'region': collect name → advance to 'name'
  * - At 'name': collect studies → advance to 'studies'
  * - etc.
  */
 function getAdvanceMessage(nextStep: string, profile: ProfileData): string {
   const name = profile.name || '';
+  const currencySymbol = profile.currency === 'EUR' ? '€' : profile.currency === 'GBP' ? '£' : '$';
 
   const messages: Record<string, string> = {
+    // Advancing TO 'region' means we just got currency, now ask for name
+    region: `Got it! I'll show amounts in ${currencySymbol}. What's your name?`,
     // Advancing TO 'name' means we just got the name, now ask for studies
     name: `Nice to meet you${name ? `, ${name}` : ''}! What are you studying?\n\nTell me your education level and field (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`,
     // Advancing TO 'studies' means we just got studies, now ask for skills
@@ -1218,17 +1448,19 @@ function getAdvanceMessage(nextStep: string, profile: ProfileData): string {
     // Advancing TO 'certifications' means we just got certifications, now ask for location
     certifications: `Got it! Where do you live?`,
     // Advancing TO 'location' means we just got location, now ask for budget
-    location: `Got it! Now about your budget - how much do you earn and spend per month?`,
+    location: `Got it! Now about your budget - how much do you earn and spend per month? (in ${currencySymbol})`,
     // Advancing TO 'budget' means we just got budget, now ask for work preferences
-    budget: `Thanks! How many hours per week can you work, and what's your minimum hourly rate?`,
+    budget: `Thanks! How many hours per week can you work, and what's your minimum hourly rate? (in ${currencySymbol}/h)`,
     // Advancing TO 'work_preferences' means we just got work prefs, now ask for goal
-    work_preferences: `Perfect! What's your savings goal? (what, how much, by when)`,
+    work_preferences: `Perfect! What's your savings goal? (what, how much in ${currencySymbol}, by when)`,
     // Advancing TO 'goal' means we just got goal, now ask for academic events
     goal: `Great goal! Any upcoming exams or busy periods to plan around? (or say 'none')`,
     // Advancing TO 'academic_events' means we just got events, now ask for inventory
     academic_events: `Noted! Any items you could sell for extra cash? (textbooks, electronics... or 'none')`,
-    // Advancing TO 'inventory' means we just got inventory, now ask for lifestyle
-    inventory: `Thanks! What subscriptions do you pay for? (Netflix, Spotify, gym... or 'none')`,
+    // Advancing TO 'inventory' means we just got inventory, now ask for trade
+    inventory: `Thanks! Are there things you could borrow instead of buying, or skills you could trade with friends?\n\n📥 "borrow camping gear from Alex"\n🔄 "trade tutoring for web design"\n\n(or say 'none')`,
+    // Advancing TO 'trade' means we just got trade info, now ask for subscriptions (lifestyle)
+    trade: `Got it! What subscriptions do you pay for? (Netflix, Spotify, gym... or 'none')`,
     // Advancing TO 'lifestyle' means we just got subscriptions, now ask for confirmation
     lifestyle: `Almost done! Anything else you'd like to add? (or say 'done')`,
     // Advancing TO 'complete' means onboarding is done
@@ -1239,5 +1471,5 @@ function getAdvanceMessage(nextStep: string, profile: ProfileData): string {
 }
 
 export default {
-  processWithMastraAgent,
+  processWithGroqExtractor,
 };
