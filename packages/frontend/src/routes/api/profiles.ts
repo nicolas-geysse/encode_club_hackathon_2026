@@ -125,8 +125,9 @@ export async function GET(event: APIEvent) {
     }
 
     if (profileId) {
-      // Load specific profile
-      const rows = await query<ProfileRow>(`SELECT * FROM profiles WHERE id = '${profileId}'`);
+      // Load specific profile - use escapeSQL for safety
+      const escapedId = escapeSQL(profileId);
+      const rows = await query<ProfileRow>(`SELECT * FROM profiles WHERE id = ${escapedId}`);
       if (rows.length === 0) {
         return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
           status: 404,
@@ -146,7 +147,8 @@ export async function GET(event: APIEvent) {
         // Try to get any profile and make it active
         const anyRows = await query<ProfileRow>(`SELECT * FROM profiles LIMIT 1`);
         if (anyRows.length > 0) {
-          await execute(`UPDATE profiles SET is_active = TRUE WHERE id = '${anyRows[0].id}'`);
+          const escapedId = escapeSQL(anyRows[0].id);
+          await execute(`UPDATE profiles SET is_active = TRUE WHERE id = ${escapedId}`);
           anyRows[0].is_active = true;
           return new Response(JSON.stringify(rowToProfile(anyRows[0])), {
             status: 200,
@@ -199,8 +201,9 @@ export async function POST(event: APIEvent) {
     }
 
     // Check if profile exists
+    const escapedProfileId = escapeSQL(profileId);
     const existing = await query<{ id: string }>(
-      `SELECT id FROM profiles WHERE id = '${profileId}'`
+      `SELECT id FROM profiles WHERE id = ${escapedProfileId}`
     );
 
     const monthlyIncome = body.incomeSources
@@ -233,7 +236,7 @@ export async function POST(event: APIEvent) {
           followup_data = ${body.followupData ? escapeSQL(JSON.stringify(body.followupData)) : 'NULL'},
           achievements = ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'},
           is_active = ${setActive}
-        WHERE id = '${profileId}'
+        WHERE id = ${escapedProfileId}
       `);
     } else {
       // Insert new
@@ -244,7 +247,7 @@ export async function POST(event: APIEvent) {
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
           plan_data, followup_data, achievements, is_active
         ) VALUES (
-          '${profileId}',
+          ${escapedProfileId},
           ${escapeSQL(body.name)},
           ${escapeSQL(body.diploma)},
           ${escapeSQL(body.city)},
@@ -299,8 +302,9 @@ export async function PUT(event: APIEvent) {
     }
 
     // Check if profile exists
+    const escapedProfileId = escapeSQL(profileId);
     const existing = await query<{ name: string }>(
-      `SELECT name FROM profiles WHERE id = '${profileId}'`
+      `SELECT name FROM profiles WHERE id = ${escapedProfileId}`
     );
     if (existing.length === 0) {
       return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
@@ -311,7 +315,7 @@ export async function PUT(event: APIEvent) {
 
     // Deactivate all, activate target
     await execute(`UPDATE profiles SET is_active = FALSE`);
-    await execute(`UPDATE profiles SET is_active = TRUE WHERE id = '${profileId}'`);
+    await execute(`UPDATE profiles SET is_active = TRUE WHERE id = ${escapedProfileId}`);
 
     return new Response(JSON.stringify({ success: true, profileId, name: existing[0].name }), {
       status: 200,
@@ -344,6 +348,8 @@ export async function DELETE(event: APIEvent) {
       });
     }
 
+    const escapedProfileId = escapeSQL(profileId);
+
     // Check profile count
     const count = await query<{ count: number }>(`SELECT COUNT(*) as count FROM profiles`);
     if (count[0].count <= 1) {
@@ -355,7 +361,7 @@ export async function DELETE(event: APIEvent) {
 
     // Get profile info
     const profile = await query<{ name: string; is_active: boolean }>(
-      `SELECT name, is_active FROM profiles WHERE id = '${profileId}'`
+      `SELECT name, is_active FROM profiles WHERE id = ${escapedProfileId}`
     );
     if (profile.length === 0) {
       return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
@@ -366,14 +372,17 @@ export async function DELETE(event: APIEvent) {
 
     const wasActive = profile[0].is_active;
 
-    // Delete
-    await execute(`DELETE FROM profiles WHERE id = '${profileId}'`);
+    // Delete the profile
+    await execute(`DELETE FROM profiles WHERE id = ${escapedProfileId}`);
 
-    // If was active, activate another
+    // If was active, activate another profile
     if (wasActive) {
-      await execute(
-        `UPDATE profiles SET is_active = TRUE WHERE id = (SELECT id FROM profiles LIMIT 1)`
-      );
+      // First get the ID of another profile, then update it
+      const otherProfile = await query<{ id: string }>(`SELECT id FROM profiles LIMIT 1`);
+      if (otherProfile.length > 0) {
+        const escapedOtherId = escapeSQL(otherProfile[0].id);
+        await execute(`UPDATE profiles SET is_active = TRUE WHERE id = ${escapedOtherId}`);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, deleted: profile[0].name }), {

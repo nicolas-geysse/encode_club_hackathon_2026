@@ -29,6 +29,8 @@ let flushFn: (() => Promise<void>) | null = null;
 export interface Span {
   setAttributes(attrs: Record<string, unknown>): void;
   addEvent(name: string, attrs?: Record<string, unknown>): void;
+  /** Set output data that will be visible in Opik UI */
+  setOutput(output: Record<string, unknown>): void;
   end(): void;
 }
 
@@ -86,8 +88,10 @@ export interface TraceOptions {
   source?: string;
   /** Thread ID to group related traces (e.g., conversation ID) */
   threadId?: string;
-  /** Input data for the trace */
+  /** Input data for the trace (shows in Opik UI) */
   input?: Record<string, unknown>;
+  /** Output data for the trace (shows in Opik UI) - set after execution */
+  output?: Record<string, unknown>;
   /** Tags for filtering in dashboard */
   tags?: string[];
 }
@@ -115,6 +119,7 @@ export async function trace<T>(
   const metadata = traceOptions.source ? { source: traceOptions.source } : {};
   const startTime = new Date();
   const collectedAttrs: Record<string, unknown> = { ...metadata };
+  let outputData: Record<string, unknown> | null = null;
 
   // Create a mock span for logging when Opik is not available
   const mockSpan: Span = {
@@ -124,11 +129,16 @@ export async function trace<T>(
     addEvent: (eventName, attrs) => {
       console.error(`[Trace:${name}] Event: ${eventName}`, attrs ? JSON.stringify(attrs) : '');
     },
+    setOutput: (output) => {
+      outputData = output;
+    },
     end: () => {
       const duration = Date.now() - startTime.getTime();
       console.error(
         `[Trace:${name}] Duration: ${duration}ms, Attrs:`,
-        JSON.stringify(collectedAttrs)
+        JSON.stringify(collectedAttrs),
+        'Output:',
+        JSON.stringify(outputData)
       );
     },
   };
@@ -177,9 +187,17 @@ export async function trace<T>(
           // Events stored in metadata
           Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
         },
+        setOutput: (output) => {
+          outputData = output;
+        },
         end: () => {
           if (traceHandle) {
-            traceHandle.update({ metadata: collectedAttrs });
+            // Update with metadata and output
+            const updateData: Record<string, unknown> = { metadata: collectedAttrs };
+            if (outputData) {
+              updateData.output = outputData;
+            }
+            traceHandle.update(updateData);
             traceHandle.end();
           }
         },

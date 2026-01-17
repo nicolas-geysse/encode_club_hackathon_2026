@@ -11,6 +11,8 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Ref to expose focus method */
+  ref?: (el: { focus: () => void }) => void;
 }
 
 export function ChatInput(props: ChatInputProps) {
@@ -24,6 +26,16 @@ export function ChatInput(props: ChatInputProps) {
   let audioContext: AudioContext | null = null;
   let analyser: AnalyserNode | null = null;
   let animationFrame: number | null = null;
+  let textareaRef: HTMLTextAreaElement | null = null;
+
+  // Expose focus method to parent via ref
+  if (props.ref) {
+    props.ref({
+      focus: () => {
+        textareaRef?.focus();
+      },
+    });
+  }
 
   // Cleanup on unmount
   onCleanup(() => {
@@ -272,6 +284,7 @@ export function ChatInput(props: ChatInputProps) {
         {/* Text input */}
         <div class="flex-1 relative">
           <textarea
+            ref={(el) => (textareaRef = el)}
             class="input-field resize-none min-h-[44px] max-h-32 py-3 pr-4 w-full"
             placeholder={props.placeholder || 'Type a message...'}
             value={text()}
@@ -279,6 +292,7 @@ export function ChatInput(props: ChatInputProps) {
             onKeyDown={handleKeyDown}
             disabled={isDisabled()}
             rows={1}
+            autofocus
           />
         </div>
 

@@ -58,10 +58,9 @@ const telemetryConfig = OPIK_API_KEY
       },
     };
 
-// Mastra instance with telemetry
-export const mastra = new Mastra({
-  telemetry: telemetryConfig,
-});
+// Mastra instance
+// Note: telemetry config removed in Mastra 1.0.0-beta - use Opik SDK directly
+export const mastra = new Mastra({});
 
 // Export configuration
 export const config = {

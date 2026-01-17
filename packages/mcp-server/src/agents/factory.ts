@@ -24,13 +24,14 @@ export interface AgentConfig {
  * Tool registry - maps tool names to Mastra tool instances
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const toolRegistry: Map<string, ReturnType<typeof createTool>> = new Map();
+const toolRegistry: Map<string, any> = new Map();
 
 /**
  * Register a tool in the registry
+ * Note: Using 'any' type to allow tools with different input/output schemas
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function registerTool(name: string, tool: ReturnType<typeof createTool>) {
+export function registerTool(name: string, tool: any) {
   toolRegistry.set(name, tool);
 }
 
@@ -38,9 +39,9 @@ export function registerTool(name: string, tool: ReturnType<typeof createTool>) 
  * Get tools by names from registry
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getToolsByNames(names: string[]): Record<string, ReturnType<typeof createTool>> {
+export function getToolsByNames(names: string[]): Record<string, any> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools: Record<string, ReturnType<typeof createTool>> = {};
+  const tools: Record<string, any> = {};
 
   for (const name of names) {
     const tool = toolRegistry.get(name);
@@ -77,6 +78,7 @@ export async function createStrideAgent(config: AgentConfig): Promise<Agent> {
   const model = await getDefaultModel();
 
   return new Agent({
+    id: config.id,
     name: config.name,
     instructions: config.instructions,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

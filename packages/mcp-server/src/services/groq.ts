@@ -80,6 +80,57 @@ export async function chat(
 }
 
 /**
+ * Generate a chat completion with JSON mode
+ * Forces the model to return valid JSON - useful for structured extraction
+ */
+export async function chatWithJsonMode<T = Record<string, unknown>>(
+  messages: ChatMessage[],
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+  }
+): Promise<T> {
+  return trace('llm_chat_json', async (span) => {
+    span.setAttributes({
+      model: MODEL,
+      messages_count: messages.length,
+      temperature: options?.temperature || 0.0,
+      response_format: 'json_object',
+    });
+
+    if (!groqClient) {
+      throw new Error('Groq client not initialized. Set GROQ_API_KEY environment variable.');
+    }
+
+    const response = await groqClient.chat.completions.create({
+      model: MODEL,
+      messages,
+      temperature: options?.temperature || 0.0, // Low temperature for deterministic extraction
+      max_tokens: options?.maxTokens || 1024,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content || '{}';
+
+    span.setAttributes({
+      tokens_used: response.usage?.total_tokens,
+      completion_tokens: response.usage?.completion_tokens,
+      response_length: content.length,
+    });
+
+    try {
+      return JSON.parse(content) as T;
+    } catch (error) {
+      span.setAttributes({
+        parse_error: true,
+        raw_content: content.substring(0, 500),
+      });
+      throw new Error(`Failed to parse JSON response: ${content.substring(0, 200)}`);
+    }
+  });
+}
+
+/**
  * Analyze budget and provide insights
  */
 export async function analyzeBudget(
@@ -309,7 +360,10 @@ Réponds de manière concise et actionnable.`;
     }
 
     const analysis = await chat([
-      { role: 'system', content: 'Tu es un assistant financier pour étudiants. Réponds en français.' },
+      {
+        role: 'system',
+        content: 'Tu es un assistant financier pour étudiants. Réponds en français.',
+      },
       { role: 'user', content: analysisPrompt },
     ]);
 
@@ -340,6 +394,7 @@ Réponds de manière concise et actionnable.`;
 export const groq = {
   init: initGroq,
   chat,
+  chatWithJsonMode,
   analyzeBudget,
   generateAdvice,
   transcribeAudio,

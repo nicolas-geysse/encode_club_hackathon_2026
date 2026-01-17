@@ -33,19 +33,19 @@ export const analyzeBudgetTool = createTool({
       })
     ),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.analyze_budget', async (span) => {
       span.setAttributes({
-        'input.income_sources': context.incomes.length,
-        'input.expense_categories': context.expenses.length,
+        'input.income_sources': input.incomes.length,
+        'input.expense_categories': input.expenses.length,
       });
 
-      const totalIncome = context.incomes.reduce((sum, i) => sum + i.amount, 0);
-      const totalExpenses = context.expenses.reduce((sum, e) => sum + e.amount, 0);
+      const totalIncome = input.incomes.reduce((sum, i) => sum + i.amount, 0);
+      const totalExpenses = input.expenses.reduce((sum, e) => sum + e.amount, 0);
       const margin = totalIncome - totalExpenses;
 
       // Categorize expenses
-      const expenseBreakdown = context.expenses.reduce(
+      const expenseBreakdown = input.expenses.reduce(
         (acc, e) => {
           acc[e.category] = (acc[e.category] || 0) + e.amount;
           return acc;
@@ -79,7 +79,7 @@ export const analyzeBudgetTool = createTool({
         status,
         severity,
         expenseBreakdown: expensePercentages,
-        incomeBreakdown: context.incomes,
+        incomeBreakdown: input.incomes,
         savingsRate: totalIncome > 0 ? Math.round((margin / totalIncome) * 100) : 0,
       };
     });
@@ -100,29 +100,29 @@ export const generateAdviceTool = createTool({
     loanAmount: z.number().optional().describe('Loan amount'),
     context: z.string().optional().describe('Additional context'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.generate_advice', async (span) => {
       span.setAttributes({
-        'input.margin': context.margin ?? null,
-        'input.has_loan': context.hasLoan ?? false,
-        'input.skills_count': context.skills?.length ?? 0,
+        'input.margin': input.margin ?? null,
+        'input.has_loan': input.hasLoan ?? false,
+        'input.skills_count': input.skills?.length ?? 0,
       });
 
       const advice: string[] = [];
 
       // Generate advice based on margin
-      if (context.margin !== undefined) {
-        if (context.margin < 0) {
+      if (input.margin !== undefined) {
+        if (input.margin < 0) {
           advice.push(
             'Priority: reduce the deficit. Look for financial aid (grants, scholarships) or a compatible part-time job.'
           );
           advice.push('Tip: check your eligibility for student aid programs.');
-        } else if (context.margin < 50) {
+        } else if (input.margin < 50) {
           advice.push('Your margin is tight. Building a small safety cushion is recommended.');
           advice.push(
             'Tip: budget optimizations (meal plans, roommates) can free up $100-200/month.'
           );
-        } else if (context.margin < 200) {
+        } else if (input.margin < 200) {
           advice.push('Good balance! You can start saving regularly.');
           advice.push('Goal: aim for 3 months of expenses as an emergency fund.');
         } else {
@@ -132,19 +132,19 @@ export const generateAdviceTool = createTool({
       }
 
       // Advice based on loan
-      if (context.hasLoan && context.loanAmount) {
-        advice.push(`Student loan of $${context.loanAmount}: start planning repayment now.`);
+      if (input.hasLoan && input.loanAmount) {
+        advice.push(`Student loan of $${input.loanAmount}: start planning repayment now.`);
         advice.push('Strategy: as soon as possible, increase your income to accelerate repayment.');
       }
 
       // Skills-based advice
-      if (context.skills && context.skills.length > 0) {
+      if (input.skills && input.skills.length > 0) {
         advice.push(
-          `Your skills (${context.skills.slice(0, 3).join(', ')}) are monetizable: freelance, tutoring, internships.`
+          `Your skills (${input.skills.slice(0, 3).join(', ')}) are monetizable: freelance, tutoring, internships.`
         );
       }
 
-      const priority = context.margin && context.margin < 0 ? 'urgent' : 'normal';
+      const priority = input.margin && input.margin < 0 ? 'urgent' : 'normal';
 
       span.setAttributes({
         'output.advice_count': advice.length,
@@ -155,9 +155,9 @@ export const generateAdviceTool = createTool({
         advice,
         priority,
         profile: {
-          diploma: context.diploma,
-          skills: context.skills,
-          financialStatus: context.margin && context.margin < 0 ? 'deficit' : 'balanced',
+          diploma: input.diploma,
+          skills: input.skills,
+          financialStatus: input.margin && input.margin < 0 ? 'deficit' : 'balanced',
         },
       };
     });
@@ -175,11 +175,11 @@ export const findOptimizationsTool = createTool({
     currentExpenses: z.record(z.number()).optional().describe('Current expenses by category'),
     constraints: z.array(z.string()).optional().describe('Constraints (e.g., "no roommate")'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.find_optimizations', async (span) => {
       span.setAttributes({
-        'input.categories_count': context.expenseCategories.length,
-        'input.constraints_count': context.constraints?.length ?? 0,
+        'input.categories_count': input.expenseCategories.length,
+        'input.constraints_count': input.constraints?.length ?? 0,
       });
 
       // Optimization database
@@ -267,14 +267,14 @@ export const findOptimizationsTool = createTool({
         condition: string;
       }> = [];
 
-      for (const category of context.expenseCategories) {
+      for (const category of input.expenseCategories) {
         const categoryLower = category.toLowerCase();
         const opts = optimizations[categoryLower] || [];
         const currentAmount =
-          context.currentExpenses?.[categoryLower] || context.currentExpenses?.[category] || 0;
+          input.currentExpenses?.[categoryLower] || input.currentExpenses?.[category] || 0;
 
         // Filter out constrained solutions
-        const constraints = context.constraints || [];
+        const constraints = input.constraints || [];
         const filteredOpts = opts.filter((o) => {
           const solutionLower = o.solution.toLowerCase();
           return !constraints.some((c) => solutionLower.includes(c.toLowerCase()));

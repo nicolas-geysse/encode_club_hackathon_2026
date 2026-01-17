@@ -393,8 +393,8 @@ export const analyzeImageTool = createTool({
     imageData: z.string().describe('Image as base64 or URL'),
     imageType: z.enum(['base64', 'url']).describe('Image data type'),
   }),
-  execute: async ({ context }) => {
-    return analyzeImageForSale(context.imageData, context.imageType);
+  execute: async (input) => {
+    return analyzeImageForSale(input.imageData, input.imageType);
   },
 });
 
@@ -420,8 +420,8 @@ export const estimatePriceTool = createTool({
       .describe('Category'),
     condition: z.enum(['new', 'good', 'fair', 'used']).describe('Item condition'),
   }),
-  execute: async ({ context }) => {
-    return estimateItemPrice(context.itemName, context.category, context.condition);
+  execute: async (input) => {
+    return estimateItemPrice(input.itemName, input.category, input.condition);
   },
 });
 
@@ -436,18 +436,18 @@ export const budgetImpactTool = createTool({
     currentMonthlyMargin: z.number().describe('Current monthly margin ($)'),
     monthsRemaining: z.number().describe('Months of study remaining'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.calculate_sale_impact', async (span) => {
       span.setAttributes({
-        'input.items_value': context.itemsValue,
-        'input.current_monthly_margin': context.currentMonthlyMargin,
-        'input.months_remaining': context.monthsRemaining,
+        'input.items_value': input.itemsValue,
+        'input.current_monthly_margin': input.currentMonthlyMargin,
+        'input.months_remaining': input.monthsRemaining,
       });
 
       const result = calculateBudgetImpact(
-        context.itemsValue,
-        context.currentMonthlyMargin,
-        context.monthsRemaining
+        input.itemsValue,
+        input.currentMonthlyMargin,
+        input.monthsRemaining
       );
 
       span.setAttributes({
@@ -472,18 +472,18 @@ export const suggestHustlesTool = createTool({
     maxHoursWeekly: z.number().describe('Max hours per week'),
     preferLowEffort: z.boolean().default(false).describe('Prefer low-effort options'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.suggest_side_hustles', async (span) => {
       span.setAttributes({
-        'input.skills_count': context.skills.length,
-        'input.max_hours_weekly': context.maxHoursWeekly,
-        'input.prefer_low_effort': context.preferLowEffort,
+        'input.skills_count': input.skills.length,
+        'input.max_hours_weekly': input.maxHoursWeekly,
+        'input.prefer_low_effort': input.preferLowEffort,
       });
 
       const result = suggestSideHustles(
-        context.skills,
-        context.maxHoursWeekly,
-        context.preferLowEffort
+        input.skills,
+        input.maxHoursWeekly,
+        input.preferLowEffort ?? false
       );
 
       span.setAttributes({
@@ -541,7 +541,7 @@ export const moneyMakerAnalysisTool = createTool({
       preferLowEffort: z.boolean().default(false),
     }),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('money_maker_full_analysis', async (span) => {
       const results: {
         itemsAnalysis?: {
@@ -565,8 +565,8 @@ export const moneyMakerAnalysisTool = createTool({
       // Analyze items (from image or manual list)
       let itemsToAnalyze: Array<{ name: string; category: string; condition: string }> = [];
 
-      if (context.image) {
-        const imageAnalysis = await analyzeImageForSale(context.image.data, context.image.type);
+      if (input.image) {
+        const imageAnalysis = await analyzeImageForSale(input.image.data, input.image.type);
         itemsToAnalyze = imageAnalysis.objects.map((o) => ({
           name: o.name,
           category: o.category,
@@ -574,8 +574,8 @@ export const moneyMakerAnalysisTool = createTool({
         }));
       }
 
-      if (context.items) {
-        itemsToAnalyze = [...itemsToAnalyze, ...context.items];
+      if (input.items) {
+        itemsToAnalyze = [...itemsToAnalyze, ...input.items];
       }
 
       if (itemsToAnalyze.length > 0) {
@@ -604,8 +604,8 @@ export const moneyMakerAnalysisTool = createTool({
         // Calculate budget impact
         results.budgetImpact = calculateBudgetImpact(
           totalAvg,
-          context.profile.currentMonthlyMargin,
-          context.profile.monthsRemaining
+          input.profile.currentMonthlyMargin,
+          input.profile.monthsRemaining
         );
 
         span.setAttributes({
@@ -616,9 +616,9 @@ export const moneyMakerAnalysisTool = createTool({
 
       // Suggest side hustles
       results.sideHustles = suggestSideHustles(
-        context.profile.skills,
-        context.profile.maxHoursWeekly,
-        context.profile.preferLowEffort
+        input.profile.skills,
+        input.profile.maxHoursWeekly,
+        input.profile.preferLowEffort ?? false
       );
 
       span.setAttributes({

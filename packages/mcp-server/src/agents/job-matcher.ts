@@ -140,16 +140,16 @@ export const matchJobsTool = createTool({
     minHourlyRate: z.number().optional().describe('Minimum hourly rate'),
     prioritizeNetworking: z.boolean().optional().describe('Prioritize networking'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.match_jobs', async (span) => {
       span.setAttributes({
-        'input.skills_count': context.skills.length,
-        'input.min_hourly_rate': context.minHourlyRate ?? 0,
-        'input.prioritize_networking': context.prioritizeNetworking ?? false,
+        'input.skills_count': input.skills.length,
+        'input.min_hourly_rate': input.minHourlyRate ?? 0,
+        'input.prioritize_networking': input.prioritizeNetworking ?? false,
       });
 
-      const skillsLower = context.skills.map((s) => s.toLowerCase());
-      const minRate = context.minHourlyRate || 0;
+      const skillsLower = input.skills.map((s) => s.toLowerCase());
+      const minRate = input.minHourlyRate || 0;
 
       // Score and filter jobs
       const matches = JOB_DATABASE.filter((job) => job.hourlyRate >= minRate)
@@ -162,7 +162,7 @@ export const matchJobsTool = createTool({
           let score = skillScore * 0.4 + (job.hourlyRate / 30) * 0.3 + job.flexibility * 0.2;
 
           // Boost networking jobs if prioritized
-          if (context.prioritizeNetworking && job.networking === 'fort') {
+          if (input.prioritizeNetworking && job.networking === 'fort') {
             score += 0.15;
           }
 
@@ -193,7 +193,7 @@ export const matchJobsTool = createTool({
       return {
         matches,
         reference: mcdo,
-        skillsUsed: context.skills,
+        skillsUsed: input.skills,
         totalJobsConsidered: JOB_DATABASE.length,
       };
     });
@@ -210,36 +210,36 @@ export const explainJobMatchTool = createTool({
     skill: z.string().describe('Source skill'),
     jobId: z.string().describe('Target job ID'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.explain_job_match', async (span) => {
       span.setAttributes({
-        'input.skill': context.skill,
-        'input.job_id': context.jobId,
+        'input.skill': input.skill,
+        'input.job_id': input.jobId,
       });
 
-      const job = JOB_DATABASE.find((j) => j.id === context.jobId);
+      const job = JOB_DATABASE.find((j) => j.id === input.jobId);
 
       if (!job) {
         span.setAttributes({ 'output.found': false });
         return {
           found: false,
-          explanation: `Job "${context.jobId}" not found`,
+          explanation: `Job "${input.jobId}" not found`,
         };
       }
 
-      const skillLower = context.skill.toLowerCase();
+      const skillLower = input.skill.toLowerCase();
       const hasSkill = job.skills.some((s) => s.toLowerCase() === skillLower);
 
       // Build explanation path
       const path = [
-        { node: context.skill, type: 'skill' },
+        { node: input.skill, type: 'skill' },
         { relation: hasSkill ? 'enables' : 'partially_enables', weight: hasSkill ? 0.9 : 0.5 },
         { node: job.name, type: 'job' },
         { relation: 'pays', weight: job.hourlyRate },
         { node: 'Income', type: 'outcome' },
       ];
 
-      const explanation = `${context.skill} → ${hasSkill ? 'directly enables' : 'contributes to'} → ${job.name} ($${job.hourlyRate}/h)`;
+      const explanation = `${input.skill} → ${hasSkill ? 'directly enables' : 'contributes to'} → ${job.name} ($${job.hourlyRate}/h)`;
       const coBenefitExplanation = job.coBenefit
         ? `Bonus: ${job.coBenefit}`
         : 'No particular co-benefit';
@@ -253,12 +253,12 @@ export const explainJobMatchTool = createTool({
       return {
         found: true,
         job: job.name,
-        skill: context.skill,
+        skill: input.skill,
         explanation,
         coBenefit: coBenefitExplanation,
         path,
         recommendation: hasSkill
-          ? `Excellent match! Your skill ${context.skill} is directly used.`
+          ? `Excellent match! Your skill ${input.skill} is directly used.`
           : `Partial match. You may need to complement your skills.`,
       };
     });
@@ -275,17 +275,17 @@ export const compareJobsTool = createTool({
     jobIds: z.array(z.string()).describe('Job IDs to compare'),
     hoursPerWeek: z.number().optional().describe('Work hours per week'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.compare_jobs', async (span) => {
       span.setAttributes({
-        'input.job_ids_count': context.jobIds.length,
-        'input.hours_per_week': context.hoursPerWeek ?? 10,
+        'input.job_ids_count': input.jobIds.length,
+        'input.hours_per_week': input.hoursPerWeek ?? 10,
       });
 
-      const hoursPerWeek = context.hoursPerWeek || 10;
+      const hoursPerWeek = input.hoursPerWeek || 10;
       const hoursPerMonth = hoursPerWeek * 4;
 
-      const jobs = context.jobIds
+      const jobs = input.jobIds
         .map((id) => JOB_DATABASE.find((j) => j.id === id))
         .filter((j): j is (typeof JOB_DATABASE)[number] => j !== undefined);
 
@@ -367,19 +367,19 @@ export const scoreSkillArbitrageTool = createTool({
       .optional()
       .describe('Custom weights (optional)'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.score_skill_arbitrage', async (span) => {
       span.setAttributes({
-        'input.skills_count': context.skills.length,
-        'input.has_custom_weights': !!context.customWeights,
+        'input.skills_count': input.skills.length,
+        'input.has_custom_weights': !!input.customWeights,
       });
 
-      const weights: ArbitrageWeights = context.customWeights
-        ? { ...DEFAULT_WEIGHTS, ...context.customWeights }
+      const weights: ArbitrageWeights = input.customWeights
+        ? { ...DEFAULT_WEIGHTS, ...input.customWeights }
         : DEFAULT_WEIGHTS;
 
       // Calculate scores for each skill
-      const results = context.skills.map((skillInput) => {
+      const results = input.skills.map((skillInput) => {
         const skill: Skill = {
           id: `skill_${Date.now()}_${Math.random().toString(36).slice(2)}`,
           name: skillInput.name,
@@ -447,16 +447,16 @@ export const matchJobsWithArbitrageTool = createTool({
     energyLevel: z.number().min(0).max(100).optional().describe('Current energy level (0-100)'),
     prioritizeLowEffort: z.boolean().optional().describe('Prioritize low-effort jobs'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.match_jobs_arbitrage', async (span) => {
       span.setAttributes({
-        'input.skills_count': context.skills.length,
-        'input.energy_level': context.energyLevel ?? 100,
-        'input.prioritize_low_effort': context.prioritizeLowEffort ?? false,
+        'input.skills_count': input.skills.length,
+        'input.energy_level': input.energyLevel ?? 100,
+        'input.prioritize_low_effort': input.prioritizeLowEffort ?? false,
       });
 
-      const skillsLower = context.skills.map((s) => s.toLowerCase());
-      const prioritizeLowEffort = context.prioritizeLowEffort || (context.energyLevel || 100) < 50;
+      const skillsLower = input.skills.map((s) => s.toLowerCase());
+      const prioritizeLowEffort = input.prioritizeLowEffort || (input.energyLevel || 100) < 50;
 
       // Adjust weights if low energy
       const weights: ArbitrageWeights = prioritizeLowEffort
@@ -532,7 +532,7 @@ export const matchJobsWithArbitrageTool = createTool({
           : null,
         weightsUsed: weights,
         energyAdjusted: prioritizeLowEffort,
-        skillsUsed: context.skills,
+        skillsUsed: input.skills,
       };
     });
   },

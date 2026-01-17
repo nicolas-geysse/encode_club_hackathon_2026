@@ -449,8 +449,8 @@ export const compareStrategiesTool = createTool({
       goalAmount: z.number().optional(),
     }),
   }),
-  execute: async ({ context }) => {
-    return compareStrategies(context.strategies, context.context);
+  execute: async (input) => {
+    return compareStrategies(input.strategies, input.context);
   },
 });
 
@@ -504,26 +504,26 @@ export const quickComparisonTool = createTool({
       yearsRemaining: z.number(),
     }),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     const strategies: Strategy[] = [];
 
     // Convert jobs to strategies
-    if (context.jobs) {
-      for (const job of context.jobs) {
-        strategies.push(createStrategyFromJob(job, context.profile.hoursAvailable));
+    if (input.jobs) {
+      for (const job of input.jobs) {
+        strategies.push(createStrategyFromJob(job, input.profile.hoursAvailable));
       }
     }
 
     // Convert items to sell to strategies
-    if (context.itemsToSell) {
-      for (const item of context.itemsToSell) {
+    if (input.itemsToSell) {
+      for (const item of input.itemsToSell) {
         strategies.push(createStrategyFromSelling(item));
       }
     }
 
     // Convert optimizations to strategies
-    if (context.optimizations) {
-      for (const opt of context.optimizations) {
+    if (input.optimizations) {
+      for (const opt of input.optimizations) {
         strategies.push(createStrategyFromOptimization(opt));
       }
     }
@@ -536,8 +536,8 @@ export const quickComparisonTool = createTool({
     }
 
     return compareStrategies(strategies, {
-      ...context.profile,
-      urgency: context.profile.urgency || 'medium',
+      ...input.profile,
+      urgency: input.profile.urgency || 'medium',
     });
   },
 });

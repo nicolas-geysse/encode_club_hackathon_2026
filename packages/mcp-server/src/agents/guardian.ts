@@ -272,9 +272,9 @@ export const validateCalculationTool = createTool({
     expectedOutput: z.number().describe('Resultat attendu'),
     tolerance: z.number().optional().describe("Tolerance d'erreur (%)"),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.validate_calculation', async (span) => {
-      const { calculationType, inputs, expectedOutput, tolerance = 0.01 } = context;
+      const { calculationType, inputs, expectedOutput, tolerance = 0.01 } = input;
 
       span.setAttributes({
         'input.calculation_type': calculationType,
@@ -312,9 +312,9 @@ export const checkRiskLevelTool = createTool({
       })
       .optional(),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.check_risk_level', async (span) => {
-      const { recommendation, context: userContext } = context;
+      const { recommendation, context: userContext } = input;
 
       span.setAttributes({
         'input.recommendation_length': recommendation.length,
@@ -362,13 +362,16 @@ export const hybridEvaluationTool = createTool({
       yearsRemaining: z.number().optional(),
     }),
   }),
-  execute: async ({ context }) => {
+  execute: async (toolInput) => {
     // Note: In a real implementation, generateFn would use the LLM
     // For now, we use quick evaluation (heuristics only)
     const input: EvaluationInput = {
-      recommendation: context.recommendation,
-      calculations: context.calculations,
-      context: context.context,
+      recommendation: toolInput.recommendation,
+      calculations: toolInput.calculations,
+      context: {
+        ...toolInput.context,
+        targetAudience: toolInput.context.targetAudience || 'etudiant',
+      },
     };
 
     const result = await runQuickEvaluation(input);

@@ -28,33 +28,33 @@ export const predictGraduationBalanceTool = createTool({
     optimizationsApplied: z.array(z.string()).optional().describe('Applied optimizations'),
     currentSavings: z.number().optional().describe('Current savings'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.predict_graduation_balance', async (span) => {
       span.setAttributes({
-        'input.monthly_income': context.monthlyIncome,
-        'input.monthly_expenses': context.monthlyExpenses,
-        'input.years_remaining': context.yearsRemaining,
-        'input.current_savings': context.currentSavings ?? 0,
+        'input.monthly_income': input.monthlyIncome,
+        'input.monthly_expenses': input.monthlyExpenses,
+        'input.years_remaining': input.yearsRemaining,
+        'input.current_savings': input.currentSavings ?? 0,
       });
 
       // Calculate base projections
-      const currentMargin = context.monthlyIncome - context.monthlyExpenses;
+      const currentMargin = input.monthlyIncome - input.monthlyExpenses;
 
       // Calculate additional job income
       const additionalJobIncome =
-        context.jobHoursWeekly && context.jobHourlyRate
-          ? context.jobHoursWeekly * context.jobHourlyRate * 4
+        input.jobHoursWeekly && input.jobHourlyRate
+          ? input.jobHoursWeekly * input.jobHourlyRate * 4
           : 0;
 
       // Estimate optimization savings
-      const optimizationSavings = (context.optimizationsApplied || []).length * 50; // avg 50€ per optimization
+      const optimizationSavings = (input.optimizationsApplied || []).length * 50; // avg 50€ per optimization
 
       // Projected monthly margin
       const projectedMonthlyMargin = currentMargin + additionalJobIncome + optimizationSavings;
 
       // Calculate projections
-      const months = context.yearsRemaining * 12;
-      const finalBalance = (context.currentSavings || 0) + projectedMonthlyMargin * months;
+      const months = input.yearsRemaining * 12;
+      const finalBalance = (input.currentSavings || 0) + projectedMonthlyMargin * months;
 
       // Calculate probability of being debt-free
       // Based on margin: negative margin = low probability, high margin = high probability
@@ -72,13 +72,13 @@ export const predictGraduationBalanceTool = createTool({
         current: {
           name: 'Current situation',
           monthlyMargin: currentMargin,
-          finalBalance: (context.currentSavings || 0) + currentMargin * months,
+          finalBalance: (input.currentSavings || 0) + currentMargin * months,
         },
         withJob: {
           name: 'With additional job',
           monthlyMargin: currentMargin + additionalJobIncome,
           finalBalance:
-            (context.currentSavings || 0) + (currentMargin + additionalJobIncome) * months,
+            (input.currentSavings || 0) + (currentMargin + additionalJobIncome) * months,
         },
         optimized: {
           name: 'With optimizations',
@@ -146,9 +146,9 @@ export const simulateScenariosTool = createTool({
       })
     ),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.simulate_scenarios', async (span) => {
-      const { baseScenario, variations } = context;
+      const { baseScenario, variations } = input;
 
       span.setAttributes({
         'input.base_monthly_income': baseScenario.monthlyIncome,

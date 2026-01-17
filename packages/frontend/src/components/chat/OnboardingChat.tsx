@@ -5,7 +5,7 @@
  * Uses LLM API for intelligent responses and data extraction.
  */
 
-import { createSignal, For, Show, onMount } from 'solid-js';
+import { createSignal, createEffect, For, Show, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
@@ -105,6 +105,28 @@ export function OnboardingChat() {
   const [isComplete, setIsComplete] = createSignal(false);
   const [threadId, setThreadId] = createSignal<string>(generateThreadId());
   const [profileId, setProfileId] = createSignal<string | undefined>(undefined);
+
+  // Ref for auto-focusing input after response
+  let chatInputRef: { focus: () => void } | null = null;
+
+  // Ref for auto-scrolling chat to bottom
+  let messagesContainerRef: HTMLDivElement | null = null;
+
+  // Auto-scroll to bottom when messages change or loading state changes
+  createEffect(() => {
+    // Track dependencies
+    messages();
+    loading();
+    // Scroll to bottom
+    if (messagesContainerRef) {
+      setTimeout(() => {
+        messagesContainerRef?.scrollTo({
+          top: messagesContainerRef.scrollHeight,
+          behavior: 'smooth',
+        });
+      }, 50);
+    }
+  });
 
   // Check for existing profile on mount
   // Priority: 1. API (DuckDB), 2. localStorage fallback
@@ -495,6 +517,8 @@ Want to update your profile or go straight to your plan?`,
       setMessages([...messages(), errorMsg]);
     } finally {
       setLoading(false);
+      // Auto-focus input for seamless conversation flow
+      setTimeout(() => chatInputRef?.focus(), 50);
     }
   };
 
@@ -505,7 +529,10 @@ Want to update your profile or go straight to your plan?`,
   return (
     <div class="flex flex-col h-[calc(100vh-180px)] max-w-3xl mx-auto">
       {/* Chat messages */}
-      <div class="flex-1 overflow-y-auto px-4 py-6 space-y-1">
+      <div
+        ref={(el) => (messagesContainerRef = el)}
+        class="flex-1 overflow-y-auto px-4 py-6 space-y-1"
+      >
         <For each={messages()}>
           {(msg) => (
             <ChatMessage
@@ -583,6 +610,7 @@ Want to update your profile or go straight to your plan?`,
 
       {/* Chat input - always visible */}
       <ChatInput
+        ref={(el) => (chatInputRef = el)}
         onSend={handleSend}
         placeholder={isComplete() ? 'Ask Bruno anything...' : 'Type your response...'}
         disabled={loading()}

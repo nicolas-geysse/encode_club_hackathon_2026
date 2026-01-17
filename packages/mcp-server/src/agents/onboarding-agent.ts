@@ -63,12 +63,12 @@ Return only fields that are clearly mentioned. Be generous with skill extraction
     confidence: z.number().min(0).max(1).describe('Confidence in extraction (0-1)'),
     fieldsFound: z.array(z.string()).describe('List of fields that were extracted'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.extract_profile_data', async (span) => {
       span.setAttributes({
-        'input.message': context.message.substring(0, 200),
-        'input.step': context.currentStep,
-        'input.existing_fields': Object.keys(context.existingData || {}).length,
+        'input.message': input.message.substring(0, 200),
+        'input.step': input.currentStep,
+        'input.existing_fields': Object.keys(input.existingData || {}).length,
       });
 
       // This tool's execution will be handled by the LLM
@@ -115,18 +115,18 @@ Guide the conversation to collect all profile information naturally.`,
     nextStep: z.string().describe('The next step to move to'),
     isComplete: z.boolean().describe('Whether onboarding is complete'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.generate_onboarding_response', async (span) => {
       span.setAttributes({
-        'input.step': context.currentStep,
-        'input.should_advance': context.shouldAdvance,
-        'input.did_extract': context.didExtractData,
+        'input.step': input.currentStep,
+        'input.should_advance': input.shouldAdvance,
+        'input.did_extract': input.didExtractData,
       });
 
       // Default response (agent fills this in)
       const result = {
         response: "Let's continue!",
-        nextStep: context.currentStep,
+        nextStep: input.currentStep,
         isComplete: false,
       };
 
@@ -156,9 +156,9 @@ export const validateProfileTool = createTool({
     missingFields: z.array(z.string()).describe('Fields still needed for current step'),
     completionPercentage: z.number().describe('Overall profile completion (0-100)'),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     return trace('tool.validate_profile', async (span) => {
-      const { currentStep, profileData } = context;
+      const { currentStep, profileData } = input;
 
       // Define required fields per step
       const stepRequirements: Record<string, (keyof ProfileData)[]> = {

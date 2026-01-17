@@ -158,8 +158,8 @@ interface ChatResponse {
   nextStep: OnboardingStep;
   /** Trace ID for this turn (useful for feedback) */
   traceId?: string;
-  /** Source of the response: 'mastra', 'groq', or 'fallback' */
-  source?: 'mastra' | 'groq' | 'fallback';
+  /** Source of the response: 'groq' (JSON mode), 'groq_legacy' (text mode), or 'fallback' (regex) */
+  source?: 'groq' | 'groq_legacy' | 'fallback';
 }
 
 // POST: Handle chat message
@@ -220,16 +220,16 @@ export async function POST(event: APIEvent) {
           ]).catch(() => {});
         }
 
-        // Convert to ChatResponse format
+        // Convert to ChatResponse format - use actual source from result
         const result: ChatResponse = {
           response: mastraResult.response,
-          extractedData: mastraResult.extractedData,
+          extractedData: mastraResult.extractedData as Record<string, unknown>,
           nextStep: mastraResult.nextStep as OnboardingStep,
           traceId: traceId || undefined,
-          source: 'mastra',
+          source: mastraResult.source === 'groq' ? 'groq' : 'fallback',
         };
 
-        console.error('[Chat] Response from Mastra agent');
+        console.error(`[Chat] Response source: ${mastraResult.source}`);
         return new Response(JSON.stringify(result), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -335,7 +335,7 @@ export async function POST(event: APIEvent) {
           extractedData,
           nextStep,
           traceId: currentTraceId || undefined,
-          source: 'groq',
+          source: 'groq_legacy',
         } as ChatResponse;
       },
       traceOptions // Use full trace options with threadId
