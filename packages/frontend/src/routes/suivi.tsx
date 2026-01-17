@@ -1,16 +1,16 @@
 /**
  * Suivi Page (suivi.tsx)
  *
- * Unified dashboard: Timeline Hero + Retroplan + Energy + Missions
- * Now uses profileService and simulationService for DuckDB persistence.
+ * Compact dashboard: Goal Hero + Missions + Energy + Financial Breakdown
+ * Uses profileService and simulationService for DuckDB persistence.
  */
 
 import { createSignal, Show, onMount } from 'solid-js';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
-import { EnergyChart } from '~/components/suivi/EnergyChart';
 import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
+import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
@@ -53,6 +53,21 @@ export default function SuiviPage() {
     energyHistory: [],
     missions: [],
   });
+
+  // Compute total hours from missions
+  const totalHours = () => {
+    return followup().missions.reduce((sum, m) => sum + m.hoursCompleted, 0);
+  };
+
+  // Check if comeback conditions are met (for showing full ComebackAlert)
+  const showComebackAlert = () => {
+    const history = followup().energyHistory.map((e) => e.level);
+    if (history.length < 3) return false;
+    const current = history[history.length - 1] ?? 0;
+    const previous = history[history.length - 2] ?? 50;
+    const lowWeeks = history.filter((e) => e < 40).length;
+    return lowWeeks >= 2 && current > 80 && previous < 50;
+  };
 
   onMount(async () => {
     try {
@@ -349,8 +364,8 @@ export default function SuiviPage() {
   const NoPlanView = () => (
     <div class="card text-center py-12 max-w-md mx-auto">
       <div class="text-4xl mb-4">📋</div>
-      <h2 class="text-xl font-bold text-slate-900 mb-2">No plan yet</h2>
-      <p class="text-slate-500 mb-6">First set up your goal in My Plan</p>
+      <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">No plan yet</h2>
+      <p class="text-slate-500 dark:text-slate-400 mb-6">First set up your goal in My Plan</p>
       <a href="/plan" class="btn-primary">
         Create my plan
       </a>
@@ -360,8 +375,23 @@ export default function SuiviPage() {
   return (
     <Show when={!isLoading()} fallback={<PageLoader />}>
       <Show when={hasData()} fallback={<NoPlanView />}>
-        <div class="space-y-6 max-w-4xl mx-auto">
-          {/* Timeline Hero - uses simulated date */}
+        <div class="space-y-4 max-w-4xl mx-auto">
+          {/* Quick Action - Top of page */}
+          <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="font-semibold text-primary-900 dark:text-primary-100">Need help?</h4>
+                <p class="text-sm text-primary-600 dark:text-primary-300">
+                  Bruno can help you optimize your plan
+                </p>
+              </div>
+              <a href="/" class="btn-primary">
+                Talk to Bruno
+              </a>
+            </div>
+          </div>
+
+          {/* Section 1: Goal Hero + Key Metrics */}
           <Show when={setup()}>
             <TimelineHero
               goalName={setup()!.goalName}
@@ -372,55 +402,16 @@ export default function SuiviPage() {
               weeklyTarget={followup().weeklyTarget}
               currentWeek={followup().currentWeek}
               totalWeeks={followup().totalWeeks}
+              totalHours={totalHours()}
             />
           </Show>
 
-          {/* Energy Chart (full width) */}
-          <EnergyChart history={followup().energyHistory} threshold={40} />
+          {/* Section 2: Financial Breakdown (right after goal) */}
+          <AnalyticsDashboard />
 
-          {/* Two-column layout for Energy Input and Comeback */}
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Energy Input & History */}
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <span>⚡</span> Energy
-              </h3>
-              <EnergyHistory
-                history={followup().energyHistory}
-                onEnergyUpdate={handleEnergyUpdate}
-              />
-            </div>
-
-            {/* Comeback Alert (if applicable) */}
-            <div>
-              <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <span>🚀</span> Mode Comeback
-              </h3>
-              <ComebackAlert
-                energyHistory={followup().energyHistory.map((e) => e.level)}
-                weeklyDeficit={(setup()?.goalAmount || 500) - followup().currentAmount}
-                capacities={[90, 80, 70]}
-                onAcceptPlan={handleComebackAccept}
-                onDeclinePlan={() => {}}
-              />
-
-              {/* Fallback when no comeback detected */}
-              <Show when={followup().energyHistory.filter((e) => e.level < 40).length < 3}>
-                <div class="card bg-slate-50 text-center py-8">
-                  <div class="text-3xl mb-3">😊</div>
-                  <p class="text-slate-600">
-                    No comeback mode needed.
-                    <br />
-                    Keep it up!
-                  </p>
-                </div>
-              </Show>
-            </div>
-          </div>
-
-          {/* Missions */}
+          {/* Section 3: Missions */}
           <div>
-            <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
               <span>🎯</span> Missions
             </h3>
             <MissionList
@@ -431,18 +422,19 @@ export default function SuiviPage() {
             />
           </div>
 
-          {/* Quick Actions */}
-          <div class="card bg-gradient-to-r from-primary-50 to-primary-100">
-            <div class="flex items-center justify-between">
-              <div>
-                <h4 class="font-semibold text-primary-900">Need help?</h4>
-                <p class="text-sm text-primary-600">Bruno can help you optimize your plan</p>
-              </div>
-              <a href="/" class="btn-primary">
-                Talk to Bruno
-              </a>
-            </div>
-          </div>
+          {/* Section 4: Energy (compact) */}
+          <EnergyHistory history={followup().energyHistory} onEnergyUpdate={handleEnergyUpdate} />
+
+          {/* Full Comeback Alert (only when conditions met) */}
+          <Show when={showComebackAlert()}>
+            <ComebackAlert
+              energyHistory={followup().energyHistory.map((e) => e.level)}
+              weeklyDeficit={(setup()?.goalAmount || 500) - followup().currentAmount}
+              capacities={[90, 80, 70]}
+              onAcceptPlan={handleComebackAccept}
+              onDeclinePlan={() => {}}
+            />
+          </Show>
         </div>
       </Show>
     </Show>

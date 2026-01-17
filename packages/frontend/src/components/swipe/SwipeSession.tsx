@@ -42,6 +42,7 @@ interface CardAdjustments {
   perceivedEffort: number;
   perceivedFlexibility: number;
   customHourlyRate: number;
+  customWeeklyHours: number;
 }
 
 // Preference learning algorithm with 4-way support
@@ -108,6 +109,7 @@ export function SwipeSession(props: SwipeSessionProps) {
       perceivedEffort: scenario?.effortLevel ?? 3,
       perceivedFlexibility: scenario?.flexibilityScore ?? 3,
       customHourlyRate: scenario?.hourlyRate ?? 0,
+      customWeeklyHours: scenario?.weeklyHours ?? 0,
     };
   };
   const [adjustments, setAdjustments] = createSignal<CardAdjustments>(getDefaultAdjustments());
@@ -204,6 +206,7 @@ export function SwipeSession(props: SwipeSessionProps) {
           perceivedEffort: nextScenario.effortLevel,
           perceivedFlexibility: nextScenario.flexibilityScore,
           customHourlyRate: nextScenario.hourlyRate,
+          customWeeklyHours: nextScenario.weeklyHours,
         });
       }
     }
@@ -213,129 +216,169 @@ export function SwipeSession(props: SwipeSessionProps) {
   const canUndo = () => swipeHistory().length > 0;
 
   return (
-    <div class="flex flex-col items-center py-6">
+    <div class="flex flex-col items-center py-2 overflow-hidden">
       {/* AI Learning Indicator - Above Timeline */}
-      <div class="w-full max-w-sm mb-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3">
+      <div class="w-full max-w-sm mb-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg p-2">
         <div class="flex items-center gap-2 mb-2">
           <span class="text-lg">🤖</span>
-          <p class="text-sm font-medium text-slate-700">AI Learning Your Preferences</p>
+          <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
+            AI Learning Your Preferences
+          </p>
         </div>
         <div class="grid grid-cols-4 gap-2">
           <div class="text-center">
-            <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
               <div
                 class="h-full bg-blue-500 transition-all duration-300"
                 style={{ width: `${(1 - preferences().effortSensitivity) * 100}%` }}
               />
             </div>
-            <span class="text-[10px] text-slate-500">Effort</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Effort</span>
           </div>
           <div class="text-center">
-            <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
               <div
                 class="h-full bg-green-500 transition-all duration-300"
                 style={{ width: `${preferences().hourlyRatePriority * 100}%` }}
               />
             </div>
-            <span class="text-[10px] text-slate-500">Pay</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Pay</span>
           </div>
           <div class="text-center">
-            <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
               <div
                 class="h-full bg-purple-500 transition-all duration-300"
                 style={{ width: `${preferences().timeFlexibility * 100}%` }}
               />
             </div>
-            <span class="text-[10px] text-slate-500">Flex</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Flex</span>
           </div>
           <div class="text-center">
-            <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
               <div
                 class="h-full bg-amber-500 transition-all duration-300"
                 style={{ width: `${preferences().incomeStability * 100}%` }}
               />
             </div>
-            <span class="text-[10px] text-slate-500">Stable</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Stable</span>
           </div>
         </div>
       </div>
 
       {/* Adjustable Fields - Below AI Learning */}
       <Show when={currentIndex() < props.scenarios.length}>
-        <div class="w-full max-w-sm mb-4 bg-white rounded-lg border border-slate-200 p-3">
-          <p class="text-xs text-slate-500 mb-2 font-medium">Adjust (if needed) before swiping:</p>
-          <div class="grid grid-cols-3 gap-4">
-            {/* Effort Rating */}
-            <div class="text-center">
-              <label class="block text-xs text-slate-600 mb-1">Effort</label>
-              <div class="flex justify-center gap-0.5">
-                <For each={[1, 2, 3, 4, 5]}>
-                  {(star) => (
-                    <button
-                      type="button"
-                      class={`text-lg transition-colors ${
-                        star <= adjustments().perceivedEffort
-                          ? 'text-amber-400'
-                          : 'text-slate-300 hover:text-amber-200'
-                      }`}
-                      onClick={() => setAdjustments({ ...adjustments(), perceivedEffort: star })}
-                    >
-                      ★
-                    </button>
-                  )}
-                </For>
-              </div>
-            </div>
+        {(() => {
+          const currentScenario = props.scenarios[currentIndex()];
+          const hasHours =
+            currentScenario?.weeklyHours > 0 && currentScenario?.category !== 'selling';
+          return (
+            <div class="w-full max-w-sm mb-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-2">
+              <p class="text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">
+                Adjust before swiping:
+              </p>
+              <div class={`grid ${hasHours ? 'grid-cols-4' : 'grid-cols-3'} gap-3`}>
+                {/* Effort Rating */}
+                <div class="text-center">
+                  <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">
+                    Effort
+                  </label>
+                  <div class="flex justify-center gap-0.5">
+                    <For each={[1, 2, 3, 4, 5]}>
+                      {(star) => (
+                        <button
+                          type="button"
+                          class={`text-base transition-colors ${
+                            star <= adjustments().perceivedEffort
+                              ? 'text-amber-400'
+                              : 'text-slate-300 dark:text-slate-600 hover:text-amber-200'
+                          }`}
+                          onClick={() =>
+                            setAdjustments({ ...adjustments(), perceivedEffort: star })
+                          }
+                        >
+                          ★
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
 
-            {/* Flexibility Rating */}
-            <div class="text-center">
-              <label class="block text-xs text-slate-600 mb-1">Flexibility</label>
-              <div class="flex justify-center gap-0.5">
-                <For each={[1, 2, 3, 4, 5]}>
-                  {(star) => (
-                    <button
-                      type="button"
-                      class={`text-lg transition-colors ${
-                        star <= adjustments().perceivedFlexibility
-                          ? 'text-purple-400'
-                          : 'text-slate-300 hover:text-purple-200'
-                      }`}
-                      onClick={() =>
-                        setAdjustments({ ...adjustments(), perceivedFlexibility: star })
+                {/* Flexibility Rating */}
+                <div class="text-center">
+                  <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">
+                    Flexibility
+                  </label>
+                  <div class="flex justify-center gap-0.5">
+                    <For each={[1, 2, 3, 4, 5]}>
+                      {(star) => (
+                        <button
+                          type="button"
+                          class={`text-base transition-colors ${
+                            star <= adjustments().perceivedFlexibility
+                              ? 'text-purple-400'
+                              : 'text-slate-300 dark:text-slate-600 hover:text-purple-200'
+                          }`}
+                          onClick={() =>
+                            setAdjustments({ ...adjustments(), perceivedFlexibility: star })
+                          }
+                        >
+                          ★
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+
+                {/* Weekly Hours (conditional) */}
+                <Show when={hasHours}>
+                  <div class="text-center">
+                    <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">
+                      Hours/w
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      step="1"
+                      value={adjustments().customWeeklyHours}
+                      onInput={(e) =>
+                        setAdjustments({
+                          ...adjustments(),
+                          customWeeklyHours: Math.max(1, parseInt(e.currentTarget.value) || 1),
+                        })
                       }
-                    >
-                      ★
-                    </button>
-                  )}
-                </For>
+                      class="w-full text-center text-sm font-medium border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                </Show>
+
+                {/* Hourly Rate */}
+                <div class="text-center">
+                  <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">€/h</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={adjustments().customHourlyRate}
+                    onInput={(e) =>
+                      setAdjustments({
+                        ...adjustments(),
+                        customHourlyRate: Math.max(0, parseInt(e.currentTarget.value) || 0),
+                      })
+                    }
+                    class="w-full text-center text-sm font-medium border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
               </div>
             </div>
-
-            {/* Hourly Rate */}
-            <div class="text-center">
-              <label class="block text-xs text-slate-600 mb-1">Rate (€/h)</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                value={adjustments().customHourlyRate}
-                onInput={(e) =>
-                  setAdjustments({
-                    ...adjustments(),
-                    customHourlyRate: Math.max(0, parseInt(e.currentTarget.value) || 0),
-                  })
-                }
-                class="w-full text-center text-sm font-medium border border-slate-200 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-          </div>
-        </div>
+          );
+        })()}
       </Show>
 
       {/* Progress Bar - Below Adjustments */}
-      <div class="w-full max-w-sm mb-6">
-        <div class="flex justify-between text-sm text-slate-500 mb-2">
+      <div class="w-full max-w-sm mb-4">
+        <div class="flex justify-between text-sm text-slate-500 dark:text-slate-400 mb-1">
           <span class="font-medium">
             {currentIndex() + 1} / {props.scenarios.length}
           </span>
@@ -343,7 +386,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             {accepted().length} accepted • {rejected().length} rejected
           </span>
         </div>
-        <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+        <div class="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
           <div
             class="h-full bg-primary-500 transition-all duration-300"
             style={{ width: `${progress()}%` }}
@@ -352,7 +395,7 @@ export function SwipeSession(props: SwipeSessionProps) {
       </div>
 
       {/* Card Stack */}
-      <div class="relative w-80 h-[420px] flex items-center justify-center overflow-hidden">
+      <div class="relative w-80 h-[340px] flex items-center justify-center">
         <For each={props.scenarios}>
           {(scenario, index) => (
             <Show when={index() >= currentIndex()}>
@@ -360,11 +403,21 @@ export function SwipeSession(props: SwipeSessionProps) {
                 id={scenario.id}
                 title={scenario.title}
                 description={scenario.description}
-                weeklyHours={scenario.weeklyHours}
-                weeklyEarnings={scenario.weeklyEarnings}
+                weeklyHours={
+                  index() === currentIndex()
+                    ? adjustments().customWeeklyHours
+                    : scenario.weeklyHours
+                }
+                weeklyEarnings={
+                  index() === currentIndex()
+                    ? adjustments().customWeeklyHours * adjustments().customHourlyRate
+                    : scenario.weeklyEarnings
+                }
                 effortLevel={scenario.effortLevel}
                 flexibilityScore={scenario.flexibilityScore}
-                hourlyRate={scenario.hourlyRate}
+                hourlyRate={
+                  index() === currentIndex() ? adjustments().customHourlyRate : scenario.hourlyRate
+                }
                 category={scenario.category}
                 onSwipe={handleSwipe}
                 isActive={index() === currentIndex()}
@@ -375,89 +428,95 @@ export function SwipeSession(props: SwipeSessionProps) {
 
         {/* Empty State */}
         <Show when={currentIndex() >= props.scenarios.length}>
-          <div class="text-center text-slate-500">
+          <div class="text-center text-slate-500 dark:text-slate-400">
             <div class="text-4xl mb-4">✅</div>
             <p>All scenarios evaluated!</p>
           </div>
         </Show>
       </div>
 
-      {/* Action Buttons with Undo */}
-      <div class="mt-6 flex items-center gap-4">
+      {/* Action Buttons - Icon only, no labels */}
+      <div class="mt-4 flex items-center gap-3">
         {/* Undo Button */}
         <button
           type="button"
-          class={`flex flex-col items-center gap-1 transition-all ${
-            canUndo() ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 cursor-not-allowed'
+          class={`transition-transform ${
+            canUndo() ? 'hover:scale-110' : 'opacity-30 cursor-not-allowed'
           }`}
           onClick={handleUndo}
           disabled={!canUndo()}
-          title="Undo last swipe"
+          title="Undo"
         >
           <div
-            class={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
-              canUndo() ? 'bg-slate-100 hover:bg-slate-200' : 'bg-slate-50'
+            class={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
+              canUndo()
+                ? 'border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50'
+                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800'
             }`}
           >
-            ↩️
+            <svg
+              class={`w-5 h-5 ${canUndo() ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2.5"
+                d="M3 10h10a5 5 0 0 1 5 5v2M3 10l5-5M3 10l5 5"
+              />
+            </svg>
           </div>
-          <span class="text-[10px]">Undo</span>
         </button>
 
         {/* Reject Button */}
         <button
           type="button"
-          class="flex flex-col items-center gap-1 text-red-500 hover:text-red-600 transition-colors"
+          class="transition-transform hover:scale-110"
           onClick={() => handleSwipe('left', 500)}
+          title="Not for me"
         >
-          <div class="w-12 h-12 rounded-full bg-red-100 hover:bg-red-200 flex items-center justify-center text-xl transition-colors">
+          <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 border-2 border-red-300 dark:border-red-700 hover:bg-red-200 dark:hover:bg-red-900/60 flex items-center justify-center text-xl text-red-500 transition-colors">
             ✕
           </div>
-          <span class="text-[10px]">Not for me</span>
         </button>
 
         {/* Meh Button (down swipe) */}
         <button
           type="button"
-          class="flex flex-col items-center gap-1 text-orange-500 hover:text-orange-600 transition-colors"
+          class="transition-transform hover:scale-110"
           onClick={() => handleSwipe('down', 500)}
+          title="Meh"
         >
-          <div class="w-10 h-10 rounded-full bg-orange-100 hover:bg-orange-200 flex items-center justify-center text-lg transition-colors">
+          <div class="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/40 border-2 border-orange-300 dark:border-orange-700 hover:bg-orange-200 dark:hover:bg-orange-900/60 flex items-center justify-center text-lg text-orange-500 transition-colors">
             👎
           </div>
-          <span class="text-[10px]">Meh</span>
         </button>
 
         {/* Accept Button */}
         <button
           type="button"
-          class="flex flex-col items-center gap-1 text-green-500 hover:text-green-600 transition-colors"
+          class="transition-transform hover:scale-110"
           onClick={() => handleSwipe('right', 500)}
+          title="I'll take it!"
         >
-          <div class="w-12 h-12 rounded-full bg-green-100 hover:bg-green-200 flex items-center justify-center text-xl transition-colors">
+          <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/40 border-2 border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/60 flex items-center justify-center text-xl text-green-500 transition-colors">
             ♥
           </div>
-          <span class="text-[10px]">I'll take it!</span>
         </button>
 
         {/* Super Like Button */}
         <button
           type="button"
-          class="flex flex-col items-center gap-1 text-blue-500 hover:text-blue-600 transition-colors"
+          class="transition-transform hover:scale-110"
           onClick={() => handleSwipe('up', 500)}
+          title="Super like!"
         >
-          <div class="w-10 h-10 rounded-full bg-blue-100 hover:bg-blue-200 flex items-center justify-center text-lg transition-colors">
+          <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 border-2 border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/60 flex items-center justify-center text-lg text-blue-500 transition-colors">
             ⭐
           </div>
-          <span class="text-[10px]">Super</span>
         </button>
-      </div>
-
-      {/* Gesture Hints */}
-      <div class="mt-4 text-center">
-        <p class="text-xs text-slate-400">
-          Drag: ← reject • → accept • ↑ super like • ↓ negative feedback
-        </p>
       </div>
     </div>
   );

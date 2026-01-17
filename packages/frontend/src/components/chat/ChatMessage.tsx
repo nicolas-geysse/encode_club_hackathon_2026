@@ -24,7 +24,11 @@ function parseFormattedText(text: string): JSX.Element[] {
       if (part.startsWith('**') && part.endsWith('**')) {
         elements.push(<strong>{part.slice(2, -2)}</strong>);
       } else if (part.startsWith('`') && part.endsWith('`')) {
-        elements.push(<code class="bg-slate-100 px-1 rounded text-sm">{part.slice(1, -1)}</code>);
+        elements.push(
+          <code class="bg-slate-100 dark:bg-slate-700 px-1 rounded text-sm">
+            {part.slice(1, -1)}
+          </code>
+        );
       } else if (part) {
         elements.push(<span>{part}</span>);
       }
@@ -50,14 +54,18 @@ export function ChatMessage(props: ChatMessageProps) {
         <div
           class={`rounded-2xl px-4 py-3 ${
             isAssistant()
-              ? 'bg-white border border-slate-200 shadow-sm'
+              ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm'
               : 'bg-primary-600 text-white'
           }`}
         >
           <Show when={isAssistant() && props.name}>
-            <p class="text-xs font-semibold text-primary-600 mb-1">{props.name}</p>
+            <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 mb-1">
+              {props.name}
+            </p>
           </Show>
-          <div class={`whitespace-pre-wrap ${isAssistant() ? 'text-slate-800' : 'text-white'}`}>
+          <div
+            class={`whitespace-pre-wrap ${isAssistant() ? 'text-slate-800 dark:text-slate-200' : 'text-white'}`}
+          >
             <Show when={isAssistant()} fallback={props.content}>
               {formattedContent()}
             </Show>

@@ -118,7 +118,7 @@ export function SetupTab(props: SetupTabProps) {
     <div class="p-6 space-y-6 max-w-2xl mx-auto">
       {/* Goal Presets */}
       <div class="card">
-        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
           <span>🎯</span> Quick goal
         </h3>
         <div class="flex gap-3 flex-wrap">
@@ -128,8 +128,8 @@ export function SetupTab(props: SetupTabProps) {
                 type="button"
                 class={`px-4 py-2 rounded-lg border-2 transition-all flex items-center gap-2 ${
                   goalName() === preset.name
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                    : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200'
                 }`}
                 onClick={() => {
                   setGoalName(preset.name);
@@ -138,7 +138,7 @@ export function SetupTab(props: SetupTabProps) {
               >
                 <span>{preset.icon}</span>
                 <span>{preset.name}</span>
-                <span class="text-sm text-slate-500">({preset.amount}€)</span>
+                <span class="text-sm text-slate-500 dark:text-slate-400">({preset.amount}€)</span>
               </button>
             )}
           </For>
@@ -147,12 +147,14 @@ export function SetupTab(props: SetupTabProps) {
 
       {/* Goal Details */}
       <div class="card">
-        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
           <span>💰</span> Details
         </h3>
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Goal name</label>
+            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Goal name
+            </label>
             <input
               type="text"
               class="input-field"
@@ -164,7 +166,9 @@ export function SetupTab(props: SetupTabProps) {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Amount</label>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Amount
+              </label>
               <div class="relative">
                 <input
                   type="number"
@@ -174,12 +178,16 @@ export function SetupTab(props: SetupTabProps) {
                   value={goalAmount()}
                   onInput={(e) => setGoalAmount(parseInt(e.currentTarget.value) || 0)}
                 />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">€</span>
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
+                  €
+                </span>
               </div>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Deadline</label>
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Deadline
+              </label>
               <input
                 type="date"
                 class="input-field"
@@ -194,10 +202,10 @@ export function SetupTab(props: SetupTabProps) {
 
       {/* Academic Events */}
       <div class="card">
-        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
           <span>📅</span> Academic events
         </h3>
-        <p class="text-sm text-slate-500 mb-4">
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
           Add your exam periods or vacations to adapt your goals
         </p>
 
@@ -205,7 +213,7 @@ export function SetupTab(props: SetupTabProps) {
           <div class="space-y-2 mb-4">
             <For each={academicEvents()}>
               {(event) => (
-                <div class="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
                   <div class="flex items-center gap-3">
                     <span>
                       {event.type === 'exam_period'
@@ -219,8 +227,8 @@ export function SetupTab(props: SetupTabProps) {
                               : '📚'}
                     </span>
                     <div>
-                      <p class="font-medium text-slate-800">{event.name}</p>
-                      <p class="text-xs text-slate-500">
+                      <p class="font-medium text-slate-800 dark:text-slate-200">{event.name}</p>
+                      <p class="text-xs text-slate-500 dark:text-slate-400">
                         {new Date(event.startDate).toLocaleDateString('en-US')} -{' '}
                         {new Date(event.endDate).toLocaleDateString('en-US')}
                       </p>
@@ -284,16 +292,18 @@ export function SetupTab(props: SetupTabProps) {
 
       {/* Commitments */}
       <div class="card">
-        <h3 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
           <span>📋</span> Regular commitments
         </h3>
-        <p class="text-sm text-slate-500 mb-4">Indicate your activities that take time each week</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+          Indicate your activities that take time each week
+        </p>
 
         <Show when={commitments().length > 0}>
           <div class="space-y-2 mb-4">
             <For each={commitments()}>
               {(commitment) => (
-                <div class="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                <div class="flex items-center justify-between bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
                   <div class="flex items-center gap-3">
                     <span>
                       {commitment.type === 'class'
@@ -309,8 +319,12 @@ export function SetupTab(props: SetupTabProps) {
                                 : '📌'}
                     </span>
                     <div>
-                      <p class="font-medium text-slate-800">{commitment.name}</p>
-                      <p class="text-xs text-slate-500">{commitment.hoursPerWeek}h/week</p>
+                      <p class="font-medium text-slate-800 dark:text-slate-200">
+                        {commitment.name}
+                      </p>
+                      <p class="text-xs text-slate-500 dark:text-slate-400">
+                        {commitment.hoursPerWeek}h/week
+                      </p>
                     </div>
                   </div>
                   <button

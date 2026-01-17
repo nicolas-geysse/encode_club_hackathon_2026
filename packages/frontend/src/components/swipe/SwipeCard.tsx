@@ -54,6 +54,7 @@ export function SwipeCard(props: SwipeCardProps) {
       return;
     }
 
+    e.preventDefault(); // Prevent scroll
     setIsDragging(true);
     startPos = { x: e.clientX - position().x, y: e.clientY - position().y };
     cardRef?.setPointerCapture(e.pointerId);
@@ -61,6 +62,7 @@ export function SwipeCard(props: SwipeCardProps) {
 
   const handlePointerMove = (e: PointerEvent) => {
     if (!isDragging() || !props.isActive) return;
+    e.preventDefault(); // Prevent scroll during drag
 
     const x = e.clientX - startPos.x;
     const y = e.clientY - startPos.y;
@@ -149,7 +151,7 @@ export function SwipeCard(props: SwipeCardProps) {
   return (
     <div
       ref={cardRef}
-      class={`absolute w-80 bg-white rounded-2xl shadow-xl border-2 overflow-hidden cursor-grab select-none transition-shadow ${
+      class={`absolute w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 overflow-hidden cursor-grab select-none transition-shadow ${
         isDragging() ? 'cursor-grabbing shadow-2xl' : ''
       } ${
         swipeDirection() === 'right'
@@ -160,7 +162,7 @@ export function SwipeCard(props: SwipeCardProps) {
               ? 'border-blue-400'
               : swipeDirection() === 'down'
                 ? 'border-orange-400'
-                : 'border-slate-200'
+                : 'border-slate-200 dark:border-slate-600'
       }`}
       style={{
         transform: `translate(${position().x}px, ${position().y}px) rotate(${rotation()}deg)`,
@@ -168,6 +170,7 @@ export function SwipeCard(props: SwipeCardProps) {
         'z-index': props.isActive ? 10 : 1,
         opacity: props.isActive ? 1 : 0.5,
         'pointer-events': props.isActive ? 'auto' : 'none',
+        'touch-action': 'none', // Prevent scroll during swipe
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -217,32 +220,36 @@ export function SwipeCard(props: SwipeCardProps) {
         {/* Category Badge */}
         <div class="flex items-center gap-2 mb-4">
           <span class="text-2xl">{getCategoryIcon(props.category)}</span>
-          <span class="text-sm font-medium text-slate-500 uppercase tracking-wide">
+          <span class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             {props.category}
           </span>
         </div>
 
         {/* Title */}
-        <h3 class="text-xl font-bold text-slate-900 mb-2">{props.title}</h3>
+        <h3 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">{props.title}</h3>
 
         {/* Description */}
-        <p class="text-slate-600 text-sm mb-6">{props.description}</p>
+        <p class="text-slate-600 dark:text-slate-300 text-sm mb-6">{props.description}</p>
 
         {/* Stats - only earnings and hours */}
         <div class="grid grid-cols-2 gap-4">
-          <div class="bg-slate-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-primary-600">{props.weeklyEarnings}€</div>
-            <div class="text-xs text-slate-500">/week</div>
+          <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
+              {props.weeklyEarnings}€
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">/week</div>
           </div>
-          <div class="bg-slate-50 rounded-lg p-3 text-center">
-            <div class="text-2xl font-bold text-slate-700">{props.weeklyHours}h</div>
-            <div class="text-xs text-slate-500">/week</div>
+          <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-slate-700 dark:text-slate-200">
+              {props.weeklyHours}h
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">/week</div>
           </div>
         </div>
       </div>
 
       {/* Swipe Hint */}
-      <div class="bg-slate-50 px-4 py-2 flex justify-between text-xs text-slate-400">
+      <div class="bg-slate-50 dark:bg-slate-700 px-4 py-2 flex justify-between text-xs text-slate-400">
         <span>← No</span>
         <span>↑ Super</span>
         <span>↓ Meh</span>

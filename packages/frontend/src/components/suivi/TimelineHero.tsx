@@ -1,7 +1,7 @@
 /**
  * Timeline Hero Component
  *
- * Double progress bar showing time progress and workload progress.
+ * Compact goal header with progress bar and 4 inline metric cards.
  * Includes celebration effects when goals are achieved.
  */
 
@@ -17,6 +17,7 @@ interface TimelineHeroProps {
   weeklyTarget: number;
   currentWeek: number;
   totalWeeks: number;
+  totalHours?: number;
 }
 
 export function TimelineHero(props: TimelineHeroProps) {
@@ -87,125 +88,127 @@ export function TimelineHero(props: TimelineHeroProps) {
 
   return (
     <div
-      class={`card text-white transition-all duration-500 ${
+      class={`card transition-all duration-500 ${
         goalAchieved()
-          ? 'bg-gradient-to-br from-yellow-600 via-amber-600 to-orange-600 ring-4 ring-yellow-400/50'
-          : 'bg-gradient-to-br from-slate-900 to-slate-800'
+          ? 'bg-gradient-to-br from-yellow-500 via-amber-500 to-orange-500 dark:from-yellow-600 dark:via-amber-600 dark:to-orange-600 text-white ring-4 ring-yellow-400/50'
+          : 'bg-gradient-to-br from-primary-50 to-primary-100 dark:from-slate-900 dark:to-slate-800 text-slate-900 dark:text-white'
       }`}
     >
       {/* Goal Achieved Banner */}
       <Show when={goalAchieved()}>
-        <div class="mb-4 -mt-2 -mx-2 px-4 py-2 bg-yellow-400/20 rounded-t-lg flex items-center justify-center gap-2 animate-pulse">
-          <span class="text-2xl">🎉</span>
-          <span class="font-bold text-yellow-100">Congratulations! Goal Achieved!</span>
-          <span class="text-2xl">🎉</span>
+        <div class="mb-3 -mt-2 -mx-2 px-4 py-1.5 bg-yellow-400/20 rounded-t-lg flex items-center justify-center gap-2 animate-pulse">
+          <span class="text-lg">🎉</span>
+          <span class="font-bold text-yellow-100 text-sm">Goal Achieved!</span>
+          <span class="text-lg">🎉</span>
         </div>
       </Show>
 
-      {/* Header */}
-      <div class="flex items-start justify-between mb-6">
-        <div>
-          <h2 class="text-2xl font-bold">{props.goalName}</h2>
-          <p class="text-slate-300 mt-1">
-            Goal: <span class="text-white font-semibold">{props.goalAmount}€</span>
-          </p>
+      {/* Compact Header */}
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <h2 class="text-xl font-bold">{props.goalName}</h2>
+          <span class={`text-lg ${goalAchieved() ? 'animate-bounce' : ''}`}>{status().icon}</span>
         </div>
         <div class="text-right">
-          <div
-            class={`text-3xl font-bold tabular-nums ${
-              goalAchieved() ? 'text-yellow-100' : 'text-white'
+          <span
+            class={`text-2xl font-bold tabular-nums ${
+              goalAchieved() ? 'text-yellow-100' : 'text-primary-600 dark:text-white'
             }`}
           >
             {animatedAmount()}€
-          </div>
-          <div class="text-slate-300 text-sm">collected</div>
+          </span>
+          <span class="text-slate-500 dark:text-slate-300 mx-1">/</span>
+          <span class="text-slate-600 dark:text-slate-300">{props.goalAmount}€</span>
         </div>
       </div>
 
-      {/* Double Progress Bars */}
-      <div class="space-y-4">
-        {/* Time Progress */}
-        <div>
-          <div class="flex justify-between text-sm mb-1">
-            <span class="text-slate-300">Time elapsed</span>
-            <span class="font-medium">
-              Week {props.currentWeek}/{props.totalWeeks}
-            </span>
-          </div>
-          <div class="h-3 bg-slate-700/50 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-gradient-to-r from-slate-500 to-slate-400 transition-all duration-1000 ease-out"
-              style={{ width: `${timeProgress()}%` }}
-            />
-          </div>
+      {/* Single Progress Bar with status text */}
+      <div class="mb-4">
+        <div class="h-4 bg-slate-200 dark:bg-slate-700/50 rounded-full overflow-hidden relative">
+          {/* Time marker */}
+          <div
+            class="absolute top-0 bottom-0 w-0.5 bg-slate-400 dark:bg-white/50 z-10 transition-all duration-1000"
+            style={{ left: `${timeProgress()}%` }}
+          />
+          <div
+            class={`h-full transition-all duration-1000 ease-out ${
+              goalAchieved()
+                ? 'bg-gradient-to-r from-yellow-400 to-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.5)]'
+                : isAhead()
+                  ? 'bg-gradient-to-r from-green-500 to-green-400'
+                  : isOnTrack()
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-400'
+                    : 'bg-gradient-to-r from-amber-500 to-amber-400'
+            }`}
+            style={{ width: `${amountProgress()}%` }}
+          />
         </div>
-
-        {/* Amount Progress */}
-        <div>
-          <div class="flex justify-between text-sm mb-1">
-            <span class="text-slate-300">Goal progress</span>
-            <span class="font-medium">{Math.round(amountProgress())}%</span>
-          </div>
-          <div class="h-3 bg-slate-700/50 rounded-full overflow-hidden relative">
-            {/* Time marker */}
-            <div
-              class="absolute top-0 bottom-0 w-0.5 bg-white/50 z-10 transition-all duration-1000"
-              style={{ left: `${timeProgress()}%` }}
-            />
-            <div
-              class={`h-full transition-all duration-1000 ease-out ${
-                goalAchieved()
-                  ? 'bg-gradient-to-r from-yellow-400 to-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.5)]'
-                  : isAhead()
-                    ? 'bg-gradient-to-r from-green-500 to-green-400'
-                    : isOnTrack()
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-400'
-                      : 'bg-gradient-to-r from-amber-500 to-amber-400'
-              }`}
-              style={{ width: `${amountProgress()}%` }}
-            />
-          </div>
+        <div class="flex justify-between mt-1 text-xs">
+          <span class={`font-medium ${status().color}`}>
+            {Math.round(amountProgress())}% - {status().text}
+          </span>
+          <span class="text-slate-500 dark:text-slate-400">
+            Week {props.currentWeek}/{props.totalWeeks}
+          </span>
         </div>
       </div>
 
-      {/* Status & Stats */}
-      <div class="mt-6 pt-6 border-t border-slate-700/50 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class={`text-2xl ${goalAchieved() ? 'animate-bounce' : ''}`}>{status().icon}</span>
-          <span class={`font-medium ${status().color}`}>{status().text}</span>
+      {/* 4 Metric Cards */}
+      <div class="grid grid-cols-4 gap-2">
+        <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-2 text-center">
+          <div class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+            {daysRemaining()}
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">days left</div>
         </div>
-        <div class="flex gap-6 text-sm">
-          <div class="text-center">
-            <div class="font-bold text-white tabular-nums">{daysRemaining()}</div>
-            <div class="text-slate-300">days</div>
+        <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-2 text-center">
+          <div class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+            {props.weeklyTarget}€
           </div>
-          <div class="text-center">
-            <div class="font-bold text-white tabular-nums">{props.weeklyTarget}€</div>
-            <div class="text-slate-300">/week</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">/week</div>
+        </div>
+        <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-2 text-center">
+          <div class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+            {props.totalHours ?? 0}h
           </div>
-          <div class="text-center">
-            <div
-              class={`font-bold tabular-nums ${goalAchieved() ? 'text-yellow-200' : 'text-white'}`}
-            >
-              {goalAchieved() ? '+' : ''}
-              {Math.abs(props.goalAmount - props.currentAmount)}€
-            </div>
-            <div class="text-slate-300">{goalAchieved() ? 'surplus' : 'remaining'}</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">worked</div>
+        </div>
+        <div
+          class={`rounded-lg p-2 text-center ${
+            goalAchieved()
+              ? 'bg-yellow-400/30'
+              : props.currentAmount >= 0
+                ? 'bg-green-500/20 dark:bg-green-900/30'
+                : 'bg-red-500/20 dark:bg-red-900/30'
+          }`}
+        >
+          <div
+            class={`text-lg font-bold tabular-nums ${
+              goalAchieved()
+                ? 'text-yellow-200'
+                : props.currentAmount >= 0
+                  ? 'text-green-700 dark:text-green-400'
+                  : 'text-red-700 dark:text-red-400'
+            }`}
+          >
+            {goalAchieved() ? '+' : ''}
+            {props.currentAmount}€
           </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">earned</div>
         </div>
       </div>
 
       {/* Quick Action - only show if behind */}
       <Show when={!isOnTrack() && !goalAchieved()}>
-        <div class="mt-4 p-3 bg-amber-500/20 rounded-lg flex items-center justify-between">
-          <span class="text-amber-200 text-sm">
-            You are {Math.round(timeProgress() - amountProgress())}% behind schedule
+        <div class="mt-3 p-2 bg-amber-100 dark:bg-amber-500/20 rounded-lg flex items-center justify-between">
+          <span class="text-amber-700 dark:text-amber-200 text-xs">
+            {Math.round(timeProgress() - amountProgress())}% behind schedule
           </span>
           <button
             type="button"
-            class="px-3 py-1 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-colors"
+            class="px-2 py-1 bg-amber-500 text-white text-xs font-medium rounded hover:bg-amber-600 transition-colors"
           >
-            Catch-up plan
+            Catch-up
           </button>
         </div>
       </Show>

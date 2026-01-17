@@ -19,6 +19,18 @@ const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
 // For self-hosted only (Opik Cloud doesn't need this)
 const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
 
+// Warn about common misconfigurations
+if (OPIK_BASE_URL?.includes(':5173')) {
+  console.warn(
+    '[Opik] Warning: OPIK_BASE_URL points to port 5173 (Vite dev server). For Opik Cloud, remove OPIK_BASE_URL.'
+  );
+}
+if (!OPIK_BASE_URL && !OPIK_WORKSPACE) {
+  console.warn(
+    '[Opik] Warning: For Opik Cloud, OPIK_WORKSPACE is required. Set it in your .env file.'
+  );
+}
+
 /**
  * Span interface for tracing
  */

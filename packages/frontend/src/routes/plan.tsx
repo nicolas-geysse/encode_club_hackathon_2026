@@ -244,8 +244,10 @@ export default function PlanPage() {
   const NoProfileView = () => (
     <div class="card text-center py-12 max-w-md mx-auto">
       <div class="text-4xl mb-4">👋</div>
-      <h2 class="text-xl font-bold text-slate-900 mb-2">No profile yet</h2>
-      <p class="text-slate-500 mb-6">Complete the onboarding first to create your profile</p>
+      <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">No profile yet</h2>
+      <p class="text-slate-500 dark:text-slate-400 mb-6">
+        Complete the onboarding first to create your profile
+      </p>
       <a href="/" class="btn-primary">
         Start onboarding
       </a>

@@ -385,7 +385,7 @@ Want to update your profile or go straight to your plan?`,
               <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white text-lg shadow-sm">
                 B
               </div>
-              <div class="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+              <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shadow-sm">
                 <div class="flex items-center gap-2">
                   <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
                   <div
@@ -403,32 +403,33 @@ Want to update your profile or go straight to your plan?`,
         </Show>
       </div>
 
-      {/* Input or action buttons */}
-      <Show
-        when={!isComplete()}
-        fallback={
-          <div class="border-t border-slate-200 bg-white p-6 text-center">
-            <button class="btn-primary text-lg px-8 py-3" onClick={goToPlan}>
+      {/* Action buttons when complete */}
+      <Show when={isComplete()}>
+        <div class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
+          <div class="flex items-center justify-center gap-3 max-w-3xl mx-auto">
+            <button class="btn-primary px-6 py-2" onClick={goToPlan}>
               Start My Plan
             </button>
-            <p class="text-sm text-slate-500 mt-3">
-              Or{' '}
-              <button
-                class="text-primary-600 underline"
-                onClick={() => {
-                  setIsComplete(false);
-                  setStep('name');
-                  setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
-                }}
-              >
-                restart onboarding
-              </button>
-            </p>
+            <button
+              class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              onClick={() => {
+                setIsComplete(false);
+                setStep('name');
+                setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+              }}
+            >
+              Restart onboarding
+            </button>
           </div>
-        }
-      >
-        <ChatInput onSend={handleSend} placeholder="Type your response..." disabled={loading()} />
+        </div>
       </Show>
+
+      {/* Chat input - always visible */}
+      <ChatInput
+        onSend={handleSend}
+        placeholder={isComplete() ? 'Ask Bruno anything...' : 'Type your response...'}
+        disabled={loading()}
+      />
     </div>
   );
 }

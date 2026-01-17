@@ -9,8 +9,9 @@ import type { APIEvent } from '@solidjs/start/server';
 
 // Environment-based API URL for MCP server (if we add HTTP support later)
 // For now, we'll make direct calls to Groq API from here
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const WHISPER_MODEL = process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3-turbo';
+// Note: Read env vars at request time, not module load time (Vite SSR compatibility)
+const getGroqApiKey = () => process.env.GROQ_API_KEY;
+const getWhisperModel = () => process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3-turbo';
 
 interface TranscribeRequest {
   action: 'transcribe';
@@ -37,7 +38,9 @@ export async function POST(event: APIEvent) {
       });
     }
 
-    if (!GROQ_API_KEY) {
+    const apiKey = getGroqApiKey();
+    if (!apiKey) {
+      console.error('[Voice API] GROQ_API_KEY not found in process.env');
       return new Response(JSON.stringify({ error: true, message: 'GROQ_API_KEY not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
@@ -55,7 +58,7 @@ export async function POST(event: APIEvent) {
       type: format === 'webm' ? 'audio/webm' : 'audio/wav',
     });
     formData.append('file', audioBlob, `recording.${format}`);
-    formData.append('model', WHISPER_MODEL);
+    formData.append('model', getWhisperModel());
     formData.append('language', language);
     formData.append('response_format', 'verbose_json');
 
@@ -63,7 +66,7 @@ export async function POST(event: APIEvent) {
     const groqResponse = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: formData,
     });

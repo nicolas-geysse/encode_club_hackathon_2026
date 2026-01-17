@@ -230,13 +230,25 @@ export function TradeTab(props: TradeTabProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return { label: 'In progress', class: 'bg-blue-100 text-blue-700' };
+        return {
+          label: 'In progress',
+          class: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400',
+        };
       case 'completed':
-        return { label: 'Done', class: 'bg-green-100 text-green-700' };
+        return {
+          label: 'Done',
+          class: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400',
+        };
       case 'pending':
-        return { label: 'Pending', class: 'bg-amber-100 text-amber-700' };
+        return {
+          label: 'Pending',
+          class: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400',
+        };
       default:
-        return { label: status, class: 'bg-slate-100 text-slate-700' };
+        return {
+          label: status,
+          class: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300',
+        };
     }
   };
 
@@ -244,34 +256,42 @@ export function TradeTab(props: TradeTabProps) {
     <div class="p-6 space-y-6 max-w-3xl mx-auto">
       {/* Summary Cards */}
       <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <div class="card bg-gradient-to-br from-blue-50 to-blue-100">
-          <div class="text-sm text-blue-600 font-medium">I borrowed</div>
-          <div class="text-2xl font-bold text-blue-900 mt-1">{borrowedValue()}€</div>
-          <div class="text-xs text-blue-500 mt-1">
+        <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
+          <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">I borrowed</div>
+          <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
+            {borrowedValue()}€
+          </div>
+          <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
             {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
           </div>
         </div>
-        <div class="card bg-gradient-to-br from-orange-50 to-orange-100">
-          <div class="text-sm text-orange-600 font-medium">I lent</div>
-          <div class="text-2xl font-bold text-orange-900 mt-1">{lentValue()}€</div>
-          <div class="text-xs text-orange-500 mt-1">
+        <div class="card bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30">
+          <div class="text-sm text-orange-600 dark:text-orange-400 font-medium">I lent</div>
+          <div class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-1">
+            {lentValue()}€
+          </div>
+          <div class="text-xs text-orange-500 dark:text-orange-400 mt-1">
             {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} active
           </div>
         </div>
         {/* Savings card - shows when there's a goal */}
         <Show when={props.goalAmount && props.goalAmount > 0}>
-          <div class="card bg-gradient-to-br from-green-50 to-green-100">
-            <div class="text-sm text-green-600 font-medium">Savings</div>
-            <div class="text-2xl font-bold text-green-900 mt-1">{totalSavings()}€</div>
-            <div class="text-xs text-green-500 mt-1">{savingsPercent()}% of goal</div>
+          <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
+            <div class="text-sm text-green-600 dark:text-green-400 font-medium">Savings</div>
+            <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
+              {totalSavings()}€
+            </div>
+            <div class="text-xs text-green-500 dark:text-green-400 mt-1">
+              {savingsPercent()}% of goal
+            </div>
           </div>
         </Show>
       </div>
 
       {/* Suggestions based on goal */}
       <Show when={suggestions().length > 0}>
-        <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
-          <h3 class="font-medium text-purple-900 mb-3 flex items-center gap-2">
+        <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-purple-200 dark:border-purple-800">
+          <h3 class="font-medium text-purple-900 dark:text-purple-200 mb-3 flex items-center gap-2">
             <span>💡</span> Suggestions for "{props.goalName || 'your goal'}"
           </h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -279,15 +299,21 @@ export function TradeTab(props: TradeTabProps) {
               {(suggestion) => (
                 <button
                   type="button"
-                  class="flex items-center justify-between p-3 bg-white rounded-lg border border-purple-100 hover:border-purple-300 transition-colors text-left"
+                  class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-100 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-600 transition-colors text-left"
                   onClick={() => addFromSuggestion(suggestion)}
                 >
                   <div>
-                    <div class="font-medium text-slate-900">{suggestion.name}</div>
-                    <div class="text-xs text-slate-500">{suggestion.description}</div>
+                    <div class="font-medium text-slate-900 dark:text-slate-100">
+                      {suggestion.name}
+                    </div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">
+                      {suggestion.description}
+                    </div>
                   </div>
                   <div class="text-right">
-                    <div class="text-green-600 font-bold">-{suggestion.estimatedSavings}€</div>
+                    <div class="text-green-600 dark:text-green-400 font-bold">
+                      -{suggestion.estimatedSavings}€
+                    </div>
                     <div class="text-xs text-slate-400">to save</div>
                   </div>
                 </button>
@@ -305,8 +331,8 @@ export function TradeTab(props: TradeTabProps) {
               type="button"
               class={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
                 activeType() === type.id
-                  ? 'bg-primary-100 text-primary-700'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
               }`}
               onClick={() => setActiveType(type.id)}
             >
@@ -320,12 +346,12 @@ export function TradeTab(props: TradeTabProps) {
       {/* Trades List */}
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="font-medium text-slate-900">
+          <h3 class="font-medium text-slate-900 dark:text-slate-100">
             {getTypeInfo(activeType())?.icon} {getTypeInfo(activeType())?.label}
           </h3>
           <button
             type="button"
-            class="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
             onClick={() => {
               setNewTrade({ ...newTrade(), type: activeType() as TradeItem['type'] });
               setShowAddForm(true);
@@ -339,14 +365,14 @@ export function TradeTab(props: TradeTabProps) {
           {(trade) => (
             <div class="card flex items-center gap-4">
               {/* Icon */}
-              <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-2xl">
+              <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl">
                 {getTypeInfo(trade.type)?.icon}
               </div>
 
               {/* Trade Info */}
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <h4 class="font-medium text-slate-900">{trade.name}</h4>
+                  <h4 class="font-medium text-slate-900 dark:text-slate-100">{trade.name}</h4>
                   <span
                     class={`px-2 py-0.5 text-xs font-medium rounded-full ${
                       getStatusBadge(trade.status).class
@@ -355,13 +381,13 @@ export function TradeTab(props: TradeTabProps) {
                     {getStatusBadge(trade.status).label}
                   </span>
                 </div>
-                <div class="flex items-center gap-3 mt-1 text-sm text-slate-500">
+                <div class="flex items-center gap-3 mt-1 text-sm text-slate-500 dark:text-slate-400">
                   <span>
                     {trade.type === 'borrow' ? 'From' : trade.type === 'lend' ? 'To' : 'With'}{' '}
                     <strong>{trade.partner}</strong>
                   </span>
                   <Show when={trade.dueDate}>
-                    <span class="text-slate-300">•</span>
+                    <span class="text-slate-300 dark:text-slate-600">•</span>
                     <span>Return: {new Date(trade.dueDate!).toLocaleDateString('en-US')}</span>
                   </Show>
                 </div>
@@ -372,7 +398,7 @@ export function TradeTab(props: TradeTabProps) {
 
               {/* Value */}
               <div class="flex-shrink-0 text-right">
-                <div class="font-bold text-slate-900">{trade.value}€</div>
+                <div class="font-bold text-slate-900 dark:text-slate-100">{trade.value}€</div>
               </div>
 
               {/* Actions */}
@@ -380,7 +406,7 @@ export function TradeTab(props: TradeTabProps) {
                 <Show when={trade.status !== 'completed'}>
                   <button
                     type="button"
-                    class="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                    class="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
                     onClick={() => updateStatus(trade.id, 'completed')}
                   >
                     Done
@@ -406,7 +432,7 @@ export function TradeTab(props: TradeTabProps) {
         </For>
 
         <Show when={trades().filter((t) => t.type === activeType()).length === 0}>
-          <div class="text-center py-8 text-slate-500">
+          <div class="text-center py-8 text-slate-500 dark:text-slate-400">
             <div class="text-4xl mb-3">{getTypeInfo(activeType())?.icon}</div>
             <p>
               {activeType() === 'borrow'
@@ -420,9 +446,9 @@ export function TradeTab(props: TradeTabProps) {
       </div>
 
       {/* Tips */}
-      <div class="card bg-slate-50">
-        <h4 class="text-sm font-medium text-slate-700 mb-2">💡 Tip</h4>
-        <p class="text-sm text-slate-600">
+      <div class="card bg-slate-50 dark:bg-slate-700">
+        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">💡 Tip</h4>
+        <p class="text-sm text-slate-600 dark:text-slate-400">
           {activeType() === 'borrow'
             ? 'Borrowing textbooks or equipment can help you save money. Ask your friends or the library!'
             : activeType() === 'lend'
@@ -435,14 +461,16 @@ export function TradeTab(props: TradeTabProps) {
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
               {getTypeInfo(newTrade().type || 'borrow')?.icon}{' '}
               {getTypeInfo(newTrade().type || 'borrow')?.label}
             </h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">What?</label>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  What?
+                </label>
                 <input
                   type="text"
                   class="input-field"
@@ -453,7 +481,7 @@ export function TradeTab(props: TradeTabProps) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   {newTrade().type === 'borrow'
                     ? 'From whom?'
                     : newTrade().type === 'lend'
@@ -471,7 +499,7 @@ export function TradeTab(props: TradeTabProps) {
 
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Estimated value (€)
                   </label>
                   <input
@@ -485,7 +513,9 @@ export function TradeTab(props: TradeTabProps) {
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Return date</label>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Return date
+                  </label>
                   <input
                     type="date"
                     class="input-field"
@@ -496,7 +526,7 @@ export function TradeTab(props: TradeTabProps) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Notes (optional)
                 </label>
                 <input

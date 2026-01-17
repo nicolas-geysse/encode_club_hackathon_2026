@@ -43,13 +43,13 @@ export function NotificationBell(props: NotificationBellProps) {
   const getTypeBgClass = (type: Notification['type']) => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200';
+        return 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800';
       case 'warning':
-        return 'bg-amber-50 border-amber-200';
+        return 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800';
       case 'info':
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800';
       default:
-        return 'bg-slate-50 border-slate-200';
+        return 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600';
     }
   };
 
@@ -71,10 +71,15 @@ export function NotificationBell(props: NotificationBellProps) {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen())}
-        class="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
+        class="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
         title="Notifications"
       >
-        <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          class="w-5 h-5 text-slate-600 dark:text-slate-300"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -93,13 +98,13 @@ export function NotificationBell(props: NotificationBellProps) {
 
       {/* Dropdown */}
       <Show when={isOpen()}>
-        <div class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
-            <h3 class="font-semibold text-slate-900">Notifications</h3>
+        <div class="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
+            <h3 class="font-semibold text-slate-900 dark:text-slate-100">Notifications</h3>
             <Show when={props.notifications.length > 0}>
               <button
                 onClick={() => props.onClearAll?.()}
-                class="text-xs text-slate-500 hover:text-slate-700"
+                class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
               >
                 Clear all
               </button>
@@ -110,7 +115,7 @@ export function NotificationBell(props: NotificationBellProps) {
             <Show
               when={props.notifications.length > 0}
               fallback={
-                <div class="px-4 py-8 text-center text-slate-500">
+                <div class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
                   <div class="text-3xl mb-2">🔔</div>
                   <p class="text-sm">No notifications</p>
                 </div>
@@ -119,8 +124,8 @@ export function NotificationBell(props: NotificationBellProps) {
               <For each={props.notifications}>
                 {(notification) => (
                   <div
-                    class={`px-4 py-3 border-b last:border-b-0 cursor-pointer hover:bg-slate-50 transition-colors ${
-                      !notification.read ? 'bg-blue-50/50' : ''
+                    class={`px-4 py-3 border-b dark:border-slate-700 last:border-b-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
+                      !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
                     }`}
                     onClick={() => props.onMarkAsRead?.(notification.id)}
                   >
@@ -132,14 +137,14 @@ export function NotificationBell(props: NotificationBellProps) {
                       </span>
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between gap-2">
-                          <h4 class="font-medium text-slate-900 text-sm truncate">
+                          <h4 class="font-medium text-slate-900 dark:text-slate-100 text-sm truncate">
                             {notification.title}
                           </h4>
                           <span class="text-xs text-slate-400 flex-shrink-0">
                             {formatTime(notification.timestamp)}
                           </span>
                         </div>
-                        <p class="text-sm text-slate-600 mt-0.5 line-clamp-2">
+                        <p class="text-sm text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-2">
                           {notification.message}
                         </p>
                       </div>

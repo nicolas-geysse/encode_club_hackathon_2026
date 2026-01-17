@@ -197,13 +197,15 @@ export function SimulationControls(props: Props) {
       fallback={
         <div class="relative flex items-center gap-2">
           {/* Day Counter Display */}
-          <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-lg">
-            <span class="text-xs text-slate-500 font-medium">DAY</span>
-            <span class="text-lg font-bold text-primary-600">{daysInfo().currentDay}</span>
+          <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg">
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">DAY</span>
+            <span class="text-lg font-bold text-primary-600 dark:text-primary-400">
+              {daysInfo().currentDay}
+            </span>
             <span class="text-slate-400">/</span>
-            <span class="text-sm text-slate-500">{daysInfo().totalDays}</span>
+            <span class="text-sm text-slate-500 dark:text-slate-400">{daysInfo().totalDays}</span>
             {/* Mini progress bar */}
-            <div class="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden ml-1">
+            <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden ml-1">
               <div
                 class="h-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-300"
                 style={{ width: `${progressPct()}%` }}
@@ -217,8 +219,8 @@ export function SimulationControls(props: Props) {
             onClick={() => setExpanded(!expanded())}
             class={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
               state().isSimulating
-                ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
             }`}
           >
             <span>⏱️</span>
@@ -231,14 +233,14 @@ export function SimulationControls(props: Props) {
 
           {/* Dropdown when expanded */}
           <Show when={expanded()}>
-            <div class="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-slate-200 p-4 z-50 min-w-[280px]">
-              <div class="text-sm text-slate-600 mb-3">
+            <div class="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-4 z-50 min-w-[280px]">
+              <div class="text-sm text-slate-600 dark:text-slate-300 mb-3">
                 {state().isSimulating ? (
                   <>
-                    <div class="font-medium text-amber-800">
+                    <div class="font-medium text-amber-800 dark:text-amber-300">
                       Simulated date: {formatDate(state().simulatedDate)}
                     </div>
-                    <div class="text-xs text-slate-500 mt-1">
+                    <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       +{state().offsetDays}d since {formatDate(state().realDate)}
                     </div>
                   </>
@@ -252,7 +254,7 @@ export function SimulationControls(props: Props) {
                   type="button"
                   onClick={() => handleAdvance(1)}
                   disabled={loading()}
-                  class="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg transition-colors disabled:opacity-50"
+                  class="px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded-lg transition-colors disabled:opacity-50"
                 >
                   +1 day
                 </button>
@@ -260,7 +262,7 @@ export function SimulationControls(props: Props) {
                   type="button"
                   onClick={() => handleAdvance(7)}
                   disabled={loading()}
-                  class="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg transition-colors disabled:opacity-50"
+                  class="px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded-lg transition-colors disabled:opacity-50"
                 >
                   +1 week
                 </button>
@@ -268,7 +270,7 @@ export function SimulationControls(props: Props) {
                   type="button"
                   onClick={() => handleAdvance(30)}
                   disabled={loading()}
-                  class="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg transition-colors disabled:opacity-50"
+                  class="px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded-lg transition-colors disabled:opacity-50"
                 >
                   +1 month
                 </button>
@@ -279,7 +281,7 @@ export function SimulationControls(props: Props) {
                   type="button"
                   onClick={handleReset}
                   disabled={loading()}
-                  class="w-full px-3 py-1.5 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors disabled:opacity-50"
+                  class="w-full px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900/70 text-red-700 dark:text-red-300 rounded-lg transition-colors disabled:opacity-50"
                 >
                   Back to real time
                 </button>
@@ -288,7 +290,7 @@ export function SimulationControls(props: Props) {
               {/* Click outside to close */}
               <button
                 type="button"
-                class="absolute top-2 right-2 text-slate-400 hover:text-slate-600"
+                class="absolute top-2 right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 onClick={() => setExpanded(false)}
               >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -306,14 +308,16 @@ export function SimulationControls(props: Props) {
           {/* Daily check-in modal (same as non-compact) */}
           <Show when={showDailyCheckin()}>
             <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+              <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
                 <div class="text-center mb-4">
                   <span class="text-4xl">👋</span>
-                  <h3 class="text-lg font-bold text-slate-900 mt-2">New day!</h3>
-                  <p class="text-slate-500 text-sm mt-1">
+                  <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-2">
+                    New day!
+                  </h3>
+                  <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
                     {formatDate(state().realDate)}
                     {state().isSimulating && (
-                      <span class="text-amber-600 ml-1">
+                      <span class="text-amber-600 dark:text-amber-400 ml-1">
                         (simulated: {formatDate(state().simulatedDate)})
                       </span>
                     )}
@@ -330,7 +334,7 @@ export function SimulationControls(props: Props) {
                   <a
                     href="/suivi"
                     onClick={completeDailyCheckin}
-                    class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors text-center"
+                    class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-center"
                   >
                     View my progress
                   </a>
@@ -345,15 +349,15 @@ export function SimulationControls(props: Props) {
       <>
         {/* Main simulation indicator - always visible when simulating */}
         <Show when={state().isSimulating || expanded()}>
-          <div class="bg-amber-50 border-t border-amber-200 px-4 py-2">
+          <div class="bg-amber-50 dark:bg-amber-900/30 border-t border-amber-200 dark:border-amber-800 px-4 py-2">
             <div class="max-w-7xl mx-auto flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <span class="text-amber-600 text-lg">⏱️</span>
+                <span class="text-amber-600 dark:text-amber-400 text-lg">⏱️</span>
                 <div class="text-sm">
-                  <span class="text-amber-800 font-medium">
+                  <span class="text-amber-800 dark:text-amber-300 font-medium">
                     Simulated date: {formatDate(state().simulatedDate)}
                   </span>
-                  <span class="text-amber-600 ml-2">
+                  <span class="text-amber-600 dark:text-amber-400 ml-2">
                     (+{state().offsetDays}d since {formatDate(state().realDate)})
                   </span>
                 </div>
@@ -364,21 +368,21 @@ export function SimulationControls(props: Props) {
                   <button
                     onClick={() => handleAdvance(1)}
                     disabled={loading()}
-                    class="px-2 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-colors disabled:opacity-50"
+                    class="px-2 py-1 text-xs bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded transition-colors disabled:opacity-50"
                   >
                     +1d
                   </button>
                   <button
                     onClick={() => handleAdvance(7)}
                     disabled={loading()}
-                    class="px-2 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-colors disabled:opacity-50"
+                    class="px-2 py-1 text-xs bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded transition-colors disabled:opacity-50"
                   >
                     +7d
                   </button>
                   <button
                     onClick={() => handleAdvance(30)}
                     disabled={loading()}
-                    class="px-2 py-1 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 rounded transition-colors disabled:opacity-50"
+                    class="px-2 py-1 text-xs bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded transition-colors disabled:opacity-50"
                   >
                     +30d
                   </button>
@@ -386,7 +390,7 @@ export function SimulationControls(props: Props) {
                     <button
                       onClick={handleReset}
                       disabled={loading()}
-                      class="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors disabled:opacity-50"
+                      class="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900/70 text-red-700 dark:text-red-300 rounded transition-colors disabled:opacity-50"
                     >
                       Reset
                     </button>
@@ -394,7 +398,7 @@ export function SimulationControls(props: Props) {
                 </Show>
                 <button
                   onClick={() => setExpanded(!expanded())}
-                  class="p-1 text-amber-600 hover:text-amber-800 transition-colors"
+                  class="p-1 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
                 >
                   <Show
                     when={expanded()}
@@ -434,7 +438,7 @@ export function SimulationControls(props: Props) {
         <Show when={!state().isSimulating && !expanded()}>
           <button
             onClick={() => setExpanded(true)}
-            class="fixed bottom-4 right-4 p-3 bg-slate-700 hover:bg-slate-800 text-white rounded-full shadow-lg transition-colors z-40"
+            class="fixed bottom-4 right-4 p-3 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 text-white rounded-full shadow-lg transition-colors z-40"
             title="Simulation mode"
           >
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -451,14 +455,14 @@ export function SimulationControls(props: Props) {
         {/* Daily check-in modal */}
         <Show when={showDailyCheckin()}>
           <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
               <div class="text-center mb-4">
                 <span class="text-4xl">👋</span>
-                <h3 class="text-lg font-bold text-slate-900 mt-2">New day!</h3>
-                <p class="text-slate-500 text-sm mt-1">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-2">New day!</h3>
+                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
                   {formatDate(state().realDate)}
                   {state().isSimulating && (
-                    <span class="text-amber-600 ml-1">
+                    <span class="text-amber-600 dark:text-amber-400 ml-1">
                       (simulated: {formatDate(state().simulatedDate)})
                     </span>
                   )}
@@ -466,15 +470,15 @@ export function SimulationControls(props: Props) {
               </div>
 
               <div class="space-y-3 mb-6">
-                <div class="p-3 bg-slate-50 rounded-lg">
-                  <p class="text-sm text-slate-700">
+                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <p class="text-sm text-slate-700 dark:text-slate-300">
                     How are you feeling today? Did you make progress on your goals?
                   </p>
                 </div>
 
                 <Show when={state().isSimulating}>
-                  <div class="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <p class="text-sm text-amber-800">
+                  <div class="p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <p class="text-sm text-amber-800 dark:text-amber-300">
                       <strong>Note:</strong> You are in simulation mode. Data is offset by +
                       {state().offsetDays} days.
                     </p>
@@ -492,7 +496,7 @@ export function SimulationControls(props: Props) {
                 <a
                   href="/suivi"
                   onClick={completeDailyCheckin}
-                  class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors text-center"
+                  class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-center"
                 >
                   View my progress
                 </a>

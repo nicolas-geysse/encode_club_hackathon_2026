@@ -118,9 +118,10 @@ export function SkillsTab(props: SkillsTabProps) {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 7) return 'text-green-600 bg-green-100';
-    if (score >= 5) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
+    if (score >= 7) return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40';
+    if (score >= 5)
+      return 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/40';
+    return 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40';
   };
 
   const getEffortLabel = (effort: number) => {
@@ -133,10 +134,10 @@ export function SkillsTab(props: SkillsTabProps) {
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <span>💼</span> Skill Arbitrage
           </h2>
-          <p class="text-sm text-slate-500 mt-1">
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
             The highest paying job isn't necessarily the best
           </p>
         </div>
@@ -147,13 +148,13 @@ export function SkillsTab(props: SkillsTabProps) {
 
       {/* Quick Add Templates */}
       <div class="card">
-        <h3 class="text-sm font-medium text-slate-700 mb-3">Quick add</h3>
+        <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Quick add</h3>
         <div class="flex flex-wrap gap-2">
           <For each={SKILL_TEMPLATES.filter((t) => !skills().some((s) => s.name === t.name))}>
             {(template) => (
               <button
                 type="button"
-                class="px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+                class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-full transition-colors"
                 onClick={() => addSkill(template)}
               >
                 {template.name}
@@ -170,21 +171,21 @@ export function SkillsTab(props: SkillsTabProps) {
             {(skill, index) => (
               <div class="card flex items-center gap-4">
                 {/* Rank */}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
                   {index() + 1}
                 </div>
 
                 {/* Skill Info */}
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
-                    <h4 class="font-semibold text-slate-900">{skill.name}</h4>
+                    <h4 class="font-semibold text-slate-900 dark:text-slate-100">{skill.name}</h4>
                     <Show when={index() === 0}>
-                      <span class="px-2 py-0.5 text-xs font-medium bg-primary-100 text-primary-700 rounded-full">
+                      <span class="px-2 py-0.5 text-xs font-medium bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded-full">
                         Recommended
                       </span>
                     </Show>
                   </div>
-                  <div class="flex items-center gap-4 mt-1 text-sm text-slate-500">
+                  <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
                     <span>{skill.hourlyRate}€/h</span>
                     <span>{'⭐'.repeat(skill.marketDemand)}</span>
                     <span>Effort: {getEffortLabel(skill.cognitiveEffort)}</span>
@@ -225,8 +226,12 @@ export function SkillsTab(props: SkillsTabProps) {
       <Show when={skills().length === 0 && !showAddForm()}>
         <div class="card text-center py-12">
           <div class="text-4xl mb-4">💼</div>
-          <h3 class="text-lg font-medium text-slate-900 mb-2">No skills added</h3>
-          <p class="text-slate-500 mb-4">Add your skills to discover the best jobs</p>
+          <h3 class="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+            No skills added
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 mb-4">
+            Add your skills to discover the best jobs
+          </p>
           <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
             Add a skill
           </button>
@@ -237,11 +242,13 @@ export function SkillsTab(props: SkillsTabProps) {
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">New skill</h3>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">New skill</h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Name
+                </label>
                 <input
                   type="text"
                   class="input-field"
@@ -253,7 +260,7 @@ export function SkillsTab(props: SkillsTabProps) {
 
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Hourly rate (€)
                   </label>
                   <input
@@ -271,7 +278,7 @@ export function SkillsTab(props: SkillsTabProps) {
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Market demand (1-5)
                   </label>
                   <input
@@ -284,7 +291,7 @@ export function SkillsTab(props: SkillsTabProps) {
                       setNewSkill({ ...newSkill(), marketDemand: parseInt(e.currentTarget.value) })
                     }
                   />
-                  <div class="text-center text-sm text-slate-500">
+                  <div class="text-center text-sm text-slate-500 dark:text-slate-400">
                     {'⭐'.repeat(newSkill().marketDemand || 3)}
                   </div>
                 </div>
@@ -292,7 +299,7 @@ export function SkillsTab(props: SkillsTabProps) {
 
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Cognitive effort (1-5)
                   </label>
                   <select
@@ -313,7 +320,7 @@ export function SkillsTab(props: SkillsTabProps) {
                   </select>
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Rest needed (h)
                   </label>
                   <input
@@ -356,9 +363,11 @@ export function SkillsTab(props: SkillsTabProps) {
       </Show>
 
       {/* Scoring Explanation */}
-      <div class="card bg-slate-50">
-        <h4 class="text-sm font-medium text-slate-700 mb-2">How does it work?</h4>
-        <p class="text-sm text-slate-600">
+      <div class="card bg-slate-50 dark:bg-slate-700">
+        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          How does it work?
+        </h4>
+        <p class="text-sm text-slate-600 dark:text-slate-400">
           The score balances 4 criteria: hourly rate (30%), market demand (25%), cognitive effort
           (25%), and rest time (20%). A well-paid but exhausting job may score lower than a
           lower-paid but easier job.

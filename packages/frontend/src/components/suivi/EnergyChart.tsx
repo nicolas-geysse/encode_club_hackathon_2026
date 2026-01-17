@@ -119,7 +119,7 @@ export function EnergyChart(props: EnergyChartProps) {
 
   return (
     <div class="card">
-      <h3 class="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+      <h3 class="font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
         <span>📊</span> Evolution de l'energie
       </h3>
 
@@ -127,7 +127,7 @@ export function EnergyChart(props: EnergyChartProps) {
         {props.history.length > 0 ? (
           <Line data={chartData()} options={chartOptions} />
         ) : (
-          <div class="h-full flex items-center justify-center text-slate-400">
+          <div class="h-full flex items-center justify-center text-slate-400 dark:text-slate-500">
             <div class="text-center">
               <div class="text-4xl mb-2">📈</div>
               <p>Pas encore de donnees</p>
@@ -138,27 +138,27 @@ export function EnergyChart(props: EnergyChartProps) {
 
       {/* Stats summary */}
       {props.history.length > 0 && (
-        <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-4 text-center">
+        <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 grid grid-cols-3 gap-4 text-center">
           <div>
-            <div class="text-2xl font-bold text-primary-600">
+            <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
               {Math.round(
                 props.history.reduce((sum, e) => sum + e.level, 0) / props.history.length
               )}
               %
             </div>
-            <div class="text-xs text-slate-500">Moyenne</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Moyenne</div>
           </div>
           <div>
-            <div class="text-2xl font-bold text-green-600">
+            <div class="text-2xl font-bold text-green-600 dark:text-green-400">
               {Math.max(...props.history.map((e) => e.level))}%
             </div>
-            <div class="text-xs text-slate-500">Max</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Max</div>
           </div>
           <div>
-            <div class="text-2xl font-bold text-red-600">
+            <div class="text-2xl font-bold text-red-600 dark:text-red-400">
               {Math.min(...props.history.map((e) => e.level))}%
             </div>
-            <div class="text-xs text-slate-500">Min</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Min</div>
           </div>
         </div>
       )}

@@ -65,32 +65,46 @@ export function MissionList(props: MissionListProps) {
       {/* Stats Summary */}
       <div class="grid grid-cols-4 gap-3">
         <div class="card text-center py-4">
-          <div class="text-2xl font-bold text-primary-600">{stats().active}</div>
-          <div class="text-xs text-slate-500">Active</div>
+          <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
+            {stats().active}
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">Active</div>
         </div>
         <div class="card text-center py-4">
-          <div class="text-2xl font-bold text-green-600">{stats().completed}</div>
-          <div class="text-xs text-slate-500">Completed</div>
+          <div class="text-2xl font-bold text-green-600 dark:text-green-400">
+            {stats().completed}
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">Completed</div>
         </div>
         <div class="card text-center py-4">
-          <div class="text-2xl font-bold text-slate-900">{stats().totalHours}h</div>
-          <div class="text-xs text-slate-500">Worked</div>
+          <div class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {stats().totalHours}h
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">Worked</div>
         </div>
-        <div class="card text-center py-4 bg-green-50">
-          <div class="text-2xl font-bold text-green-700">{stats().totalEarnings}€</div>
-          <div class="text-xs text-green-600">Earned</div>
+        <div class="card text-center py-4 bg-green-50 dark:bg-green-900/20">
+          <div class="text-2xl font-bold text-green-700 dark:text-green-400">
+            {stats().totalEarnings}€
+          </div>
+          <div class="text-xs text-green-600 dark:text-green-500">Earned</div>
         </div>
       </div>
 
       {/* Weekly Potential */}
       <Show when={stats().weeklyPotential > 0}>
-        <div class="card bg-gradient-to-r from-primary-50 to-primary-100">
+        <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30">
           <div class="flex items-center justify-between">
             <div>
-              <h4 class="font-medium text-primary-900">This week's potential</h4>
-              <p class="text-sm text-primary-600">If you complete all your active missions</p>
+              <h4 class="font-medium text-primary-900 dark:text-primary-200">
+                This week's potential
+              </h4>
+              <p class="text-sm text-primary-600 dark:text-primary-400">
+                If you complete all your active missions
+              </p>
             </div>
-            <div class="text-3xl font-bold text-primary-700">+{stats().weeklyPotential}€</div>
+            <div class="text-3xl font-bold text-primary-700 dark:text-primary-300">
+              +{stats().weeklyPotential}€
+            </div>
           </div>
         </div>
       </Show>
@@ -103,8 +117,8 @@ export function MissionList(props: MissionListProps) {
               type="button"
               class={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 filter() === f
-                  ? 'bg-primary-100 text-primary-700'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
               }`}
               onClick={() => setFilter(f)}
             >
@@ -134,14 +148,14 @@ export function MissionList(props: MissionListProps) {
             <div class="text-4xl mb-4">
               {filter() === 'active' ? '🎯' : filter() === 'completed' ? '🏆' : '📋'}
             </div>
-            <h3 class="text-lg font-medium text-slate-900 mb-2">
+            <h3 class="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
               {filter() === 'active'
                 ? 'No active missions'
                 : filter() === 'completed'
                   ? 'No completed missions'
                   : 'No missions'}
             </h3>
-            <p class="text-slate-500">
+            <p class="text-slate-500 dark:text-slate-400">
               {filter() === 'active'
                 ? 'Use Swipe Scenarios to create missions'
                 : filter() === 'completed'
@@ -154,7 +168,7 @@ export function MissionList(props: MissionListProps) {
 
       {/* Motivational Footer */}
       <Show when={stats().active > 0}>
-        <div class="text-center text-sm text-slate-500 pt-4 border-t border-slate-100">
+        <div class="text-center text-sm text-slate-500 dark:text-slate-400 pt-4 border-t border-slate-100 dark:border-slate-700">
           💪 You have {stats().active} mission{stats().active > 1 ? 's' : ''} in progress. Keep it
           up!
         </div>

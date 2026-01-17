@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dark mode base styles */
+@layer base {
+  /* Input fields dark mode */
+  .dark input,
+  .dark textarea,
+  .dark select {
+    @apply bg-slate-700 border-slate-600 text-slate-100;
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    @apply text-slate-400;
+  }
+  /* Date picker calendar icon - invert for dark mode */
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+}
+
 /* Custom styles for Student Life Navigator */
 @layer components {
   .btn-primary {
@@ -9,34 +29,34 @@
   }
 
   .btn-secondary {
-    @apply bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-4 rounded-lg transition-colors;
+    @apply bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 font-medium py-2 px-4 rounded-lg transition-colors;
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-6;
+    @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6;
   }
 
   .input-field {
-    @apply w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-shadow;
+    @apply w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-shadow;
   }
 
   .metric-card {
-    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col;
+    @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 flex flex-col;
   }
 
   .metric-value {
-    @apply text-3xl font-bold text-slate-900;
+    @apply text-3xl font-bold text-slate-900 dark:text-slate-100;
   }
 
   .metric-label {
-    @apply text-sm text-slate-500 mt-1;
+    @apply text-sm text-slate-500 dark:text-slate-400 mt-1;
   }
 
   .metric-trend-up {
-    @apply text-green-600 text-sm font-medium;
+    @apply text-green-600 dark:text-green-400 text-sm font-medium;
   }
 
   .metric-trend-down {
-    @apply text-red-600 text-sm font-medium;
+    @apply text-red-600 dark:text-red-400 text-sm font-medium;
   }
 }

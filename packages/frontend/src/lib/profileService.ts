@@ -393,6 +393,80 @@ export async function syncLocalToDb(): Promise<boolean> {
   }
 }
 
+/**
+ * Export a profile as a JSON file download
+ */
+export async function exportProfile(profileId?: string): Promise<void> {
+  try {
+    const url = profileId ? `/api/profiles/export?id=${profileId}` : '/api/profiles/export';
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Export failed');
+    }
+
+    // Get filename from Content-Disposition header or generate one
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'stride_profile.json';
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="(.+)"/);
+      if (match) filename = match[1];
+    }
+
+    // Create blob and trigger download
+    const blob = await response.blob();
+    const downloadUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(downloadUrl);
+
+    logger.info('Profile exported successfully');
+  } catch (error) {
+    logger.error('Failed to export profile', { error });
+    throw error;
+  }
+}
+
+/**
+ * Import a profile from a JSON file
+ */
+export async function importProfile(
+  file: File,
+  options: { setActive?: boolean } = {}
+): Promise<{ success: boolean; profileId?: string; message?: string }> {
+  try {
+    const text = await file.text();
+    const importData = JSON.parse(text);
+
+    const response = await fetch('/api/profiles/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...importData,
+        options,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Import failed');
+    }
+
+    logger.info('Profile imported successfully', { profileId: result.profileId });
+    return result;
+  } catch (error) {
+    logger.error('Failed to import profile', { error });
+    throw error;
+  }
+}
+
 export const profileService = {
   loadActiveProfile,
   loadProfile,
@@ -402,6 +476,8 @@ export const profileService = {
   duplicateProfileForGoal,
   deleteProfile,
   syncLocalToDb,
+  exportProfile,
+  importProfile,
 };
 
 export default profileService;

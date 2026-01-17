@@ -181,15 +181,15 @@ function generateComparisons(
 
       let reason: string;
       if (winner.type === 'selling' && loser.type !== 'selling') {
-        reason = 'Gain immediat vs revenu recurrent';
+        reason = 'Immediate gain vs recurring income';
       } else if (winner.type === 'job' && loser.type === 'hustle') {
-        reason = 'Plus stable et meilleur pour le CV';
+        reason = 'More stable and better for resume';
       } else if (winner.type === 'hustle' && loser.type === 'job') {
-        reason = 'Plus flexible et demarre plus vite';
+        reason = 'More flexible and starts faster';
       } else if (winner.type === 'optimization') {
-        reason = 'Zero effort supplementaire, economies garanties';
+        reason = 'Zero extra effort, guaranteed savings';
       } else {
-        reason = `Score global: ${winner.scores.overall} vs ${loser.scores.overall}`;
+        reason = `Overall score: ${winner.scores.overall} vs ${loser.scores.overall}`;
       }
 
       comparisons.push({
@@ -268,15 +268,15 @@ export async function compareStrategies(
     // Generate recommendation
     let recommendation: string;
     if (userContext.urgency === 'high' && userContext.monthlyMargin < 0) {
-      recommendation = `URGENT: ${bestQuickWin.name} pour un gain rapide de ~${bestQuickWin.monthlyEquivalent}€/mois. `;
-      recommendation += `Combine avec ${bestLongTerm.name} pour stabiliser.`;
+      recommendation = `URGENT: ${bestQuickWin.name} for a quick gain of ~$${bestQuickWin.monthlyEquivalent}/month. `;
+      recommendation += `Combine with ${bestLongTerm.name} to stabilize.`;
     } else if (bestOverall.type === 'selling') {
-      recommendation = `Commence par vendre (${bestOverall.name}) pour un boost de ${bestOverall.oneTimeGain}€, `;
-      recommendation += `puis passe a ${scoredStrategies.find((s) => s.type !== 'selling')?.name || 'un revenu recurrent'}.`;
+      recommendation = `Start by selling (${bestOverall.name}) for a $${bestOverall.oneTimeGain} boost, `;
+      recommendation += `then switch to ${scoredStrategies.find((s) => s.type !== 'selling')?.name || 'recurring income'}.`;
     } else {
-      recommendation = `${bestOverall.name} est ta meilleure option (~${bestOverall.monthlyEquivalent}€/mois). `;
+      recommendation = `${bestOverall.name} is your best option (~$${bestOverall.monthlyEquivalent}/month). `;
       if (bestOverall !== bestLongTerm) {
-        recommendation += `Pour le long terme, considere ${bestLongTerm.name}.`;
+        recommendation += `For the long term, consider ${bestLongTerm.name}.`;
       }
     }
 
@@ -315,7 +315,7 @@ export function createStrategyFromJob(
     id: `job_${job.id}`,
     type: 'job',
     name: job.name,
-    description: `Job etudiant: ${job.name}`,
+    description: `Student job: ${job.name}`,
     oneTimeGain: 0,
     monthlyGain: Math.round(job.hourlyRate * hoursPerWeek * 4),
     monthlySavings: 0,
@@ -370,8 +370,8 @@ export function createStrategyFromSelling(item: {
   return {
     id: `sell_${item.name.toLowerCase().replace(/\s/g, '_')}`,
     type: 'selling',
-    name: `Vendre: ${item.name}`,
-    description: `Vendre ${item.name} sur ${item.platform}`,
+    name: `Sell: ${item.name}`,
+    description: `Sell ${item.name} on ${item.platform}`,
     oneTimeGain: item.estimatedPrice,
     monthlyGain: 0,
     monthlySavings: 0,
@@ -381,7 +381,7 @@ export function createStrategyFromSelling(item: {
     skillsRequired: [],
     flexibility: 1,
     sustainability: 0.1, // One-time
-    coBenefits: ['Desencombre'],
+    coBenefits: ['Declutter'],
     source: 'money-maker',
   };
 }
@@ -397,7 +397,7 @@ export function createStrategyFromOptimization(opt: {
     id: `opt_${opt.solution.toLowerCase().replace(/\s/g, '_')}`,
     type: 'optimization',
     name: opt.solution,
-    description: `Reduire ${opt.expense} via ${opt.solution}`,
+    description: `Reduce ${opt.expense} via ${opt.solution}`,
     oneTimeGain: 0,
     monthlyGain: 0,
     monthlySavings: savings,
@@ -419,7 +419,7 @@ export function createStrategyFromOptimization(opt: {
  */
 export const compareStrategiesTool = createTool({
   id: 'compare_strategies',
-  description: 'Compare toutes les strategies (jobs vs hustles vs ventes vs optimisations)',
+  description: 'Compare all strategies (jobs vs hustles vs sales vs optimizations)',
   inputSchema: z.object({
     strategies: z.array(
       z.object({
@@ -459,7 +459,7 @@ export const compareStrategiesTool = createTool({
  */
 export const quickComparisonTool = createTool({
   id: 'quick_strategy_comparison',
-  description: "Comparaison rapide: quel est le meilleur moyen d'ameliorer ma situation?",
+  description: "Quick comparison: what's the best way to improve my situation?",
   inputSchema: z.object({
     // Jobs available
     jobs: z
@@ -530,8 +530,8 @@ export const quickComparisonTool = createTool({
 
     if (strategies.length === 0) {
       return {
-        error: 'Aucune strategie a comparer',
-        suggestion: 'Ajoute des jobs, objets a vendre, ou optimisations',
+        error: 'No strategies to compare',
+        suggestion: 'Add jobs, items to sell, or optimizations',
       };
     }
 
@@ -553,31 +553,31 @@ export async function createStrategyComparatorAgent(): Promise<Agent> {
   const config = {
     id: 'strategy-comparator',
     name: 'Strategy Comparator',
-    description: 'Compare toutes les options pour ameliorer ta situation financiere',
-    instructions: `Tu es un expert en comparaison de strategies financieres pour etudiants.
+    description: 'Compare all options to improve your financial situation',
+    instructions: `You are an expert in comparing financial strategies for students.
 
 ROLE:
-- Comparer jobs vs side hustles vs ventes vs optimisations
-- Identifier la meilleure strategie selon le contexte
-- Proposer des combinaisons optimales
+- Compare jobs vs side hustles vs sales vs optimizations
+- Identify the best strategy based on context
+- Propose optimal combinations
 
-METHODE:
-1. Normaliser toutes les options en "equivalent mensuel"
-2. Scorer sur: impact financier, effort, flexibilite, durabilite
-3. Adapter les poids selon l'urgence
-4. Generer des comparaisons tete-a-tete
+METHOD:
+1. Normalize all options to "monthly equivalent"
+2. Score on: financial impact, effort, flexibility, sustainability
+3. Adjust weights based on urgency
+4. Generate head-to-head comparisons
 
-CRITERES DE SCORING:
-- Financial: impact sur le budget mensuel
-- Effort: temps et energie requis
-- Flexibility: compatibilite avec les cours
-- Sustainability: peut durer combien de temps?
+SCORING CRITERIA:
+- Financial: impact on monthly budget
+- Effort: time and energy required
+- Flexibility: compatibility with classes
+- Sustainability: how long can it last?
 
 OUTPUT:
-- Classement des strategies
+- Strategy ranking
 - Best overall / Best quick win / Best long term
-- Matrice de comparaison
-- Recommandation personnalisee`,
+- Comparison matrix
+- Personalized recommendation`,
     toolNames: ['compare_strategies', 'quick_strategy_comparison'],
   };
 

@@ -18,8 +18,8 @@ export function RollDice(props: RollDiceProps) {
     <div class="flex flex-col items-center justify-center py-12">
       {/* Header */}
       <div class="text-center mb-8">
-        <h2 class="text-2xl font-bold text-slate-900 mb-2">Swipe Scenarios</h2>
-        <p class="text-slate-500 max-w-md">
+        <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Swipe Scenarios</h2>
+        <p class="text-slate-500 dark:text-slate-400 max-w-md">
           We'll suggest strategies based on your profile. Swipe right to accept, left to decline.
           The app learns your preferences!
         </p>
@@ -30,7 +30,7 @@ export function RollDice(props: RollDiceProps) {
         type="button"
         class={`relative w-48 h-48 rounded-3xl transition-all duration-300 ${
           props.disabled
-            ? 'bg-slate-200 cursor-not-allowed'
+            ? 'bg-slate-200 dark:bg-slate-700 cursor-not-allowed'
             : 'bg-gradient-to-br from-primary-500 to-primary-700 shadow-xl hover:shadow-2xl hover:scale-105 cursor-pointer'
         }`}
         onClick={() => !props.disabled && props.onRoll()}
@@ -68,18 +68,30 @@ export function RollDice(props: RollDiceProps) {
       </button>
 
       {/* Instructions */}
-      <div class="mt-8 flex items-center gap-6 text-sm text-slate-500">
+      <div class="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm text-slate-500 dark:text-slate-400">
         <div class="flex items-center gap-2">
-          <span class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500">
+          <span class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center text-red-500">
             ←
           </span>
           <span>Not for me</span>
         </div>
         <div class="flex items-center gap-2">
-          <span class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-500">
+          <span class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-green-500">
             →
           </span>
           <span>I'll take it!</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-500">
+            ↑
+          </span>
+          <span>Super like</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center text-orange-500">
+            ↓
+          </span>
+          <span>Meh</span>
         </div>
       </div>
 
@@ -87,15 +99,15 @@ export function RollDice(props: RollDiceProps) {
       <div class="mt-12 grid grid-cols-3 gap-6 max-w-lg">
         <div class="text-center">
           <div class="text-2xl mb-2">🎯</div>
-          <p class="text-sm text-slate-600">Personalized</p>
+          <p class="text-sm text-slate-600 dark:text-slate-400">Personalized</p>
         </div>
         <div class="text-center">
           <div class="text-2xl mb-2">🧠</div>
-          <p class="text-sm text-slate-600">Learns from you</p>
+          <p class="text-sm text-slate-600 dark:text-slate-400">Learns from you</p>
         </div>
         <div class="text-center">
           <div class="text-2xl mb-2">⚡</div>
-          <p class="text-sm text-slate-600">4 swipes max</p>
+          <p class="text-sm text-slate-600 dark:text-slate-400">4 swipes max</p>
         </div>
       </div>
     </div>

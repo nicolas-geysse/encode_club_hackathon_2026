@@ -17,15 +17,15 @@ import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
  */
 export const predictGraduationBalanceTool = createTool({
   id: 'predict_graduation_balance',
-  description: 'Predit le solde financier a la fin des etudes',
+  description: 'Predict the financial balance at graduation',
   inputSchema: z.object({
-    monthlyIncome: z.number().describe('Revenu mensuel total'),
-    monthlyExpenses: z.number().describe('Depenses mensuelles totales'),
-    yearsRemaining: z.number().describe('Annees restantes avant diplome'),
-    jobHoursWeekly: z.number().optional().describe('Heures de job par semaine'),
-    jobHourlyRate: z.number().optional().describe('Taux horaire du job'),
-    optimizationsApplied: z.array(z.string()).optional().describe('Optimisations appliquees'),
-    currentSavings: z.number().optional().describe('Epargne actuelle'),
+    monthlyIncome: z.number().describe('Total monthly income'),
+    monthlyExpenses: z.number().describe('Total monthly expenses'),
+    yearsRemaining: z.number().describe('Years remaining before graduation'),
+    jobHoursWeekly: z.number().optional().describe('Job hours per week'),
+    jobHourlyRate: z.number().optional().describe('Job hourly rate'),
+    optimizationsApplied: z.array(z.string()).optional().describe('Applied optimizations'),
+    currentSavings: z.number().optional().describe('Current savings'),
   }),
   execute: async ({ context }) => {
     // Calculate base projections
@@ -61,18 +61,18 @@ export const predictGraduationBalanceTool = createTool({
     // Scenario comparison
     const scenarios = {
       current: {
-        name: 'Situation actuelle',
+        name: 'Current situation',
         monthlyMargin: currentMargin,
         finalBalance: (context.currentSavings || 0) + currentMargin * months,
       },
       withJob: {
-        name: 'Avec job additionnel',
+        name: 'With additional job',
         monthlyMargin: currentMargin + additionalJobIncome,
         finalBalance:
           (context.currentSavings || 0) + (currentMargin + additionalJobIncome) * months,
       },
       optimized: {
-        name: 'Avec optimisations',
+        name: 'With optimizations',
         monthlyMargin: projectedMonthlyMargin,
         finalBalance: finalBalance,
       },
@@ -97,10 +97,10 @@ export const predictGraduationBalanceTool = createTool({
       scenarios,
       recommendation:
         finalBalance < 0
-          ? "Augmente tes revenus (job) ou reduis tes depenses pour eviter l'endettement."
+          ? 'Increase your income (job) or reduce your expenses to avoid debt.'
           : finalBalance < 1000
-            ? "Situation equilibree mais fragile. Un petit job ou des optimisations securiseraient ta fin d'etudes."
-            : 'Bonne trajectoire! Tu devrais finir tes etudes avec une epargne confortable.',
+            ? 'Balanced but fragile situation. A small job or optimizations would secure your graduation.'
+            : 'Good trajectory! You should finish your studies with comfortable savings.',
       modelVersion: '1.0.0-formula',
     };
   },
@@ -111,7 +111,7 @@ export const predictGraduationBalanceTool = createTool({
  */
 export const simulateScenariosTool = createTool({
   id: 'simulate_scenarios',
-  description: 'Simule differents scenarios financiers (what-if analysis)',
+  description: 'Simulate different financial scenarios (what-if analysis)',
   inputSchema: z.object({
     baseScenario: z.object({
       monthlyIncome: z.number(),
@@ -121,11 +121,11 @@ export const simulateScenariosTool = createTool({
     }),
     variations: z.array(
       z.object({
-        name: z.string().describe('Nom du scenario'),
-        incomeChange: z.number().optional().describe('Changement de revenu mensuel'),
-        expenseChange: z.number().optional().describe('Changement de depenses mensuel'),
-        jobHoursWeekly: z.number().optional().describe('Heures de job additionnel'),
-        jobHourlyRate: z.number().optional().describe('Taux horaire'),
+        name: z.string().describe('Scenario name'),
+        incomeChange: z.number().optional().describe('Monthly income change'),
+        expenseChange: z.number().optional().describe('Monthly expense change'),
+        jobHoursWeekly: z.number().optional().describe('Additional job hours'),
+        jobHourlyRate: z.number().optional().describe('Hourly rate'),
       })
     ),
   }),
@@ -140,7 +140,7 @@ export const simulateScenariosTool = createTool({
 
     const results = [
       {
-        name: 'Situation actuelle',
+        name: 'Current situation',
         monthlyMargin: baseMargin,
         finalBalance: baseFinalBalance,
         differenceFromBase: 0,
@@ -188,9 +188,9 @@ export const simulateScenariosTool = createTool({
         },
       },
       recommendation:
-        sortedByBalance[0].name !== 'Situation actuelle'
-          ? `Le scenario "${sortedByBalance[0].name}" offre le meilleur resultat (+${sortedByBalance[0].differenceFromBase}€).`
-          : 'Ta situation actuelle est deja optimale parmi les scenarios testes.',
+        sortedByBalance[0].name !== 'Current situation'
+          ? `The "${sortedByBalance[0].name}" scenario offers the best result (+$${sortedByBalance[0].differenceFromBase}).`
+          : 'Your current situation is already optimal among the tested scenarios.',
     };
   },
 });

@@ -42,6 +42,12 @@ const PLATFORMS = [
 export function InventoryTab(props: InventoryTabProps) {
   const [items, setItems] = createSignal<Item[]>(props.initialItems || []);
   const [showAddForm, setShowAddForm] = createSignal(false);
+  const [showSoldModal, setShowSoldModal] = createSignal<{
+    id: string;
+    name: string;
+    estimatedValue: number;
+  } | null>(null);
+  const [soldPrice, setSoldPrice] = createSignal(0);
   const [newItem, setNewItem] = createSignal<Partial<Item>>({
     name: '',
     category: 'electronics',
@@ -119,17 +125,21 @@ export function InventoryTab(props: InventoryTabProps) {
     <div class="p-6 space-y-6 max-w-3xl mx-auto">
       {/* Summary Cards */}
       <div class="grid grid-cols-2 gap-4">
-        <div class="card bg-gradient-to-br from-blue-50 to-blue-100">
-          <div class="text-sm text-blue-600 font-medium">For sale</div>
-          <div class="text-2xl font-bold text-blue-900 mt-1">{totalEstimated()}€</div>
-          <div class="text-xs text-blue-500 mt-1">
+        <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
+          <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">For sale</div>
+          <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
+            {totalEstimated()}€
+          </div>
+          <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
             {items().filter((i) => !i.sold).length} items
           </div>
         </div>
-        <div class="card bg-gradient-to-br from-green-50 to-green-100">
-          <div class="text-sm text-green-600 font-medium">Sold</div>
-          <div class="text-2xl font-bold text-green-900 mt-1">{totalSold()}€</div>
-          <div class="text-xs text-green-500 mt-1">
+        <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
+          <div class="text-sm text-green-600 dark:text-green-400 font-medium">Sold</div>
+          <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
+            {totalSold()}€
+          </div>
+          <div class="text-xs text-green-500 dark:text-green-400 mt-1">
             {items().filter((i) => i.sold).length} items
           </div>
         </div>
@@ -137,7 +147,7 @@ export function InventoryTab(props: InventoryTabProps) {
 
       {/* Header */}
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+        <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           <span>📦</span> Inventory
         </h2>
         <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
@@ -152,28 +162,30 @@ export function InventoryTab(props: InventoryTabProps) {
             {(item) => (
               <div
                 class={`card flex items-center gap-4 ${
-                  item.sold ? 'bg-green-50 border-green-200' : ''
+                  item.sold
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : ''
                 }`}
               >
                 {/* Category Icon */}
-                <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-2xl">
+                <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl">
                   {getCategoryIcon(item.category)}
                 </div>
 
                 {/* Item Info */}
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
-                    <h4 class="font-semibold text-slate-900">{item.name}</h4>
+                    <h4 class="font-semibold text-slate-900 dark:text-slate-100">{item.name}</h4>
                     <Show when={item.sold}>
-                      <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                      <span class="px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-full">
                         Sold
                       </span>
                     </Show>
                   </div>
-                  <div class="flex items-center gap-3 mt-1 text-sm text-slate-500">
+                  <div class="flex items-center gap-3 mt-1 text-sm text-slate-500 dark:text-slate-400">
                     <span>{getConditionLabel(item.condition)}</span>
                     <Show when={item.platform}>
-                      <span class="text-slate-300">•</span>
+                      <span class="text-slate-300 dark:text-slate-600">•</span>
                       <span>{item.platform}</span>
                     </Show>
                   </div>
@@ -182,11 +194,15 @@ export function InventoryTab(props: InventoryTabProps) {
                 {/* Price */}
                 <div class="flex-shrink-0 text-right">
                   <Show when={item.sold}>
-                    <div class="font-bold text-green-600">{item.soldPrice}€</div>
+                    <div class="font-bold text-green-600 dark:text-green-400">
+                      {item.soldPrice}€
+                    </div>
                     <div class="text-xs text-slate-400 line-through">{item.estimatedValue}€</div>
                   </Show>
                   <Show when={!item.sold}>
-                    <div class="font-bold text-slate-900">{item.estimatedValue}€</div>
+                    <div class="font-bold text-slate-900 dark:text-slate-100">
+                      {item.estimatedValue}€
+                    </div>
                   </Show>
                 </div>
 
@@ -195,10 +211,14 @@ export function InventoryTab(props: InventoryTabProps) {
                   <Show when={!item.sold}>
                     <button
                       type="button"
-                      class="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                      class="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
                       onClick={() => {
-                        const price = prompt('Sale price?', item.estimatedValue.toString());
-                        if (price) markAsSold(item.id, parseInt(price));
+                        setSoldPrice(item.estimatedValue);
+                        setShowSoldModal({
+                          id: item.id,
+                          name: item.name,
+                          estimatedValue: item.estimatedValue,
+                        });
                       }}
                     >
                       Sold!
@@ -229,8 +249,12 @@ export function InventoryTab(props: InventoryTabProps) {
       <Show when={items().length === 0 && !showAddForm()}>
         <div class="card text-center py-12">
           <div class="text-4xl mb-4">📦</div>
-          <h3 class="text-lg font-medium text-slate-900 mb-2">Nothing to sell?</h3>
-          <p class="text-slate-500 mb-4">Add items you no longer need to generate income</p>
+          <h3 class="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+            Nothing to sell?
+          </h3>
+          <p class="text-slate-500 dark:text-slate-400 mb-4">
+            Add items you no longer need to generate income
+          </p>
           <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
             Add an item
           </button>
@@ -241,11 +265,13 @@ export function InventoryTab(props: InventoryTabProps) {
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">New item</h3>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">New item</h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Name
+                </label>
                 <input
                   type="text"
                   class="input-field"
@@ -256,7 +282,9 @@ export function InventoryTab(props: InventoryTabProps) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-2">Category</label>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Category
+                </label>
                 <div class="grid grid-cols-3 gap-2">
                   <For each={CATEGORIES}>
                     {(cat) => (
@@ -264,15 +292,17 @@ export function InventoryTab(props: InventoryTabProps) {
                         type="button"
                         class={`p-2 rounded-lg border-2 transition-all text-center ${
                           newItem().category === cat.id
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-slate-200 hover:border-slate-300'
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                            : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 dark:bg-slate-700'
                         }`}
                         onClick={() =>
                           setNewItem({ ...newItem(), category: cat.id as Item['category'] })
                         }
                       >
                         <div class="text-xl">{cat.icon}</div>
-                        <div class="text-xs mt-1">{cat.label}</div>
+                        <div class="text-xs mt-1 text-slate-700 dark:text-slate-300">
+                          {cat.label}
+                        </div>
                       </button>
                     )}
                   </For>
@@ -281,7 +311,7 @@ export function InventoryTab(props: InventoryTabProps) {
 
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Estimated value (€)
                   </label>
                   <input
@@ -298,7 +328,9 @@ export function InventoryTab(props: InventoryTabProps) {
                   />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 mb-1">Condition</label>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Condition
+                  </label>
                   <select
                     class="input-field"
                     value={newItem().condition}
@@ -319,7 +351,9 @@ export function InventoryTab(props: InventoryTabProps) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Sales platform</label>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Sales platform
+                </label>
                 <select
                   class="input-field"
                   value={newItem().platform}
@@ -351,6 +385,62 @@ export function InventoryTab(props: InventoryTabProps) {
             </div>
           </div>
         </div>
+      </Show>
+
+      {/* Sold Price Modal */}
+      <Show when={showSoldModal()}>
+        {(modal) => (
+          <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="card max-w-sm w-full text-center">
+              <div class="text-4xl mb-3">🎉</div>
+              <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                Sold: {modal().name}
+              </h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Estimated: {modal().estimatedValue}€
+              </p>
+
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Final sale price
+                </label>
+                <div class="relative">
+                  <input
+                    type="number"
+                    class="input-field text-center text-xl font-bold pr-8"
+                    min="0"
+                    value={soldPrice()}
+                    onInput={(e) => setSoldPrice(parseInt(e.currentTarget.value) || 0)}
+                    autofocus
+                  />
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-lg">
+                    €
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
+                <button
+                  type="button"
+                  class="btn-secondary flex-1"
+                  onClick={() => setShowSoldModal(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="btn-primary flex-1 bg-green-600 hover:bg-green-700"
+                  onClick={() => {
+                    markAsSold(modal().id, soldPrice());
+                    setShowSoldModal(null);
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Show>
     </div>
   );

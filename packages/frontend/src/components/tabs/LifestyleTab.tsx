@@ -113,7 +113,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
     props.onItemsChange?.(updated);
   };
 
-  const totalCurrent = () => items().reduce((sum, i) => sum + i.currentCost, 0);
+  const _totalCurrent = () => items().reduce((sum, i) => sum + i.currentCost, 0);
   const totalOptimized = () =>
     items().reduce(
       (sum, i) => sum + (i.applied ? (i.optimizedCost ?? i.currentCost) : i.currentCost),
@@ -129,21 +129,20 @@ export function LifestyleTab(props: LifestyleTabProps) {
   return (
     <div class="p-6 space-y-6 max-w-3xl mx-auto">
       {/* Summary Cards */}
-      <div class="grid grid-cols-3 gap-4">
-        <div class="card">
-          <div class="text-sm text-slate-500">Current</div>
-          <div class="text-2xl font-bold text-slate-900 mt-1">{totalCurrent()}€</div>
-          <div class="text-xs text-slate-400">/month</div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
+          <div class="text-sm text-green-600 dark:text-green-400">Optimized</div>
+          <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
+            {totalOptimized()}€
+          </div>
+          <div class="text-xs text-green-500 dark:text-green-400">/month</div>
         </div>
-        <div class="card bg-gradient-to-br from-green-50 to-green-100">
-          <div class="text-sm text-green-600">Optimized</div>
-          <div class="text-2xl font-bold text-green-900 mt-1">{totalOptimized()}€</div>
-          <div class="text-xs text-green-500">/month</div>
-        </div>
-        <div class="card bg-gradient-to-br from-amber-50 to-amber-100">
-          <div class="text-sm text-amber-600">Potential savings</div>
-          <div class="text-2xl font-bold text-amber-900 mt-1">+{potentialSavings()}€</div>
-          <div class="text-xs text-amber-500">/month</div>
+        <div class="card bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30">
+          <div class="text-sm text-amber-600 dark:text-amber-400">Potential savings</div>
+          <div class="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">
+            +{potentialSavings()}€
+          </div>
+          <div class="text-xs text-amber-500 dark:text-amber-400">/month</div>
         </div>
       </div>
 
@@ -155,8 +154,8 @@ export function LifestyleTab(props: LifestyleTabProps) {
               type="button"
               class={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all ${
                 activeCategory() === cat.id
-                  ? 'bg-primary-100 text-primary-700'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
               }`}
               onClick={() => setActiveCategory(cat.id)}
             >
@@ -169,8 +168,8 @@ export function LifestyleTab(props: LifestyleTabProps) {
 
       {/* Quick Add Suggestions */}
       <Show when={SUGGESTIONS[activeCategory()]}>
-        <div class="card bg-slate-50">
-          <h4 class="text-sm font-medium text-slate-700 mb-3">Suggestions</h4>
+        <div class="card bg-slate-50 dark:bg-slate-700">
+          <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Suggestions</h4>
           <div class="flex flex-wrap gap-2">
             <For
               each={SUGGESTIONS[activeCategory()]?.items.filter(
@@ -180,7 +179,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
               {(suggestion) => (
                 <button
                   type="button"
-                  class="px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-full hover:border-primary-300 transition-colors"
+                  class="px-3 py-1.5 text-sm bg-white dark:bg-slate-600 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-500 rounded-full hover:border-primary-300 dark:hover:border-primary-500 transition-colors"
                   onClick={() =>
                     addItem({
                       ...suggestion,
@@ -199,12 +198,12 @@ export function LifestyleTab(props: LifestyleTabProps) {
       {/* Items List */}
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="font-medium text-slate-900">
+          <h3 class="font-medium text-slate-900 dark:text-slate-100">
             {getCategoryInfo(activeCategory())?.icon} {getCategoryInfo(activeCategory())?.label}
           </h3>
           <button
             type="button"
-            class="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
             onClick={() => setShowAddForm(true)}
           >
             + Add
@@ -216,15 +215,17 @@ export function LifestyleTab(props: LifestyleTabProps) {
             <div class="card flex items-center gap-4">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <h4 class="font-medium text-slate-900">{item.name}</h4>
+                  <h4 class="font-medium text-slate-900 dark:text-slate-100">{item.name}</h4>
                   <Show when={item.applied}>
-                    <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                    <span class="px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-full">
                       Optimized
                     </span>
                   </Show>
                 </div>
                 <Show when={item.suggestion && !item.applied}>
-                  <p class="text-sm text-amber-600 mt-1">💡 {item.suggestion}</p>
+                  <p class="text-sm text-amber-600 dark:text-amber-400 mt-1">
+                    💡 {item.suggestion}
+                  </p>
                 </Show>
               </div>
 
@@ -232,10 +233,14 @@ export function LifestyleTab(props: LifestyleTabProps) {
                 <div class="text-right">
                   <Show when={item.optimizedCost !== undefined && !item.applied}>
                     <div class="text-sm text-slate-400 line-through">{item.currentCost}€</div>
-                    <div class="font-bold text-green-600">{item.optimizedCost}€</div>
+                    <div class="font-bold text-green-600 dark:text-green-400">
+                      {item.optimizedCost}€
+                    </div>
                   </Show>
                   <Show when={item.applied}>
-                    <div class="font-bold text-green-600">{item.optimizedCost}€</div>
+                    <div class="font-bold text-green-600 dark:text-green-400">
+                      {item.optimizedCost}€
+                    </div>
                   </Show>
                   <Show
                     when={
@@ -245,14 +250,16 @@ export function LifestyleTab(props: LifestyleTabProps) {
                         item.applied === undefined)
                     }
                   >
-                    <div class="font-bold text-slate-900">{item.currentCost}€</div>
+                    <div class="font-bold text-slate-900 dark:text-slate-100">
+                      {item.currentCost}€
+                    </div>
                   </Show>
                 </div>
 
                 <Show when={item.optimizedCost !== undefined && !item.applied}>
                   <button
                     type="button"
-                    class="px-3 py-1.5 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                    class="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
                     onClick={() => applyOptimization(item.id)}
                   >
                     Apply
@@ -279,7 +286,9 @@ export function LifestyleTab(props: LifestyleTabProps) {
         </For>
 
         <Show when={items().filter((i) => i.category === activeCategory()).length === 0}>
-          <div class="text-center py-8 text-slate-500">No items in this category</div>
+          <div class="text-center py-8 text-slate-500 dark:text-slate-400">
+            No items in this category
+          </div>
         </Show>
       </div>
 
@@ -287,11 +296,15 @@ export function LifestyleTab(props: LifestyleTabProps) {
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">New expense</h3>
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+              New expense
+            </h3>
 
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Name
+                </label>
                 <input
                   type="text"
                   class="input-field"
@@ -302,7 +315,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Monthly cost (€)
                 </label>
                 <input
@@ -317,7 +330,9 @@ export function LifestyleTab(props: LifestyleTabProps) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Category
+                </label>
                 <select
                   class="input-field"
                   value={newItem().category}
