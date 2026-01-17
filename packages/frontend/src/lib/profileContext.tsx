@@ -1,0 +1,254 @@
+/**
+ * Profile Context
+ *
+ * Provides shared profile state across the app.
+ * When profile is updated (e.g., via onboarding chat), all consumers refresh.
+ * Also manages goals, skills, inventory, and lifestyle for the active profile.
+ */
+
+import {
+  createContext,
+  useContext,
+  createSignal,
+  createEffect,
+  ParentComponent,
+  onMount,
+} from 'solid-js';
+import { profileService, type FullProfile } from './profileService';
+import { skillService, type Skill } from './skillService';
+
+/** Goal type from API */
+export interface Goal {
+  id: string;
+  profileId: string;
+  name: string;
+  amount: number;
+  deadline?: string;
+  priority: number;
+  parentGoalId?: string;
+  conditionType: 'none' | 'after_completion' | 'after_date';
+  status: 'active' | 'waiting' | 'completed' | 'paused';
+  progress: number;
+  planData?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Inventory item type from API */
+export interface InventoryItem {
+  id: string;
+  profileId: string;
+  name: string;
+  category: 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
+  estimatedValue: number;
+  condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+  platform?: string;
+  status: 'available' | 'sold';
+  soldPrice?: number;
+  soldAt?: string;
+  createdAt?: string;
+}
+
+/** Lifestyle item type from API */
+export interface LifestyleItem {
+  id: string;
+  profileId: string;
+  name: string;
+  category: 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
+  currentCost: number;
+  optimizedCost?: number;
+  suggestion?: string;
+  essential: boolean;
+  applied: boolean;
+  createdAt?: string;
+}
+
+interface ProfileContextValue {
+  /** Current active profile (reactive) */
+  profile: () => FullProfile | null;
+  /** Goals for the active profile (reactive) */
+  goals: () => Goal[];
+  /** Skills for the active profile (reactive) */
+  skills: () => Skill[];
+  /** Inventory items for the active profile (reactive) */
+  inventory: () => InventoryItem[];
+  /** Lifestyle items for the active profile (reactive) */
+  lifestyle: () => LifestyleItem[];
+  /** Whether profile is loading */
+  loading: () => boolean;
+  /** Refresh profile from API - call after updates */
+  refreshProfile: () => Promise<void>;
+  /** Refresh goals from API - call after goal updates */
+  refreshGoals: () => Promise<void>;
+  /** Refresh skills from API - call after skill updates */
+  refreshSkills: () => Promise<void>;
+  /** Refresh inventory from API - call after inventory updates */
+  refreshInventory: () => Promise<void>;
+  /** Refresh lifestyle from API - call after lifestyle updates */
+  refreshLifestyle: () => Promise<void>;
+  /** Refresh all data (profile, goals, skills, inventory, lifestyle) */
+  refreshAll: () => Promise<void>;
+}
+
+const ProfileContext = createContext<ProfileContextValue>();
+
+export const ProfileProvider: ParentComponent = (props) => {
+  const [profile, setProfile] = createSignal<FullProfile | null>(null);
+  const [goals, setGoals] = createSignal<Goal[]>([]);
+  const [skills, setSkills] = createSignal<Skill[]>([]);
+  const [inventory, setInventory] = createSignal<InventoryItem[]>([]);
+  const [lifestyle, setLifestyle] = createSignal<LifestyleItem[]>([]);
+  const [loading, setLoading] = createSignal(true);
+
+  const refreshProfile = async () => {
+    setLoading(true);
+    try {
+      const loaded = await profileService.loadActiveProfile();
+      setProfile(loaded);
+    } catch (error) {
+      console.error('[ProfileContext] Failed to load profile:', error);
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshGoals = async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      try {
+        const response = await fetch(`/api/goals?profileId=${currentProfile.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          // API returns array directly for profileId queries
+          setGoals(Array.isArray(data) ? data : []);
+        } else {
+          setGoals([]);
+        }
+      } catch (error) {
+        console.error('[ProfileContext] Failed to load goals:', error);
+        setGoals([]);
+      }
+    } else {
+      setGoals([]);
+    }
+  };
+
+  const refreshSkills = async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      try {
+        const data = await skillService.listSkills(currentProfile.id);
+        setSkills(data);
+      } catch (error) {
+        console.error('[ProfileContext] Failed to load skills:', error);
+        setSkills([]);
+      }
+    } else {
+      setSkills([]);
+    }
+  };
+
+  const refreshInventory = async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      try {
+        const response = await fetch(`/api/inventory?profileId=${currentProfile.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setInventory(Array.isArray(data) ? data : []);
+        } else {
+          setInventory([]);
+        }
+      } catch (error) {
+        console.error('[ProfileContext] Failed to load inventory:', error);
+        setInventory([]);
+      }
+    } else {
+      setInventory([]);
+    }
+  };
+
+  const refreshLifestyle = async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      try {
+        const response = await fetch(`/api/lifestyle?profileId=${currentProfile.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setLifestyle(Array.isArray(data) ? data : []);
+        } else {
+          setLifestyle([]);
+        }
+      } catch (error) {
+        console.error('[ProfileContext] Failed to load lifestyle:', error);
+        setLifestyle([]);
+      }
+    } else {
+      setLifestyle([]);
+    }
+  };
+
+  const refreshAll = async () => {
+    await refreshProfile();
+    // After profile refreshes, the effect will trigger other refreshes
+  };
+
+  // Refresh all data when profile changes
+  createEffect(() => {
+    const p = profile();
+    if (p?.id) {
+      // Refresh all related data in parallel
+      Promise.all([refreshGoals(), refreshSkills(), refreshInventory(), refreshLifestyle()]).catch(
+        (err) => {
+          console.error('[ProfileContext] Failed to refresh data:', err);
+        }
+      );
+    } else {
+      setGoals([]);
+      setSkills([]);
+      setInventory([]);
+      setLifestyle([]);
+    }
+  });
+
+  // Initial load on mount
+  onMount(() => {
+    refreshProfile();
+  });
+
+  return (
+    <ProfileContext.Provider
+      value={{
+        profile,
+        goals,
+        skills,
+        inventory,
+        lifestyle,
+        loading,
+        refreshProfile,
+        refreshGoals,
+        refreshSkills,
+        refreshInventory,
+        refreshLifestyle,
+        refreshAll,
+      }}
+    >
+      {props.children}
+    </ProfileContext.Provider>
+  );
+};
+
+/**
+ * Hook to access profile context
+ * Must be used within a ProfileProvider
+ */
+export const useProfile = (): ProfileContextValue => {
+  const ctx = useContext(ProfileContext);
+  if (!ctx) {
+    throw new Error('useProfile must be used within a ProfileProvider');
+  }
+  return ctx;
+};
+
+export default ProfileContext;

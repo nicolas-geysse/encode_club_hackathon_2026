@@ -2,11 +2,19 @@
  * Inventory Tab Component
  *
  * Items to sell: track belongings that can generate income.
+ * Now uses inventoryService for DuckDB persistence.
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
+import { useProfile } from '~/lib/profileContext';
+import {
+  inventoryService,
+  type InventoryItem,
+  type CreateInventoryItemInput,
+} from '~/lib/inventoryService';
 
-interface Item {
+// Legacy Item interface for backward compatibility with props
+interface LegacyItem {
   id: string;
   name: string;
   category: 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
@@ -18,8 +26,8 @@ interface Item {
 }
 
 interface InventoryTabProps {
-  initialItems?: Item[];
-  onItemsChange?: (items: Item[]) => void;
+  initialItems?: LegacyItem[];
+  onItemsChange?: (items: LegacyItem[]) => void;
 }
 
 const CATEGORIES = [
@@ -39,16 +47,47 @@ const PLATFORMS = [
   { id: 'direct', label: 'Direct sale' },
 ];
 
+// Convert legacy item to new format
+function legacyToItem(legacy: LegacyItem, profileId: string): InventoryItem {
+  return {
+    id: legacy.id,
+    profileId,
+    name: legacy.name,
+    category: legacy.category,
+    estimatedValue: legacy.estimatedValue,
+    condition: legacy.condition,
+    platform: legacy.platform,
+    status: legacy.sold ? 'sold' : 'available',
+    soldPrice: legacy.soldPrice,
+  };
+}
+
+// Convert new item to legacy format for backward compat
+function itemToLegacy(item: InventoryItem): LegacyItem {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    estimatedValue: item.estimatedValue,
+    condition: item.condition,
+    platform: item.platform,
+    sold: item.status === 'sold',
+    soldPrice: item.soldPrice,
+  };
+}
+
 export function InventoryTab(props: InventoryTabProps) {
-  const [items, setItems] = createSignal<Item[]>(props.initialItems || []);
+  const { profile, inventory: contextInventory, refreshInventory } = useProfile();
+  const [localItems, setLocalItems] = createSignal<InventoryItem[]>([]);
   const [showAddForm, setShowAddForm] = createSignal(false);
+  const [isLoading, setIsLoading] = createSignal(false);
   const [showSoldModal, setShowSoldModal] = createSignal<{
     id: string;
     name: string;
     estimatedValue: number;
   } | null>(null);
   const [soldPrice, setSoldPrice] = createSignal(0);
-  const [newItem, setNewItem] = createSignal<Partial<Item>>({
+  const [newItem, setNewItem] = createSignal<Partial<CreateInventoryItemInput>>({
     name: '',
     category: 'electronics',
     estimatedValue: 50,
@@ -56,24 +95,134 @@ export function InventoryTab(props: InventoryTabProps) {
     platform: 'leboncoin',
   });
 
-  const addItem = () => {
+  // Use context inventory (from DB) as source of truth when profile exists
+  // Only fall back to initialItems when no profile (backward compat)
+  createEffect(() => {
+    const ctxItems = contextInventory();
+    const currentProfile = profile();
+
+    // If we have a profile ID, always trust the DB (context inventory)
+    // This prevents temp IDs from initialItems causing 404 on delete
+    if (currentProfile?.id) {
+      setLocalItems(ctxItems);
+      return;
+    }
+
+    // No profile - fall back to initialItems for backward compatibility
+    if (props.initialItems && props.initialItems.length > 0) {
+      const converted = props.initialItems.map((item) => legacyToItem(item, ''));
+      setLocalItems(converted);
+    }
+  });
+
+  // Load inventory on mount if profile exists
+  onMount(async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      await refreshInventory();
+    }
+  });
+
+  const items = () => localItems();
+
+  const addItem = async () => {
     const item = newItem();
     if (!item.name || !item.estimatedValue) return;
 
-    const newItemComplete: Item = {
-      id: `item_${Date.now()}`,
-      name: item.name,
-      category: item.category || 'other',
-      estimatedValue: item.estimatedValue,
-      condition: item.condition || 'good',
-      platform: item.platform,
-      sold: false,
-    };
+    const currentProfile = profile();
+    if (!currentProfile?.id) {
+      // No profile - fall back to local-only mode
+      const newItemComplete: InventoryItem = {
+        id: `item_${Date.now()}`,
+        profileId: '',
+        name: item.name,
+        category: item.category || 'other',
+        estimatedValue: item.estimatedValue,
+        condition: item.condition || 'good',
+        platform: item.platform,
+        status: 'available',
+      };
 
-    const updated = [...items(), newItemComplete];
-    setItems(updated);
-    props.onItemsChange?.(updated);
-    setShowAddForm(false);
+      const updated = [...items(), newItemComplete];
+      setLocalItems(updated);
+      props.onItemsChange?.(updated.map(itemToLegacy));
+      setShowAddForm(false);
+      resetNewItem();
+      return;
+    }
+
+    // Use service to create item in DB
+    setIsLoading(true);
+    try {
+      const created = await inventoryService.createItem({
+        profileId: currentProfile.id,
+        name: item.name,
+        category: item.category,
+        estimatedValue: item.estimatedValue,
+        condition: item.condition,
+        platform: item.platform,
+      });
+
+      if (created) {
+        await refreshInventory();
+        props.onItemsChange?.(contextInventory().map(itemToLegacy));
+      }
+    } finally {
+      setIsLoading(false);
+      setShowAddForm(false);
+      resetNewItem();
+    }
+  };
+
+  const markAsSold = async (id: string, price: number) => {
+    const currentProfile = profile();
+    if (!currentProfile?.id) {
+      // Local-only mode
+      const updated = items().map((item) =>
+        item.id === id ? { ...item, status: 'sold' as const, soldPrice: price } : item
+      );
+      setLocalItems(updated);
+      props.onItemsChange?.(updated.map(itemToLegacy));
+      return;
+    }
+
+    // Use service to mark as sold
+    setIsLoading(true);
+    try {
+      const updated = await inventoryService.markAsSold(id, price);
+      if (updated) {
+        await refreshInventory();
+        props.onItemsChange?.(contextInventory().map(itemToLegacy));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const removeItem = async (id: string) => {
+    const currentProfile = profile();
+    if (!currentProfile?.id) {
+      // Local-only mode
+      const updated = items().filter((item) => item.id !== id);
+      setLocalItems(updated);
+      props.onItemsChange?.(updated.map(itemToLegacy));
+      return;
+    }
+
+    // Use service to delete item
+    setIsLoading(true);
+    try {
+      const success = await inventoryService.deleteItem(id);
+      if (success) {
+        await refreshInventory();
+        props.onItemsChange?.(contextInventory().map(itemToLegacy));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetNewItem = () => {
     setNewItem({
       name: '',
       category: 'electronics',
@@ -83,28 +232,14 @@ export function InventoryTab(props: InventoryTabProps) {
     });
   };
 
-  const markAsSold = (id: string, soldPrice: number) => {
-    const updated = items().map((item) =>
-      item.id === id ? { ...item, sold: true, soldPrice } : item
-    );
-    setItems(updated);
-    props.onItemsChange?.(updated);
-  };
-
-  const removeItem = (id: string) => {
-    const updated = items().filter((item) => item.id !== id);
-    setItems(updated);
-    props.onItemsChange?.(updated);
-  };
-
   const totalEstimated = () =>
     items()
-      .filter((i) => !i.sold)
+      .filter((i) => i.status === 'available')
       .reduce((sum, i) => sum + i.estimatedValue, 0);
 
   const totalSold = () =>
     items()
-      .filter((i) => i.sold)
+      .filter((i) => i.status === 'sold')
       .reduce((sum, i) => sum + (i.soldPrice || 0), 0);
 
   const getCategoryIcon = (category: string) =>
@@ -131,7 +266,7 @@ export function InventoryTab(props: InventoryTabProps) {
             ${totalEstimated()}
           </div>
           <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
-            {items().filter((i) => !i.sold).length} items
+            {items().filter((i) => i.status === 'available').length} items
           </div>
         </div>
         <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
@@ -140,7 +275,7 @@ export function InventoryTab(props: InventoryTabProps) {
             ${totalSold()}
           </div>
           <div class="text-xs text-green-500 dark:text-green-400 mt-1">
-            {items().filter((i) => i.sold).length} items
+            {items().filter((i) => i.status === 'sold').length} items
           </div>
         </div>
       </div>
@@ -150,7 +285,12 @@ export function InventoryTab(props: InventoryTabProps) {
         <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
           <span>📦</span> Inventory
         </h2>
-        <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
+        <button
+          type="button"
+          class="btn-primary"
+          onClick={() => setShowAddForm(true)}
+          disabled={isLoading()}
+        >
           + Add
         </button>
       </div>
@@ -162,7 +302,7 @@ export function InventoryTab(props: InventoryTabProps) {
             {(item) => (
               <div
                 class={`card flex items-center gap-4 ${
-                  item.sold
+                  item.status === 'sold'
                     ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                     : ''
                 }`}
@@ -176,7 +316,7 @@ export function InventoryTab(props: InventoryTabProps) {
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
                     <h4 class="font-semibold text-slate-900 dark:text-slate-100">{item.name}</h4>
-                    <Show when={item.sold}>
+                    <Show when={item.status === 'sold'}>
                       <span class="px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-full">
                         Sold
                       </span>
@@ -193,13 +333,13 @@ export function InventoryTab(props: InventoryTabProps) {
 
                 {/* Price */}
                 <div class="flex-shrink-0 text-right">
-                  <Show when={item.sold}>
+                  <Show when={item.status === 'sold'}>
                     <div class="font-bold text-green-600 dark:text-green-400">
                       ${item.soldPrice}
                     </div>
                     <div class="text-xs text-slate-400 line-through">${item.estimatedValue}</div>
                   </Show>
-                  <Show when={!item.sold}>
+                  <Show when={item.status === 'available'}>
                     <div class="font-bold text-slate-900 dark:text-slate-100">
                       ${item.estimatedValue}
                     </div>
@@ -208,10 +348,10 @@ export function InventoryTab(props: InventoryTabProps) {
 
                 {/* Actions */}
                 <div class="flex-shrink-0 flex items-center gap-2">
-                  <Show when={!item.sold}>
+                  <Show when={item.status === 'available'}>
                     <button
                       type="button"
-                      class="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
+                      class="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors disabled:opacity-50"
                       onClick={() => {
                         setSoldPrice(item.estimatedValue);
                         setShowSoldModal({
@@ -220,14 +360,16 @@ export function InventoryTab(props: InventoryTabProps) {
                           estimatedValue: item.estimatedValue,
                         });
                       }}
+                      disabled={isLoading()}
                     >
                       Sold!
                     </button>
                   </Show>
                   <button
                     type="button"
-                    class="text-slate-400 hover:text-red-500 transition-colors"
+                    class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
                     onClick={() => removeItem(item.id)}
+                    disabled={isLoading()}
                   >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -296,7 +438,10 @@ export function InventoryTab(props: InventoryTabProps) {
                             : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 dark:bg-slate-700'
                         }`}
                         onClick={() =>
-                          setNewItem({ ...newItem(), category: cat.id as Item['category'] })
+                          setNewItem({
+                            ...newItem(),
+                            category: cat.id as InventoryItem['category'],
+                          })
                         }
                       >
                         <div class="text-xl">{cat.icon}</div>
@@ -337,7 +482,7 @@ export function InventoryTab(props: InventoryTabProps) {
                     onChange={(e) =>
                       setNewItem({
                         ...newItem(),
-                        condition: e.currentTarget.value as Item['condition'],
+                        condition: e.currentTarget.value as InventoryItem['condition'],
                       })
                     }
                   >
@@ -378,9 +523,9 @@ export function InventoryTab(props: InventoryTabProps) {
                 type="button"
                 class="btn-primary flex-1"
                 onClick={addItem}
-                disabled={!newItem().name || !newItem().estimatedValue}
+                disabled={!newItem().name || !newItem().estimatedValue || isLoading()}
               >
-                Add
+                {isLoading() ? 'Adding...' : 'Add'}
               </button>
             </div>
           </div>
@@ -434,8 +579,9 @@ export function InventoryTab(props: InventoryTabProps) {
                     markAsSold(modal().id, soldPrice());
                     setShowSoldModal(null);
                   }}
+                  disabled={isLoading()}
                 >
-                  Confirm
+                  {isLoading() ? 'Confirming...' : 'Confirm'}
                 </button>
               </div>
             </div>

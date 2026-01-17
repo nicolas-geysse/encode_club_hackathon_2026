@@ -1,39 +1,154 @@
 /**
- * DuckDB Service
+ * DuckDB Service - Consolidated Version
  *
- * Handles database connection, persistence, and graph queries
+ * Aligned with frontend/_db.ts for compatibility:
+ * - Same database path resolution (DUCKDB_PATH env or cwd/data/stride.duckdb)
+ * - Write queue for serialized writes
+ * - Process-level lock file
+ * - Retry logic for transient errors
+ *
+ * Also includes MCP-server specific features:
+ * - DuckPGQ extension for graph queries
+ * - Full schema with goals, projections, academic events, etc.
  */
 
 import * as duckdb from 'duckdb';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Database path - ALIGNED with frontend
+// Priority: DUCKDB_PATH env > cwd/data/stride.duckdb
+const DB_DIR = process.env.DUCKDB_DIR || path.resolve(process.cwd(), 'data');
+const DB_PATH = process.env.DUCKDB_PATH || path.join(DB_DIR, 'stride.duckdb');
+const LOCK_PATH = `${DB_PATH}.app.lock`;
+
 // Database instance
 let db: duckdb.Database | null = null;
 let connection: duckdb.Connection | null = null;
+let initialized = false;
 
-// Database file path (persisted in user's home directory)
-const DB_PATH =
-  process.env.DUCKDB_PATH || path.join(process.env.HOME || '.', '.stride', 'data.duckdb');
+// Write queue - serializes all write operations
+let writeQueue: Promise<void> = Promise.resolve();
+
+// Process ID for lock file
+const PROCESS_ID = process.pid;
+
+/**
+ * Ensure data directory exists
+ */
+function ensureDataDir(): void {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+    console.error(`[DuckDB-MCP] Created data directory: ${DB_DIR}`);
+  }
+}
+
+/**
+ * Check if another process holds the lock
+ * Returns true if we can acquire the lock, false if blocked
+ */
+function checkAndAcquireLock(): boolean {
+  try {
+    if (fs.existsSync(LOCK_PATH)) {
+      const lockContent = fs.readFileSync(LOCK_PATH, 'utf-8');
+      const lockedPid = parseInt(lockContent, 10);
+
+      // Check if the process is still running
+      if (lockedPid && lockedPid !== PROCESS_ID) {
+        try {
+          // Signal 0 checks if process exists without killing it
+          process.kill(lockedPid, 0);
+          // Process exists, we're blocked
+          console.error(`[DuckDB-MCP] Database locked by PID ${lockedPid}`);
+          return false;
+        } catch {
+          // Process doesn't exist, stale lock - we can take over
+          console.error(`[DuckDB-MCP] Removing stale lock from PID ${lockedPid}`);
+        }
+      }
+    }
+
+    // Acquire the lock
+    fs.writeFileSync(LOCK_PATH, String(PROCESS_ID));
+    console.error(`[DuckDB-MCP] Lock acquired by PID ${PROCESS_ID}`);
+    return true;
+  } catch (error) {
+    console.error('[DuckDB-MCP] Lock check error:', error);
+    return true; // Proceed anyway in case of error
+  }
+}
+
+/**
+ * Release the lock file
+ */
+function releaseLock(): void {
+  try {
+    if (fs.existsSync(LOCK_PATH)) {
+      const lockContent = fs.readFileSync(LOCK_PATH, 'utf-8');
+      if (parseInt(lockContent, 10) === PROCESS_ID) {
+        fs.unlinkSync(LOCK_PATH);
+        console.error(`[DuckDB-MCP] Lock released by PID ${PROCESS_ID}`);
+      }
+    }
+  } catch (error) {
+    console.error('[DuckDB-MCP] Lock release error:', error);
+  }
+}
+
+/**
+ * Sleep helper
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Get or create database connection
+ */
+function getConnection(): duckdb.Connection {
+  if (!db) {
+    ensureDataDir();
+
+    // Check application-level lock
+    if (!checkAndAcquireLock()) {
+      throw new Error('Database is locked by another process');
+    }
+
+    // Open database
+    db = new duckdb.Database(DB_PATH);
+    console.error(`[DuckDB-MCP] Opened database: ${DB_PATH} (PID: ${PROCESS_ID})`);
+
+    // Register cleanup on process exit
+    process.on('exit', () => releaseLock());
+    process.on('SIGINT', () => {
+      releaseLock();
+      process.exit(0);
+    });
+    process.on('SIGTERM', () => {
+      releaseLock();
+      process.exit(0);
+    });
+  }
+  if (!connection) {
+    connection = db.connect();
+    console.error(`[DuckDB-MCP] Connection established`);
+  }
+  return connection;
+}
 
 /**
  * Initialize the DuckDB database
  */
 export async function initDatabase(): Promise<void> {
-  // Ensure directory exists
-  const dbDir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-  }
+  if (initialized && db && connection) return;
 
-  // Create database instance
-  db = new duckdb.Database(DB_PATH);
-  connection = db.connect();
+  getConnection();
+  initialized = true;
 
   // Initialize schema if needed
   await initSchema();
 
-  console.error(`DuckDB initialized at ${DB_PATH}`);
+  console.error(`[DuckDB-MCP] Database initialized at ${DB_PATH}`);
 }
 
 /**
@@ -42,11 +157,11 @@ export async function initDatabase(): Promise<void> {
 async function initSchema(): Promise<void> {
   // Install and load DuckPGQ extension for graph queries
   try {
-    await execute('INSTALL duckpgq FROM community;');
-    await execute('LOAD duckpgq;');
-    console.error('DuckPGQ extension loaded successfully');
+    await executeInternal('INSTALL duckpgq FROM community;');
+    await executeInternal('LOAD duckpgq;');
+    console.error('[DuckDB-MCP] DuckPGQ extension loaded successfully');
   } catch (error) {
-    console.error('Warning: Could not load DuckPGQ extension:', error);
+    console.error('[DuckDB-MCP] Warning: Could not load DuckPGQ extension:', error);
     // Continue without graph extension - basic queries will still work
   }
 
@@ -62,14 +177,14 @@ async function initSchema(): Promise<void> {
     // Load and execute schema
     if (fs.existsSync(schemaPath)) {
       const schema = fs.readFileSync(schemaPath, 'utf-8');
-      await execute(schema);
-      console.error('Knowledge graph schema initialized');
+      await executeInternal(schema);
+      console.error('[DuckDB-MCP] Knowledge graph schema initialized');
     }
   }
 
   // Create property graph for knowledge graph queries (DuckPGQ)
   try {
-    await execute(`
+    await executeInternal(`
       CREATE PROPERTY GRAPH IF NOT EXISTS student_graph
       VERTEX TABLES (
         student_nodes
@@ -80,20 +195,21 @@ async function initSchema(): Promise<void> {
           DESTINATION KEY (target_id) REFERENCES student_nodes (id)
       );
     `);
-    console.error('Property graph student_graph created');
+    console.error('[DuckDB-MCP] Property graph student_graph created');
   } catch (error) {
-    console.error('Warning: Could not create property graph:', error);
+    console.error('[DuckDB-MCP] Warning: Could not create property graph:', error);
     // Continue without property graph
   }
 
   // Create profiles table if not exists
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS profiles (
       id VARCHAR PRIMARY KEY,
       name VARCHAR NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       diploma VARCHAR,
+      field VARCHAR,
       skills VARCHAR[],
       city VARCHAR,
       city_size VARCHAR,
@@ -123,24 +239,29 @@ async function initSchema(): Promise<void> {
   `);
 
   // Migrate existing profiles: add new columns if they don't exist
-  try {
-    await execute(
-      `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS profile_type VARCHAR DEFAULT 'main'`
-    );
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS parent_profile_id VARCHAR`);
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_name VARCHAR`);
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_amount DECIMAL`);
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_deadline DATE`);
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS plan_data JSON`);
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS followup_data JSON`);
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS achievements JSON`);
-    await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE`);
-  } catch {
-    // Columns may already exist, ignore errors
+  const migrations = [
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS profile_type VARCHAR DEFAULT 'main'`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS parent_profile_id VARCHAR`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_name VARCHAR`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_amount DECIMAL`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS goal_deadline DATE`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS plan_data JSON`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS followup_data JSON`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS achievements JSON`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS field VARCHAR`,
+  ];
+
+  for (const migration of migrations) {
+    try {
+      await executeInternal(migration);
+    } catch {
+      // Columns may already exist, ignore errors
+    }
   }
 
   // Create simulation_state table for time simulation
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS simulation_state (
       id VARCHAR PRIMARY KEY DEFAULT 'global',
       simulated_date DATE DEFAULT CURRENT_DATE,
@@ -151,14 +272,14 @@ async function initSchema(): Promise<void> {
   `);
 
   // Initialize simulation state if not exists
-  await execute(`
+  await executeInternal(`
     INSERT INTO simulation_state (id, simulated_date, real_date, offset_days)
     SELECT 'global', CURRENT_DATE, CURRENT_DATE, 0
     WHERE NOT EXISTS (SELECT 1 FROM simulation_state WHERE id = 'global')
   `);
 
   // Create projections table if not exists
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS projections (
       id VARCHAR PRIMARY KEY,
       profile_id VARCHAR,
@@ -180,7 +301,7 @@ async function initSchema(): Promise<void> {
   `);
 
   // Create job recommendations table if not exists
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS job_recommendations (
       id VARCHAR PRIMARY KEY,
       profile_id VARCHAR,
@@ -199,7 +320,7 @@ async function initSchema(): Promise<void> {
   // ==========================================
 
   // Goals table - main goal definitions
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS goals (
       id VARCHAR PRIMARY KEY,
       user_id VARCHAR,
@@ -217,7 +338,7 @@ async function initSchema(): Promise<void> {
   `);
 
   // Goal progress tracking - weekly milestones
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS goal_progress (
       id VARCHAR PRIMARY KEY,
       goal_id VARCHAR NOT NULL,
@@ -235,7 +356,7 @@ async function initSchema(): Promise<void> {
   `);
 
   // Goal actions - individual actions within a goal plan
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS goal_actions (
       id VARCHAR PRIMARY KEY,
       goal_id VARCHAR NOT NULL,
@@ -255,7 +376,7 @@ async function initSchema(): Promise<void> {
   `);
 
   // Goal achievements - gamification tracking
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS goal_achievements (
       id VARCHAR PRIMARY KEY,
       user_id VARCHAR NOT NULL,
@@ -271,7 +392,7 @@ async function initSchema(): Promise<void> {
   // ==========================================
 
   // Academic events - exams, vacations, internships, project deadlines
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS academic_events (
       id VARCHAR PRIMARY KEY,
       user_id VARCHAR NOT NULL,
@@ -288,7 +409,7 @@ async function initSchema(): Promise<void> {
   `);
 
   // Commitments - recurring time obligations (classes, sports, family, etc.)
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS commitments (
       id VARCHAR PRIMARY KEY,
       user_id VARCHAR NOT NULL,
@@ -305,7 +426,7 @@ async function initSchema(): Promise<void> {
   `);
 
   // Energy/mood logs - daily tracking for capacity prediction
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS energy_logs (
       id VARCHAR PRIMARY KEY,
       user_id VARCHAR NOT NULL,
@@ -321,7 +442,7 @@ async function initSchema(): Promise<void> {
   `);
 
   // Retroplans - generated capacity-aware plans for goals
-  await execute(`
+  await executeInternal(`
     CREATE TABLE IF NOT EXISTS retroplans (
       id VARCHAR PRIMARY KEY,
       goal_id VARCHAR NOT NULL,
@@ -346,34 +467,12 @@ async function initSchema(): Promise<void> {
 }
 
 /**
- * Execute a SQL query and return results
+ * Internal execute without queue (for schema init)
  */
-export async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
-  if (!connection) {
-    await initDatabase();
-  }
-
+async function executeInternal(sql: string): Promise<void> {
+  const conn = getConnection();
   return new Promise((resolve, reject) => {
-    connection!.all(sql, (err, result) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(result as T[]);
-      }
-    });
-  });
-}
-
-/**
- * Execute a SQL statement (no return value)
- */
-export async function execute(sql: string): Promise<void> {
-  if (!connection) {
-    await initDatabase();
-  }
-
-  return new Promise((resolve, reject) => {
-    connection!.exec(sql, (err) => {
+    conn.exec(sql, (err) => {
       if (err) {
         reject(err);
       } else {
@@ -381,6 +480,122 @@ export async function execute(sql: string): Promise<void> {
       }
     });
   });
+}
+
+/**
+ * Execute with retry for transient lock errors
+ */
+async function executeWithRetry(sql: string, retries = 3, delay = 100): Promise<void> {
+  const conn = getConnection();
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        conn.exec(sql, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      return; // Success
+    } catch (err) {
+      const error = err as Error;
+      const isLockError = error.message?.includes('lock') || error.message?.includes('Conflicting');
+
+      if (isLockError && attempt < retries) {
+        console.error(`[DuckDB-MCP] Lock conflict, retry ${attempt}/${retries} in ${delay}ms`);
+        await sleep(delay);
+        delay *= 2; // Exponential backoff
+      } else {
+        console.error('[DuckDB-MCP] Execute error:', error.message);
+        throw error;
+      }
+    }
+  }
+}
+
+/**
+ * Query with retry for transient lock errors
+ */
+async function queryWithRetry<T>(sql: string, retries = 3, delay = 100): Promise<T[]> {
+  const conn = getConnection();
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await new Promise<T[]>((resolve, reject) => {
+        conn.all(sql, (err, result) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(result as T[]);
+          }
+        });
+      });
+    } catch (err) {
+      const error = err as Error;
+      const isLockError = error.message?.includes('lock') || error.message?.includes('Conflicting');
+
+      if (isLockError && attempt < retries) {
+        console.error(`[DuckDB-MCP] Lock conflict on query, retry ${attempt}/${retries}`);
+        await sleep(delay);
+        delay *= 2;
+      } else {
+        console.error('[DuckDB-MCP] Query error:', error.message);
+        throw error;
+      }
+    }
+  }
+  return []; // Should never reach here
+}
+
+/**
+ * Execute a SQL query and return results
+ */
+export async function query<T = Record<string, unknown>>(sql: string): Promise<T[]> {
+  if (!initialized) {
+    await initDatabase();
+  }
+  return queryWithRetry<T>(sql);
+}
+
+/**
+ * Execute a SQL statement (no return value)
+ * All writes are queued to prevent WAL lock conflicts
+ */
+export async function execute(sql: string): Promise<void> {
+  if (!initialized) {
+    await initDatabase();
+  }
+
+  // Queue this write operation
+  const operation = writeQueue.then(() => executeWithRetry(sql));
+
+  // Update the queue to include this operation
+  writeQueue = operation.catch(() => {
+    // Don't break the chain on errors
+  });
+
+  return operation;
+}
+
+/**
+ * Execute a query that returns results (for writes that need RETURNING)
+ * Also queued to prevent WAL conflicts
+ */
+export async function queryWrite<T = Record<string, unknown>>(sql: string): Promise<T[]> {
+  if (!initialized) {
+    await initDatabase();
+  }
+
+  // Queue this write operation
+  const operation = writeQueue.then(() => queryWithRetry<T>(sql));
+
+  // Update the queue
+  writeQueue = operation.then(() => {}).catch(() => {});
+
+  return operation;
 }
 
 /**
@@ -394,6 +609,9 @@ export async function closeDatabase(): Promise<void> {
     db.close();
     db = null;
   }
+  initialized = false;
+  releaseLock();
+  console.error('[DuckDB-MCP] Database closed');
 }
 
 /**
@@ -441,14 +659,40 @@ export async function getSimulationState(): Promise<{
   };
 }
 
+/**
+ * Escape SQL string values to prevent injection
+ */
+export function escapeSQL(str: string | null | undefined): string {
+  if (str === null || str === undefined) return 'NULL';
+  return `'${str.replace(/'/g, "''")}'`;
+}
+
+/**
+ * Get database info for debugging
+ */
+export function getDatabaseInfo(): { path: string; dir: string; initialized: boolean } {
+  return {
+    path: DB_PATH,
+    dir: DB_DIR,
+    initialized,
+  };
+}
+
 // Export singleton for use in tools
 export const database = {
   init: initDatabase,
   query,
   execute,
+  queryWrite,
   close: closeDatabase,
   getSimulatedDate,
   getSimulationState,
+  escapeSQL,
+  getDatabaseInfo,
 };
+
+// Export database path for external use
+export const DATABASE_PATH = DB_PATH;
+export const DATABASE_DIR = DB_DIR;
 
 export default database;

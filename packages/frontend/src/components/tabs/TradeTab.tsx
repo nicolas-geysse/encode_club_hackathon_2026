@@ -8,7 +8,7 @@ import { createSignal, For, Show } from 'solid-js';
 
 interface TradeItem {
   id: string;
-  type: 'borrow' | 'lend' | 'trade';
+  type: 'borrow' | 'lend' | 'trade' | 'sell' | 'optimize';
   name: string;
   description?: string;
   partner: string;
@@ -17,24 +17,78 @@ interface TradeItem {
   dueDate?: string;
 }
 
+interface InventoryItemForTrade {
+  id: string;
+  name: string;
+  estimatedValue: number;
+  category?: string;
+}
+
+interface LifestyleItemForTrade {
+  name: string;
+  currentCost: number;
+  optimizedCost?: number;
+  suggestion?: string;
+}
+
 interface TradeTabProps {
   initialTrades?: TradeItem[];
   onTradesChange?: (trades: TradeItem[]) => void;
   goalName?: string;
   goalAmount?: number;
+  inventoryItems?: InventoryItemForTrade[];
+  lifestyleItems?: LifestyleItemForTrade[];
 }
 
 interface TradeSuggestion {
-  type: 'borrow' | 'lend' | 'trade';
+  type: 'borrow' | 'lend' | 'trade' | 'sell' | 'optimize';
   name: string;
   description: string;
   estimatedSavings: number;
+  sourceType?: 'goal' | 'inventory' | 'lifestyle';
 }
 
-// Generate suggestions based on goal
-function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestion[] {
+// Generate suggestions based on goal, inventory, and lifestyle
+function getSuggestions(
+  goalName?: string,
+  _goalAmount?: number,
+  inventoryItems?: InventoryItemForTrade[],
+  lifestyleItems?: LifestyleItemForTrade[]
+): TradeSuggestion[] {
   const suggestions: TradeSuggestion[] = [];
   const lowerGoal = (goalName || '').toLowerCase();
+
+  // 1. INVENTORY-BASED SUGGESTIONS: Suggest selling unused items
+  if (inventoryItems && inventoryItems.length > 0) {
+    for (const item of inventoryItems) {
+      suggestions.push({
+        type: 'sell',
+        name: `Sell: ${item.name}`,
+        description: `List on marketplace to generate income`,
+        estimatedSavings: item.estimatedValue,
+        sourceType: 'inventory',
+      });
+    }
+  }
+
+  // 2. LIFESTYLE-BASED SUGGESTIONS: Suggest optimizations
+  if (lifestyleItems && lifestyleItems.length > 0) {
+    for (const item of lifestyleItems) {
+      if (item.optimizedCost !== undefined && item.optimizedCost < item.currentCost) {
+        const savings = item.currentCost - item.optimizedCost;
+        suggestions.push({
+          type: 'optimize',
+          name: `Optimize: ${item.name}`,
+          description:
+            item.suggestion || `Reduce from $${item.currentCost} to $${item.optimizedCost}/mo`,
+          estimatedSavings: savings,
+          sourceType: 'lifestyle',
+        });
+      }
+    }
+  }
+
+  // 3. GOAL-BASED SUGGESTIONS: Context-aware borrow/trade suggestions
 
   // Camping/vacation goal suggestions
   if (
@@ -47,18 +101,21 @@ function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestio
       name: 'Tent',
       description: 'Borrow a tent instead of buying',
       estimatedSavings: 80,
+      sourceType: 'goal',
     });
     suggestions.push({
       type: 'borrow',
       name: 'Sleeping bag',
       description: 'Borrow from a friend for the vacation',
       estimatedSavings: 40,
+      sourceType: 'goal',
     });
     suggestions.push({
       type: 'borrow',
       name: 'Cooler',
       description: 'To keep your food fresh',
       estimatedSavings: 30,
+      sourceType: 'goal',
     });
   }
 
@@ -69,6 +126,7 @@ function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestio
       name: 'Repair tools',
       description: 'To upgrade it yourself',
       estimatedSavings: 25,
+      sourceType: 'goal',
     });
   }
 
@@ -83,12 +141,14 @@ function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestio
       name: 'Moving boxes',
       description: 'Reuse from your friends',
       estimatedSavings: 20,
+      sourceType: 'goal',
     });
     suggestions.push({
       type: 'borrow',
       name: 'Hand truck/Dolly',
       description: 'To move heavy furniture',
       estimatedSavings: 35,
+      sourceType: 'goal',
     });
   }
 
@@ -104,22 +164,26 @@ function getSuggestions(goalName?: string, _goalAmount?: number): TradeSuggestio
       name: 'Textbooks',
       description: 'Borrow from previous year students',
       estimatedSavings: 50,
+      sourceType: 'goal',
     });
   }
 
-  // Generic suggestions (always show some)
-  if (suggestions.length < 3) {
+  // 4. GENERIC SUGGESTIONS: Only if nothing else available
+  const nonGenericCount = suggestions.filter((s) => s.sourceType !== undefined).length;
+  if (nonGenericCount < 2) {
     suggestions.push({
       type: 'borrow',
       name: 'Tools',
       description: 'For occasional DIY',
       estimatedSavings: 30,
+      sourceType: 'goal',
     });
     suggestions.push({
       type: 'trade',
       name: 'Skills/Courses',
       description: 'Exchange your skills for others',
       estimatedSavings: 40,
+      sourceType: 'goal',
     });
   }
 
@@ -130,6 +194,8 @@ const TRADE_TYPES = [
   { id: 'borrow', label: 'Borrow', icon: '📥', color: 'blue' },
   { id: 'lend', label: 'Lend', icon: '📤', color: 'orange' },
   { id: 'trade', label: 'Trade', icon: '🔄', color: 'purple' },
+  { id: 'sell', label: 'Sell', icon: '💰', color: 'green' },
+  { id: 'optimize', label: 'Cut', icon: '✂️', color: 'amber' },
 ];
 
 export function TradeTab(props: TradeTabProps) {
@@ -203,8 +269,9 @@ export function TradeTab(props: TradeTabProps) {
     return Math.round((totalSavings() / props.goalAmount) * 100);
   };
 
-  // Get suggestions based on goal
-  const suggestions = () => getSuggestions(props.goalName, props.goalAmount);
+  // Get suggestions based on goal, inventory, and lifestyle
+  const suggestions = () =>
+    getSuggestions(props.goalName, props.goalAmount, props.inventoryItems, props.lifestyleItems);
 
   // Add a suggestion as a trade
   const addFromSuggestion = (suggestion: TradeSuggestion) => {
@@ -288,38 +355,113 @@ export function TradeTab(props: TradeTabProps) {
         </Show>
       </div>
 
-      {/* Suggestions based on goal */}
+      {/* Suggestions based on goal, inventory, and lifestyle */}
       <Show when={suggestions().length > 0}>
-        <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-purple-200 dark:border-purple-800">
-          <h3 class="font-medium text-purple-900 dark:text-purple-200 mb-3 flex items-center gap-2">
-            <span>💡</span> Suggestions for "{props.goalName || 'your goal'}"
-          </h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <For each={suggestions()}>
-              {(suggestion) => (
-                <button
-                  type="button"
-                  class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-100 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-600 transition-colors text-left"
-                  onClick={() => addFromSuggestion(suggestion)}
-                >
-                  <div>
-                    <div class="font-medium text-slate-900 dark:text-slate-100">
-                      {suggestion.name}
-                    </div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">
-                      {suggestion.description}
-                    </div>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-green-600 dark:text-green-400 font-bold">
-                      -${suggestion.estimatedSavings}
-                    </div>
-                    <div class="text-xs text-slate-400">to save</div>
-                  </div>
-                </button>
-              )}
-            </For>
-          </div>
+        <div class="space-y-4">
+          {/* Inventory suggestions (Sell items) */}
+          <Show when={suggestions().filter((s) => s.sourceType === 'inventory').length > 0}>
+            <div class="card bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-green-200 dark:border-green-800">
+              <h3 class="font-medium text-green-900 dark:text-green-200 mb-3 flex items-center gap-2">
+                <span>💰</span> Items to sell
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <For each={suggestions().filter((s) => s.sourceType === 'inventory')}>
+                  {(suggestion) => (
+                    <button
+                      type="button"
+                      class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-green-100 dark:border-green-800 hover:border-green-300 dark:hover:border-green-600 transition-colors text-left"
+                      onClick={() => addFromSuggestion(suggestion)}
+                    >
+                      <div>
+                        <div class="font-medium text-slate-900 dark:text-slate-100">
+                          {suggestion.name}
+                        </div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400">
+                          {suggestion.description}
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <div class="text-green-600 dark:text-green-400 font-bold">
+                          +${suggestion.estimatedSavings}
+                        </div>
+                        <div class="text-xs text-slate-400">income</div>
+                      </div>
+                    </button>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+
+          {/* Lifestyle suggestions (Optimize expenses) */}
+          <Show when={suggestions().filter((s) => s.sourceType === 'lifestyle').length > 0}>
+            <div class="card bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 border-amber-200 dark:border-amber-800">
+              <h3 class="font-medium text-amber-900 dark:text-amber-200 mb-3 flex items-center gap-2">
+                <span>✂️</span> Expenses to optimize
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <For each={suggestions().filter((s) => s.sourceType === 'lifestyle')}>
+                  {(suggestion) => (
+                    <button
+                      type="button"
+                      class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-amber-100 dark:border-amber-800 hover:border-amber-300 dark:hover:border-amber-600 transition-colors text-left"
+                      onClick={() => addFromSuggestion(suggestion)}
+                    >
+                      <div>
+                        <div class="font-medium text-slate-900 dark:text-slate-100">
+                          {suggestion.name}
+                        </div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400">
+                          {suggestion.description}
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <div class="text-amber-600 dark:text-amber-400 font-bold">
+                          -${suggestion.estimatedSavings}/mo
+                        </div>
+                        <div class="text-xs text-slate-400">savings</div>
+                      </div>
+                    </button>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
+
+          {/* Goal-based suggestions (Borrow/Trade) */}
+          <Show when={suggestions().filter((s) => s.sourceType === 'goal').length > 0}>
+            <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-purple-200 dark:border-purple-800">
+              <h3 class="font-medium text-purple-900 dark:text-purple-200 mb-3 flex items-center gap-2">
+                <span>💡</span> Suggestions for "{props.goalName || 'your goal'}"
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <For each={suggestions().filter((s) => s.sourceType === 'goal')}>
+                  {(suggestion) => (
+                    <button
+                      type="button"
+                      class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-100 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-600 transition-colors text-left"
+                      onClick={() => addFromSuggestion(suggestion)}
+                    >
+                      <div>
+                        <div class="font-medium text-slate-900 dark:text-slate-100">
+                          {suggestion.name}
+                        </div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400">
+                          {suggestion.description}
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <div class="text-green-600 dark:text-green-400 font-bold">
+                          -${suggestion.estimatedSavings}
+                        </div>
+                        <div class="text-xs text-slate-400">to save</div>
+                      </div>
+                    </button>
+                  )}
+                </For>
+              </div>
+            </div>
+          </Show>
         </div>
       </Show>
 

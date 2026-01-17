@@ -15,6 +15,8 @@ import {
   listFeedbackDefinitions,
   listTraces,
   aggregateTracesByTags,
+  listSpansForTraces,
+  aggregateSpansByName,
   type MetricDataPoint,
 } from '../../lib/opikRest';
 
@@ -63,6 +65,14 @@ export interface MetricsResponse {
     byTab: Record<string, number>;
     /** Token usage by model */
     byModel: Record<string, number>;
+  };
+
+  /** Span-level metrics breakdown */
+  spans: {
+    /** Total spans across all traces */
+    totalSpans: number;
+    /** Breakdown by span name (operation type) */
+    byName: Record<string, { count: number; avgDurationMs: number; totalTokens: number }>;
   };
 
   /** Evaluation metrics */
@@ -150,6 +160,11 @@ export async function GET(event: APIEvent): Promise<Response> {
     // Aggregate traces by tags for detailed breakdowns
     const traceAggregation = aggregateTracesByTags(tracesResponse.content);
 
+    // Fetch spans for recent traces (limit to 20 for performance)
+    const recentTraceIds = tracesResponse.content.slice(0, 20).map((t) => t.id);
+    const allSpans = await listSpansForTraces(recentTraceIds);
+    const spanAggregation = aggregateSpansByName(allSpans);
+
     // Calculate feedback score averages
     const avgScores: Record<string, number> = {};
     const scoreAggregates: Record<string, { sum: number; count: number }> = {};
@@ -199,6 +214,10 @@ export async function GET(event: APIEvent): Promise<Response> {
         byAction: traceAggregation.byAction,
         byTab: traceAggregation.byTab,
         byModel: {}, // Would need span-level aggregation with model tags
+      },
+      spans: {
+        totalSpans: spanAggregation.totalSpans,
+        byName: spanAggregation.byName,
       },
       evaluation: {
         evaluatorCount: evaluators.length,

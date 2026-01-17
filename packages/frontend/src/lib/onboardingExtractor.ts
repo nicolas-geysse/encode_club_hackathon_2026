@@ -1,8 +1,18 @@
 /**
- * Onboarding Agent with Groq JSON Mode
+ * Onboarding Extractor (formerly mastraAgent.ts)
  *
- * Uses Groq SDK with JSON mode for reliable structured extraction.
+ * Uses Groq SDK with JSON mode for reliable structured extraction from user messages.
  * Falls back to regex extraction if Groq fails.
+ *
+ * Note: Despite the misleading original filename, this module uses Groq directly
+ * (not Mastra). The real Mastra agents are in /packages/mcp-server/src/agents/
+ * but are not used by the frontend onboarding flow.
+ *
+ * Features:
+ * - Groq JSON mode for structured profile data extraction
+ * - Conversation history support for context-aware extraction
+ * - Agentic tracing with Opik (child spans for LLM, tool, response)
+ * - Regex fallback when Groq is unavailable
  */
 
 import Groq from 'groq-sdk';
@@ -21,6 +31,7 @@ const STEP_TO_TAB: Record<string, string> = {
   name: 'profile',
   studies: 'profile',
   skills: 'skills',
+  certifications: 'skills', // Certifications also feed the skills tab
   location: 'profile',
   budget: 'profile',
   work_preferences: 'profile',
@@ -98,6 +109,7 @@ export interface ProfileData {
   field?: string;
   city?: string;
   skills?: string[];
+  certifications?: string[]; // Certification codes like 'BAFA', 'PSC1', 'TEFL'
   income?: number;
   expenses?: number;
   maxWorkHours?: number;
@@ -114,6 +126,10 @@ export interface OnboardingInput {
   message: string;
   currentStep: string;
   existingProfile: ProfileData;
+  /** Thread ID for grouping related traces in Opik */
+  threadId?: string;
+  /** Recent conversation history for context (last 2 turns = 4 messages) */
+  conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 export interface OnboardingOutput {
@@ -138,6 +154,7 @@ Available fields:
 - field: field of study like "Computer Science", "Law" (string)
 - city: city name (string)
 - skills: list of skills (array of strings)
+- certifications: professional certification codes (array of strings)
 - income: monthly income in dollars/euros (number)
 - expenses: monthly expenses (number)
 - maxWorkHours: max hours per week for work (number)
@@ -156,6 +173,12 @@ Be generous with extraction. Accept common variations:
 - "Python, JavaScript" or "I know Python and JS" → skills: ["Python", "JavaScript"]
 - "none" or "nothing" for optional fields → empty array []
 
+Common certifications to recognize:
+- France: BAFA, BNSSA, PSC1, SST
+- UK: DBS (check), Paediatric First Aid, NPLQ
+- US: CPR/First Aid, Lifeguard, Food Handler
+- International: PADI (diving), SSI, TEFL/TESOL
+
 IMPORTANT: Netflix, Spotify, Amazon are subscriptions, NOT names.`;
 
 /**
@@ -167,7 +190,9 @@ function getExtractionPrompt(step: string, message: string, existing: ProfileDat
     greeting: 'We are asking for their NAME.',
     name: 'We are asking about their STUDIES (diploma level and field).',
     studies: 'We are asking about their SKILLS (programming, languages, tutoring, etc.).',
-    skills: 'We are asking about their CITY of residence.',
+    skills:
+      'We are asking about their CERTIFICATIONS (BAFA, lifeguard, CPR, TEFL, etc.). "none" means empty array.',
+    certifications: 'We are asking about their CITY of residence.',
     location: 'We are asking about their BUDGET (monthly income and expenses).',
     budget: 'We are asking about WORK PREFERENCES (max hours per week, minimum hourly rate).',
     work_preferences: 'We are asking about their SAVINGS GOAL (what, how much, deadline).',
@@ -197,27 +222,198 @@ interface ExtractionResult {
 }
 
 /**
+ * Convert goalDeadline string to YYYY-MM-DD format
+ * Handles: "in 2 months", "dans 2 mois", "2 mois", "March 2026", "in 3 weeks", etc.
+ */
+function normalizeGoalDeadline(deadline: string | undefined): string | undefined {
+  if (!deadline) return undefined;
+
+  const lower = deadline.toLowerCase().trim();
+
+  // Already in YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+    return deadline;
+  }
+
+  // Relative deadlines with prefix: "in 2 months", "within 3 weeks", "dans 2 mois", "d'ici 3 semaines"
+  const relativeMatch = lower.match(
+    /^(?:in|within|dans|d'ici)\s+(\d+)\s+(months?|mois|weeks?|semaines?|years?|ans?|days?|jours?)$/i
+  );
+  if (relativeMatch) {
+    const amount = parseInt(relativeMatch[1], 10);
+    const unit = relativeMatch[2].toLowerCase();
+    const targetDate = new Date();
+
+    if (unit.startsWith('month') || unit === 'mois') {
+      targetDate.setMonth(targetDate.getMonth() + amount);
+    } else if (unit.startsWith('week') || unit.startsWith('semaine')) {
+      targetDate.setDate(targetDate.getDate() + amount * 7);
+    } else if (unit.startsWith('year') || unit.startsWith('an')) {
+      targetDate.setFullYear(targetDate.getFullYear() + amount);
+    } else if (unit.startsWith('day') || unit.startsWith('jour')) {
+      targetDate.setDate(targetDate.getDate() + amount);
+    }
+
+    return targetDate.toISOString().split('T')[0];
+  }
+
+  // Relative deadlines WITHOUT prefix: "2 mois", "3 weeks", "6 months"
+  // This handles cases where user says "vacation €1000 dans 2 mois" and LLM extracts just "2 mois"
+  const shortRelativeMatch = lower.match(
+    /^(\d+)\s+(months?|mois|weeks?|semaines?|years?|ans?|days?|jours?)$/i
+  );
+  if (shortRelativeMatch) {
+    const amount = parseInt(shortRelativeMatch[1], 10);
+    const unit = shortRelativeMatch[2].toLowerCase();
+    const targetDate = new Date();
+
+    if (unit.startsWith('month') || unit === 'mois') {
+      targetDate.setMonth(targetDate.getMonth() + amount);
+    } else if (unit.startsWith('week') || unit.startsWith('semaine')) {
+      targetDate.setDate(targetDate.getDate() + amount * 7);
+    } else if (unit.startsWith('year') || unit.startsWith('an')) {
+      targetDate.setFullYear(targetDate.getFullYear() + amount);
+    } else if (unit.startsWith('day') || unit.startsWith('jour')) {
+      targetDate.setDate(targetDate.getDate() + amount);
+    }
+
+    return targetDate.toISOString().split('T')[0];
+  }
+
+  // Month name + optional year: "March 2026", "June", "December 2025", "mars 2026", "juin"
+  const monthNames = [
+    'january',
+    'february',
+    'march',
+    'april',
+    'may',
+    'june',
+    'july',
+    'august',
+    'september',
+    'october',
+    'november',
+    'december',
+  ];
+  const frenchMonthNames = [
+    'janvier',
+    'février',
+    'mars',
+    'avril',
+    'mai',
+    'juin',
+    'juillet',
+    'août',
+    'septembre',
+    'octobre',
+    'novembre',
+    'décembre',
+  ];
+
+  // Try English month names
+  const monthMatch = lower.match(
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i
+  );
+  if (monthMatch) {
+    const monthIndex = monthNames.indexOf(monthMatch[1].toLowerCase());
+    const yearMatch = deadline.match(/20\d{2}/);
+    const year = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+
+    // Create date for the last day of the target month
+    const targetDate = new Date(year, monthIndex + 1, 0);
+    // If the date is in the past, use next year
+    if (targetDate < new Date()) {
+      targetDate.setFullYear(targetDate.getFullYear() + 1);
+    }
+    return targetDate.toISOString().split('T')[0];
+  }
+
+  // Try French month names
+  const frenchMonthMatch = lower.match(
+    /\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\b/i
+  );
+  if (frenchMonthMatch) {
+    let monthName = frenchMonthMatch[1].toLowerCase();
+    // Normalize accented variants
+    if (monthName === 'fevrier') monthName = 'février';
+    if (monthName === 'aout') monthName = 'août';
+    if (monthName === 'decembre') monthName = 'décembre';
+
+    const monthIndex = frenchMonthNames.indexOf(monthName);
+    if (monthIndex >= 0) {
+      const yearMatch = deadline.match(/20\d{2}/);
+      const year = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+
+      const targetDate = new Date(year, monthIndex + 1, 0);
+      if (targetDate < new Date()) {
+        targetDate.setFullYear(targetDate.getFullYear() + 1);
+      }
+      return targetDate.toISOString().split('T')[0];
+    }
+  }
+
+  // Try to parse as date directly
+  const parsed = new Date(deadline);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+
+  // Couldn't parse, return undefined to avoid DB errors
+  console.warn(`[MastraAgent] Could not parse goalDeadline: "${deadline}"`);
+  return undefined;
+}
+
+/**
  * Extract data using Groq JSON mode
+ * Now includes conversation history for better context awareness
  */
 async function extractWithGroq(
   message: string,
   step: string,
-  existing: ProfileData
+  existing: ProfileData,
+  conversationHistory?: { role: 'user' | 'assistant'; content: string }[]
 ): Promise<ExtractionResult | null> {
+  // Skip extraction for 'complete' and 'lifestyle' steps - nothing meaningful to extract
+  // This avoids wasting tokens and the "max completion tokens reached" error
+  if (step === 'complete' || step === 'lifestyle') {
+    return {
+      data: {},
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCost: 0 },
+    };
+  }
+
   const client = getGroqClient();
   if (!client) {
     return null;
   }
 
   try {
+    // Build messages array with history for context
+    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+      { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
+    ];
+
+    // Add recent conversation history (last 2 turns = 4 messages) for context
+    // Reduced from 8 to 4 to save tokens and avoid "max completion tokens reached" error
+    if (conversationHistory && conversationHistory.length > 0) {
+      // Add a condensed version of recent history
+      const recentHistory = conversationHistory.slice(-4);
+      for (const msg of recentHistory) {
+        messages.push({
+          role: msg.role,
+          content: msg.content.substring(0, 200), // Truncate to save tokens
+        });
+      }
+    }
+
+    // Add the current extraction prompt
+    messages.push({ role: 'user', content: getExtractionPrompt(step, message, existing) });
+
     const response = await client.chat.completions.create({
       model: GROQ_MODEL,
-      messages: [
-        { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
-        { role: 'user', content: getExtractionPrompt(step, message, existing) },
-      ],
+      messages,
       temperature: 0.0, // Deterministic for reliable extraction
-      max_tokens: 512,
+      max_tokens: 1024, // Increased from 512 to avoid "max completion tokens reached" error
       response_format: { type: 'json_object' },
     });
 
@@ -243,6 +439,11 @@ async function extractWithGroq(
       }
     }
 
+    // Normalize goalDeadline to YYYY-MM-DD format
+    if (cleaned.goalDeadline) {
+      cleaned.goalDeadline = normalizeGoalDeadline(cleaned.goalDeadline);
+    }
+
     return {
       data: cleaned,
       usage: {
@@ -261,6 +462,12 @@ async function extractWithGroq(
 /**
  * Process an onboarding message using Groq JSON mode
  * Falls back to regex extraction if Groq fails
+ *
+ * Trace hierarchy (for Opik agentic tracing):
+ * - agent.onboarding (parent trace)
+ *   ├── agent.llm_extraction (child span, type: llm)
+ *   ├── agent.data_merge (child span, type: tool)
+ *   └── agent.response_generation (child span, type: general)
  */
 export async function processWithMastraAgent(input: OnboardingInput): Promise<OnboardingOutput> {
   // Build trace options with input for Opik visibility
@@ -268,113 +475,189 @@ export async function processWithMastraAgent(input: OnboardingInput): Promise<On
   const targetTab = STEP_TO_TAB[input.currentStep] || 'unknown';
   const traceOptions: TraceOptions = {
     source: 'groq_json_mode',
+    threadId: input.threadId, // Pass threadId for conversation grouping in Opik
     input: {
       message: input.message,
       currentStep: input.currentStep,
       existingProfile: input.existingProfile,
+      historyLength: input.conversationHistory?.length || 0,
     },
-    tags: ['onboarding', input.currentStep, `tab:${targetTab}`],
+    tags: ['onboarding', 'agent', input.currentStep, `tab:${targetTab}`],
   };
 
   return trace(
-    'onboarding.extraction',
-    async (span) => {
-      span.setAttributes({
-        'input.step': input.currentStep,
-        'input.message_length': input.message.length,
-        'llm.model': GROQ_MODEL,
+    'agent.onboarding',
+    async (ctx) => {
+      ctx.setAttributes({
+        'agent.step': input.currentStep,
+        'agent.message_length': input.message.length,
+        'agent.has_history': (input.conversationHistory?.length || 0) > 0,
+        'agent.target_tab': targetTab,
       });
 
-      // Try Groq JSON mode first
-      const groqResult = await extractWithGroq(
-        input.message,
-        input.currentStep,
-        input.existingProfile
+      // Child span 1: LLM Extraction (type: llm)
+      const extractionResult = await ctx.createChildSpan(
+        'agent.llm_extraction',
+        async (span) => {
+          span.setAttributes({
+            'extraction.step': input.currentStep,
+            'extraction.message_preview': input.message.substring(0, 100),
+            'extraction.history_length': input.conversationHistory?.length || 0,
+          });
+
+          // Try Groq JSON mode first (with conversation history for context)
+          const groqResult = await extractWithGroq(
+            input.message,
+            input.currentStep,
+            input.existingProfile,
+            input.conversationHistory
+          );
+
+          if (groqResult && Object.keys(groqResult.data).length > 0) {
+            // Groq succeeded with data
+            span.setUsage({
+              prompt_tokens: groqResult.usage.promptTokens,
+              completion_tokens: groqResult.usage.completionTokens,
+              total_tokens: groqResult.usage.totalTokens,
+            });
+            span.setCost(groqResult.usage.estimatedCost);
+            span.setOutput({
+              method: 'groq_json_mode',
+              extracted_fields: Object.keys(groqResult.data).length,
+              extracted_keys: Object.keys(groqResult.data).join(','),
+            });
+            return { data: groqResult.data, usage: groqResult.usage, source: 'groq' as const };
+          } else if (groqResult) {
+            // Groq returned but no data extracted - fall back to regex
+            span.setUsage({
+              prompt_tokens: groqResult.usage.promptTokens,
+              completion_tokens: groqResult.usage.completionTokens,
+              total_tokens: groqResult.usage.totalTokens,
+            });
+            span.setCost(groqResult.usage.estimatedCost);
+            const regexData = extractWithRegex(
+              input.message,
+              input.currentStep,
+              input.existingProfile
+            );
+            span.setOutput({
+              method: 'regex_fallback',
+              reason: 'groq_empty',
+              extracted_fields: Object.keys(regexData).length,
+            });
+            return { data: regexData, usage: groqResult.usage, source: 'fallback' as const };
+          } else {
+            // Groq failed completely - use regex only
+            const regexData = extractWithRegex(
+              input.message,
+              input.currentStep,
+              input.existingProfile
+            );
+            span.setOutput({
+              method: 'regex_fallback',
+              reason: 'groq_failed',
+              extracted_fields: Object.keys(regexData).length,
+            });
+            return { data: regexData, usage: null, source: 'fallback' as const };
+          }
+        },
+        {
+          type: 'llm',
+          model: GROQ_MODEL,
+          provider: 'groq',
+          input: { message: input.message.substring(0, 200), step: input.currentStep },
+        }
       );
 
-      let extractedData: ProfileData;
-      let source: 'groq' | 'fallback';
-      let tokenUsage: TokenUsage | null = null;
-
-      if (groqResult && Object.keys(groqResult.data).length > 0) {
-        extractedData = groqResult.data;
-        tokenUsage = groqResult.usage;
-        source = 'groq';
-
-        // Set attributes for metadata (non-usage info)
-        span.setAttributes({
-          'output.method': 'groq_json_mode',
-          'output.extracted_fields': Object.keys(extractedData).length,
-          'output.extracted_keys': Object.keys(extractedData).join(','),
-          'llm.model': GROQ_MODEL,
-          'llm.cost.total': tokenUsage.estimatedCost,
-        });
-
-        // Use setUsage() for token counts - this sets at root level for proper Opik display
-        span.setUsage({
-          prompt_tokens: tokenUsage.promptTokens,
-          completion_tokens: tokenUsage.completionTokens,
-          total_tokens: tokenUsage.totalTokens,
-        });
-      } else if (groqResult) {
-        // Groq returned but no data extracted - still log usage
-        tokenUsage = groqResult.usage;
-        extractedData = extractWithRegex(input.message, input.currentStep, input.existingProfile);
-        source = 'fallback';
-        span.setAttributes({
-          'output.method': 'regex_fallback',
-          'output.extracted_fields': Object.keys(extractedData).length,
-          'output.groq_empty': true,
-          'llm.model': GROQ_MODEL,
-          'llm.cost.total': tokenUsage.estimatedCost,
-        });
-
-        // Still set usage even when falling back to regex
-        span.setUsage({
-          prompt_tokens: tokenUsage.promptTokens,
-          completion_tokens: tokenUsage.completionTokens,
-          total_tokens: tokenUsage.totalTokens,
-        });
-      } else {
-        // Groq failed completely
-        extractedData = extractWithRegex(input.message, input.currentStep, input.existingProfile);
-        source = 'fallback';
-        span.setAttributes({
-          'output.method': 'regex_fallback',
-          'output.extracted_fields': Object.keys(extractedData).length,
-          'output.groq_failed': true,
-        });
-      }
+      const extractedData = extractionResult.data;
+      const tokenUsage = extractionResult.usage;
+      const source = extractionResult.source;
 
       const hasExtracted = Object.keys(extractedData).length > 0;
 
-      // Determine next step
-      const nextStep = hasExtracted ? getNextStep(input.currentStep) : input.currentStep;
-      const didAdvance = nextStep !== input.currentStep;
+      // Child span 2: Data Merge (type: tool)
+      const { nextStep, mergedProfile } = await ctx.createChildSpan(
+        'agent.data_merge',
+        async (span) => {
+          span.setAttributes({
+            'merge.extracted_fields': Object.keys(extractedData).length,
+            'merge.has_data': hasExtracted,
+          });
 
-      // Generate appropriate response
-      const response = hasExtracted
-        ? getAdvanceMessage(nextStep, { ...input.existingProfile, ...extractedData })
-        : getClarificationMessage(input.currentStep);
+          // Determine next step
+          const nextStep = hasExtracted ? getNextStep(input.currentStep) : input.currentStep;
+          const didAdvance = nextStep !== input.currentStep;
 
-      span.setAttributes({
-        'output.next_step': nextStep,
-        'output.did_advance': didAdvance,
-        'output.source': source,
+          // Merge profile data
+          const mergedProfile = { ...input.existingProfile, ...extractedData };
+
+          span.setOutput({
+            next_step: nextStep,
+            did_advance: didAdvance,
+            merged_fields: Object.keys(mergedProfile).filter(
+              (k) => mergedProfile[k as keyof ProfileData] !== undefined
+            ).length,
+          });
+
+          return { nextStep, didAdvance, mergedProfile };
+        },
+        {
+          type: 'tool',
+          input: { extracted_keys: Object.keys(extractedData).join(',') },
+        }
+      );
+
+      // Child span 3: Response Generation (type: general)
+      const response = await ctx.createChildSpan(
+        'agent.response_generation',
+        async (span) => {
+          span.setAttributes({
+            'response.has_extracted': hasExtracted,
+            'response.next_step': nextStep,
+          });
+
+          const response = hasExtracted
+            ? getAdvanceMessage(nextStep, mergedProfile)
+            : getClarificationMessage(input.currentStep);
+
+          span.setOutput({
+            response_length: response.length,
+            response_preview: response.substring(0, 100),
+          });
+
+          return response;
+        },
+        { type: 'general' }
+      );
+
+      // Set parent trace attributes and output
+      ctx.setAttributes({
+        'agent.source': source,
+        'agent.next_step': nextStep,
+        'agent.extracted_fields': Object.keys(extractedData).length,
       });
+
+      if (tokenUsage) {
+        ctx.setUsage({
+          prompt_tokens: tokenUsage.promptTokens,
+          completion_tokens: tokenUsage.completionTokens,
+          total_tokens: tokenUsage.totalTokens,
+        });
+        ctx.setCost(tokenUsage.estimatedCost);
+      }
 
       const result: OnboardingOutput = {
         response,
         extractedData,
         nextStep,
         isComplete: nextStep === 'complete',
-        profileData: { ...input.existingProfile, ...extractedData },
+        profileData: mergedProfile,
         source,
       };
 
-      // Set output for Opik UI (includes usage summary)
-      span.setOutput({
-        response: result.response,
+      // Set output for Opik UI
+      ctx.setOutput({
+        response: result.response.substring(0, 300),
         extractedData: result.extractedData,
         nextStep: result.nextStep,
         isComplete: result.isComplete,
@@ -411,11 +694,14 @@ function getClarificationMessage(step: string): string {
     // At greeting step, we're collecting NAME
     greeting: "I didn't catch your name. What should I call you?",
     // At name step, we're collecting STUDIES (not name!)
-    name: "I need to know about your studies. What's your level (Bachelor, Master, PhD) and field?",
+    name: "I'd love to know about your studies! What's your education level and field?\n\nExamples: Bachelor 2nd year Computer Science, Master 1 Business, PhD Physics",
     // At studies step, we're collecting SKILLS
     studies: 'What skills do you have? (coding, languages, music, sports...)',
-    // At skills step, we're collecting LOCATION
-    skills: 'Where do you live? Just tell me the city name.',
+    // At skills step, we're collecting CERTIFICATIONS
+    skills:
+      "Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')",
+    // At certifications step, we're collecting LOCATION
+    certifications: 'Where do you live? Just tell me the city name.',
     // At location step, we're collecting BUDGET
     location: 'How much do you earn and spend per month? (two numbers, like "800 and 600")',
     // At budget step, we're collecting WORK PREFERENCES
@@ -613,7 +899,57 @@ function extractWithRegex(message: string, step: string, _existing: ProfileData)
     }
 
     case 'skills': {
-      // At skills step (skills were just collected), we're collecting LOCATION
+      // At skills step (skills were just collected), we're collecting CERTIFICATIONS
+      // Certification patterns for auto-detection
+      const certPatterns: Array<{ pattern: RegExp; code: string }> = [
+        // France
+        { pattern: /\bBAFA\b/i, code: 'BAFA' },
+        { pattern: /\bBNSSA\b/i, code: 'BNSSA' },
+        { pattern: /\bPSC1\b/i, code: 'PSC1' },
+        { pattern: /\bSST\b/i, code: 'SST' },
+        // UK
+        { pattern: /\bDBS\b/i, code: 'DBS' },
+        { pattern: /\b(?:paediatric|pediatric)\s+first\s+aid\b/i, code: 'PFA' },
+        { pattern: /\bNPLQ\b/i, code: 'NPLQ' },
+        // US
+        { pattern: /\bCPR\b/i, code: 'CPR_AHA' },
+        { pattern: /\blifeguard\b/i, code: 'LIFEGUARD_RC' },
+        { pattern: /\bfood\s+handler\b/i, code: 'FOOD_HANDLER' },
+        // International
+        { pattern: /\bPADI\s*(?:OW|open\s*water)?\b/i, code: 'PADI_OW' },
+        { pattern: /\bPADI\s*(?:DM|divemaster)\b/i, code: 'PADI_DM' },
+        { pattern: /\bSSI\b/i, code: 'SSI_OW' },
+        { pattern: /\bTEFL\b|\bTESOL\b/i, code: 'TEFL' },
+        { pattern: /\bfirst\s*aid\b/i, code: 'PSC1' }, // Generic first aid defaults to PSC1
+      ];
+
+      if (/\b(none|nothing|rien|pas|no|non|skip)\b/i.test(msg)) {
+        extracted.certifications = [];
+      } else {
+        const detected: string[] = [];
+        for (const { pattern, code } of certPatterns) {
+          if (pattern.test(msg) && !detected.includes(code)) {
+            detected.push(code);
+          }
+        }
+        if (detected.length > 0) {
+          extracted.certifications = detected;
+        } else if (msg.length >= 2 && msg.length <= 100) {
+          // Accept any comma-separated list as certification names
+          const customCerts = msg
+            .split(/[,;&]|\band\b/i)
+            .map((s) => s.trim().toUpperCase())
+            .filter((s) => s.length >= 2 && s.length <= 20);
+          if (customCerts.length > 0) {
+            extracted.certifications = customCerts;
+          }
+        }
+      }
+      break;
+    }
+
+    case 'certifications': {
+      // At certifications step (certifications were just collected), we're collecting LOCATION
       const knownCities =
         /\b(paris|lyon|marseille|toulouse|bordeaux|lille|nantes|nice|montpellier|strasbourg|new york|london|berlin|tokyo|los angeles|chicago|boston|san francisco|seattle|madrid|barcelona|rome|amsterdam|brussels|vienna|munich|dublin|lisbon|prague|warsaw|budapest|athens|stockholm|oslo|copenhagen|helsinki|zurich|geneva|milan|vancouver|toronto|montreal|sydney|melbourne)\b/i;
 
@@ -840,6 +1176,7 @@ function getNextStep(currentStep: string): string {
     'name',
     'studies',
     'skills',
+    'certifications', // New step after skills
     'location',
     'budget',
     'work_preferences',
@@ -873,11 +1210,13 @@ function getAdvanceMessage(nextStep: string, profile: ProfileData): string {
 
   const messages: Record<string, string> = {
     // Advancing TO 'name' means we just got the name, now ask for studies
-    name: `Nice to meet you${name ? `, ${name}` : ''}! What are you studying? (level and field)`,
+    name: `Nice to meet you${name ? `, ${name}` : ''}! What are you studying?\n\nTell me your education level and field (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`,
     // Advancing TO 'studies' means we just got studies, now ask for skills
     studies: `Great${name ? `, ${name}` : ''}! What skills do you have? (coding, languages, tutoring, music...)`,
-    // Advancing TO 'skills' means we just got skills, now ask for location
-    skills: `Awesome skills! Where do you live?`,
+    // Advancing TO 'skills' means we just got skills, now ask for certifications
+    skills: `Awesome skills! Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
+    // Advancing TO 'certifications' means we just got certifications, now ask for location
+    certifications: `Got it! Where do you live?`,
     // Advancing TO 'location' means we just got location, now ask for budget
     location: `Got it! Now about your budget - how much do you earn and spend per month?`,
     // Advancing TO 'budget' means we just got budget, now ask for work preferences

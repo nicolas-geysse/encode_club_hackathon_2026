@@ -26,7 +26,13 @@ export {
   initDatabase,
   query,
   execute,
+  queryWrite,
   closeDatabase,
   getSimulatedDate,
+  getSimulationState,
+  escapeSQL,
+  getDatabaseInfo,
   database,
+  DATABASE_PATH,
+  DATABASE_DIR,
 } from './duckdb.js';

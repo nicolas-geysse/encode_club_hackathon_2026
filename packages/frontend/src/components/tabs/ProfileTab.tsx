@@ -3,10 +3,14 @@
  *
  * Displays and allows editing of user profile information.
  * Shows: Name, Diploma, Field, City, Work preferences, Budget.
+ *
+ * Uses ProfileContext for shared state so that changes here
+ * are reflected in ProfileSelector and other components.
  */
 
-import { createSignal, Show, onMount, For } from 'solid-js';
+import { createSignal, Show, For, createEffect } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
+import { useProfile } from '~/lib/profileContext';
 
 // Alias for cleaner code
 type Profile = FullProfile;
@@ -16,23 +20,24 @@ interface ProfileTabProps {
 }
 
 export function ProfileTab(props: ProfileTabProps) {
-  const [profile, setProfile] = createSignal<Profile | null>(null);
-  const [loading, setLoading] = createSignal(true);
+  // Use shared ProfileContext instead of local state
+  // This ensures ProfileSelector and other components see the same data
+  const { profile: contextProfile, loading: contextLoading, refreshProfile } = useProfile();
+
+  // Local state for editing UI
   const [editing, setEditing] = createSignal(false);
   const [editedProfile, setEditedProfile] = createSignal<Partial<Profile>>({});
   const [saving, setSaving] = createSignal(false);
 
-  onMount(async () => {
-    try {
-      const loadedProfile = await profileService.loadActiveProfile();
-      setProfile(loadedProfile);
-      if (loadedProfile) {
-        setEditedProfile(loadedProfile);
-      }
-    } catch (error) {
-      console.error('[ProfileTab] Failed to load profile:', error);
-    } finally {
-      setLoading(false);
+  // Derived profile getter for cleaner access
+  const profile = () => contextProfile();
+  const loading = () => contextLoading();
+
+  // Sync editedProfile when context profile changes
+  createEffect(() => {
+    const p = contextProfile();
+    if (p && !editing()) {
+      setEditedProfile(p);
     }
   });
 
@@ -47,9 +52,11 @@ export function ProfileTab(props: ProfileTabProps) {
       };
       await profileService.saveProfile(profileToSave, { immediate: true });
 
-      // Reload profile to get updated data
-      const refreshed = await profileService.loadActiveProfile();
-      setProfile(refreshed);
+      // IMPORTANT: Refresh the shared ProfileContext so that:
+      // 1. ProfileSelector in the header shows the updated name
+      // 2. Other components using the context get the new data
+      await refreshProfile();
+
       setEditing(false);
       props.onProfileChange?.(updates);
     } catch (error) {

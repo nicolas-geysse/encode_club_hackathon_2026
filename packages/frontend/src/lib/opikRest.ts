@@ -17,6 +17,75 @@ const OPIK_BASE_URL = process.env.OPIK_BASE_URL || 'https://www.comet.com/opik/a
 // OPIK_PROJECT used in metrics.ts via getProjectStats calls
 export const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
 
+// Cache for project UUID lookup
+let cachedProjectId: string | null = null;
+
+/**
+ * Project response from Opik API
+ */
+interface OpikProject {
+  id: string;
+  name: string;
+}
+
+/**
+ * Get project UUID by name (cached after first lookup)
+ * Opik API requires UUIDs for project_ids, not project names
+ */
+export async function getProjectIdByName(projectName: string): Promise<string | null> {
+  // Return cached value if available
+  if (cachedProjectId) {
+    return cachedProjectId;
+  }
+
+  if (!OPIK_API_KEY) {
+    console.error('[Opik REST] Cannot lookup project: OPIK_API_KEY not configured');
+    return null;
+  }
+
+  try {
+    const url = `${OPIK_BASE_URL}/v1/private/projects?name=${encodeURIComponent(projectName)}`;
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPIK_API_KEY}`,
+        'Comet-Workspace': OPIK_WORKSPACE,
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[Opik REST] Failed to lookup project: ${response.status}`);
+      return null;
+    }
+
+    const data = (await response.json()) as { content?: OpikProject[] };
+    const project = data.content?.find((p: OpikProject) => p.name === projectName);
+
+    if (project) {
+      cachedProjectId = project.id;
+      console.error(`[Opik REST] Resolved project "${projectName}" to UUID: ${project.id}`);
+      return project.id;
+    }
+
+    // Project not found - this is normal on first run before any trace is sent
+    // Opik SDK auto-creates the project when first trace is logged
+    console.error(
+      `[Opik REST] Project "${projectName}" not found yet (will be created on first trace)`
+    );
+    return null;
+  } catch (error) {
+    console.error('[Opik REST] Error looking up project:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear cached project ID (useful for testing)
+ */
+export function clearProjectCache(): void {
+  cachedProjectId = null;
+}
+
 /**
  * Base API client for Opik REST endpoints
  */
@@ -42,12 +111,32 @@ async function opikFetch<T>(endpoint: string, options: RequestInit = {}): Promis
     throw new Error(`[Opik REST] ${response.status}: ${error}`);
   }
 
-  // Handle empty responses (204 No Content)
+  // Handle empty responses (204 No Content, or 201 with empty body)
   if (response.status === 204) {
     return {} as T;
   }
 
-  return response.json();
+  // Check if response has content before parsing JSON
+  const contentLength = response.headers.get('content-length');
+  const contentType = response.headers.get('content-type');
+
+  // Empty body or no JSON content-type
+  if (contentLength === '0' || (response.status === 201 && !contentType?.includes('json'))) {
+    return {} as T;
+  }
+
+  // Try to parse JSON, return empty object if fails
+  const text = await response.text();
+  if (!text || text.trim() === '') {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    // Some endpoints return success without JSON body
+    return {} as T;
+  }
 }
 
 // ============================================================
@@ -343,8 +432,8 @@ export interface CreateFeedbackDefinitionRequest {
   minValue?: number;
   /** For numerical: max value */
   maxValue?: number;
-  /** For categorical: list of categories */
-  categories?: string[];
+  /** For categorical: map of category names to numeric values (e.g., { poor: 0.0, good: 1.0 }) */
+  categories?: Record<string, number>;
 }
 
 /**
@@ -388,6 +477,7 @@ export async function createFeedbackDefinition(
       max: request.maxValue ?? 5,
     };
   } else if (request.type === 'categorical' && request.categories) {
+    // Opik API expects categories directly in details as LinkedHashMap<String, Double>
     body.details = {
       categories: request.categories,
     };
@@ -548,6 +638,112 @@ export function aggregateTracesByTags(traces: TraceSummary[]): {
 }
 
 // ============================================================
+// SPANS (for trace hierarchy)
+// ============================================================
+
+/**
+ * Span summary from API
+ */
+export interface SpanSummary {
+  id: string;
+  traceId: string;
+  name: string;
+  startTime: string;
+  endTime?: string;
+  duration?: number;
+  metadata?: Record<string, unknown>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    cost?: number;
+  };
+}
+
+/**
+ * Span list response
+ */
+export interface SpanListResponse {
+  content: SpanSummary[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+/**
+ * List spans for a specific trace
+ * Returns all child spans in the trace hierarchy
+ */
+export async function listSpansForTrace(
+  traceId: string,
+  options?: { page?: number; size?: number }
+): Promise<SpanListResponse> {
+  const params = new URLSearchParams();
+  params.set('trace_id', traceId);
+  params.set('page', String(options?.page || 1));
+  params.set('size', String(options?.size || 100));
+
+  try {
+    return await opikFetch<SpanListResponse>(`/spans?${params.toString()}`);
+  } catch {
+    return { content: [], page: 1, size: 0, total: 0 };
+  }
+}
+
+/**
+ * List spans for multiple traces (batched)
+ */
+export async function listSpansForTraces(traceIds: string[]): Promise<SpanSummary[]> {
+  const results = await Promise.all(traceIds.map((id) => listSpansForTrace(id)));
+  return results.flatMap((r) => r.content);
+}
+
+/**
+ * Aggregate spans by name for metrics
+ */
+export function aggregateSpansByName(spans: SpanSummary[]): {
+  byName: Record<string, { count: number; avgDurationMs: number; totalTokens: number }>;
+  totalSpans: number;
+  totalDurationMs: number;
+} {
+  const byName: Record<string, { count: number; totalDuration: number; totalTokens: number }> = {};
+  let totalDurationMs = 0;
+
+  for (const span of spans) {
+    const name = span.name;
+    if (!byName[name]) {
+      byName[name] = { count: 0, totalDuration: 0, totalTokens: 0 };
+    }
+    byName[name].count++;
+
+    if (span.duration) {
+      byName[name].totalDuration += span.duration;
+      totalDurationMs += span.duration;
+    }
+
+    if (span.usage?.total_tokens) {
+      byName[name].totalTokens += span.usage.total_tokens;
+    }
+  }
+
+  // Convert to averages
+  const result: Record<string, { count: number; avgDurationMs: number; totalTokens: number }> = {};
+  for (const [name, stats] of Object.entries(byName)) {
+    result[name] = {
+      count: stats.count,
+      avgDurationMs: stats.count > 0 ? stats.totalDuration / stats.count : 0,
+      totalTokens: stats.totalTokens,
+    };
+  }
+
+  return {
+    byName: result,
+    totalSpans: spans.length,
+    totalDurationMs,
+  };
+}
+
+// ============================================================
 // METRICS AND STATISTICS
 // ============================================================
 
@@ -626,6 +822,48 @@ export async function getMetricDailyData(
  * Pre-configured evaluators for Stride student financial advisor
  */
 export const STRIDE_EVALUATORS = {
+  /** Intent detection quality evaluator */
+  intent_detection: {
+    name: 'Intent Detection Quality',
+    type: 'llm_as_judge' as EvaluatorType,
+    action: 'evaluator' as const,
+    samplingRate: 0.3, // Sample 30% of conversation traces to catch issues without high cost
+    enabled: true,
+    llmConfig: {
+      prompt: `You are evaluating whether the intent detection system correctly understood the user's request.
+
+User message: {{input.message}}
+Detected intent action: {{output.intent.action}}
+Detected pattern: {{output.intent._matchedPattern}}
+Context: User has a complete profile and is in conversation mode.
+
+Score from 1 to 5:
+1 = Completely wrong intent (user wanted restart, got general chat; or user wanted to update profile but got new_goal)
+2 = Partially wrong (right category but wrong specific action)
+3 = Acceptable but imprecise (generic handling when specific action was available)
+4 = Correct intent detected
+5 = Perfect match with correct action and pattern
+
+Common intents to watch for:
+- "full onboarding", "restart", "start over", "recommencer" → restart_update_profile
+- "new profile", "fresh start", "from scratch" → restart_new_profile
+- "continue", "let's finish", "compléter" → continue_onboarding
+- Name changes, city updates, "change my X" → profile-edit (update)
+- "save for", "new goal", "$500 for laptop" → new_goal
+- "how am I doing", "progress" → check_progress
+- Generic questions/chat → general (default_fallback is OK)
+
+If the user's message is truly ambiguous or general, a fallback is acceptable (score 3-4).
+If there was a clear intent that wasn't detected, score lower (1-2).
+
+Return JSON: {"score": X, "reason": "brief explanation"}`,
+      scoreName: 'intent_detection_quality',
+      scoreDescription: 'How well did the intent detection system understand the user request?',
+      minScore: 1,
+      maxScore: 5,
+    },
+  },
+
   /** Safety check for financial advice */
   safety: {
     name: 'Student Safety Check',
@@ -724,6 +962,20 @@ Return JSON: {"score": X, "reason": "brief explanation"}`,
  */
 export const STRIDE_FEEDBACK_DEFINITIONS = [
   {
+    name: 'intent_detection_confidence',
+    type: 'numerical' as FeedbackType,
+    description: 'Confidence in intent detection (0.2=fallback/unknown, 1.0=pattern matched)',
+    minValue: 0,
+    maxValue: 1,
+  },
+  {
+    name: 'intent_detection_quality',
+    type: 'numerical' as FeedbackType,
+    description: 'LLM-judged quality of intent detection (1=wrong, 5=perfect)',
+    minValue: 1,
+    maxValue: 5,
+  },
+  {
     name: 'safety',
     type: 'numerical' as FeedbackType,
     description: 'How safe is this advice for a student? (1=dangerous, 5=very safe)',
@@ -755,22 +1007,55 @@ export const STRIDE_FEEDBACK_DEFINITIONS = [
     name: 'response_quality',
     type: 'categorical' as FeedbackType,
     description: 'Overall response quality',
-    categories: ['poor', 'acceptable', 'good', 'excellent'],
+    // Opik API expects categories as LinkedHashMap<String, Double>, not array
+    categories: { poor: 0.0, acceptable: 0.33, good: 0.66, excellent: 1.0 },
   },
 ];
 
 /**
+ * Helper to check if error is a 409 Conflict (already exists)
+ */
+function isAlreadyExistsError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.message.includes('409');
+  }
+  return false;
+}
+
+/**
  * Initialize all Stride evaluators and feedback definitions
  * Call this once to set up the Opik dashboard
+ *
+ * @param projectNameOrId - Either project name (e.g., "stride") or UUID
+ *                          If a name is provided, it will be resolved to UUID
  */
-export async function initializeStrideOpikSetup(projectId: string): Promise<{
+export async function initializeStrideOpikSetup(projectNameOrId: string): Promise<{
   evaluators: Evaluator[];
   feedbackDefinitions: FeedbackDefinition[];
   annotationQueue: AnnotationQueue;
 }> {
   console.error('[Opik REST] Initializing Stride Opik setup...');
 
-  // Create feedback definitions first
+  // Resolve project name to UUID if needed
+  // UUIDs are 36 characters with dashes, names typically aren't
+  let projectId = projectNameOrId;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    projectNameOrId
+  );
+
+  if (!isUuid) {
+    const resolvedId = await getProjectIdByName(projectNameOrId);
+    if (resolvedId) {
+      projectId = resolvedId;
+    } else {
+      // Project doesn't exist yet - evaluators/queues require project UUID
+      // They will be created on next app restart after first traces are logged
+      console.error(`[Opik REST] Skipping evaluators/queue setup (project UUID not available yet)`);
+      // Continue with feedback definitions which don't need project ID
+    }
+  }
+
+  // Create feedback definitions first (don't require project ID)
   const feedbackDefinitions: FeedbackDefinition[] = [];
   for (const def of STRIDE_FEEDBACK_DEFINITIONS) {
     try {
@@ -778,56 +1063,81 @@ export async function initializeStrideOpikSetup(projectId: string): Promise<{
       feedbackDefinitions.push(created);
       console.error(`[Opik REST] Created feedback definition: ${def.name}`);
     } catch (error) {
-      // Might already exist, that's ok
-      console.error(`[Opik REST] Feedback definition ${def.name} may already exist:`, error);
+      if (isAlreadyExistsError(error)) {
+        // 409 = already exists, that's expected and ok
+        console.error(`[Opik REST] Feedback definition "${def.name}" already exists (ok)`);
+      } else {
+        console.error(`[Opik REST] Failed to create feedback definition ${def.name}:`, error);
+      }
     }
   }
 
-  // Create evaluators
+  // Create evaluators (requires valid project UUID)
   const evaluators: Evaluator[] = [];
-  for (const [key, config] of Object.entries(STRIDE_EVALUATORS)) {
-    try {
-      const created = await createEvaluator({
-        ...config,
-        projectIds: [projectId],
-      });
-      evaluators.push(created);
-      console.error(`[Opik REST] Created evaluator: ${key}`);
-    } catch (error) {
-      console.error(`[Opik REST] Evaluator ${key} may already exist:`, error);
+  if (isUuid || cachedProjectId) {
+    for (const [key, config] of Object.entries(STRIDE_EVALUATORS)) {
+      try {
+        const created = await createEvaluator({
+          ...config,
+          projectIds: [projectId],
+        });
+        evaluators.push(created);
+        console.error(`[Opik REST] Created evaluator: ${key}`);
+      } catch (error) {
+        if (isAlreadyExistsError(error)) {
+          console.error(`[Opik REST] Evaluator "${key}" already exists (ok)`);
+        } else {
+          console.error(`[Opik REST] Failed to create evaluator ${key}:`, error);
+        }
+      }
     }
   }
 
-  // Create annotation queue for human review
-  let annotationQueue: AnnotationQueue;
-  try {
-    annotationQueue = await createAnnotationQueue({
-      name: 'Stride Advice Review',
-      projectId,
-      scope: 'trace',
-      description: 'Review AI-generated financial advice for students',
-      instructions: `Review each trace and score:
+  // Create annotation queue for human review (requires valid project UUID)
+  let annotationQueue: AnnotationQueue = {
+    id: 'skipped',
+    name: 'Stride Advice Review',
+    projectId,
+    scope: 'trace',
+    commentsEnabled: true,
+    feedbackDefinitionNames: [],
+    createdAt: new Date().toISOString(),
+  };
+
+  if (isUuid || cachedProjectId) {
+    try {
+      annotationQueue = await createAnnotationQueue({
+        name: 'Stride Advice Review',
+        projectId,
+        scope: 'trace',
+        description: 'Review AI-generated financial advice for students',
+        instructions: `Review each trace and score:
 1. Safety: Is this advice safe for a student?
 2. Appropriateness: Does it match student constraints?
 3. Actionability: Are the steps clear?
 
 Flag any concerning advice for team review.`,
-      commentsEnabled: true,
-      feedbackDefinitionNames: ['safety', 'appropriateness', 'actionability'],
-    });
-    console.error('[Opik REST] Created annotation queue: Stride Advice Review');
-  } catch (error) {
-    console.error('[Opik REST] Annotation queue may already exist:', error);
-    // Return a placeholder
-    annotationQueue = {
-      id: 'existing',
-      name: 'Stride Advice Review',
-      projectId,
-      scope: 'trace',
-      commentsEnabled: true,
-      feedbackDefinitionNames: [],
-      createdAt: new Date().toISOString(),
-    };
+        commentsEnabled: true,
+        feedbackDefinitionNames: ['safety', 'appropriateness', 'actionability'],
+      });
+      console.error('[Opik REST] Created annotation queue: Stride Advice Review');
+    } catch (error) {
+      if (isAlreadyExistsError(error)) {
+        console.error('[Opik REST] Annotation queue "Stride Advice Review" already exists (ok)');
+      } else {
+        console.error('[Opik REST] Failed to create annotation queue:', error);
+      }
+      // Keep the placeholder
+      annotationQueue = {
+        id: 'existing',
+        name: 'Stride Advice Review',
+        projectId,
+        scope: 'trace',
+        commentsEnabled: true,
+        feedbackDefinitionNames: [],
+        createdAt: new Date().toISOString(),
+      };
+    }
   }
 
   console.error('[Opik REST] Stride Opik setup complete!');
@@ -856,6 +1166,9 @@ export async function isOpikRestAvailable(): Promise<boolean> {
 }
 
 export default {
+  // Project lookup
+  getProjectIdByName,
+  clearProjectCache,
   // Evaluators
   createEvaluator,
   listEvaluators,
@@ -871,6 +1184,10 @@ export default {
   // Traces
   listTraces,
   aggregateTracesByTags,
+  // Spans
+  listSpansForTrace,
+  listSpansForTraces,
+  aggregateSpansByName,
   // Metrics
   getProjectStats,
   getMetricDailyData,

@@ -19,6 +19,7 @@ export interface Scenario {
   effortLevel: number; // 1-5
   flexibilityScore: number; // 1-5
   hourlyRate: number;
+  isDefault?: boolean; // true for suggested/fallback scenarios
 }
 
 export interface UserPreferences {
@@ -110,8 +111,9 @@ function generateScenarios(
     });
   }
 
-  // Default scenarios if not enough data
-  if (scenarios.length < 4) {
+  // Default scenarios ONLY if user has no custom scenarios
+  // This prevents "babysitting" showing when user has real skills
+  if (scenarios.length === 0) {
     const defaults: Scenario[] = [
       {
         id: 'default_1',
@@ -123,6 +125,7 @@ function generateScenarios(
         effortLevel: 2,
         flexibilityScore: 3,
         hourlyRate: 12,
+        isDefault: true,
       },
       {
         id: 'default_2',
@@ -134,6 +137,7 @@ function generateScenarios(
         effortLevel: 3,
         flexibilityScore: 5,
         hourlyRate: 10,
+        isDefault: true,
       },
       {
         id: 'default_3',
@@ -145,6 +149,7 @@ function generateScenarios(
         effortLevel: 2,
         flexibilityScore: 4,
         hourlyRate: 15,
+        isDefault: true,
       },
       {
         id: 'default_4',
@@ -156,14 +161,11 @@ function generateScenarios(
         effortLevel: 1,
         flexibilityScore: 5,
         hourlyRate: 15,
+        isDefault: true,
       },
     ];
 
-    defaults.forEach((d) => {
-      if (!scenarios.find((s) => s.id === d.id)) {
-        scenarios.push(d);
-      }
-    });
+    scenarios.push(...defaults);
   }
 
   return scenarios.slice(0, 8); // Max 8 scenarios

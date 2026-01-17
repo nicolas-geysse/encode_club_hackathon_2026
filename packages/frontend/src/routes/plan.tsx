@@ -16,6 +16,7 @@ import { LifestyleTab } from '~/components/tabs/LifestyleTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab } from '~/components/tabs/SwipeTab';
 import { profileService, type FullProfile } from '~/lib/profileService';
+import { useProfile } from '~/lib/profileContext';
 import { PageLoader } from '~/components/PageLoader';
 
 // Types for plan data - using 'any' style string types for JSON storage compatibility
@@ -31,7 +32,7 @@ type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 type ItemCategory = 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
 type ItemCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
 type LifestyleCategory = 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
-type TradeType = 'trade' | 'borrow' | 'lend';
+type TradeType = 'trade' | 'borrow' | 'lend' | 'sell' | 'optimize';
 type TradeStatus = 'pending' | 'active' | 'completed';
 
 interface SetupData {
@@ -120,6 +121,8 @@ interface PlanData {
 
 export default function PlanPage() {
   const navigate = useNavigate();
+  // Get inventory and lifestyle from profile context (DB-backed data)
+  const { inventory: contextInventory, lifestyle: contextLifestyle } = useProfile();
   const [activeTab, setActiveTab] = createSignal<TabId>('profile');
   const [isLoading, setIsLoading] = createSignal(true);
   const [hasProfile, setHasProfile] = createSignal(false);
@@ -305,6 +308,20 @@ export default function PlanPage() {
                 onTradesChange={handleTradesChange}
                 goalName={planData().setup?.goalName}
                 goalAmount={planData().setup?.goalAmount}
+                inventoryItems={contextInventory()
+                  .filter((i) => i.status === 'available')
+                  .map((i) => ({
+                    id: i.id,
+                    name: i.name,
+                    estimatedValue: i.estimatedValue,
+                    category: i.category,
+                  }))}
+                lifestyleItems={contextLifestyle().map((l) => ({
+                  name: l.name,
+                  currentCost: l.currentCost,
+                  optimizedCost: l.optimizedCost,
+                  suggestion: l.suggestion,
+                }))}
               />
             </Show>
 

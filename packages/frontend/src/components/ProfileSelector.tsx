@@ -3,20 +3,24 @@
  *
  * Dropdown in header to select/switch profiles.
  * Shows active profile name + goal icon.
+ * Uses ProfileContext for shared state across the app.
  */
 
 import { createSignal, Show, For, onMount } from 'solid-js';
 import { profileService, type ProfileSummary, type FullProfile } from '~/lib/profileService';
+import { useProfile } from '~/lib/profileContext';
 
 interface Props {
   onProfileChange?: (profile: FullProfile | null) => void;
 }
 
 export function ProfileSelector(props: Props) {
+  // Get shared profile state from context
+  const { profile: activeProfile, loading: contextLoading, refreshProfile } = useProfile();
+
   const [isOpen, setIsOpen] = createSignal(false);
   const [profiles, setProfiles] = createSignal<ProfileSummary[]>([]);
-  const [activeProfile, setActiveProfile] = createSignal<FullProfile | null>(null);
-  const [loading, setLoading] = createSignal(true);
+  const [localLoading, setLocalLoading] = createSignal(true);
   const [showNewGoalModal, setShowNewGoalModal] = createSignal(false);
   const [newGoalForm, setNewGoalForm] = createSignal({
     name: '',
@@ -24,29 +28,31 @@ export function ProfileSelector(props: Props) {
     deadline: '',
   });
 
+  // Combined loading state
+  const loading = () => contextLoading() || localLoading();
+
   // Load profiles on mount
   onMount(async () => {
     await loadProfiles();
   });
 
   const loadProfiles = async () => {
-    setLoading(true);
+    setLocalLoading(true);
     try {
       // First try to sync localStorage to DB if needed
       await profileService.syncLocalToDb();
 
-      // Load profiles
+      // Load profiles list for dropdown
       const allProfiles = await profileService.listProfiles();
       setProfiles(allProfiles);
 
-      // Load active profile
-      const active = await profileService.loadActiveProfile();
-      setActiveProfile(active);
-      props.onProfileChange?.(active);
+      // Refresh active profile via context (shared across app)
+      await refreshProfile();
+      props.onProfileChange?.(activeProfile());
     } catch (error) {
       console.error('Error loading profiles:', error);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
@@ -58,9 +64,9 @@ export function ProfileSelector(props: Props) {
 
     const success = await profileService.switchProfile(profileId);
     if (success) {
-      const newActive = await profileService.loadActiveProfile();
-      setActiveProfile(newActive);
-      props.onProfileChange?.(newActive);
+      // Refresh via context - updates activeProfile across whole app
+      await refreshProfile();
+      props.onProfileChange?.(activeProfile());
 
       // Update profiles list
       const allProfiles = await profileService.listProfiles();
@@ -83,10 +89,11 @@ export function ProfileSelector(props: Props) {
     });
 
     if (newProfile) {
-      setActiveProfile(newProfile);
-      props.onProfileChange?.(newProfile);
+      // Refresh via context - updates activeProfile across whole app
+      await refreshProfile();
+      props.onProfileChange?.(activeProfile());
 
-      // Reload profiles
+      // Reload profiles list
       const allProfiles = await profileService.listProfiles();
       setProfiles(allProfiles);
     }

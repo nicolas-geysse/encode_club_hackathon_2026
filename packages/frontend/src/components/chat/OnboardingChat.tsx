@@ -9,8 +9,12 @@ import { createSignal, createEffect, For, Show, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
-import { profileService } from '~/lib/profileService';
+import { profileService, type FullProfile } from '~/lib/profileService';
 import { goalService } from '~/lib/goalService';
+import { skillService } from '~/lib/skillService';
+import { lifestyleService } from '~/lib/lifestyleService';
+import { inventoryService } from '~/lib/inventoryService';
+import { useProfile } from '~/lib/profileContext';
 
 interface Message {
   id: string;
@@ -43,6 +47,7 @@ interface ProfileData {
   field: string;
   yearsRemaining: number;
   skills: string[];
+  certifications?: string[]; // Professional certifications (BAFA, PSC1, TEFL, etc.)
   city: string;
   citySize: string;
   incomes: { source: string; amount: number }[];
@@ -65,6 +70,7 @@ type OnboardingStep =
   | 'name'
   | 'studies'
   | 'skills'
+  | 'certifications'
   | 'location'
   | 'budget'
   | 'work_preferences'
@@ -73,6 +79,54 @@ type OnboardingStep =
   | 'inventory'
   | 'lifestyle'
   | 'complete';
+
+/**
+ * Smart merge for arrays that handles:
+ * - undefined incoming → keep existing
+ * - empty array at the step that collects this field → "none" explicitly (clear)
+ * - empty array at other steps → keep existing
+ * - non-empty array → merge and deduplicate
+ */
+function smartMergeArrays<T>(
+  existing: T[] | undefined,
+  incoming: T[] | undefined,
+  currentStep: OnboardingStep,
+  stepForField: OnboardingStep
+): T[] | undefined {
+  // If incoming is undefined, keep existing
+  if (incoming === undefined) return existing;
+
+  // If empty array AND we're at the step that collects this field → user said "none"
+  if (incoming.length === 0 && currentStep === stepForField) {
+    return [];
+  }
+
+  // If empty array but not at this step → keep existing (don't overwrite)
+  if (incoming.length === 0) return existing;
+
+  // Non-empty array: merge with existing and deduplicate
+  if (!existing || existing.length === 0) return incoming;
+
+  // For simple types (strings), use Set for deduplication
+  if (typeof incoming[0] === 'string') {
+    return [...new Set([...(existing as string[]), ...(incoming as string[])])] as T[];
+  }
+
+  // For objects, merge by checking name field
+  const merged = [...existing];
+  for (const item of incoming) {
+    const itemName = (item as { name?: string }).name;
+    if (itemName) {
+      const existsIdx = merged.findIndex((e) => (e as { name?: string }).name === itemName);
+      if (existsIdx === -1) {
+        merged.push(item);
+      }
+    } else {
+      merged.push(item);
+    }
+  }
+  return merged;
+}
 
 /**
  * Chat modes:
@@ -123,12 +177,14 @@ function generateThreadId(): string {
 
 export function OnboardingChat() {
   const navigate = useNavigate();
+  const { profile: contextProfile, refreshProfile } = useProfile();
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [step, setStep] = createSignal<OnboardingStep>('greeting');
   const [chatMode, setChatMode] = createSignal<ChatMode>('onboarding');
   const [profile, setProfile] = createSignal<Partial<ProfileData>>({
     skills: [],
+    certifications: [],
     incomes: [],
     expenses: [],
     maxWorkHours: 15,
@@ -165,6 +221,108 @@ export function OnboardingChat() {
     }
   });
 
+  // Handle profile switch from context (when user switches profiles in header)
+  const handleProfileSwitch = (newProfile: FullProfile) => {
+    // Update local profile ID
+    setProfileId(newProfile.id);
+
+    // Map context profile data to local state
+    setProfile({
+      name: newProfile.name || '',
+      diploma: newProfile.diploma || '',
+      field: newProfile.field || '',
+      skills: newProfile.skills || [],
+      city: newProfile.city || '',
+      citySize: newProfile.citySize || '',
+      incomes: newProfile.incomeSources || [],
+      expenses: newProfile.expenses || [],
+      maxWorkHours: newProfile.maxWorkHoursWeekly || 15,
+      minHourlyRate: newProfile.minHourlyRate || 12,
+      hasLoan: newProfile.hasLoan || false,
+      loanAmount: newProfile.loanAmount || 0,
+      goalName: newProfile.goalName || '',
+      goalAmount: newProfile.goalAmount || 0,
+      goalDeadline: newProfile.goalDeadline || '',
+      academicEvents: [],
+      inventoryItems: [],
+      subscriptions: [],
+    });
+
+    // Check profile completeness - need key fields to skip onboarding
+    const isProfileComplete =
+      newProfile.name &&
+      newProfile.diploma &&
+      newProfile.city &&
+      newProfile.skills &&
+      newProfile.skills.length > 0 &&
+      newProfile.goalName &&
+      newProfile.goalAmount;
+
+    // Reset chat state based on profile completeness
+    if (isProfileComplete) {
+      // Complete profile -> conversation mode
+      setChatMode('conversation');
+      setStep('complete');
+      setIsComplete(true);
+      setMessages([
+        {
+          id: `welcome-${Date.now()}`,
+          role: 'assistant',
+          content: getWelcomeBackMessage(newProfile.name),
+        },
+      ]);
+    } else {
+      // Incomplete or empty profile -> start full onboarding
+      setChatMode('onboarding');
+      setStep('greeting'); // Start at greeting to collect name first
+      setIsComplete(false);
+      setMessages([
+        {
+          id: 'greeting',
+          role: 'assistant',
+          content: GREETING_MESSAGE,
+        },
+      ]);
+    }
+
+    // New Opik thread for this profile session
+    setThreadId(generateThreadId());
+  };
+
+  // Effect to watch for context profile changes (e.g., user switches profile in header)
+  createEffect(() => {
+    const newProfile = contextProfile();
+    const currentId = profileId();
+    const currentMode = chatMode();
+
+    // Only switch profiles if:
+    // 1. Context profile exists and has a different ID than current
+    // 2. AND we're not in the middle of onboarding (user explicitly switched in header)
+    // This prevents race conditions where context loads after onMount starts fresh onboarding
+    if (newProfile && newProfile.id && newProfile.id !== currentId) {
+      // If we're in onboarding mode with no profile ID yet, don't switch
+      // (user just started fresh, context might have stale data)
+      if (currentMode === 'onboarding' && !currentId) {
+        return;
+      }
+      handleProfileSwitch(newProfile);
+    }
+  });
+
+  // Helper to check if a profile has enough data to skip onboarding
+  const isProfileComplete = (p: {
+    name?: string;
+    diploma?: string;
+    city?: string;
+    skills?: string[];
+    goalName?: string;
+    goalAmount?: number;
+  }) => {
+    return (
+      p.name && p.diploma && p.city && p.skills && p.skills.length > 0 && p.goalName && p.goalAmount
+    );
+  };
+
   // Check for existing profile on mount
   // Priority: 1. API (DuckDB), 2. localStorage fallback
   onMount(async () => {
@@ -172,11 +330,9 @@ export function OnboardingChat() {
       // First, try to load from API (DuckDB)
       const apiProfile = await profileService.loadActiveProfile();
 
-      if (apiProfile && apiProfile.name) {
-        // Profile exists in DB - switch to conversation mode
+      if (apiProfile) {
+        // Profile exists in DB - check if complete
         setProfileId(apiProfile.id);
-        setChatMode('conversation');
-        setStep('complete');
         setProfile({
           name: apiProfile.name,
           diploma: apiProfile.diploma,
@@ -193,14 +349,32 @@ export function OnboardingChat() {
           goalAmount: apiProfile.goalAmount,
           goalDeadline: apiProfile.goalDeadline,
         });
-        setMessages([
-          {
-            id: 'welcome-back',
-            role: 'assistant',
-            content: getWelcomeBackMessage(apiProfile.name),
-          },
-        ]);
-        setIsComplete(true);
+
+        if (isProfileComplete(apiProfile)) {
+          // Complete profile -> conversation mode
+          setChatMode('conversation');
+          setStep('complete');
+          setMessages([
+            {
+              id: 'welcome-back',
+              role: 'assistant',
+              content: getWelcomeBackMessage(apiProfile.name!),
+            },
+          ]);
+          setIsComplete(true);
+        } else {
+          // Incomplete profile -> start onboarding
+          setChatMode('onboarding');
+          setStep('greeting'); // Start at greeting to collect name first
+          setIsComplete(false);
+          setMessages([
+            {
+              id: 'greeting',
+              role: 'assistant',
+              content: GREETING_MESSAGE,
+            },
+          ]);
+        }
         return;
       }
     } catch (error) {
@@ -213,17 +387,32 @@ export function OnboardingChat() {
       try {
         const existingProfile = JSON.parse(stored);
         setProfile(existingProfile);
-        setChatMode('conversation');
-        setStep('complete');
-        // If profile exists, show welcome back message with conversation options
-        setMessages([
-          {
-            id: 'welcome-back',
-            role: 'assistant',
-            content: getWelcomeBackMessage(existingProfile.name || 'there'),
-          },
-        ]);
-        setIsComplete(true);
+
+        if (isProfileComplete(existingProfile)) {
+          // Complete profile -> conversation mode
+          setChatMode('conversation');
+          setStep('complete');
+          setMessages([
+            {
+              id: 'welcome-back',
+              role: 'assistant',
+              content: getWelcomeBackMessage(existingProfile.name || 'there'),
+            },
+          ]);
+          setIsComplete(true);
+        } else {
+          // Incomplete profile -> start onboarding
+          setChatMode('onboarding');
+          setStep('greeting'); // Start at greeting to collect name first
+          setIsComplete(false);
+          setMessages([
+            {
+              id: 'greeting',
+              role: 'assistant',
+              content: GREETING_MESSAGE,
+            },
+          ]);
+        }
 
         // Try to sync localStorage to DB in background
         profileService.syncLocalToDb().catch((err) => {
@@ -236,6 +425,7 @@ export function OnboardingChat() {
     }
 
     // No profile found - start fresh onboarding
+    setChatMode('onboarding'); // Explicitly set mode (fixes race with contextProfile effect)
     setMessages([
       {
         id: 'greeting',
@@ -243,7 +433,7 @@ export function OnboardingChat() {
         content: GREETING_MESSAGE,
       },
     ]);
-    setStep('name');
+    setStep('greeting'); // Start at 'greeting' step - we'll collect name first
   });
 
   // Call LLM API for chat
@@ -251,7 +441,8 @@ export function OnboardingChat() {
     message: string,
     currentStep: OnboardingStep,
     context: Record<string, unknown>,
-    mode: ChatMode
+    mode: ChatMode,
+    recentHistory?: { role: 'user' | 'assistant'; content: string }[]
   ): Promise<{
     response: string;
     extractedData: Record<string, unknown>;
@@ -271,6 +462,7 @@ export function OnboardingChat() {
           context,
           threadId: threadId(), // For Opik conversation grouping
           profileId: profileId(), // For trace metadata
+          conversationHistory: recentHistory, // For context awareness in LLM
         }),
       });
 
@@ -351,6 +543,7 @@ export function OnboardingChat() {
       'name',
       'studies',
       'skills',
+      'certifications',
       'location',
       'budget',
       'work_preferences',
@@ -371,9 +564,10 @@ export function OnboardingChat() {
 
     const fallbackResponses: Record<OnboardingStep, string> = {
       greeting: GREETING_MESSAGE,
-      name: `Great ${extractedData.name || message.trim()}! Nice to meet you.\n\nWhat are you studying? (Ex: "CS Junior", "Law Senior")`,
+      name: `Great ${extractedData.name || message.trim()}! Nice to meet you.\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`,
       studies: `Cool!\n\nWhat are your skills? (coding, languages, design, sports...)`,
-      skills: `Nice!\n\nWhere do you live? What city?`,
+      skills: `Nice skills!\n\nDo you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
+      certifications: `Got it!\n\nWhere do you live? What city?`,
       location: `Got it.\n\nLet's talk budget: how much do you earn and spend per month roughly?`,
       budget: `OK for the budget!\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`,
       work_preferences: `Great work preferences!\n\nNow, what's your savings goal? What do you want to save for, how much, and by when?`,
@@ -394,9 +588,14 @@ export function OnboardingChat() {
 
   // Reset state for NEW profile (completely fresh)
   const resetForNewProfile = () => {
+    // IMPORTANT: Clear localStorage FIRST to prevent stale data from being loaded
+    // This fixes the "profile bleeding" bug where old data appeared in new sessions
+    localStorage.removeItem('studentProfile');
+
     // Reset profile to defaults
     setProfile({
       skills: [],
+      certifications: [],
       incomes: [],
       expenses: [],
       maxWorkHours: 15,
@@ -411,7 +610,7 @@ export function OnboardingChat() {
     setProfileId(undefined);
     // Switch to onboarding mode
     setChatMode('onboarding');
-    setStep('name');
+    setStep('greeting'); // Start at greeting to collect name first
     setIsComplete(false);
     // Generate new thread for Opik
     setThreadId(generateThreadId());
@@ -419,18 +618,42 @@ export function OnboardingChat() {
 
   // Reset state for UPDATE profile (keep same profile ID)
   const resetForUpdateProfile = () => {
-    // Keep current profile data (can be overwritten during re-onboarding)
+    // Clear localStorage to prevent stale data during re-onboarding
+    localStorage.removeItem('studentProfile');
+
+    // Reset profile state to defaults (like new profile)
+    // This ensures old data is completely replaced, not merged
+    setProfile({
+      skills: [],
+      certifications: [],
+      incomes: [],
+      expenses: [],
+      maxWorkHours: 15,
+      minHourlyRate: 12,
+      hasLoan: false,
+      loanAmount: 0,
+      academicEvents: [],
+      inventoryItems: [],
+      subscriptions: [],
+    });
+
     // KEEP profile ID - will UPDATE existing profile on completion
+    // (don't call setProfileId(undefined))
+
     // Switch to onboarding mode
     setChatMode('onboarding');
-    setStep('name');
+    setStep('greeting'); // Start from greeting to ask name first
     setIsComplete(false);
     // Generate new thread for Opik (new conversation)
     setThreadId(generateThreadId());
   };
 
   // Update profile from extracted data
-  const updateProfileFromExtracted = (data: Record<string, unknown>) => {
+  // currentStep is used for smart merging of arrays
+  const updateProfileFromExtracted = (
+    data: Record<string, unknown>,
+    currentStep: OnboardingStep
+  ) => {
     // Handle restart with NEW profile signal
     if (data._restartNewProfile) {
       resetForNewProfile();
@@ -443,6 +666,14 @@ export function OnboardingChat() {
       return; // Don't process other fields on restart
     }
 
+    // Handle continue onboarding signal - resume from incomplete step
+    if (data._continueOnboarding && data._resumeAtStep) {
+      setChatMode('onboarding');
+      setStep(data._resumeAtStep as OnboardingStep);
+      setIsComplete(false);
+      return; // Don't process other fields
+    }
+
     const currentProfile = profile();
     const updates: Partial<ProfileData> = {};
 
@@ -450,9 +681,30 @@ export function OnboardingChat() {
     if (data.diploma) updates.diploma = String(data.diploma);
     if (data.field) updates.field = String(data.field);
     if (data.city) updates.city = String(data.city);
-    if (data.skills && Array.isArray(data.skills)) updates.skills = data.skills as string[];
     if (data.maxWorkHours) updates.maxWorkHours = Number(data.maxWorkHours);
     if (data.minHourlyRate) updates.minHourlyRate = Number(data.minHourlyRate);
+
+    // Smart merge for skills - collected at 'studies' step
+    if (data.skills !== undefined && Array.isArray(data.skills)) {
+      const merged = smartMergeArrays(
+        currentProfile.skills,
+        data.skills as string[],
+        currentStep,
+        'studies'
+      );
+      if (merged !== undefined) updates.skills = merged;
+    }
+
+    // Smart merge for certifications - collected at 'skills' step
+    if (data.certifications !== undefined && Array.isArray(data.certifications)) {
+      const merged = smartMergeArrays(
+        currentProfile.certifications,
+        data.certifications as string[],
+        currentStep,
+        'skills'
+      );
+      if (merged !== undefined) updates.certifications = merged;
+    }
 
     // Handle income/expenses
     if (data.income) {
@@ -474,57 +726,83 @@ export function OnboardingChat() {
     if (data.goalAmount) updates.goalAmount = Number(data.goalAmount);
     if (data.goalDeadline) updates.goalDeadline = String(data.goalDeadline);
 
-    // NEW: Handle newGoal object from conversation mode
+    // NEW: Handle newGoal object from conversation mode ONLY
+    // During onboarding, goals are created at completion (lines 970-987)
+    // This block handles goals added via conversation after onboarding
     if (data.newGoal && typeof data.newGoal === 'object') {
-      const newGoal = data.newGoal as {
-        name?: string;
-        amount?: number;
-        deadline?: string;
-        status?: string;
-        priority?: number;
-      };
-      const currentProfileId = profileId();
+      const currentMode = chatMode();
 
-      // IMPORTANT: Only create goal if we have a valid profile ID
-      // This prevents orphaned goals that aren't linked to any profile
-      if (!currentProfileId) {
-        console.error(
-          '[OnboardingChat] Cannot create goal: No profile ID available. Complete onboarding first.'
-        );
-        return;
+      // Only create goals in conversation mode, NOT during onboarding
+      // This prevents duplicate goals (onboarding creates goals at completion)
+      if (currentMode === 'conversation') {
+        const newGoal = data.newGoal as {
+          name?: string;
+          amount?: number;
+          deadline?: string;
+          status?: string;
+          priority?: number;
+        };
+        const currentProfileId = profileId();
+
+        // IMPORTANT: Only create goal if we have a valid profile ID
+        // This prevents orphaned goals that aren't linked to any profile
+        if (!currentProfileId) {
+          console.error(
+            '[OnboardingChat] Cannot create goal: No profile ID available. Complete onboarding first.'
+          );
+          return;
+        }
+
+        // Create goal via goalService
+        goalService
+          .createGoal({
+            profileId: currentProfileId,
+            name: newGoal.name || 'New Goal',
+            amount: newGoal.amount || 100,
+            deadline: newGoal.deadline,
+            status: (newGoal.status as 'active' | 'waiting' | 'completed' | 'paused') || 'active',
+            priority: newGoal.priority || 1,
+          })
+          .then((_createdGoal) => {
+            // Goal created successfully
+          })
+          .catch((err) => {
+            console.error('[OnboardingChat] Failed to create goal:', err);
+          });
       }
-
-      // Create goal via goalService
-      goalService
-        .createGoal({
-          profileId: currentProfileId,
-          name: newGoal.name || 'New Goal',
-          amount: newGoal.amount || 100,
-          deadline: newGoal.deadline,
-          status: (newGoal.status as 'active' | 'waiting' | 'completed' | 'paused') || 'active',
-          priority: newGoal.priority || 1,
-        })
-        .then((_createdGoal) => {
-          // Goal created successfully
-        })
-        .catch((err) => {
-          console.error('[OnboardingChat] Failed to create goal:', err);
-        });
     }
 
-    // NEW: Handle academic events
-    if (data.academicEvents && Array.isArray(data.academicEvents)) {
-      updates.academicEvents = data.academicEvents as AcademicEvent[];
+    // Smart merge for academic events - collected at 'goal' step
+    if (data.academicEvents !== undefined && Array.isArray(data.academicEvents)) {
+      const merged = smartMergeArrays(
+        currentProfile.academicEvents,
+        data.academicEvents as AcademicEvent[],
+        currentStep,
+        'goal'
+      );
+      if (merged !== undefined) updates.academicEvents = merged;
     }
 
-    // NEW: Handle inventory items
-    if (data.inventoryItems && Array.isArray(data.inventoryItems)) {
-      updates.inventoryItems = data.inventoryItems as InventoryItem[];
+    // Smart merge for inventory items - collected at 'academic_events' step
+    if (data.inventoryItems !== undefined && Array.isArray(data.inventoryItems)) {
+      const merged = smartMergeArrays(
+        currentProfile.inventoryItems,
+        data.inventoryItems as InventoryItem[],
+        currentStep,
+        'academic_events'
+      );
+      if (merged !== undefined) updates.inventoryItems = merged;
     }
 
-    // NEW: Handle subscriptions
-    if (data.subscriptions && Array.isArray(data.subscriptions)) {
-      updates.subscriptions = data.subscriptions as Subscription[];
+    // Smart merge for subscriptions - collected at 'inventory' step
+    if (data.subscriptions !== undefined && Array.isArray(data.subscriptions)) {
+      const merged = smartMergeArrays(
+        currentProfile.subscriptions,
+        data.subscriptions as Subscription[],
+        currentStep,
+        'inventory'
+      );
+      if (merged !== undefined) updates.subscriptions = merged;
     }
 
     // Determine city size
@@ -589,10 +867,15 @@ export function OnboardingChat() {
         goalDeadline: currentProfile.goalDeadline,
       };
 
-      // Call LLM API with current mode
+      // Collect recent conversation history (last 4 turns = 8 messages) for context
+      const recentHistory = messages()
+        .slice(-8)
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      // Call LLM API with current mode and conversation history
       const currentStep = step();
       const currentMode = chatMode();
-      const result = await callChatAPI(text, currentStep, context, currentMode);
+      const result = await callChatAPI(text, currentStep, context, currentMode, recentHistory);
 
       // Handle mode changes based on detected intent
       if (result.intent?.mode && result.intent.mode !== currentMode) {
@@ -601,7 +884,7 @@ export function OnboardingChat() {
 
       // Update profile with extracted data
       if (result.extractedData && Object.keys(result.extractedData).length > 0) {
-        updateProfileFromExtracted(result.extractedData);
+        updateProfileFromExtracted(result.extractedData, currentStep);
 
         // In conversation mode, save profile updates immediately to DuckDB
         if (currentMode === 'conversation' || currentMode === 'profile-edit') {
@@ -630,6 +913,10 @@ export function OnboardingChat() {
                 },
                 { immediate: true }
               )
+              .then(() => {
+                // Refresh shared profile context so header updates
+                refreshProfile();
+              })
               .catch((err) => {
                 console.error('[OnboardingChat] Failed to save profile update:', err);
               });
@@ -689,7 +976,9 @@ export function OnboardingChat() {
           ...(existingProfileId && { id: existingProfileId }),
           name: finalProfile.name || 'My Profile',
           diploma: finalProfile.diploma,
+          field: finalProfile.field, // Bug fix: field of study was missing
           skills: finalProfile.skills,
+          certifications: finalProfile.certifications, // Bug fix: certifications were missing
           city: finalProfile.city,
           citySize: finalProfile.citySize,
           incomeSources: finalProfile.incomes,
@@ -707,14 +996,98 @@ export function OnboardingChat() {
 
         // Save to API first
         try {
-          const result = await profileService.saveProfile(normalizedProfile, {
+          const saveResult = await profileService.saveProfile(normalizedProfile, {
             immediate: true,
             setActive: true,
           });
           // Store the profile ID for future updates
-          if (result.profileId && !existingProfileId) {
-            setProfileId(result.profileId);
+          const savedProfileId = saveResult.profileId || existingProfileId;
+          if (savedProfileId && !existingProfileId) {
+            setProfileId(savedProfileId);
           }
+
+          // Create goal in dedicated goals table if we have goal data
+          if (savedProfileId && finalProfile.goalName && finalProfile.goalAmount) {
+            try {
+              await fetch('/api/goals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  profileId: savedProfileId,
+                  name: finalProfile.goalName,
+                  amount: finalProfile.goalAmount,
+                  deadline: finalProfile.goalDeadline || null,
+                  priority: 1,
+                  status: 'active',
+                }),
+              });
+            } catch (goalError) {
+              console.error('[OnboardingChat] Failed to create goal in table:', goalError);
+              // Non-fatal: profile still saved with embedded goal data
+            }
+          }
+
+          // Persist extracted data to dedicated tables for tab population
+          // This ensures SkillsTab, LifestyleTab, InventoryTab show the onboarding data
+          if (savedProfileId) {
+            // Bulk create skills in skills table
+            if (finalProfile.skills && finalProfile.skills.length > 0) {
+              try {
+                await skillService.bulkCreateSkills(
+                  savedProfileId,
+                  finalProfile.skills.map((name) => ({
+                    name,
+                    level: 'intermediate' as const,
+                    hourlyRate: finalProfile.minHourlyRate || 15,
+                  }))
+                );
+              } catch (skillsError) {
+                console.error('[OnboardingChat] Failed to persist skills:', skillsError);
+              }
+            }
+
+            // Bulk create inventory items in inventory_items table
+            if (finalProfile.inventoryItems && finalProfile.inventoryItems.length > 0) {
+              try {
+                await inventoryService.bulkCreateItems(
+                  savedProfileId,
+                  finalProfile.inventoryItems.map((item) => ({
+                    name: item.name,
+                    category:
+                      (item.category as
+                        | 'electronics'
+                        | 'clothing'
+                        | 'books'
+                        | 'furniture'
+                        | 'sports'
+                        | 'other') || 'other',
+                    estimatedValue: item.estimatedValue || 50,
+                  }))
+                );
+              } catch (inventoryError) {
+                console.error('[OnboardingChat] Failed to persist inventory:', inventoryError);
+              }
+            }
+
+            // Bulk create lifestyle items (subscriptions) in lifestyle_items table
+            if (finalProfile.subscriptions && finalProfile.subscriptions.length > 0) {
+              try {
+                await lifestyleService.bulkCreateItems(
+                  savedProfileId,
+                  finalProfile.subscriptions.map((sub) => ({
+                    name: sub.name,
+                    category: 'subscriptions' as const,
+                    currentCost: sub.currentCost,
+                  }))
+                );
+              } catch (lifestyleError) {
+                console.error('[OnboardingChat] Failed to persist lifestyle:', lifestyleError);
+              }
+            }
+          }
+
+          // Refresh shared profile context so header updates with new name
+          await refreshProfile();
         } catch (error) {
           console.error('Failed to save profile to API:', error);
         }
@@ -810,6 +1183,7 @@ export function OnboardingChat() {
                 // Clear profile completely for fresh start
                 setProfile({
                   skills: [],
+                  certifications: [],
                   incomes: [],
                   expenses: [],
                   maxWorkHours: 15,

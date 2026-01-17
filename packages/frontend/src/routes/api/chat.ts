@@ -8,8 +8,14 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import Groq from 'groq-sdk';
-import { trace, logFeedbackScores, getCurrentTraceId, type TraceOptions } from '../../lib/opik';
-import { processWithMastraAgent, type ProfileData } from '../../lib/mastraAgent';
+import {
+  trace,
+  logFeedbackScores,
+  getCurrentTraceId,
+  type TraceOptions,
+  type TraceContext,
+} from '../../lib/opik';
+import { processWithMastraAgent, type ProfileData } from '../../lib/onboardingExtractor';
 
 // Feature flag for Mastra agent (set to false to use legacy Groq-only approach)
 const USE_MASTRA_AGENT = process.env.USE_MASTRA_AGENT !== 'false';
@@ -17,6 +23,31 @@ const USE_MASTRA_AGENT = process.env.USE_MASTRA_AGENT !== 'false';
 // Groq configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
+
+// Opik initialization state (run once per server instance)
+let opikInitialized = false;
+
+/**
+ * Auto-initialize Opik evaluators and feedback definitions on first request
+ * This sets up the LLM-as-judge evaluators and annotation queues in Opik
+ */
+async function ensureOpikSetup(): Promise<void> {
+  if (opikInitialized) return;
+
+  try {
+    const { isOpikRestAvailable, initializeStrideOpikSetup } = await import('../../lib/opikRest');
+    if (await isOpikRestAvailable()) {
+      const projectName = process.env.OPIK_PROJECT || 'stride';
+      await initializeStrideOpikSetup(projectName);
+      opikInitialized = true;
+      console.error('[Chat] Opik evaluators auto-initialized for project:', projectName);
+    }
+  } catch (error) {
+    // Non-fatal: evaluators are optional enhancement
+    console.error('[Chat] Opik setup skipped (non-fatal):', error);
+    opikInitialized = true; // Mark as done to avoid retrying every request
+  }
+}
 
 // Initialize Groq client
 let groqClient: Groq | null = null;
@@ -34,13 +65,14 @@ type OnboardingStep =
   | 'name'
   | 'studies'
   | 'skills'
+  | 'certifications' // Professional certifications (BAFA, lifeguard, etc.)
   | 'location'
   | 'budget'
   | 'work_preferences'
-  | 'goal' // NEW: Savings goal
-  | 'academic_events' // NEW: Exams, vacations
-  | 'inventory' // NEW: Items to sell
-  | 'lifestyle' // NEW: Subscriptions
+  | 'goal' // Savings goal
+  | 'academic_events' // Exams, vacations
+  | 'inventory' // Items to sell
+  | 'lifestyle' // Subscriptions
   | 'complete';
 
 /**
@@ -64,6 +96,8 @@ interface DetectedIntent {
     amount?: number;
     deadline?: string;
   };
+  /** Internal: which pattern matched (for observability) */
+  _matchedPattern?: string;
 }
 
 // System prompts (from prompts.yaml - hardcoded fallback if service not available)
@@ -85,7 +119,16 @@ const STEP_PROMPTS: Record<OnboardingStep, string> = {
   name: `The user just gave their first name "{name}".
 Generate a warm response of 2-3 sentences that:
 1. Welcomes the user by their first name
-2. Asks about their studies (level and field, e.g., "Junior CS", "Senior Law")`,
+2. Asks about their education level and field of study
+
+Suggest examples of education levels:
+- High school / Baccalauréat
+- Bachelor's / Licence (year 1-3)
+- Master's (year 1-2)
+- PhD / Doctorate
+- Vocational / BTS / DUT
+
+Example prompt: "What are you studying? For example: 'Bachelor 2nd year Computer Science' or 'Master 1 Business'"`,
 
   studies: `The user studies {diploma} {field}.
 Generate a response of 2-3 sentences that:
@@ -95,7 +138,20 @@ Generate a response of 2-3 sentences that:
   skills: `The user has these skills: {skills}.
 Generate a response of 2-3 sentences that:
 1. Values their skills
-2. Asks for their city of residence`,
+2. Asks about professional certifications they might have
+
+Mention examples like:
+🇫🇷 France: BAFA, BNSSA, PSC1, SST
+🇬🇧 UK: DBS, First Aid, NPLQ
+🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler
+🌍 International: PADI diving, TEFL teaching
+
+Tell them to say "none" if they don't have any.`,
+
+  certifications: `The user has certifications: {certifications}.
+Generate a response of 2-3 sentences that:
+1. Acknowledges their certifications (if any) or that they don't have any
+2. Asks where they live (city)`,
 
   location: `The user lives in {city}.
 Generate a response of 2-3 sentences that:
@@ -175,6 +231,8 @@ interface ChatRequest {
   threadId?: string;
   /** Profile ID for user identification */
   profileId?: string;
+  /** Recent conversation history for context (last 4 turns = 8 messages) */
+  conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 interface ChatResponse {
@@ -191,9 +249,20 @@ interface ChatResponse {
 
 // POST: Handle chat message
 export async function POST(event: APIEvent) {
+  // Auto-initialize Opik evaluators on first request (non-blocking)
+  ensureOpikSetup().catch(() => {});
+
   try {
     const body = (await event.request.json()) as ChatRequest;
-    const { message, step, mode = 'onboarding', context = {}, threadId, profileId } = body;
+    const {
+      message,
+      step,
+      mode = 'onboarding',
+      context = {},
+      threadId,
+      profileId,
+      conversationHistory,
+    } = body;
 
     if (!message || !step) {
       return new Response(
@@ -237,6 +306,8 @@ export async function POST(event: APIEvent) {
           message,
           currentStep: step,
           existingProfile: context as ProfileData,
+          threadId, // Pass threadId for conversation grouping in Opik
+          conversationHistory, // Pass history for context awareness
         });
 
         // Get trace ID for response
@@ -566,6 +637,7 @@ function getNextStep(
     'name',
     'studies',
     'skills',
+    'certifications',
     'location',
     'budget',
     'work_preferences',
@@ -581,7 +653,8 @@ function getNextStep(
     greeting: ['name'],
     name: ['diploma', 'field'],
     studies: ['skills'],
-    skills: ['city'],
+    skills: ['certifications'], // Can be empty array for "none"
+    certifications: ['city'],
     location: ['income', 'expenses'],
     budget: ['maxWorkHours', 'minHourlyRate'],
     work_preferences: ['goalName', 'goalAmount', 'goalDeadline'],
@@ -635,10 +708,12 @@ async function generateClarificationMessage(
   // Direct clarification messages for each step
   const clarifications: Record<OnboardingStep, string> = {
     greeting: "I didn't catch your name. What should I call you?",
-    name: "I need to know about your studies. What's your level (Bachelor, Master, PhD) and field (like Computer Science, Law, Business)?",
+    name: "I'd love to know about your studies! What's your education level and field?\n\nExamples:\n- Bachelor 2nd year Computer Science\n- Master 1 Business\n- PhD Physics\n- Vocational BTS Marketing",
     studies:
       "I'd love to know your skills! What are you good at? (coding languages, languages, design, sports, tutoring...)",
-    skills: 'Where do you live? Just tell me the city name.',
+    skills:
+      "Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')",
+    certifications: 'Where do you live? Just tell me the city name.',
     location:
       'I need to understand your budget. How much do you earn per month? And roughly how much do you spend?',
     budget:
@@ -879,19 +954,54 @@ function extractDataWithRegex(
     }
   }
 
-  // Goal deadline (months)
+  // Goal deadline (months) - convert to YYYY-MM-DD
   const monthMatch = lower.match(
     /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i
   );
   if (monthMatch) {
-    const month = monthMatch[1].charAt(0).toUpperCase() + monthMatch[1].slice(1).toLowerCase();
+    const monthNames = [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+    ];
+    const monthIndex = monthNames.indexOf(monthMatch[1].toLowerCase());
     const yearMatch = original.match(/20\d{2}/);
-    data.goalDeadline = yearMatch ? `${month} ${yearMatch[0]}` : `${month} 2026`;
+    const year = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+
+    // Create date for the last day of the target month
+    const targetDate = new Date(year, monthIndex + 1, 0);
+    // If the date is in the past, use next year
+    if (targetDate < new Date()) {
+      targetDate.setFullYear(targetDate.getFullYear() + 1);
+    }
+    data.goalDeadline = targetDate.toISOString().split('T')[0];
   }
-  // Relative deadlines
+
+  // Relative deadlines - convert to YYYY-MM-DD
   const relativeDeadline = lower.match(/\b(in|within)\s+(\d+)\s+(months?|weeks?|years?)\b/i);
   if (relativeDeadline) {
-    data.goalDeadline = `in ${relativeDeadline[2]} ${relativeDeadline[3]}`;
+    const amount = parseInt(relativeDeadline[2], 10);
+    const unit = relativeDeadline[3].toLowerCase();
+    const targetDate = new Date();
+
+    if (unit.startsWith('month')) {
+      targetDate.setMonth(targetDate.getMonth() + amount);
+    } else if (unit.startsWith('week')) {
+      targetDate.setDate(targetDate.getDate() + amount * 7);
+    } else if (unit.startsWith('year')) {
+      targetDate.setFullYear(targetDate.getFullYear() + amount);
+    }
+
+    data.goalDeadline = targetDate.toISOString().split('T')[0];
   }
 
   // Income and expenses with better detection
@@ -978,11 +1088,13 @@ function getFallbackResponse(
 function getFallbackStepResponse(step: OnboardingStep, context: Record<string, unknown>): string {
   switch (step) {
     case 'name':
-      return `Great ${context.name || ''}! Nice to meet you.\n\nWhat are you studying? (e.g., "Junior CS", "Senior Law")`;
+      return `Great ${context.name || ''}! Nice to meet you.\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`;
     case 'studies':
       return `${context.diploma || ''} ${context.field || ''}, cool!\n\nWhat are your skills? (coding, languages, design, sports...)`;
     case 'skills':
-      return `Nice!\n\nWhere do you live? What city?`;
+      return `Nice skills!\n\nDo you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`;
+    case 'certifications':
+      return `Got it!\n\nWhere do you live? What city?`;
     case 'location':
       return `${context.city || ''}, noted.\n\nLet's talk budget: how much do you earn and spend per month roughly?`;
     case 'budget':
@@ -1090,26 +1202,136 @@ async function runResponseEvaluation(
 // =============================================================================
 
 /**
+ * Find the first incomplete step in onboarding based on context
+ * Used to resume onboarding from where the user left off
+ */
+function findFirstIncompleteStep(ctx: Record<string, unknown>): OnboardingStep {
+  if (!ctx.name) return 'greeting';
+  if (!ctx.diploma && !ctx.field) return 'name';
+  if (!ctx.skills || (Array.isArray(ctx.skills) && ctx.skills.length === 0)) return 'studies';
+  if (!ctx.city) return 'skills';
+  if (!ctx.income && !ctx.expenses) return 'location';
+  if (!ctx.maxWorkHours && !ctx.minHourlyRate) return 'budget';
+  if (!ctx.goalName && !ctx.goalAmount) return 'work_preferences';
+  // Optional steps: academic_events, inventory, lifestyle - always allow skipping
+  return 'complete';
+}
+
+/**
+ * Get the question for a specific onboarding step
+ */
+function getStepQuestion(step: OnboardingStep, ctx: Record<string, unknown>): string {
+  const questions: Record<OnboardingStep, string> = {
+    greeting: "What's your name?",
+    name: `Nice to meet you${ctx.name ? `, ${ctx.name}` : ''}! What are you studying? (e.g., "Junior CS", "Senior Law")`,
+    studies: 'What are your skills? (coding, languages, design, sports...)',
+    skills:
+      "Do you have any professional certifications? (BAFA, lifeguard, CPR, TEFL, etc.) Say 'none' if you don't have any.",
+    certifications: 'Where do you live? What city?',
+    location: 'How much do you earn and spend per month roughly?',
+    budget: "How many hours max per week can you work? And what's your minimum hourly rate?",
+    work_preferences:
+      "What's your savings goal? What do you want to save for, how much, and by when?",
+    goal: 'Any important academic events coming up? (exams, vacations, busy periods)',
+    academic_events:
+      'Do you have any items you could sell? (old textbooks, electronics, clothes...)',
+    inventory: 'What subscriptions do you have? (streaming, gym, phone plan...)',
+    lifestyle: "Perfect! We're almost done. Any last details?",
+    complete: '',
+  };
+  return questions[step] || "Let's continue!";
+}
+
+/**
  * Detect user intent from message in conversation mode
  */
 function detectIntent(message: string, _context: Record<string, unknown>): DetectedIntent {
   const lower = message.toLowerCase();
+
+  // CONTINUE/COMPLETE ONBOARDING: User wants to continue from where they left off
+  if (
+    lower.match(/\b(continue|continuer|poursuivre|compléter?|complete|finish|finir|terminer)\b/i) &&
+    lower.match(/\b(onboarding|setup|profil|profile|inscription)\b/i)
+  ) {
+    return {
+      mode: 'onboarding',
+      action: 'continue_onboarding',
+      _matchedPattern: 'continue_onboarding_explicit',
+    };
+  }
+
+  // Direct phrases: "ok on complète", "let's continue", "on continue"
+  if (
+    lower.match(/\b(ok\s+)?on\s+(continue|complète|termine)\b/i) ||
+    lower.match(/\blet'?s?\s+(continue|finish|complete)\b/i)
+  ) {
+    return {
+      mode: 'onboarding',
+      action: 'continue_onboarding',
+      _matchedPattern: 'continue_phrase',
+    };
+  }
 
   // RESTART ONBOARDING (new profile): User wants to create a completely new profile
   if (
     lower.match(/\b(new profile|nouveau profil|fresh start|from scratch)\b/i) ||
     lower.match(/\b(reset|effacer|supprimer).*\b(profile?|profil|data|données)\b/i)
   ) {
-    return { mode: 'onboarding', action: 'restart_new_profile' };
+    return {
+      mode: 'onboarding',
+      action: 'restart_new_profile',
+      _matchedPattern: 'new_profile_explicit',
+    };
   }
 
   // RE-ONBOARDING (update profile): User wants to redo onboarding but keep same profile
-  if (
-    lower.match(/\b(restart|recommencer|start over|start again|redo onboarding)\b/i) ||
-    lower.match(/\bje (veux|voudrais|souhaite) recommencer\b/i) ||
-    lower.match(/\b(update|mettre à jour).*\b(all|tout|profile?|profil)\b/i)
-  ) {
-    return { mode: 'onboarding', action: 'restart_update_profile' };
+  // Pattern 1: Explicit restart keywords
+  if (lower.match(/\b(restart|recommencer|start over|start again)\b/i)) {
+    return {
+      mode: 'onboarding',
+      action: 'restart_update_profile',
+      _matchedPattern: 'restart_keyword',
+    };
+  }
+  // Pattern 2: "redo onboarding" variants
+  if (lower.match(/\bredo\b.*\bonboarding\b/i)) {
+    return {
+      mode: 'onboarding',
+      action: 'restart_update_profile',
+      _matchedPattern: 'redo_onboarding',
+    };
+  }
+  // Pattern 3: French "je veux recommencer"
+  if (lower.match(/\bje (veux|voudrais|souhaite) recommencer\b/i)) {
+    return {
+      mode: 'onboarding',
+      action: 'restart_update_profile',
+      _matchedPattern: 'french_recommencer',
+    };
+  }
+  // Pattern 4: Update all/profile
+  if (lower.match(/\b(update|mettre à jour).*\b(all|tout|profile?|profil)\b/i)) {
+    return {
+      mode: 'onboarding',
+      action: 'restart_update_profile',
+      _matchedPattern: 'update_all_profile',
+    };
+  }
+  // Pattern 5: NEW - "full onboarding", "complete onboarding", "new onboarding", "whole onboarding"
+  if (lower.match(/\b(full|complete|new|whole)\s+(new\s+)?onboarding\b/i)) {
+    return {
+      mode: 'onboarding',
+      action: 'restart_update_profile',
+      _matchedPattern: 'full_onboarding',
+    };
+  }
+  // Pattern 6: NEW - French "refaire/reprendre l'onboarding"
+  if (lower.match(/\b(refaire|reprendre)\s+(l[''])?onboarding\b/i)) {
+    return {
+      mode: 'onboarding',
+      action: 'restart_update_profile',
+      _matchedPattern: 'french_refaire_onboarding',
+    };
   }
 
   // RE-ONBOARDING: User gives their name again (might want to update or restart)
@@ -1129,6 +1351,7 @@ function detectIntent(message: string, _context: Record<string, unknown>): Detec
         action: 'update_name',
         field: 'name',
         extractedValue: extractedName,
+        _matchedPattern: 'short_name_message',
       };
     }
   }
@@ -1144,22 +1367,43 @@ function detectIntent(message: string, _context: Record<string, unknown>): Detec
         action: 'update',
         field: 'city',
         extractedValue: cityMatch ? cityMatch[1] : undefined,
+        _matchedPattern: 'edit_city',
       };
     }
     if (lower.match(/\b(name)\b/i)) {
-      return { mode: 'profile-edit', action: 'update', field: 'name' };
+      return {
+        mode: 'profile-edit',
+        action: 'update',
+        field: 'name',
+        _matchedPattern: 'edit_name',
+      };
     }
     if (lower.match(/\b(skills?)\b/i)) {
-      return { mode: 'profile-edit', action: 'update', field: 'skills' };
+      return {
+        mode: 'profile-edit',
+        action: 'update',
+        field: 'skills',
+        _matchedPattern: 'edit_skills',
+      };
     }
     if (lower.match(/\b(work|hours|rate)\b/i)) {
-      return { mode: 'profile-edit', action: 'update', field: 'work_preferences' };
+      return {
+        mode: 'profile-edit',
+        action: 'update',
+        field: 'work_preferences',
+        _matchedPattern: 'edit_work_prefs',
+      };
     }
     if (lower.match(/\b(budget|income|expense|spend)\b/i)) {
-      return { mode: 'profile-edit', action: 'update', field: 'budget' };
+      return {
+        mode: 'profile-edit',
+        action: 'update',
+        field: 'budget',
+        _matchedPattern: 'edit_budget',
+      };
     }
     // Generic profile edit
-    return { mode: 'profile-edit', action: 'update' };
+    return { mode: 'profile-edit', action: 'update', _matchedPattern: 'edit_generic' };
   }
 
   // New goal intents - try to extract goal details
@@ -1190,26 +1434,27 @@ function detectIntent(message: string, _context: Record<string, unknown>): Detec
         amount,
         deadline,
       },
+      _matchedPattern: 'new_goal',
     };
   }
 
   // Progress check intents
   if (lower.match(/\b(progress|how.*(doing|going)|status|where.*am)\b/i)) {
-    return { mode: 'conversation', action: 'check_progress' };
+    return { mode: 'conversation', action: 'check_progress', _matchedPattern: 'check_progress' };
   }
 
   // Advice intents
   if (lower.match(/\b(advice|help|suggest|recommend|how can i|tips?)\b/i)) {
-    return { mode: 'conversation', action: 'get_advice' };
+    return { mode: 'conversation', action: 'get_advice', _matchedPattern: 'get_advice' };
   }
 
   // Plan/goal related questions
   if (lower.match(/\b(my plan|my goal|current goal)\b/i)) {
-    return { mode: 'conversation', action: 'view_plan' };
+    return { mode: 'conversation', action: 'view_plan', _matchedPattern: 'view_plan' };
   }
 
-  // Default conversation
-  return { mode: 'conversation' };
+  // Default conversation - no specific intent matched (fallback)
+  return { mode: 'conversation', _matchedPattern: 'default_fallback' };
 }
 
 /**
@@ -1245,10 +1490,63 @@ async function handleConversationMode(
 
   return trace(
     'chat.conversation',
-    async (span) => {
-      // Use pre-detected intent
-      const intent = preIntent;
-      span.setAttributes({
+    async (ctx: TraceContext) => {
+      // Span 1: Intent Detection (type: tool - it's a processing step)
+      const intent = await ctx.createChildSpan(
+        'chat.intent_detection',
+        async (span) => {
+          const detected = preIntent;
+          // Determine if this is a fallback (no specific intent matched)
+          const isFallback = detected._matchedPattern === 'default_fallback' || !detected.action;
+          span.setAttributes({
+            detected_mode: detected.mode,
+            detected_action: detected.action || 'general',
+            detected_field: detected.field || 'none',
+            message_length: message.length,
+            // NEW: Enhanced observability for intent detection
+            message_preview: message.substring(0, 100),
+            is_fallback: isFallback,
+            matched_pattern: detected._matchedPattern || 'unknown',
+          });
+          span.setOutput({ intent: detected, is_fallback: isFallback });
+          return detected;
+        },
+        { type: 'tool', input: { message: message.substring(0, 200) } }
+      );
+
+      // Span 2: Profile/Context Lookup (type: tool)
+      await ctx.createChildSpan(
+        'chat.context_lookup',
+        async (span) => {
+          span.setAttributes({
+            profile_id: profileId || 'anonymous',
+            has_name: Boolean(context.name),
+            has_goal: Boolean(context.goalName),
+            goal_amount: context.goalAmount || 0,
+            context_keys: Object.keys(context).length,
+          });
+          span.setOutput({ profile_id: profileId, has_profile: Boolean(context.name) });
+        },
+        { type: 'tool', input: { profileId } }
+      );
+
+      // Log intent detection confidence as feedback score for evaluation
+      const isFallback = intent._matchedPattern === 'default_fallback' || !intent.action;
+      const traceIdForFeedback = ctx.getTraceId();
+      if (traceIdForFeedback) {
+        // Non-blocking: log feedback score for intent detection quality
+        logFeedbackScores(traceIdForFeedback, [
+          {
+            name: 'intent_detection_confidence',
+            value: isFallback ? 0.2 : 1.0, // Low confidence for fallback, high for matched pattern
+            reason: isFallback
+              ? `No specific pattern matched for: "${message.substring(0, 50)}..."`
+              : `Pattern matched: ${intent._matchedPattern}, action: ${intent.action}`,
+          },
+        ]).catch(() => {}); // Non-blocking
+      }
+
+      ctx.setAttributes({
         'chat.mode': currentMode,
         'chat.intent.mode': intent.mode,
         'chat.intent.action': intent.action || 'none',
@@ -1262,27 +1560,65 @@ async function handleConversationMode(
       const extractedData: Record<string, unknown> = {};
 
       switch (intent.action) {
-        case 'restart_new_profile':
+        case 'restart_new_profile': {
           // Signal frontend to reset ALL state and create a new profile
           response = `No problem! Let's start with a brand new profile. 🆕\n\n**What's your name?**`;
-          return {
+          const result = {
             response,
             extractedData: { _restartNewProfile: true },
-            nextStep: 'name' as OnboardingStep,
-            source: 'groq',
-            intent: { mode: 'onboarding', action: 'restart_new_profile' },
+            nextStep: 'greeting' as OnboardingStep, // Start at greeting to collect name
+            source: 'groq' as const,
+            intent: { mode: 'onboarding' as ChatMode, action: 'restart_new_profile' },
           };
+          ctx.setOutput({ response: response.substring(0, 300), action: 'restart_new_profile' });
+          return result;
+        }
 
-        case 'restart_update_profile':
+        case 'restart_update_profile': {
           // Signal frontend to restart onboarding but KEEP the same profile ID (update mode)
           response = `Sure! Let's update your profile information. 🔄\n\n**What's your name?** (currently: ${context.name || 'not set'})`;
-          return {
+          const result = {
             response,
             extractedData: { _restartUpdateProfile: true },
-            nextStep: 'name' as OnboardingStep,
-            source: 'groq',
-            intent: { mode: 'onboarding', action: 'restart_update_profile' },
+            nextStep: 'greeting' as OnboardingStep, // Start from greeting to ask name first
+            source: 'groq' as const,
+            intent: { mode: 'onboarding' as ChatMode, action: 'restart_update_profile' },
           };
+          ctx.setOutput({ response: response.substring(0, 300), action: 'restart_update_profile' });
+          return result;
+        }
+
+        case 'continue_onboarding': {
+          // Find where user left off and resume from there
+          const incompleteStep = findFirstIncompleteStep(context);
+          if (incompleteStep === 'complete') {
+            response = `Your profile is already complete! 🎉 You can:\n\n- **View your plan** - Go to "My Plan"\n- **Update something** - "Change my city to Paris"\n- **Set a new goal** - "I want to save for a laptop"`;
+            const result = {
+              response,
+              extractedData: {},
+              nextStep: 'complete' as OnboardingStep,
+              source: 'groq' as const,
+              intent: { mode: 'conversation' as ChatMode, action: 'continue_onboarding' },
+            };
+            ctx.setOutput({ response: response.substring(0, 300), action: 'continue_complete' });
+            return result;
+          }
+          const stepQuestion = getStepQuestion(incompleteStep, context);
+          response = `Let's continue! 📝\n\n${stepQuestion}`;
+          const result = {
+            response,
+            extractedData: { _continueOnboarding: true, _resumeAtStep: incompleteStep },
+            nextStep: incompleteStep,
+            source: 'groq' as const,
+            intent: { mode: 'onboarding' as ChatMode, action: 'continue_onboarding' },
+          };
+          ctx.setOutput({
+            response: response.substring(0, 300),
+            action: 'continue_onboarding',
+            resumeAt: incompleteStep,
+          });
+          return result;
+        }
 
         case 'update_name':
           if (intent.extractedValue) {
@@ -1389,45 +1725,76 @@ async function handleConversationMode(
           break;
 
         default: {
-          // Try to use LLM for general conversation
-          const client = getGroqClient();
-          if (client) {
-            try {
-              const completion = await client.chat.completions.create({
-                model: GROQ_MODEL,
-                messages: [
-                  {
-                    role: 'system',
-                    content: `${SYSTEM_PROMPTS.onboarding}
+          // Span 3: LLM Generation (type: llm with model and provider)
+          response = await ctx.createChildSpan(
+            'chat.llm_generation',
+            async (span) => {
+              const client = getGroqClient();
+              if (client) {
+                try {
+                  const completion = await client.chat.completions.create({
+                    model: GROQ_MODEL,
+                    messages: [
+                      {
+                        role: 'system',
+                        content: `${SYSTEM_PROMPTS.onboarding}
 
 The user has already completed onboarding. Their profile: ${JSON.stringify(context)}.
 Help them with general questions about their finances, savings plan, or profile.
 Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed information.`,
-                  },
-                  { role: 'user', content: message },
-                ],
-                temperature: 0.7,
-                max_tokens: 300,
-              });
-              response =
-                completion.choices[0]?.message?.content ||
-                "I'm here to help! You can ask about your plan, update your profile, or get savings advice.";
-            } catch {
-              response =
-                "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+                      },
+                      { role: 'user', content: message },
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 300,
+                  });
+
+                  const llmResponse =
+                    completion.choices[0]?.message?.content ||
+                    "I'm here to help! You can ask about your plan, update your profile, or get savings advice.";
+
+                  // Set span attributes for LLM call
+                  span.setAttributes({
+                    response_length: llmResponse.length,
+                    used_llm: true,
+                  });
+
+                  // Set token usage for Opik cost tracking
+                  if (completion.usage) {
+                    span.setUsage({
+                      prompt_tokens: completion.usage.prompt_tokens || 0,
+                      completion_tokens: completion.usage.completion_tokens || 0,
+                      total_tokens: completion.usage.total_tokens || 0,
+                    });
+                  }
+
+                  span.setOutput({ response: llmResponse.substring(0, 200) });
+                  return llmResponse;
+                } catch {
+                  span.setAttributes({ error: true, used_llm: false });
+                  return "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+                }
+              } else {
+                span.setAttributes({ error: false, used_llm: false, reason: 'no_client' });
+                return "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+              }
+            },
+            {
+              type: 'llm',
+              model: GROQ_MODEL,
+              provider: 'groq',
+              input: { message: message.substring(0, 200) },
             }
-          } else {
-            response =
-              "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
-          }
+          );
         }
       }
 
       const traceId = getCurrentTraceId();
-      span.setAttributes({
+      ctx.setAttributes({
         'chat.response_length': response.length,
         'chat.extracted_fields': Object.keys(extractedData).length,
       });
+      ctx.setOutput({ response: response.substring(0, 300), intent });
 
       return {
         response,

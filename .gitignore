@@ -37,3 +37,6 @@ coverage/
 
 # Local DuckDB data
 packages/frontend/data/
+data/
+*.duckdb
+*.duckdb.wal

@@ -647,3 +647,822 @@ During presentation, we can show:
 ---
 
 > "Stride doesn't just give recommendations. It shows you exactly how it got there."
+
+---
+
+## REST API avancée (opikRest.ts)
+
+Au-delà du SDK TypeScript, Stride utilise l'API REST Opik pour des fonctionnalités avancées.
+
+### Feedback Definitions
+
+Définir des métriques de feedback cohérentes pour l'annotation.
+
+```typescript
+import { createFeedbackDefinition } from './lib/opik';
+
+// Numerical: score de 1 à 5
+await createFeedbackDefinition({
+  name: 'safety',
+  type: 'numerical',
+  description: 'How safe is this advice? (1=dangerous, 5=very safe)',
+  minValue: 1,
+  maxValue: 5,
+});
+
+// Categorical: IMPORTANT - utiliser un map, pas un array!
+await createFeedbackDefinition({
+  name: 'response_quality',
+  type: 'categorical',
+  description: 'Overall response quality',
+  // Format correct: { category: numeric_value }
+  categories: { poor: 0.0, acceptable: 0.33, good: 0.66, excellent: 1.0 },
+});
+```
+
+**⚠️ Piège courant**: L'API Opik attend `categories` comme `LinkedHashMap<String, Double>`, pas un array de strings.
+
+### Online Evaluation Rules (LLM as Judge)
+
+Auto-évaluer les traces avec des prompts custom.
+
+```typescript
+import { createEvaluator, getProjectIdByName } from './lib/opik';
+
+// IMPORTANT: Les project_ids doivent être des UUIDs, pas des noms!
+const projectId = await getProjectIdByName('stride');
+
+await createEvaluator({
+  name: 'Student Safety Check',
+  type: 'llm_as_judge',
+  action: 'evaluator',
+  projectIds: [projectId], // UUID requis!
+  samplingRate: 1.0,
+  enabled: true,
+  llmConfig: {
+    prompt: `Evaluate if this advice is safe for a student...`,
+    scoreName: 'safety_score',
+    model: 'gpt-4',
+    minScore: 1,
+    maxScore: 5,
+  },
+});
+```
+
+**⚠️ Timing important**: Le projet est créé automatiquement par Opik SDK lors du premier `trace()`. Donc au premier démarrage :
+1. `getProjectIdByName('stride')` retourne `null` (projet pas encore créé)
+2. Les evaluators/queues sont ignorés
+3. Après le premier chat qui crée un trace, le projet existe
+4. Au prochain restart, les evaluators/queues seront créés
+
+### Annotation Queues
+
+Workflow de review humain pour les traces importantes.
+
+```typescript
+import { createAnnotationQueue } from './lib/opik';
+
+await createAnnotationQueue({
+  name: 'Review Student Advice',
+  projectId: projectUuid, // UUID requis!
+  scope: 'trace',
+  description: 'Review AI-generated financial advice',
+  instructions: 'Check for accuracy, safety, and relevance',
+  commentsEnabled: true,
+  feedbackDefinitionNames: ['safety', 'appropriateness'],
+});
+```
+
+### Gestion des erreurs 409
+
+Les erreurs 409 (Conflict) sont normales lors de la création idempotente:
+
+```typescript
+try {
+  await createFeedbackDefinition({ name: 'safety', ... });
+} catch (error) {
+  if (error.message.includes('409')) {
+    // Déjà existant - c'est OK
+    console.log('Feedback definition already exists (ok)');
+  } else {
+    // Vraie erreur
+    throw error;
+  }
+}
+```
+
+---
+
+## Span Configuration Requise
+
+Les spans Opik ont des champs obligatoires souvent oubliés.
+
+### Champs obligatoires
+
+| Champ | Description | Valeurs |
+|-------|-------------|---------|
+| `type` | **REQUIS** - Type du span | `'general' \| 'tool' \| 'llm' \| 'guardrail'` |
+| `name` | Identifiant du span | String |
+
+### Pour les spans LLM
+
+```typescript
+ctx.createChildSpan(
+  'llm_call',
+  async (span) => {
+    const result = await callGroq(prompt);
+
+    // Token usage - format spécifique
+    span.setUsage({
+      prompt_tokens: result.usage.prompt_tokens,
+      completion_tokens: result.usage.completion_tokens,
+      total_tokens: result.usage.total_tokens,
+    });
+
+    // Coût - champ SÉPARÉ, pas dans usage!
+    span.setCost(0.0023);
+
+    span.setOutput({ response: result.text });
+    return result;
+  },
+  {
+    type: 'llm',  // REQUIS pour les appels LLM
+    model: 'llama-3.1-70b-versatile',
+    provider: 'groq',
+    input: { prompt },
+  }
+);
+```
+
+### Erreurs courantes
+
+| Erreur | Cause | Solution |
+|--------|-------|----------|
+| Span non visible | `type` manquant | Ajouter `type: 'general'` ou autre |
+| Usage non affiché | Format incorrect | Utiliser `{ prompt_tokens, completion_tokens, total_tokens }` |
+| Coût non affiché | Mis dans usage | Utiliser `setCost()` ou `totalEstimatedCost` séparément |
+
+---
+
+## Thread ID pour conversations
+
+Grouper les traces d'une même conversation de chat.
+
+### Fonctions disponibles
+
+```typescript
+import { setThreadId, generateThreadId, getCurrentThreadId } from './lib/opik';
+
+// Créer un nouvel ID de thread
+const threadId = generateThreadId();
+// Résultat: "thread_1705123456789_abc1234"
+
+// Définir manuellement
+setThreadId('conversation_user123_session1');
+
+// Récupérer l'ID actuel
+const current = getCurrentThreadId();
+```
+
+### Usage dans trace()
+
+```typescript
+import { trace } from './lib/opik';
+
+// Première trace de la conversation
+const threadId = generateThreadId();
+
+await trace(
+  'onboarding.turn_1',
+  async (ctx) => {
+    // ... traitement
+  },
+  { threadId }
+);
+
+// Traces suivantes de la même conversation
+await trace(
+  'onboarding.turn_2',
+  async (ctx) => {
+    // ... traitement
+  },
+  { threadId } // Même threadId = même conversation
+);
+```
+
+### Dans le dashboard Opik
+
+Les traces avec le même `threadId` apparaissent groupées, permettant de:
+- Voir l'historique complet d'une conversation
+- Analyser les patterns de multi-turn
+- Mesurer la durée totale des sessions
+
+---
+
+## Évaluation Hybride
+
+Stride utilise une évaluation à deux niveaux (implémentée dans `opik-integration.ts`).
+
+### Architecture
+
+```
+Input → Heuristics (fast) → LLM Scoring (deep) → Combined Score
+                ↓                    ↓
+         Veto si critique    G-Eval semantic
+```
+
+### 1. Heuristics (rapide, déterministe)
+
+Patterns regex et règles métier:
+
+```typescript
+const heuristicChecks = {
+  // Contenu inapproprié
+  inappropriateContent: /\b(gambling|crypto|loan shark)\b/i,
+
+  // Format invalide
+  missingBudget: (response) => !response.includes('€'),
+
+  // Valeurs hors limites
+  unrealisticAmount: (amount) => amount > 10000,
+};
+```
+
+### 2. LLM Scoring (G-Eval sémantique)
+
+Évaluation nuancée avec LLM:
+
+```typescript
+const gEvalCriteria = {
+  safety: {
+    prompt: `Score this advice safety for students (1-5)...`,
+    weight: 0.3,
+  },
+  appropriateness: {
+    prompt: `Is this appropriate for limited student budget?...`,
+    weight: 0.25,
+  },
+  coherence: {
+    prompt: `Is the advice internally consistent?...`,
+    weight: 0.25,
+  },
+  actionability: {
+    prompt: `Are the steps concrete and achievable?...`,
+    weight: 0.2,
+  },
+};
+```
+
+### 3. Mécanisme de Veto
+
+Si un critère critique échoue:
+
+```typescript
+// Score global plafonné si safety < 2
+if (scores.safety < 2) {
+  finalScore = Math.min(finalScore, 2.0);
+  flags.push('SAFETY_VETO');
+}
+
+// Score global plafonné si inapproprié
+if (scores.appropriateness < 2) {
+  finalScore = Math.min(finalScore, 2.5);
+  flags.push('APPROPRIATENESS_VETO');
+}
+```
+
+---
+
+## Gestion des erreurs
+
+### Fallback gracieux
+
+Si Opik est indisponible, l'application continue:
+
+```typescript
+import { trace } from './lib/opik';
+
+// Si OPIK_API_KEY manquant ou serveur down:
+// - trace() retourne un mock context
+// - Logs en console au lieu d'Opik
+// - Pas de crash de l'application
+
+await trace('operation', async (ctx) => {
+  // Ce code s'exécute toujours
+  ctx.setOutput({ result: 'ok' });
+  return result;
+});
+```
+
+### Pattern interne
+
+```typescript
+const client = await getOpikClient();
+if (!client) {
+  // Fallback: mock span avec logging console
+  const mockCtx = createMockContext();
+  const result = await fn(mockCtx);
+  mockCtx.end(); // Log en console
+  return result;
+}
+
+// Client disponible: trace réelle
+const traceHandle = client.trace({ ... });
+```
+
+### Vérification de disponibilité
+
+```typescript
+import { isOpikRestAvailable } from './lib/opik';
+
+const available = await isOpikRestAvailable();
+if (!available) {
+  console.log('Opik non disponible, métriques désactivées');
+}
+```
+
+---
+
+## Résumé des fichiers
+
+| Fichier | Rôle |
+|---------|------|
+| `lib/opik.ts` | SDK wrapper, trace/span, thread ID |
+| `lib/opikRest.ts` | API REST: evaluators, queues, definitions |
+| `lib/opik-integration.ts` | Évaluation hybride (heuristics + G-Eval) |
+
+---
+
+## Variables d'environnement complètes
+
+| Variable | Description | Requis |
+|----------|-------------|--------|
+| `OPIK_API_KEY` | Clé API Opik Cloud | ✅ |
+| `OPIK_WORKSPACE` | Nom du workspace | ✅ |
+| `OPIK_PROJECT` | Nom du projet (défaut: "stride") | ❌ |
+| `OPIK_BASE_URL` | URL custom (self-hosted) | ❌ |
+
+---
+
+## Feedback Scores (SDK v1.9.87+)
+
+### Méthode correcte
+
+Le SDK TypeScript Opik utilise un système de batch queue pour les feedback scores.
+
+```typescript
+import { Opik } from 'opik';
+
+const client = new Opik();
+
+// Créer un trace
+const trace = client.trace({
+  name: 'my_trace',
+  input: { input: 'Hi!' },
+  output: { output: 'Hello!' },
+});
+
+// Ajouter des feedback scores via batch queue
+client.traceFeedbackScoresBatchQueue.create({
+  id: trace.id,           // trace ID (requis)
+  name: 'overall_quality', // nom du score
+  value: 0.9,              // valeur 0-1
+  source: 'sdk',           // 'sdk' | 'ui' | 'online_scoring'
+  reason: 'Good answer',   // optionnel
+});
+
+client.traceFeedbackScoresBatchQueue.create({
+  id: trace.id,
+  name: 'coherence',
+  value: 0.8,
+  source: 'sdk',
+});
+
+// Envoyer le batch
+await client.flush();
+```
+
+### Interface FeedbackScoreBatchItem
+
+```typescript
+interface FeedbackScoreBatchItem {
+  id: string;              // trace_id (requis)
+  name: string;            // nom du score (requis)
+  value: number;           // valeur numérique (requis)
+  source: 'sdk' | 'ui' | 'online_scoring'; // (requis)
+  reason?: string;         // explication optionnelle
+  projectName?: string;    // projet (optionnel)
+  projectId?: string;      // UUID projet (optionnel)
+  categoryName?: string;   // catégorie (optionnel)
+  author?: string;         // auteur (optionnel)
+}
+```
+
+### Méthodes BatchQueue
+
+| Méthode | Description |
+|---------|-------------|
+| `.create(item)` | Ajoute un score au batch |
+| `.flush()` | Envoie tous les scores en attente |
+| `.get(id)` | Récupère un score par ID |
+| `.update(id, updates)` | Met à jour un score |
+| `.delete(id)` | Supprime un score |
+
+### ⚠️ Erreur courante
+
+```typescript
+// ❌ INCORRECT - Ces méthodes n'existent pas
+client.logTracesFeedbackScores([...]);           // N'existe pas
+client.traceFeedbackScoresBatchQueue.queue(...); // N'existe pas
+
+// ✅ CORRECT
+client.traceFeedbackScoresBatchQueue.create({...});
+await client.flush();
+```
+
+---
+
+## Prompts Management
+
+Gestion des prompts versionnés avec templates Mustache ou Jinja2.
+
+### Créer un Text Prompt
+
+```typescript
+import { Opik, PromptType } from 'opik';
+
+const client = new Opik();
+
+const prompt = await client.createPrompt({
+  name: 'budget-advice',
+  prompt: 'Bonjour {{name}}, ton budget est de {{budget}}€. Voici mes conseils...',
+  type: PromptType.MUSTACHE, // ou JINJA2
+  metadata: { version: '1.0', category: 'finance' },
+  tags: ['production', 'budget'],
+});
+```
+
+### Créer un Chat Prompt (multimodal)
+
+```typescript
+const messages = [
+  { role: 'system', content: 'Tu es Bruno, coach budget pour étudiants spécialisé en {{domain}}.' },
+  { role: 'user', content: 'Comment économiser {{amount}}€?' }
+];
+
+const chatPrompt = await client.createChatPrompt({
+  name: 'bruno-advisor',
+  messages: messages,
+  type: PromptType.MUSTACHE,
+  tags: ['chat', 'onboarding'],
+});
+```
+
+### Récupérer et formater
+
+```typescript
+// Dernière version
+const prompt = await client.getPrompt({ name: 'budget-advice' });
+
+// Version spécifique
+const oldVersion = await client.getPrompt({ name: 'budget-advice', commit: 'abc123de' });
+
+// Formater avec variables
+const text = prompt.format({ name: 'Alice', budget: 500 });
+// "Bonjour Alice, ton budget est de 500€. Voici mes conseils..."
+```
+
+### Gestion des versions
+
+```typescript
+// Historique des versions
+const versions = await prompt.getVersions();
+versions.forEach(v => console.log(v.getVersionInfo()));
+
+// Comparer deux versions
+const diff = current.compareTo(previous);
+
+// Restaurer une version
+const restored = await prompt.useVersion(targetVersion);
+```
+
+### Recherche avec OQL
+
+```typescript
+// Tous les prompts
+const all = await client.searchPrompts();
+
+// Par nom
+const byName = await client.searchPrompts('name = "budget-advice"');
+
+// Par tags
+const prod = await client.searchPrompts('tags contains "production"');
+
+// Combiné
+const filtered = await client.searchPrompts(
+  'template_structure = "chat" AND tags contains "production"'
+);
+```
+
+---
+
+## Opik Query Language (OQL)
+
+Syntaxe SQL-like pour filtrer les données Opik.
+
+### Opérateurs
+
+| Catégorie | Opérateurs |
+|-----------|------------|
+| Égalité | `=`, `!=` |
+| Texte | `contains`, `not_contains`, `starts_with`, `ends_with` |
+| Comparaison | `>`, `<` |
+| Listes | `contains`, `not_contains` |
+
+### Syntaxe
+
+```typescript
+// ⚠️ IMPORTANT: Utiliser des guillemets doubles pour les valeurs string
+await client.searchPrompts('name = "greeting"');      // ✅ Correct
+await client.searchPrompts("name = 'greeting'");      // ❌ Incorrect
+await client.searchPrompts('name = greeting');        // ❌ Incorrect
+
+// Combiner avec AND (OR non supporté)
+await client.searchPrompts('name starts_with "prod-" AND tags contains "approved"');
+```
+
+### Champs filtrables (Prompts)
+
+| Champ | Type | Exemple |
+|-------|------|---------|
+| `id` | String | `id = "prompt-123"` |
+| `name` | String | `name contains "budget"` |
+| `description` | String | `description contains "étudiant"` |
+| `tags` | List | `tags contains "production"` |
+| `template_structure` | String | `template_structure = "chat"` |
+| `created_by` | String | `created_by = "user@example.com"` |
+| `created_at` | DateTime | `created_at > "2024-01-01"` |
+
+---
+
+## Evaluation Metrics (TypeScript)
+
+Métriques d'évaluation pour mesurer la qualité des outputs LLM.
+
+### Métriques heuristiques
+
+```typescript
+import { ExactMatch, Contains, RegexMatch, IsJson } from 'opik';
+
+// Correspondance exacte
+const exact = new ExactMatch();
+
+// Contient un texte
+const contains = new Contains();
+
+// Match regex
+const regex = new RegexMatch();
+
+// JSON valide
+const isJson = new IsJson();
+```
+
+### Métriques LLM-as-Judge
+
+```typescript
+import { AnswerRelevance, Hallucination, Moderation, Usefulness } from 'opik';
+
+// Pertinence de la réponse (0.0 = aucune, 1.0 = parfaite)
+const relevance = new AnswerRelevance({ model: 'gpt-4o' });
+
+// Détection d'hallucinations (0.0 = aucune, 1.0 = hallucination)
+const hallucination = new Hallucination({ model: 'gpt-4o' });
+
+// Modération contenu (0.0 = safe, 1.0 = harmful)
+const moderation = new Moderation({ model: 'gpt-4o' });
+
+// Utilité (0.0 = inutile, 1.0 = très utile)
+const usefulness = new Usefulness({ model: 'gpt-4o' });
+```
+
+### Configuration des métriques LLM
+
+```typescript
+const metric = new Hallucination({
+  model: 'gpt-4o',        // ID du modèle ou instance LanguageModel
+  temperature: 0.3,       // Température (reproductibilité)
+  seed: 42,               // Seed (déterminisme)
+  maxTokens: 1000,        // Limite tokens
+});
+```
+
+### Créer une métrique custom
+
+```typescript
+import { BaseMetric, z, EvaluationScoreResult } from 'opik';
+
+export class BudgetSafetyMetric extends BaseMetric {
+  public validationSchema = z.object({
+    output: z.string(),
+    studentBudget: z.number(),
+  });
+
+  async score(input: { output: string; studentBudget: number }): Promise<EvaluationScoreResult> {
+    const { output, studentBudget } = input;
+
+    // Vérifier si le conseil respecte le budget
+    const mentionsHighAmount = /\d{4,}/.test(output);
+    const isSafe = !mentionsHighAmount || studentBudget > 1000;
+
+    return {
+      name: this.name,
+      value: isSafe ? 1.0 : 0.0,
+      reason: isSafe
+        ? 'Conseil adapté au budget étudiant'
+        : 'Montants trop élevés pour un budget étudiant',
+    };
+  }
+}
+```
+
+### Utiliser plusieurs métriques
+
+```typescript
+import { evaluate } from 'opik';
+
+await evaluate({
+  dataset: myDataset,
+  task: myTask,
+  scoringMetrics: [
+    new AnswerRelevance({ model: 'gpt-4o' }),
+    new Hallucination({ model: 'gpt-4o' }),
+    new BudgetSafetyMetric(),
+  ],
+  scoringWorkers: 4, // Parallélisation
+});
+```
+
+---
+
+## Experiments
+
+Lier des traces à des items de dataset pour évaluation structurée.
+
+### Créer et gérer des experiments
+
+```typescript
+import { Opik, ExperimentItemReferences } from 'opik';
+
+const client = new Opik();
+
+// Créer un experiment
+const experiment = await client.createExperiment({
+  datasetName: 'student-queries',
+  name: 'budget-advisor-v2',
+  experimentConfig: {
+    model: 'llama-3.1-70b-versatile',
+    temperature: 0.7,
+    promptTemplate: 'Réponds à cette question budget: {question}',
+  },
+});
+
+// Lier des items de dataset à des traces
+const items = [
+  new ExperimentItemReferences({
+    datasetItemId: 'dataset-item-1',
+    traceId: 'trace-id-1',
+  }),
+  new ExperimentItemReferences({
+    datasetItemId: 'dataset-item-2',
+    traceId: 'trace-id-2',
+  }),
+];
+await experiment.insert(items);
+
+// Récupérer les items
+const allItems = await experiment.getItems();
+const limited = await experiment.getItems({ maxResults: 50 });
+
+// URL du dashboard
+const url = await experiment.getUrl();
+console.log(`Voir l'experiment: ${url}`);
+```
+
+### Récupérer des experiments
+
+```typescript
+// Par nom (retourne tous les matchs)
+const experiments = await client.getExperimentsByName('budget-advisor-v2');
+
+// Par nom (premier match)
+const experiment = await client.getExperiment('budget-advisor-v2');
+
+// Par dataset
+const datasetExperiments = await client.getDatasetExperiments('student-queries', 100);
+
+// Par ID
+const byId = await client.getExperimentById('experiment-uuid');
+```
+
+### Mettre à jour et supprimer
+
+```typescript
+// Mettre à jour
+await client.updateExperiment('experiment-id', {
+  name: 'budget-advisor-v3',
+  experimentConfig: { model: 'gpt-4o', temperature: 0.5 },
+});
+
+// Supprimer
+await client.deleteExperiment('experiment-id');
+```
+
+---
+
+## Distributed Tracing
+
+Tracer les requêtes à travers plusieurs services (microservices, API gateway, etc.).
+
+### Architecture
+
+```
+┌─────────────┐    headers    ┌─────────────┐
+│   Client    │ ────────────► │   Server    │
+│  (trace)    │  trace_id     │  (spans)    │
+│             │  span_id      │             │
+└─────────────┘               └─────────────┘
+```
+
+### Côté Client (initiateur)
+
+```typescript
+import { opik_context } from 'opik';
+
+// Récupérer les headers de trace à propager
+const headers = opik_context.get_distributed_trace_headers();
+// { opik_trace_id: "xxx", opik_parent_span_id: "yyy" }
+
+// Ajouter aux headers de la requête HTTP
+const response = await fetch('http://service-b/api', {
+  headers: {
+    ...headers,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(data),
+});
+```
+
+### Côté Server (récepteur)
+
+```typescript
+import { track } from 'opik';
+
+// Le décorateur @track accepte automatiquement opik_distributed_trace_headers
+@track
+async function processRequest(
+  data: RequestData,
+  opik_distributed_trace_headers?: { opik_trace_id: string; opik_parent_span_id: string }
+) {
+  // Les spans créés ici seront liés au trace parent
+  return await doProcessing(data);
+}
+
+// Dans le handler HTTP
+app.post('/api', async (req, res) => {
+  const result = await processRequest(req.body, {
+    opik_trace_id: req.headers['opik-trace-id'],
+    opik_parent_span_id: req.headers['opik-parent-span-id'],
+  });
+  res.json(result);
+});
+```
+
+### Cas d'usage Stride
+
+```typescript
+// Frontend → Chat API → MCP Server → DuckDB
+
+// 1. Frontend initie le trace
+const traceHeaders = generateDistributedHeaders();
+
+// 2. Chat API reçoit et propage
+app.post('/api/chat', async (req) => {
+  const headers = extractOpikHeaders(req);
+
+  // Créer span enfant
+  const result = await trace('chat.process', async (ctx) => {
+    // Appel MCP avec propagation
+    return await mcpClient.call('budget-coach', data, headers);
+  }, { distributedHeaders: headers });
+});
+
+// 3. MCP Server trace ses opérations
+// Les spans apparaissent dans le même trace parent
+```
+
+### Bonnes pratiques
+
+1. **Toujours propager les headers** dans les appels inter-services
+2. **Utiliser des noms de span descriptifs** par service (`chat.validate`, `mcp.budget-coach`, `db.query`)
+3. **Inclure le service name** dans les attributs pour filtrage
+4. **Gérer les timeouts** - les traces distribuées peuvent être longues

@@ -2,38 +2,50 @@
  * Skills Tab Component
  *
  * Skill Arbitrage: multi-criteria job matching and scoring.
+ * Now uses skillService for DuckDB persistence.
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
+import { useProfile } from '~/lib/profileContext';
+import { skillService, type Skill, type CreateSkillInput } from '~/lib/skillService';
 
-interface Skill {
+// Legacy skill interface for backward compatibility with plan.tsx
+interface LegacySkill {
   id: string;
   name: string;
   level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   hourlyRate: number;
-  marketDemand: number; // 1-5
-  cognitiveEffort: number; // 1-5
-  restNeeded: number; // hours
+  marketDemand: number;
+  cognitiveEffort: number;
+  restNeeded: number;
   score?: number;
 }
 
 interface SkillsTabProps {
-  initialSkills?: Skill[];
-  onSkillsChange?: (skills: Skill[]) => void;
+  initialSkills?: LegacySkill[];
+  onSkillsChange?: (skills: LegacySkill[]) => void;
 }
 
-const SKILL_TEMPLATES: Partial<Skill>[] = [
+// Convert new skill to legacy format for backward compat with plan.tsx
+function skillToLegacy(skill: Skill): LegacySkill {
+  return {
+    id: skill.id,
+    name: skill.name,
+    level: skill.level,
+    hourlyRate: skill.hourlyRate,
+    marketDemand: skill.marketDemand,
+    cognitiveEffort: skill.cognitiveEffort,
+    restNeeded: skill.restNeeded,
+    score: skill.score,
+  };
+}
+
+const SKILL_TEMPLATES: Partial<CreateSkillInput>[] = [
   { name: 'Python', hourlyRate: 25, marketDemand: 5, cognitiveEffort: 4, restNeeded: 2 },
   { name: 'SQL Coaching', hourlyRate: 22, marketDemand: 4, cognitiveEffort: 3, restNeeded: 1 },
   { name: 'JavaScript', hourlyRate: 23, marketDemand: 5, cognitiveEffort: 4, restNeeded: 2 },
   { name: 'Excel', hourlyRate: 18, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
-  {
-    name: 'Tutoring',
-    hourlyRate: 20,
-    marketDemand: 5,
-    cognitiveEffort: 3,
-    restNeeded: 1,
-  },
+  { name: 'Tutoring', hourlyRate: 20, marketDemand: 5, cognitiveEffort: 3, restNeeded: 1 },
   {
     name: 'English Translation',
     hourlyRate: 15,
@@ -45,9 +57,32 @@ const SKILL_TEMPLATES: Partial<Skill>[] = [
   { name: 'Data Entry', hourlyRate: 12, marketDemand: 4, cognitiveEffort: 1, restNeeded: 0.5 },
   { name: 'Social Media', hourlyRate: 16, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
   { name: 'Web Writing', hourlyRate: 18, marketDemand: 3, cognitiveEffort: 3, restNeeded: 1 },
+  // Additional common skills
+  { name: 'Guitar', hourlyRate: 20, marketDemand: 3, cognitiveEffort: 2, restNeeded: 1 },
+  { name: 'Piano', hourlyRate: 22, marketDemand: 3, cognitiveEffort: 3, restNeeded: 1 },
+  { name: 'Music', hourlyRate: 18, marketDemand: 3, cognitiveEffort: 2, restNeeded: 1 },
+  { name: 'Photography', hourlyRate: 20, marketDemand: 3, cognitiveEffort: 2, restNeeded: 1 },
+  { name: 'Video Editing', hourlyRate: 22, marketDemand: 4, cognitiveEffort: 3, restNeeded: 2 },
+  { name: 'Babysitting', hourlyRate: 12, marketDemand: 5, cognitiveEffort: 2, restNeeded: 1 },
+  { name: 'Cleaning', hourlyRate: 14, marketDemand: 4, cognitiveEffort: 1, restNeeded: 1 },
+  { name: 'Driving', hourlyRate: 15, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
 ];
 
-// Skill Arbitrage Algorithm
+/**
+ * Find a matching template for a skill name (case-insensitive)
+ * Returns the template if found, undefined otherwise
+ */
+function findSkillTemplate(skillName: string): Partial<CreateSkillInput> | undefined {
+  const lowerName = skillName.toLowerCase().trim();
+  return SKILL_TEMPLATES.find(
+    (t) => t.name?.toLowerCase() === lowerName || lowerName.includes(t.name?.toLowerCase() || '')
+  );
+}
+
+// Default minimum hourly rate fallback
+const DEFAULT_HOURLY_RATE = 15;
+
+// Skill Arbitrage Algorithm (for display purposes, score is calculated server-side)
 function calculateArbitrageScore(skill: Skill): number {
   const weights = {
     rate: 0.3,
@@ -56,10 +91,17 @@ function calculateArbitrageScore(skill: Skill): number {
     rest: 0.2,
   };
 
-  const normalizedRate = Math.min(skill.hourlyRate / 30, 1);
-  const normalizedDemand = skill.marketDemand / 5;
-  const normalizedEffort = 1 - skill.cognitiveEffort / 5;
-  const normalizedRest = 1 - skill.restNeeded / 4;
+  const hourlyRate =
+    skill.hourlyRate && skill.hourlyRate > 0 ? skill.hourlyRate : DEFAULT_HOURLY_RATE;
+  const marketDemand = skill.marketDemand && skill.marketDemand > 0 ? skill.marketDemand : 3;
+  const cognitiveEffort =
+    skill.cognitiveEffort && skill.cognitiveEffort > 0 ? skill.cognitiveEffort : 3;
+  const restNeeded = skill.restNeeded !== undefined && skill.restNeeded >= 0 ? skill.restNeeded : 1;
+
+  const normalizedRate = Math.min(hourlyRate / 30, 1);
+  const normalizedDemand = marketDemand / 5;
+  const normalizedEffort = 1 - cognitiveEffort / 5;
+  const normalizedRest = 1 - restNeeded / 4;
 
   return (
     (weights.rate * normalizedRate +
@@ -71,9 +113,11 @@ function calculateArbitrageScore(skill: Skill): number {
 }
 
 export function SkillsTab(props: SkillsTabProps) {
-  const [skills, setSkills] = createSignal<Skill[]>(props.initialSkills || []);
+  const { profile, skills: contextSkills, refreshSkills } = useProfile();
+  const [localSkills, setLocalSkills] = createSignal<Skill[]>([]);
   const [showAddForm, setShowAddForm] = createSignal(false);
-  const [newSkill, setNewSkill] = createSignal<Partial<Skill>>({
+  const [isLoading, setIsLoading] = createSignal(false);
+  const [newSkill, setNewSkill] = createSignal<Partial<CreateSkillInput>>({
     name: '',
     level: 'intermediate',
     hourlyRate: 15,
@@ -82,25 +126,128 @@ export function SkillsTab(props: SkillsTabProps) {
     restNeeded: 1,
   });
 
-  const addSkill = (template?: Partial<Skill>) => {
+  // Use context skills (from DB) as source of truth when profile exists
+  // Only fall back to initialSkills when no profile (backward compat)
+  createEffect(() => {
+    const ctxSkills = contextSkills();
+    const currentProfile = profile();
+
+    // If we have a profile ID, always trust the DB (context skills)
+    // This prevents temp IDs from initialSkills causing 404 on delete
+    if (currentProfile?.id) {
+      setLocalSkills(ctxSkills);
+      return;
+    }
+
+    // No profile - fall back to initialSkills for backward compatibility
+    if (props.initialSkills && props.initialSkills.length > 0) {
+      // Process initialSkills to ensure proper values
+      const processed = props.initialSkills.map((skill) => {
+        const template = findSkillTemplate(skill.name);
+        const processedSkill: Skill = {
+          id: skill.id,
+          profileId: '',
+          name: skill.name,
+          level: skill.level,
+          hourlyRate:
+            skill.hourlyRate > 0 ? skill.hourlyRate : template?.hourlyRate || DEFAULT_HOURLY_RATE,
+          marketDemand: skill.marketDemand > 0 ? skill.marketDemand : template?.marketDemand || 3,
+          cognitiveEffort:
+            skill.cognitiveEffort > 0 ? skill.cognitiveEffort : template?.cognitiveEffort || 3,
+          restNeeded: skill.restNeeded >= 0 ? skill.restNeeded : template?.restNeeded || 1,
+        };
+        processedSkill.score = skill.score || calculateArbitrageScore(processedSkill);
+        return processedSkill;
+      });
+      setLocalSkills(processed.sort((a, b) => (b.score || 0) - (a.score || 0)));
+    }
+  });
+
+  // Load skills on mount if profile exists
+  onMount(async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      await refreshSkills();
+    }
+  });
+
+  const skills = () => localSkills();
+
+  const addSkill = async (template?: Partial<CreateSkillInput>) => {
     const base = template || newSkill();
     if (!base.name) return;
 
-    const skill: Skill = {
-      id: `skill_${Date.now()}`,
-      name: base.name || '',
-      level: base.level || 'intermediate',
-      hourlyRate: base.hourlyRate || 15,
-      marketDemand: base.marketDemand || 3,
-      cognitiveEffort: base.cognitiveEffort || 3,
-      restNeeded: base.restNeeded || 1,
-    };
-    skill.score = calculateArbitrageScore(skill);
+    const currentProfile = profile();
+    if (!currentProfile?.id) {
+      // No profile - fall back to local-only mode (for backward compat)
+      const skill: Skill = {
+        id: `skill_${Date.now()}`,
+        profileId: '',
+        name: base.name || '',
+        level: (base.level as Skill['level']) || 'intermediate',
+        hourlyRate: base.hourlyRate || 15,
+        marketDemand: base.marketDemand || 3,
+        cognitiveEffort: base.cognitiveEffort || 3,
+        restNeeded: base.restNeeded || 1,
+      };
+      skill.score = calculateArbitrageScore(skill);
 
-    const updated = [...skills(), skill].sort((a, b) => (b.score || 0) - (a.score || 0));
-    setSkills(updated);
-    props.onSkillsChange?.(updated);
-    setShowAddForm(false);
+      const updated = [...skills(), skill].sort((a, b) => (b.score || 0) - (a.score || 0));
+      setLocalSkills(updated);
+      props.onSkillsChange?.(updated.map(skillToLegacy));
+      setShowAddForm(false);
+      resetNewSkill();
+      return;
+    }
+
+    // Use service to create skill in DB
+    setIsLoading(true);
+    try {
+      const created = await skillService.createSkill({
+        profileId: currentProfile.id,
+        name: base.name,
+        level: base.level,
+        hourlyRate: base.hourlyRate,
+        marketDemand: base.marketDemand,
+        cognitiveEffort: base.cognitiveEffort,
+        restNeeded: base.restNeeded,
+      });
+
+      if (created) {
+        await refreshSkills();
+        props.onSkillsChange?.(contextSkills().map(skillToLegacy));
+      }
+    } finally {
+      setIsLoading(false);
+      setShowAddForm(false);
+      resetNewSkill();
+    }
+  };
+
+  const removeSkill = async (id: string) => {
+    const currentProfile = profile();
+    if (!currentProfile?.id) {
+      // Local-only mode
+      const updated = skills().filter((s) => s.id !== id);
+      setLocalSkills(updated);
+      props.onSkillsChange?.(updated.map(skillToLegacy));
+      return;
+    }
+
+    // Use service to delete skill from DB
+    setIsLoading(true);
+    try {
+      const success = await skillService.deleteSkill(id);
+      if (success) {
+        await refreshSkills();
+        props.onSkillsChange?.(contextSkills().map(skillToLegacy));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetNewSkill = () => {
     setNewSkill({
       name: '',
       level: 'intermediate',
@@ -109,12 +256,6 @@ export function SkillsTab(props: SkillsTabProps) {
       cognitiveEffort: 3,
       restNeeded: 1,
     });
-  };
-
-  const removeSkill = (id: string) => {
-    const updated = skills().filter((s) => s.id !== id);
-    setSkills(updated);
-    props.onSkillsChange?.(updated);
   };
 
   const getScoreColor = (score: number) => {
@@ -141,7 +282,12 @@ export function SkillsTab(props: SkillsTabProps) {
             The highest paying job isn't necessarily the best
           </p>
         </div>
-        <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
+        <button
+          type="button"
+          class="btn-primary"
+          onClick={() => setShowAddForm(true)}
+          disabled={isLoading()}
+        >
           + Add
         </button>
       </div>
@@ -154,8 +300,9 @@ export function SkillsTab(props: SkillsTabProps) {
             {(template) => (
               <button
                 type="button"
-                class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-full transition-colors"
+                class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
                 onClick={() => addSkill(template)}
+                disabled={isLoading()}
               >
                 {template.name}
               </button>
@@ -198,14 +345,15 @@ export function SkillsTab(props: SkillsTabProps) {
                     skill.score || 0
                   )}`}
                 >
-                  {(skill.score || 0).toFixed(1)}/10
+                  {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}/10
                 </div>
 
                 {/* Remove */}
                 <button
                   type="button"
-                  class="flex-shrink-0 text-slate-400 hover:text-red-500 transition-colors"
+                  class="flex-shrink-0 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
                   onClick={() => removeSkill(skill.id)}
+                  disabled={isLoading()}
                 >
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -353,9 +501,9 @@ export function SkillsTab(props: SkillsTabProps) {
                 type="button"
                 class="btn-primary flex-1"
                 onClick={() => addSkill()}
-                disabled={!newSkill().name}
+                disabled={!newSkill().name || isLoading()}
               >
-                Add
+                {isLoading() ? 'Adding...' : 'Add'}
               </button>
             </div>
           </div>

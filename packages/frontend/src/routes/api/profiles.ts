@@ -12,6 +12,83 @@ import { query, execute, escapeSQL } from './_db';
 
 // Schema initialization flag (persists across requests in same process)
 let schemaInitialized = false;
+let goalsMigrationDone = false;
+
+/**
+ * Convert various date formats to ISO date string (YYYY-MM-DD)
+ * DuckDB expects this format for DATE columns
+ */
+function toISODateString(dateValue: string | null | undefined): string | null {
+  if (!dateValue) return null;
+
+  try {
+    // Try to parse the date
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) {
+      // If invalid, check if it's already in ISO format
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+        return dateValue.substring(0, 10);
+      }
+      return null;
+    }
+    // Return in YYYY-MM-DD format
+    return date.toISOString().substring(0, 10);
+  } catch {
+    return null;
+  }
+}
+
+// Migrate embedded goals from profiles to goals table
+async function migrateEmbeddedGoals(): Promise<void> {
+  if (goalsMigrationDone) return;
+
+  try {
+    // Find profiles with embedded goals that don't have a corresponding goal in the goals table
+    const profiles = await query<ProfileRow>(`
+      SELECT p.* FROM profiles p
+      WHERE p.goal_name IS NOT NULL
+      AND p.goal_amount IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM goals g WHERE g.profile_id = p.id
+      )
+    `);
+
+    let migrated = 0;
+    for (const p of profiles) {
+      try {
+        const goalId = crypto.randomUUID();
+        // Convert deadline to ISO format (YYYY-MM-DD) for DuckDB
+        const isoDeadline = toISODateString(p.goal_deadline);
+        await execute(`
+          INSERT INTO goals (id, profile_id, name, amount, deadline, priority, status, created_at)
+          VALUES (
+            ${escapeSQL(goalId)},
+            ${escapeSQL(p.id)},
+            ${escapeSQL(p.goal_name!)},
+            ${p.goal_amount},
+            ${isoDeadline ? escapeSQL(isoDeadline) : 'NULL'},
+            1,
+            'active',
+            CURRENT_TIMESTAMP
+          )
+        `);
+        migrated++;
+      } catch (err) {
+        console.warn(`[Profiles] Failed to migrate goal for profile ${p.id}:`, err);
+      }
+    }
+
+    if (migrated > 0) {
+      console.log(`[Profiles] Migrated ${migrated} embedded goals to goals table`);
+    }
+
+    goalsMigrationDone = true;
+  } catch (err) {
+    // Goals table might not exist yet, will be created by goals.ts
+    console.log('[Profiles] Goal migration skipped (goals table may not exist yet):', err);
+    goalsMigrationDone = true;
+  }
+}
 
 // Initialize profiles schema if needed
 async function ensureProfilesSchema(): Promise<void> {
@@ -59,6 +136,14 @@ async function ensureProfilesSchema(): Promise<void> {
 
     schemaInitialized = true;
     console.log('[Profiles] Schema initialized');
+
+    // Run goal migration after schema is ready
+    // Delay slightly to ensure goals table schema is also initialized
+    setTimeout(() => {
+      migrateEmbeddedGoals().catch((err) => {
+        console.warn('[Profiles] Goal migration error:', err);
+      });
+    }, 100);
   } catch {
     // Table might already exist, mark as initialized anyway
     schemaInitialized = true;
@@ -78,6 +163,13 @@ interface ProfileRow {
   city_size: string | null;
   income_sources: string | null;
   expenses: string | null;
+  max_work_hours_weekly: number | null;
+  min_hourly_rate: number | null;
+  has_loan: boolean;
+  loan_amount: number | null;
+  monthly_income: number | null;
+  monthly_expenses: number | null;
+  monthly_margin: number | null;
   profile_type: string;
   parent_profile_id: string | null;
   goal_name: string | null;
@@ -102,6 +194,13 @@ function rowToProfile(row: ProfileRow) {
     citySize: row.city_size || undefined,
     incomeSources: row.income_sources ? JSON.parse(row.income_sources) : undefined,
     expenses: row.expenses ? JSON.parse(row.expenses) : undefined,
+    maxWorkHoursWeekly: row.max_work_hours_weekly || undefined,
+    minHourlyRate: row.min_hourly_rate || undefined,
+    hasLoan: row.has_loan || false,
+    loanAmount: row.loan_amount || undefined,
+    monthlyIncome: row.monthly_income || undefined,
+    monthlyExpenses: row.monthly_expenses || undefined,
+    monthlyMargin: row.monthly_margin || undefined,
     profileType: row.profile_type || 'main',
     parentProfileId: row.parent_profile_id || undefined,
     goalName: row.goal_name || undefined,
@@ -224,6 +323,12 @@ export async function POST(event: APIEvent) {
       ? body.expenses.reduce((sum: number, e: { amount: number }) => sum + (e.amount || 0), 0)
       : 0;
 
+    // Format skills array for DuckDB
+    const skillsSQL =
+      body.skills && Array.isArray(body.skills) && body.skills.length > 0
+        ? `ARRAY[${body.skills.map((s: string) => escapeSQL(s)).join(', ')}]`
+        : 'NULL';
+
     if (existing.length > 0) {
       // Update existing
       await execute(`
@@ -232,10 +337,15 @@ export async function POST(event: APIEvent) {
           updated_at = CURRENT_TIMESTAMP,
           diploma = ${escapeSQL(body.diploma)},
           field = ${escapeSQL(body.field)},
+          skills = ${skillsSQL},
           city = ${escapeSQL(body.city)},
           city_size = ${escapeSQL(body.citySize)},
           income_sources = ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
           expenses = ${body.expenses ? escapeSQL(JSON.stringify(body.expenses)) : 'NULL'},
+          max_work_hours_weekly = ${body.maxWorkHoursWeekly || 'NULL'},
+          min_hourly_rate = ${body.minHourlyRate || 'NULL'},
+          has_loan = ${body.hasLoan ? 'TRUE' : 'FALSE'},
+          loan_amount = ${body.loanAmount || 'NULL'},
           monthly_income = ${monthlyIncome},
           monthly_expenses = ${monthlyExpenses},
           monthly_margin = ${monthlyIncome - monthlyExpenses},
@@ -254,7 +364,8 @@ export async function POST(event: APIEvent) {
       // Insert new
       await execute(`
         INSERT INTO profiles (
-          id, name, diploma, field, city, city_size, income_sources, expenses,
+          id, name, diploma, field, skills, city, city_size, income_sources, expenses,
+          max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
           monthly_income, monthly_expenses, monthly_margin,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
           plan_data, followup_data, achievements, is_active
@@ -263,10 +374,15 @@ export async function POST(event: APIEvent) {
           ${escapeSQL(body.name)},
           ${escapeSQL(body.diploma)},
           ${escapeSQL(body.field)},
+          ${skillsSQL},
           ${escapeSQL(body.city)},
           ${escapeSQL(body.citySize)},
           ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
           ${body.expenses ? escapeSQL(JSON.stringify(body.expenses)) : 'NULL'},
+          ${body.maxWorkHoursWeekly || 'NULL'},
+          ${body.minHourlyRate || 'NULL'},
+          ${body.hasLoan ? 'TRUE' : 'FALSE'},
+          ${body.loanAmount || 'NULL'},
           ${monthlyIncome},
           ${monthlyExpenses},
           ${monthlyIncome - monthlyExpenses},
@@ -384,6 +500,35 @@ export async function DELETE(event: APIEvent) {
     }
 
     const wasActive = profile[0].is_active;
+
+    // Cascade delete: remove all related data first
+    // Delete goals for this profile
+    try {
+      await execute(`DELETE FROM goals WHERE profile_id = ${escapedProfileId}`);
+    } catch {
+      // Goals table might not exist yet, ignore
+    }
+
+    // Delete skills for this profile
+    try {
+      await execute(`DELETE FROM skills WHERE profile_id = ${escapedProfileId}`);
+    } catch {
+      // Skills table might not exist yet, ignore
+    }
+
+    // Delete inventory items for this profile
+    try {
+      await execute(`DELETE FROM inventory_items WHERE profile_id = ${escapedProfileId}`);
+    } catch {
+      // Inventory table might not exist yet, ignore
+    }
+
+    // Delete lifestyle items for this profile
+    try {
+      await execute(`DELETE FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`);
+    } catch {
+      // Lifestyle table might not exist yet, ignore
+    }
 
     // Delete the profile
     await execute(`DELETE FROM profiles WHERE id = ${escapedProfileId}`);
