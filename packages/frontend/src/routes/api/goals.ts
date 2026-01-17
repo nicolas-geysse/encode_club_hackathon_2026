@@ -116,7 +116,7 @@ function generateStrategies(profile: { skills?: string[] } | null): Strategy[] {
       name: 'Dev Freelance (Upwork)',
       monthlyImpact: 500,
       effort: 'medium',
-      description: '10h/week of freelance dev at €25/h',
+      description: '10h/week of freelance dev at $25/h',
     });
   }
 
@@ -171,7 +171,7 @@ function generateAchievements(): Achievement[] {
       id: 'first_100',
       name: 'First Blood',
       icon: '💰',
-      description: 'Earn €100',
+      description: 'Earn $100',
       unlocked: false,
     },
     {

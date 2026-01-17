@@ -1,0 +1,54 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs (will be rebuilt in container)
+packages/frontend/.output
+packages/frontend/.vinxi
+packages/mcp-server/dist
+**/dist
+
+# Development files
+.git
+.gitignore
+.husky
+.vscode
+.idea
+
+# Logs and temp files
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+*.swp
+*.swo
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+coverage
+.nyc_output
+
+# Local data (will be created fresh)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Environment files (should be passed at runtime)
+.env
+.env.*
+!.env.example
+
+# Documentation (not needed in production)
+*.md
+!README.md
+docs/
+
+# Scripts not needed in container
+scripts/
+Makefile
+
+# Claude and editor configs
+.claude/
+CLAUDE.md

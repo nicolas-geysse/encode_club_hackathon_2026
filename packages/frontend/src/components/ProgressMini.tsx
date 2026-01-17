@@ -60,9 +60,9 @@ export function ProgressMini(props: ProgressMiniProps) {
           {/* Goal amounts */}
           <Show when={props.goalAmount && props.currentAmount !== undefined}>
             <div class="flex justify-between text-sm mb-2">
-              <span class="text-slate-300">{props.currentAmount}€</span>
+              <span class="text-slate-300">{props.currentAmount}$</span>
               <span class="text-slate-400">/</span>
-              <span class="text-slate-300">{props.goalAmount}€</span>
+              <span class="text-slate-300">{props.goalAmount}$</span>
             </div>
           </Show>
 
@@ -79,7 +79,7 @@ export function ProgressMini(props: ProgressMiniProps) {
                       />
                       <span class="text-slate-300">{item.label}</span>
                     </div>
-                    <span class="font-medium">{item.value}€</span>
+                    <span class="font-medium">{item.value}$</span>
                   </div>
                 )}
               </For>

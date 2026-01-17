@@ -178,7 +178,7 @@ function generateScenarios(
     scenarios.push({
       id: 'lifestyle_opt',
       title: 'Optimize expenses',
-      description: `Apply lifestyle optimizations to save ${totalSavings}€/month`,
+      description: `Apply lifestyle optimizations to save $${totalSavings}/month`,
       category: 'lifestyle',
       weeklyHours: 0,
       weeklyEarnings: Math.round(totalSavings / 4),

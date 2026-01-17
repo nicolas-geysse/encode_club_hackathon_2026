@@ -9,6 +9,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
+import { trace } from '../services/opik.js';
 
 // === Tool Definitions ===
 
@@ -28,81 +29,97 @@ export const predictGraduationBalanceTool = createTool({
     currentSavings: z.number().optional().describe('Current savings'),
   }),
   execute: async ({ context }) => {
-    // Calculate base projections
-    const currentMargin = context.monthlyIncome - context.monthlyExpenses;
+    return trace('tool.predict_graduation_balance', async (span) => {
+      span.setAttributes({
+        'input.monthly_income': context.monthlyIncome,
+        'input.monthly_expenses': context.monthlyExpenses,
+        'input.years_remaining': context.yearsRemaining,
+        'input.current_savings': context.currentSavings ?? 0,
+      });
 
-    // Calculate additional job income
-    const additionalJobIncome =
-      context.jobHoursWeekly && context.jobHourlyRate
-        ? context.jobHoursWeekly * context.jobHourlyRate * 4
-        : 0;
+      // Calculate base projections
+      const currentMargin = context.monthlyIncome - context.monthlyExpenses;
 
-    // Estimate optimization savings
-    const optimizationSavings = (context.optimizationsApplied || []).length * 50; // avg 50€ per optimization
+      // Calculate additional job income
+      const additionalJobIncome =
+        context.jobHoursWeekly && context.jobHourlyRate
+          ? context.jobHoursWeekly * context.jobHourlyRate * 4
+          : 0;
 
-    // Projected monthly margin
-    const projectedMonthlyMargin = currentMargin + additionalJobIncome + optimizationSavings;
+      // Estimate optimization savings
+      const optimizationSavings = (context.optimizationsApplied || []).length * 50; // avg 50€ per optimization
 
-    // Calculate projections
-    const months = context.yearsRemaining * 12;
-    const finalBalance = (context.currentSavings || 0) + projectedMonthlyMargin * months;
+      // Projected monthly margin
+      const projectedMonthlyMargin = currentMargin + additionalJobIncome + optimizationSavings;
 
-    // Calculate probability of being debt-free
-    // Based on margin: negative margin = low probability, high margin = high probability
-    const baseProbability = 0.5;
-    const marginImpact = Math.min(0.4, Math.max(-0.4, (projectedMonthlyMargin / 500) * 0.4));
-    const probabilityDebtFree = Math.min(0.99, Math.max(0.01, baseProbability + marginImpact));
+      // Calculate projections
+      const months = context.yearsRemaining * 12;
+      const finalBalance = (context.currentSavings || 0) + projectedMonthlyMargin * months;
 
-    // Confidence interval (±20% for uncertainty)
-    const uncertaintyFactor = 0.2;
-    const confidenceLow = Math.round(finalBalance * (1 - uncertaintyFactor));
-    const confidenceHigh = Math.round(finalBalance * (1 + uncertaintyFactor));
+      // Calculate probability of being debt-free
+      // Based on margin: negative margin = low probability, high margin = high probability
+      const baseProbability = 0.5;
+      const marginImpact = Math.min(0.4, Math.max(-0.4, (projectedMonthlyMargin / 500) * 0.4));
+      const probabilityDebtFree = Math.min(0.99, Math.max(0.01, baseProbability + marginImpact));
 
-    // Scenario comparison
-    const scenarios = {
-      current: {
-        name: 'Current situation',
-        monthlyMargin: currentMargin,
-        finalBalance: (context.currentSavings || 0) + currentMargin * months,
-      },
-      withJob: {
-        name: 'With additional job',
-        monthlyMargin: currentMargin + additionalJobIncome,
-        finalBalance:
-          (context.currentSavings || 0) + (currentMargin + additionalJobIncome) * months,
-      },
-      optimized: {
-        name: 'With optimizations',
-        monthlyMargin: projectedMonthlyMargin,
-        finalBalance: finalBalance,
-      },
-    };
+      // Confidence interval (±20% for uncertainty)
+      const uncertaintyFactor = 0.2;
+      const confidenceLow = Math.round(finalBalance * (1 - uncertaintyFactor));
+      const confidenceHigh = Math.round(finalBalance * (1 + uncertaintyFactor));
 
-    return {
-      prediction: {
-        finalBalance,
-        probabilityDebtFree: Math.round(probabilityDebtFree * 100),
-        confidenceInterval: {
-          low: confidenceLow,
-          high: confidenceHigh,
+      // Scenario comparison
+      const scenarios = {
+        current: {
+          name: 'Current situation',
+          monthlyMargin: currentMargin,
+          finalBalance: (context.currentSavings || 0) + currentMargin * months,
         },
-      },
-      breakdown: {
-        currentMargin,
-        additionalJobIncome,
-        optimizationSavings,
-        projectedMonthlyMargin,
-        months,
-      },
-      scenarios,
-      recommendation:
-        finalBalance < 0
-          ? 'Increase your income (job) or reduce your expenses to avoid debt.'
-          : finalBalance < 1000
-            ? 'Balanced but fragile situation. A small job or optimizations would secure your graduation.'
-            : 'Good trajectory! You should finish your studies with comfortable savings.',
-      modelVersion: '1.0.0-formula',
-    };
+        withJob: {
+          name: 'With additional job',
+          monthlyMargin: currentMargin + additionalJobIncome,
+          finalBalance:
+            (context.currentSavings || 0) + (currentMargin + additionalJobIncome) * months,
+        },
+        optimized: {
+          name: 'With optimizations',
+          monthlyMargin: projectedMonthlyMargin,
+          finalBalance: finalBalance,
+        },
+      };
+
+      span.setAttributes({
+        'output.final_balance': finalBalance,
+        'output.probability_debt_free': Math.round(probabilityDebtFree * 100),
+        'output.projected_monthly_margin': projectedMonthlyMargin,
+        'output.months_remaining': months,
+      });
+
+      return {
+        prediction: {
+          finalBalance,
+          probabilityDebtFree: Math.round(probabilityDebtFree * 100),
+          confidenceInterval: {
+            low: confidenceLow,
+            high: confidenceHigh,
+          },
+        },
+        breakdown: {
+          currentMargin,
+          additionalJobIncome,
+          optimizationSavings,
+          projectedMonthlyMargin,
+          months,
+        },
+        scenarios,
+        recommendation:
+          finalBalance < 0
+            ? 'Increase your income (job) or reduce your expenses to avoid debt.'
+            : finalBalance < 1000
+              ? 'Balanced but fragile situation. A small job or optimizations would secure your graduation.'
+              : 'Good trajectory! You should finish your studies with comfortable savings.',
+        modelVersion: '1.0.0-formula',
+      };
+    });
   },
 });
 
@@ -130,68 +147,85 @@ export const simulateScenariosTool = createTool({
     ),
   }),
   execute: async ({ context }) => {
-    const { baseScenario, variations } = context;
-    const months = baseScenario.yearsRemaining * 12;
-    const currentSavings = baseScenario.currentSavings || 0;
+    return trace('tool.simulate_scenarios', async (span) => {
+      const { baseScenario, variations } = context;
 
-    // Calculate base scenario
-    const baseMargin = baseScenario.monthlyIncome - baseScenario.monthlyExpenses;
-    const baseFinalBalance = currentSavings + baseMargin * months;
-
-    const results = [
-      {
-        name: 'Current situation',
-        monthlyMargin: baseMargin,
-        finalBalance: baseFinalBalance,
-        differenceFromBase: 0,
-        probabilityDebtFree: Math.round(
-          Math.min(0.99, Math.max(0.01, 0.5 + (baseMargin / 500) * 0.4)) * 100
-        ),
-      },
-    ];
-
-    // Calculate each variation
-    for (const variation of variations) {
-      const incomeChange = variation.incomeChange || 0;
-      const expenseChange = variation.expenseChange || 0;
-      const jobIncome =
-        variation.jobHoursWeekly && variation.jobHourlyRate
-          ? variation.jobHoursWeekly * variation.jobHourlyRate * 4
-          : 0;
-
-      const newMargin = baseMargin + incomeChange - expenseChange + jobIncome;
-      const newFinalBalance = currentSavings + newMargin * months;
-
-      results.push({
-        name: variation.name,
-        monthlyMargin: newMargin,
-        finalBalance: newFinalBalance,
-        differenceFromBase: newFinalBalance - baseFinalBalance,
-        probabilityDebtFree: Math.round(
-          Math.min(0.99, Math.max(0.01, 0.5 + (newMargin / 500) * 0.4)) * 100
-        ),
+      span.setAttributes({
+        'input.base_monthly_income': baseScenario.monthlyIncome,
+        'input.base_monthly_expenses': baseScenario.monthlyExpenses,
+        'input.years_remaining': baseScenario.yearsRemaining,
+        'input.variations_count': variations.length,
       });
-    }
 
-    // Sort by final balance
-    const sortedByBalance = [...results].sort((a, b) => b.finalBalance - a.finalBalance);
+      const months = baseScenario.yearsRemaining * 12;
+      const currentSavings = baseScenario.currentSavings || 0;
 
-    return {
-      scenarios: results,
-      bestScenario: sortedByBalance[0],
-      worstScenario: sortedByBalance[sortedByBalance.length - 1],
-      summary: {
-        totalScenariosSimulated: results.length,
-        rangeOfOutcomes: {
-          min: sortedByBalance[sortedByBalance.length - 1].finalBalance,
-          max: sortedByBalance[0].finalBalance,
+      // Calculate base scenario
+      const baseMargin = baseScenario.monthlyIncome - baseScenario.monthlyExpenses;
+      const baseFinalBalance = currentSavings + baseMargin * months;
+
+      const results = [
+        {
+          name: 'Current situation',
+          monthlyMargin: baseMargin,
+          finalBalance: baseFinalBalance,
+          differenceFromBase: 0,
+          probabilityDebtFree: Math.round(
+            Math.min(0.99, Math.max(0.01, 0.5 + (baseMargin / 500) * 0.4)) * 100
+          ),
         },
-      },
-      recommendation:
-        sortedByBalance[0].name !== 'Current situation'
-          ? `The "${sortedByBalance[0].name}" scenario offers the best result (+$${sortedByBalance[0].differenceFromBase}).`
-          : 'Your current situation is already optimal among the tested scenarios.',
-    };
+      ];
+
+      // Calculate each variation
+      for (const variation of variations) {
+        const incomeChange = variation.incomeChange || 0;
+        const expenseChange = variation.expenseChange || 0;
+        const jobIncome =
+          variation.jobHoursWeekly && variation.jobHourlyRate
+            ? variation.jobHoursWeekly * variation.jobHourlyRate * 4
+            : 0;
+
+        const newMargin = baseMargin + incomeChange - expenseChange + jobIncome;
+        const newFinalBalance = currentSavings + newMargin * months;
+
+        results.push({
+          name: variation.name,
+          monthlyMargin: newMargin,
+          finalBalance: newFinalBalance,
+          differenceFromBase: newFinalBalance - baseFinalBalance,
+          probabilityDebtFree: Math.round(
+            Math.min(0.99, Math.max(0.01, 0.5 + (newMargin / 500) * 0.4)) * 100
+          ),
+        });
+      }
+
+      // Sort by final balance
+      const sortedByBalance = [...results].sort((a, b) => b.finalBalance - a.finalBalance);
+
+      span.setAttributes({
+        'output.scenarios_count': results.length,
+        'output.best_scenario': sortedByBalance[0].name,
+        'output.best_final_balance': sortedByBalance[0].finalBalance,
+        'output.worst_final_balance': sortedByBalance[sortedByBalance.length - 1].finalBalance,
+      });
+
+      return {
+        scenarios: results,
+        bestScenario: sortedByBalance[0],
+        worstScenario: sortedByBalance[sortedByBalance.length - 1],
+        summary: {
+          totalScenariosSimulated: results.length,
+          rangeOfOutcomes: {
+            min: sortedByBalance[sortedByBalance.length - 1].finalBalance,
+            max: sortedByBalance[0].finalBalance,
+          },
+        },
+        recommendation:
+          sortedByBalance[0].name !== 'Current situation'
+            ? `The "${sortedByBalance[0].name}" scenario offers the best result (+$${sortedByBalance[0].differenceFromBase}).`
+            : 'Your current situation is already optimal among the tested scenarios.',
+      };
+    });
   },
 });
 

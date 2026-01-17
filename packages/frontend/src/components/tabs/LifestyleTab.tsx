@@ -133,14 +133,14 @@ export function LifestyleTab(props: LifestyleTabProps) {
         <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
           <div class="text-sm text-green-600 dark:text-green-400">Optimized</div>
           <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
-            {totalOptimized()}€
+            ${totalOptimized()}
           </div>
           <div class="text-xs text-green-500 dark:text-green-400">/month</div>
         </div>
         <div class="card bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30">
           <div class="text-sm text-amber-600 dark:text-amber-400">Potential savings</div>
           <div class="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">
-            +{potentialSavings()}€
+            +${potentialSavings()}
           </div>
           <div class="text-xs text-amber-500 dark:text-amber-400">/month</div>
         </div>
@@ -232,14 +232,14 @@ export function LifestyleTab(props: LifestyleTabProps) {
               <div class="flex items-center gap-4">
                 <div class="text-right">
                   <Show when={item.optimizedCost !== undefined && !item.applied}>
-                    <div class="text-sm text-slate-400 line-through">{item.currentCost}€</div>
+                    <div class="text-sm text-slate-400 line-through">${item.currentCost}</div>
                     <div class="font-bold text-green-600 dark:text-green-400">
-                      {item.optimizedCost}€
+                      ${item.optimizedCost}
                     </div>
                   </Show>
                   <Show when={item.applied}>
                     <div class="font-bold text-green-600 dark:text-green-400">
-                      {item.optimizedCost}€
+                      ${item.optimizedCost}
                     </div>
                   </Show>
                   <Show
@@ -251,7 +251,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
                     }
                   >
                     <div class="font-bold text-slate-900 dark:text-slate-100">
-                      {item.currentCost}€
+                      ${item.currentCost}
                     </div>
                   </Show>
                 </div>
@@ -316,7 +316,7 @@ export function LifestyleTab(props: LifestyleTabProps) {
 
               <div>
                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Monthly cost (€)
+                  Monthly cost ($)
                 </label>
                 <input
                   type="number"

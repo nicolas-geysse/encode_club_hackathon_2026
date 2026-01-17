@@ -21,6 +21,7 @@ import {
   type ArbitrageWeights,
   DEFAULT_WEIGHTS,
 } from '../algorithms/skill-arbitrage.js';
+import { trace } from '../services/opik.js';
 
 // Extended Job database with effort/rest metrics for arbitrage scoring
 const JOB_DATABASE = [
@@ -140,48 +141,62 @@ export const matchJobsTool = createTool({
     prioritizeNetworking: z.boolean().optional().describe('Prioritize networking'),
   }),
   execute: async ({ context }) => {
-    const skillsLower = context.skills.map((s) => s.toLowerCase());
-    const minRate = context.minHourlyRate || 0;
+    return trace('tool.match_jobs', async (span) => {
+      span.setAttributes({
+        'input.skills_count': context.skills.length,
+        'input.min_hourly_rate': context.minHourlyRate ?? 0,
+        'input.prioritize_networking': context.prioritizeNetworking ?? false,
+      });
 
-    // Score and filter jobs
-    const matches = JOB_DATABASE.filter((job) => job.hourlyRate >= minRate)
-      .map((job) => {
-        // Calculate skill match score
-        const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
-        const skillScore = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
+      const skillsLower = context.skills.map((s) => s.toLowerCase());
+      const minRate = context.minHourlyRate || 0;
 
-        // Calculate composite score
-        let score = skillScore * 0.4 + (job.hourlyRate / 30) * 0.3 + job.flexibility * 0.2;
+      // Score and filter jobs
+      const matches = JOB_DATABASE.filter((job) => job.hourlyRate >= minRate)
+        .map((job) => {
+          // Calculate skill match score
+          const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
+          const skillScore = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
 
-        // Boost networking jobs if prioritized
-        if (context.prioritizeNetworking && job.networking === 'fort') {
-          score += 0.15;
-        }
+          // Calculate composite score
+          let score = skillScore * 0.4 + (job.hourlyRate / 30) * 0.3 + job.flexibility * 0.2;
 
-        // Boost CV impact
-        if (job.cvImpact === 'fort') {
-          score += 0.1;
-        }
+          // Boost networking jobs if prioritized
+          if (context.prioritizeNetworking && job.networking === 'fort') {
+            score += 0.15;
+          }
 
-        return {
-          ...job,
-          matchScore: Math.min(1, score),
-          matchingSkills,
-        };
-      })
-      .filter((job) => job.matchScore > 0.1)
-      .sort((a, b) => b.matchScore - a.matchScore)
-      .slice(0, 5);
+          // Boost CV impact
+          if (job.cvImpact === 'fort') {
+            score += 0.1;
+          }
 
-    // Always include McDo as reference
-    const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
+          return {
+            ...job,
+            matchScore: Math.min(1, score),
+            matchingSkills,
+          };
+        })
+        .filter((job) => job.matchScore > 0.1)
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .slice(0, 5);
 
-    return {
-      matches,
-      reference: mcdo,
-      skillsUsed: context.skills,
-      totalJobsConsidered: JOB_DATABASE.length,
-    };
+      // Always include McDo as reference
+      const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
+
+      span.setAttributes({
+        'output.matches_count': matches.length,
+        'output.top_match': matches[0]?.name ?? null,
+        'output.top_match_score': matches[0]?.matchScore ?? 0,
+      });
+
+      return {
+        matches,
+        reference: mcdo,
+        skillsUsed: context.skills,
+        totalJobsConsidered: JOB_DATABASE.length,
+      };
+    });
   },
 });
 
@@ -196,43 +211,57 @@ export const explainJobMatchTool = createTool({
     jobId: z.string().describe('Target job ID'),
   }),
   execute: async ({ context }) => {
-    const job = JOB_DATABASE.find((j) => j.id === context.jobId);
+    return trace('tool.explain_job_match', async (span) => {
+      span.setAttributes({
+        'input.skill': context.skill,
+        'input.job_id': context.jobId,
+      });
 
-    if (!job) {
+      const job = JOB_DATABASE.find((j) => j.id === context.jobId);
+
+      if (!job) {
+        span.setAttributes({ 'output.found': false });
+        return {
+          found: false,
+          explanation: `Job "${context.jobId}" not found`,
+        };
+      }
+
+      const skillLower = context.skill.toLowerCase();
+      const hasSkill = job.skills.some((s) => s.toLowerCase() === skillLower);
+
+      // Build explanation path
+      const path = [
+        { node: context.skill, type: 'skill' },
+        { relation: hasSkill ? 'enables' : 'partially_enables', weight: hasSkill ? 0.9 : 0.5 },
+        { node: job.name, type: 'job' },
+        { relation: 'pays', weight: job.hourlyRate },
+        { node: 'Income', type: 'outcome' },
+      ];
+
+      const explanation = `${context.skill} → ${hasSkill ? 'directly enables' : 'contributes to'} → ${job.name} ($${job.hourlyRate}/h)`;
+      const coBenefitExplanation = job.coBenefit
+        ? `Bonus: ${job.coBenefit}`
+        : 'No particular co-benefit';
+
+      span.setAttributes({
+        'output.found': true,
+        'output.has_direct_skill_match': hasSkill,
+        'output.job_name': job.name,
+      });
+
       return {
-        found: false,
-        explanation: `Job "${context.jobId}" not found`,
+        found: true,
+        job: job.name,
+        skill: context.skill,
+        explanation,
+        coBenefit: coBenefitExplanation,
+        path,
+        recommendation: hasSkill
+          ? `Excellent match! Your skill ${context.skill} is directly used.`
+          : `Partial match. You may need to complement your skills.`,
       };
-    }
-
-    const skillLower = context.skill.toLowerCase();
-    const hasSkill = job.skills.some((s) => s.toLowerCase() === skillLower);
-
-    // Build explanation path
-    const path = [
-      { node: context.skill, type: 'skill' },
-      { relation: hasSkill ? 'enables' : 'partially_enables', weight: hasSkill ? 0.9 : 0.5 },
-      { node: job.name, type: 'job' },
-      { relation: 'pays', weight: job.hourlyRate },
-      { node: 'Income', type: 'outcome' },
-    ];
-
-    const explanation = `${context.skill} → ${hasSkill ? 'directly enables' : 'contributes to'} → ${job.name} ($${job.hourlyRate}/h)`;
-    const coBenefitExplanation = job.coBenefit
-      ? `Bonus: ${job.coBenefit}`
-      : 'No particular co-benefit';
-
-    return {
-      found: true,
-      job: job.name,
-      skill: context.skill,
-      explanation,
-      coBenefit: coBenefitExplanation,
-      path,
-      recommendation: hasSkill
-        ? `Excellent match! Your skill ${context.skill} is directly used.`
-        : `Partial match. You may need to complement your skills.`,
-    };
+    });
   },
 });
 
@@ -247,35 +276,38 @@ export const compareJobsTool = createTool({
     hoursPerWeek: z.number().optional().describe('Work hours per week'),
   }),
   execute: async ({ context }) => {
-    const hoursPerWeek = context.hoursPerWeek || 10;
-    const hoursPerMonth = hoursPerWeek * 4;
+    return trace('tool.compare_jobs', async (span) => {
+      span.setAttributes({
+        'input.job_ids_count': context.jobIds.length,
+        'input.hours_per_week': context.hoursPerWeek ?? 10,
+      });
 
-    const jobs = context.jobIds
-      .map((id) => JOB_DATABASE.find((j) => j.id === id))
-      .filter((j): j is (typeof JOB_DATABASE)[number] => j !== undefined);
+      const hoursPerWeek = context.hoursPerWeek || 10;
+      const hoursPerMonth = hoursPerWeek * 4;
 
-    const comparison = jobs.map((job) => ({
-      name: job.name,
-      hourlyRate: job.hourlyRate,
-      monthlyIncome: Math.round(job.hourlyRate * hoursPerMonth),
-      flexibility: job.flexibility,
-      coBenefit: job.coBenefit,
-      networking: job.networking,
-      cvImpact: job.cvImpact,
-      platform: job.platform,
-    }));
+      const jobs = context.jobIds
+        .map((id) => JOB_DATABASE.find((j) => j.id === id))
+        .filter((j): j is (typeof JOB_DATABASE)[number] => j !== undefined);
 
-    // Calculate differences from best job
-    const bestIncome = Math.max(...comparison.map((j) => j.monthlyIncome));
-    const withDiff = comparison.map((j) => ({
-      ...j,
-      incomeDiffFromBest: j.monthlyIncome - bestIncome,
-    }));
+      const comparison = jobs.map((job) => ({
+        name: job.name,
+        hourlyRate: job.hourlyRate,
+        monthlyIncome: Math.round(job.hourlyRate * hoursPerMonth),
+        flexibility: job.flexibility,
+        coBenefit: job.coBenefit,
+        networking: job.networking,
+        cvImpact: job.cvImpact,
+        platform: job.platform,
+      }));
 
-    return {
-      comparison: withDiff,
-      hoursPerWeek,
-      recommendation:
+      // Calculate differences from best job
+      const bestIncome = Math.max(...comparison.map((j) => j.monthlyIncome));
+      const withDiff = comparison.map((j) => ({
+        ...j,
+        incomeDiffFromBest: j.monthlyIncome - bestIncome,
+      }));
+
+      const recommendation =
         withDiff.sort((a, b) => {
           // Score: income (40%) + flexibility (30%) + CV impact (30%)
           const scoreA =
@@ -287,8 +319,20 @@ export const compareJobsTool = createTool({
             b.flexibility * 0.3 +
             (b.cvImpact === 'fort' ? 1 : b.cvImpact === 'moyen' ? 0.5 : 0) * 0.3;
           return scoreB - scoreA;
-        })[0]?.name || 'Aucune recommandation',
-    };
+        })[0]?.name || 'No recommendation';
+
+      span.setAttributes({
+        'output.jobs_compared': jobs.length,
+        'output.recommendation': recommendation,
+        'output.best_income': bestIncome,
+      });
+
+      return {
+        comparison: withDiff,
+        hoursPerWeek,
+        recommendation,
+      };
+    });
   },
 });
 
@@ -324,56 +368,69 @@ export const scoreSkillArbitrageTool = createTool({
       .describe('Custom weights (optional)'),
   }),
   execute: async ({ context }) => {
-    const weights: ArbitrageWeights = context.customWeights
-      ? { ...DEFAULT_WEIGHTS, ...context.customWeights }
-      : DEFAULT_WEIGHTS;
+    return trace('tool.score_skill_arbitrage', async (span) => {
+      span.setAttributes({
+        'input.skills_count': context.skills.length,
+        'input.has_custom_weights': !!context.customWeights,
+      });
 
-    // Calculate scores for each skill
-    const results = context.skills.map((skillInput) => {
-      const skill: Skill = {
-        id: `skill_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-        name: skillInput.name,
-        level: 'intermediate',
-        hourlyRate: skillInput.hourlyRate,
-        marketDemand: skillInput.marketDemand,
-        cognitiveEffort: skillInput.cognitiveEffort,
-        restNeeded: skillInput.restNeeded,
-      };
+      const weights: ArbitrageWeights = context.customWeights
+        ? { ...DEFAULT_WEIGHTS, ...context.customWeights }
+        : DEFAULT_WEIGHTS;
 
-      return calculateArbitrageScore(skill, weights);
-    });
+      // Calculate scores for each skill
+      const results = context.skills.map((skillInput) => {
+        const skill: Skill = {
+          id: `skill_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          name: skillInput.name,
+          level: 'intermediate',
+          hourlyRate: skillInput.hourlyRate,
+          marketDemand: skillInput.marketDemand,
+          cognitiveEffort: skillInput.cognitiveEffort,
+          restNeeded: skillInput.restNeeded,
+        };
 
-    // Sort by score descending
-    const sortedResults = results.sort((a, b) => b.score - a.score);
+        return calculateArbitrageScore(skill, weights);
+      });
 
-    // Generate insights
-    const insights: string[] = [];
-    if (sortedResults.length > 0) {
-      const top = sortedResults[0];
-      insights.push(`🏆 "${top.skill.name}" is your best arbitrage (${top.score.toFixed(1)}/10)`);
+      // Sort by score descending
+      const sortedResults = results.sort((a, b) => b.score - a.score);
 
-      // Find high-rate but lower-score skill
-      const highRateLowScore = sortedResults.find(
-        (r) => r.skill.hourlyRate >= 20 && r.score < top.score - 1
-      );
-      if (highRateLowScore) {
-        insights.push(
-          `💡 "${highRateLowScore.skill.name}" pays well but the effort lowers its score`
+      // Generate insights
+      const insights: string[] = [];
+      if (sortedResults.length > 0) {
+        const top = sortedResults[0];
+        insights.push(`Best arbitrage: "${top.skill.name}" (${top.score.toFixed(1)}/10)`);
+
+        // Find high-rate but lower-score skill
+        const highRateLowScore = sortedResults.find(
+          (r) => r.skill.hourlyRate >= 20 && r.score < top.score - 1
         );
+        if (highRateLowScore) {
+          insights.push(
+            `"${highRateLowScore.skill.name}" pays well but the effort lowers its score`
+          );
+        }
       }
-    }
 
-    return {
-      rankings: sortedResults.map((r) => ({
-        name: r.skill.name,
-        score: r.score,
-        breakdown: r.breakdown,
-        recommendation: r.recommendation,
-      })),
-      topPick: sortedResults[0]?.skill.name || null,
-      insights,
-      weightsUsed: weights,
-    };
+      span.setAttributes({
+        'output.top_pick': sortedResults[0]?.skill.name ?? null,
+        'output.top_score': sortedResults[0]?.score ?? 0,
+        'output.insights_count': insights.length,
+      });
+
+      return {
+        rankings: sortedResults.map((r) => ({
+          name: r.skill.name,
+          score: r.score,
+          breakdown: r.breakdown,
+          recommendation: r.recommendation,
+        })),
+        topPick: sortedResults[0]?.skill.name || null,
+        insights,
+        weightsUsed: weights,
+      };
+    });
   },
 });
 
@@ -391,77 +448,93 @@ export const matchJobsWithArbitrageTool = createTool({
     prioritizeLowEffort: z.boolean().optional().describe('Prioritize low-effort jobs'),
   }),
   execute: async ({ context }) => {
-    const skillsLower = context.skills.map((s) => s.toLowerCase());
-    const prioritizeLowEffort = context.prioritizeLowEffort || (context.energyLevel || 100) < 50;
+    return trace('tool.match_jobs_arbitrage', async (span) => {
+      span.setAttributes({
+        'input.skills_count': context.skills.length,
+        'input.energy_level': context.energyLevel ?? 100,
+        'input.prioritize_low_effort': context.prioritizeLowEffort ?? false,
+      });
 
-    // Adjust weights if low energy
-    const weights: ArbitrageWeights = prioritizeLowEffort
-      ? { rate: 0.2, demand: 0.2, effort: 0.35, rest: 0.25 } // Effort-focused
-      : DEFAULT_WEIGHTS;
+      const skillsLower = context.skills.map((s) => s.toLowerCase());
+      const prioritizeLowEffort = context.prioritizeLowEffort || (context.energyLevel || 100) < 50;
 
-    // Score each job using arbitrage algorithm
-    const scoredJobs = JOB_DATABASE.map((job) => {
-      // Calculate skill match
-      const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
-      const skillMatchRatio = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
+      // Adjust weights if low energy
+      const weights: ArbitrageWeights = prioritizeLowEffort
+        ? { rate: 0.2, demand: 0.2, effort: 0.35, rest: 0.25 } // Effort-focused
+        : DEFAULT_WEIGHTS;
 
-      // Create pseudo-skill for arbitrage scoring
-      const jobAsSkill: Skill = {
-        id: job.id,
-        name: job.name,
-        level: 'intermediate',
-        hourlyRate: job.hourlyRate,
-        marketDemand: job.marketDemand,
-        cognitiveEffort: job.cognitiveEffort,
-        restNeeded: job.restNeeded,
-      };
+      // Score each job using arbitrage algorithm
+      const scoredJobs = JOB_DATABASE.map((job) => {
+        // Calculate skill match
+        const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
+        const skillMatchRatio =
+          job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
 
-      const arbitrageResult = calculateArbitrageScore(jobAsSkill, weights);
+        // Create pseudo-skill for arbitrage scoring
+        const jobAsSkill: Skill = {
+          id: job.id,
+          name: job.name,
+          level: 'intermediate',
+          hourlyRate: job.hourlyRate,
+          marketDemand: job.marketDemand,
+          cognitiveEffort: job.cognitiveEffort,
+          restNeeded: job.restNeeded,
+        };
 
-      // Combine arbitrage score with skill match
-      const combinedScore = arbitrageResult.score * 0.7 + skillMatchRatio * 3; // Max 10
+        const arbitrageResult = calculateArbitrageScore(jobAsSkill, weights);
+
+        // Combine arbitrage score with skill match
+        const combinedScore = arbitrageResult.score * 0.7 + skillMatchRatio * 3; // Max 10
+
+        return {
+          ...job,
+          matchingSkills,
+          skillMatchRatio,
+          arbitrageScore: arbitrageResult.score,
+          combinedScore,
+          breakdown: arbitrageResult.breakdown,
+          recommendation: arbitrageResult.recommendation,
+        };
+      })
+        .filter((job) => job.combinedScore > 2) // Filter out very poor matches
+        .sort((a, b) => b.combinedScore - a.combinedScore)
+        .slice(0, 5);
+
+      // Reference job (McDo)
+      const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
+
+      span.setAttributes({
+        'output.matches_count': scoredJobs.length,
+        'output.top_match': scoredJobs[0]?.name ?? null,
+        'output.top_combined_score': scoredJobs[0]?.combinedScore ?? 0,
+        'output.energy_adjusted': prioritizeLowEffort,
+      });
 
       return {
-        ...job,
-        matchingSkills,
-        skillMatchRatio,
-        arbitrageScore: arbitrageResult.score,
-        combinedScore,
-        breakdown: arbitrageResult.breakdown,
-        recommendation: arbitrageResult.recommendation,
+        matches: scoredJobs.map((job) => ({
+          id: job.id,
+          name: job.name,
+          hourlyRate: job.hourlyRate,
+          combinedScore: Math.round(job.combinedScore * 10) / 10,
+          arbitrageScore: Math.round(job.arbitrageScore * 10) / 10,
+          matchingSkills: job.matchingSkills,
+          coBenefit: job.coBenefit,
+          platform: job.platform,
+          effortLevel:
+            job.cognitiveEffort <= 2 ? 'Easy' : job.cognitiveEffort <= 3 ? 'Moderate' : 'Intense',
+          recommendation: job.recommendation,
+        })),
+        reference: mcdo
+          ? {
+              name: mcdo.name,
+              hourlyRate: mcdo.hourlyRate,
+            }
+          : null,
+        weightsUsed: weights,
+        energyAdjusted: prioritizeLowEffort,
+        skillsUsed: context.skills,
       };
-    })
-      .filter((job) => job.combinedScore > 2) // Filter out very poor matches
-      .sort((a, b) => b.combinedScore - a.combinedScore)
-      .slice(0, 5);
-
-    // Reference job (McDo)
-    const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
-
-    return {
-      matches: scoredJobs.map((job) => ({
-        id: job.id,
-        name: job.name,
-        hourlyRate: job.hourlyRate,
-        combinedScore: Math.round(job.combinedScore * 10) / 10,
-        arbitrageScore: Math.round(job.arbitrageScore * 10) / 10,
-        matchingSkills: job.matchingSkills,
-        coBenefit: job.coBenefit,
-        platform: job.platform,
-        effortLevel:
-          job.cognitiveEffort <= 2 ? 'Easy' : job.cognitiveEffort <= 3 ? 'Moderate' : 'Intense',
-        recommendation: job.recommendation,
-      })),
-      reference: mcdo
-        ? {
-            name: mcdo.name,
-            hourlyRate: mcdo.hourlyRate,
-          }
-        : null,
-      weightsUsed: weights,
-      energyAdjusted: prioritizeLowEffort,
-      skillsUsed: context.skills,
-    };
+    });
   },
 });
 

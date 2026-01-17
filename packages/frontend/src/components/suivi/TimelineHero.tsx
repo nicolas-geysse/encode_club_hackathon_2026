@@ -115,10 +115,10 @@ export function TimelineHero(props: TimelineHeroProps) {
               goalAchieved() ? 'text-yellow-100' : 'text-primary-600 dark:text-white'
             }`}
           >
-            {animatedAmount()}€
+            ${animatedAmount()}
           </span>
           <span class="text-slate-500 dark:text-slate-300 mx-1">/</span>
-          <span class="text-slate-600 dark:text-slate-300">{props.goalAmount}€</span>
+          <span class="text-slate-600 dark:text-slate-300">${props.goalAmount}</span>
         </div>
       </div>
 
@@ -163,7 +163,7 @@ export function TimelineHero(props: TimelineHeroProps) {
         </div>
         <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-2 text-center">
           <div class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            {props.weeklyTarget}€
+            ${props.weeklyTarget}
           </div>
           <div class="text-xs text-slate-500 dark:text-slate-400">/week</div>
         </div>
@@ -191,8 +191,7 @@ export function TimelineHero(props: TimelineHeroProps) {
                   : 'text-red-700 dark:text-red-400'
             }`}
           >
-            {goalAchieved() ? '+' : ''}
-            {props.currentAmount}€
+            {goalAchieved() ? '+' : ''}${props.currentAmount}
           </div>
           <div class="text-xs text-slate-500 dark:text-slate-400">earned</div>
         </div>

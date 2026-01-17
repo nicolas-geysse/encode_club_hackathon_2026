@@ -15,6 +15,7 @@ import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
 import { runQuickEvaluation, type EvaluationInput } from '../evaluation/index.js';
+import { trace } from '../services/opik.js';
 
 /**
  * Risk keywords that should trigger warnings
@@ -272,8 +273,26 @@ export const validateCalculationTool = createTool({
     tolerance: z.number().optional().describe("Tolerance d'erreur (%)"),
   }),
   execute: async ({ context }) => {
-    const { calculationType, inputs, expectedOutput, tolerance = 0.01 } = context;
-    return validateCalculation(calculationType, inputs, expectedOutput, tolerance);
+    return trace('tool.validate_calculation', async (span) => {
+      const { calculationType, inputs, expectedOutput, tolerance = 0.01 } = context;
+
+      span.setAttributes({
+        'input.calculation_type': calculationType,
+        'input.expected_output': expectedOutput,
+        'input.tolerance': tolerance,
+      });
+
+      const result = validateCalculation(calculationType, inputs, expectedOutput, tolerance);
+
+      span.setAttributes({
+        'output.valid': result.valid,
+        'output.computed_output': result.computedOutput,
+        'output.difference': result.difference,
+        'output.percent_difference': result.percentDifference,
+      });
+
+      return result;
+    });
   },
 });
 
@@ -294,8 +313,27 @@ export const checkRiskLevelTool = createTool({
       .optional(),
   }),
   execute: async ({ context }) => {
-    const { recommendation, context: userContext } = context;
-    return checkRiskLevel(recommendation, userContext);
+    return trace('tool.check_risk_level', async (span) => {
+      const { recommendation, context: userContext } = context;
+
+      span.setAttributes({
+        'input.recommendation_length': recommendation.length,
+        'input.financial_situation': userContext?.financialSituation ?? 'unknown',
+        'input.has_loan': userContext?.hasLoan ?? false,
+      });
+
+      const result = checkRiskLevel(recommendation, userContext);
+
+      span.setAttributes({
+        'output.passed': result.passed,
+        'output.risk_level': result.riskLevel,
+        'output.risk_score': result.riskScore,
+        'output.high_risk_keywords_count': result.highRiskKeywordsFound.length,
+        'output.safe_keywords_count': result.safeKeywordsFound.length,
+      });
+
+      return result;
+    });
   },
 });
 

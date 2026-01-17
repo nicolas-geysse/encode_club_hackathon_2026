@@ -138,7 +138,7 @@ export function SetupTab(props: SetupTabProps) {
               >
                 <span>{preset.icon}</span>
                 <span>{preset.name}</span>
-                <span class="text-sm text-slate-500 dark:text-slate-400">({preset.amount}€)</span>
+                <span class="text-sm text-slate-500 dark:text-slate-400">(${preset.amount})</span>
               </button>
             )}
           </For>
@@ -179,7 +179,7 @@ export function SetupTab(props: SetupTabProps) {
                   onInput={(e) => setGoalAmount(parseInt(e.currentTarget.value) || 0)}
                 />
                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
-                  €
+                  $
                 </span>
               </div>
             </div>

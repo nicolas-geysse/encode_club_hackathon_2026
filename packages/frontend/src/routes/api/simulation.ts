@@ -9,6 +9,12 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { query, execute } from './_db';
 
+// Helper to get base URL from request
+function getBaseUrl(event: APIEvent): string {
+  const url = new URL(event.request.url);
+  return `${url.protocol}//${url.host}`;
+}
+
 interface SimulationState {
   simulatedDate: string;
   realDate: string;
@@ -128,13 +134,43 @@ export async function POST(event: APIEvent) {
         WHERE id = 'global'
       `);
 
+      // Trigger insights processing if profile info is provided
+      const { profileId, energyHistory, currentAmount, goalAmount } = body;
+      let insightsResult = null;
+
+      if (profileId) {
+        try {
+          // Create the request to insights API
+          const insightsResponse = await fetch(`${getBaseUrl(event)}/api/insights`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              profileId,
+              energyHistory,
+              currentAmount,
+              goalAmount,
+              simulatedDate: simulatedDate.toISOString().split('T')[0],
+            }),
+          });
+
+          if (insightsResponse.ok) {
+            insightsResult = await insightsResponse.json();
+          }
+        } catch (error) {
+          console.error('[Simulation] Failed to trigger insights:', error);
+          // Don't fail the simulation if insights fail
+        }
+      }
+
       return new Response(
         JSON.stringify({
           simulatedDate: simulatedDate.toISOString().split('T')[0],
           realDate: realDate.toISOString().split('T')[0],
           offsetDays: newOffset,
           isSimulating: true,
-        } as SimulationState),
+          insightsTriggered: !!insightsResult,
+          insights: insightsResult,
+        } as SimulationState & { insightsTriggered?: boolean; insights?: unknown }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }

@@ -97,7 +97,7 @@ function loadFromLocalStorage(): FullProfile | null {
     // Map localStorage format to FullProfile format
     return {
       id: local.id || 'local-profile',
-      name: local.name || 'Mon Profil',
+      name: local.name || 'My Profile',
       profileType: 'main',
       isActive: true,
       diploma: local.diploma,
@@ -361,7 +361,7 @@ export async function syncLocalToDb(): Promise<boolean> {
 
     // Create profile in DuckDB
     const profile: Partial<FullProfile> & { name: string } = {
-      name: localProfile.name || 'Mon Profil',
+      name: localProfile.name || 'My Profile',
       diploma: localProfile.diploma,
       skills: localProfile.skills,
       city: localProfile.city,

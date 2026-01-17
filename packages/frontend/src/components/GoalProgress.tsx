@@ -46,7 +46,7 @@ export function GoalProgress(props: GoalProgressProps) {
           </Show>
           <Show when={props.showAmount}>
             <span class="text-sm text-slate-600">
-              {props.current.toLocaleString()}€ / {props.target.toLocaleString()}€
+              ${props.current.toLocaleString()} / ${props.target.toLocaleString()}
             </span>
           </Show>
         </div>

@@ -1,24 +1,20 @@
 /**
- * Opik Tracing Service
+ * Opik Tracing Utility for Frontend
  *
- * Provides observability for all tool calls and LLM interactions
- * Connects to self-hosted Opik instance
+ * Provides observability for API endpoints and LLM interactions.
+ * Connects to Opik Cloud or self-hosted instance.
  */
+
+// Configuration from environment
+const OPIK_API_KEY = process.env.OPIK_API_KEY;
+const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
+const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
+const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let opikClient: any = null;
 let currentTraceId: string | null = null;
 let flushFn: (() => Promise<void>) | null = null;
-let initialized = false;
-
-// Configuration
-// Opik Cloud: https://www.comet.com/opik (no OPIK_BASE_URL needed)
-// Self-hosted: set OPIK_BASE_URL to your Opik API endpoint
-const OPIK_API_KEY = process.env.OPIK_API_KEY;
-const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
-const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
-// For self-hosted only (Opik Cloud doesn't need this)
-const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
 
 /**
  * Span interface for tracing
@@ -30,15 +26,14 @@ export interface Span {
 }
 
 /**
- * Initialize Opik client (lazy, called automatically on first trace)
+ * Initialize Opik client (lazy)
  */
-async function ensureOpikClient(): Promise<boolean> {
-  if (initialized) return !!opikClient;
-  initialized = true;
+async function getOpikClient() {
+  if (opikClient) return opikClient;
 
   if (!OPIK_API_KEY) {
-    console.error('[Opik] OPIK_API_KEY not set, tracing disabled');
-    return false;
+    console.error('[Opik Frontend] OPIK_API_KEY not set, tracing disabled');
+    return null;
   }
 
   try {
@@ -67,20 +62,13 @@ async function ensureOpikClient(): Promise<boolean> {
 
     opikClient = new Opik(config);
     console.error(
-      `[Opik] Initialized with project: ${OPIK_PROJECT}, workspace: ${OPIK_WORKSPACE || 'default'}`
+      `[Opik Frontend] Initialized with project: ${OPIK_PROJECT}, workspace: ${OPIK_WORKSPACE || 'default'}`
     );
-    return true;
+    return opikClient;
   } catch (error) {
-    console.error('[Opik] Failed to initialize:', error);
-    return false;
+    console.error('[Opik Frontend] Failed to initialize:', error);
+    return null;
   }
-}
-
-/**
- * Initialize Opik client (for backward compatibility)
- */
-export async function initOpik(): Promise<void> {
-  await ensureOpikClient();
 }
 
 /**
@@ -90,18 +78,18 @@ export async function initOpik(): Promise<void> {
 export async function trace<T>(
   name: string,
   fn: (span: Span) => Promise<T>,
-  _parentSpan?: Span
+  metadata?: Record<string, unknown>
 ): Promise<T> {
   const startTime = new Date();
-  const collectedAttrs: Record<string, unknown> = {};
+  const collectedAttrs: Record<string, unknown> = { ...metadata };
 
-  // Create a mock span if Opik is not available
+  // Create a mock span for logging when Opik is not available
   const mockSpan: Span = {
     setAttributes: (attrs) => {
       Object.assign(collectedAttrs, attrs);
     },
     addEvent: (eventName, attrs) => {
-      Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
+      console.error(`[Trace:${name}] Event: ${eventName}`, attrs ? JSON.stringify(attrs) : '');
     },
     end: () => {
       const duration = Date.now() - startTime.getTime();
@@ -112,19 +100,20 @@ export async function trace<T>(
     },
   };
 
-  // Use Opik if available, otherwise use mock
   let span: Span = mockSpan;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let traceHandle: any = null;
 
-  const hasClient = await ensureOpikClient();
-  if (hasClient && opikClient) {
+  const client = await getOpikClient();
+  if (client) {
     try {
-      traceHandle = opikClient.trace({
+      traceHandle = client.trace({
         name,
         projectName: OPIK_PROJECT,
         startTime,
-        metadata: {},
+        metadata: {
+          ...metadata,
+        },
       });
       currentTraceId = traceHandle.data?.id;
 
@@ -133,6 +122,7 @@ export async function trace<T>(
           Object.assign(collectedAttrs, attrs);
         },
         addEvent: (eventName, attrs) => {
+          // Events stored in metadata
           Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
         },
         end: () => {
@@ -143,7 +133,7 @@ export async function trace<T>(
         },
       };
     } catch (error) {
-      console.error('[Opik] Error creating trace:', error);
+      console.error('[Opik Frontend] Error creating trace:', error);
       span = mockSpan;
     }
   }
@@ -156,7 +146,7 @@ export async function trace<T>(
 
     // Flush traces asynchronously
     if (flushFn) {
-      flushFn().catch((err) => console.error('[Opik] Flush error:', err));
+      flushFn().catch((err) => console.error('[Opik Frontend] Flush error:', err));
     }
 
     return result;
@@ -169,48 +159,11 @@ export async function trace<T>(
 
     // Flush traces asynchronously
     if (flushFn) {
-      flushFn().catch((err) => console.error('[Opik] Flush error:', err));
+      flushFn().catch((err) => console.error('[Opik Frontend] Flush error:', err));
     }
 
     throw error;
   }
-}
-
-/**
- * Log feedback for a trace
- */
-export async function logFeedback(
-  traceId: string,
-  feedback: 'thumbs_up' | 'thumbs_down',
-  comment?: string
-): Promise<void> {
-  if (opikClient) {
-    try {
-      await opikClient.feedback({
-        traceId,
-        score: feedback === 'thumbs_up' ? 1 : 0,
-        comment,
-      });
-    } catch (error) {
-      console.error('Error logging feedback:', error);
-    }
-  }
-  console.error(`[Feedback] Trace ${traceId}: ${feedback}`);
-}
-
-/**
- * Get the URL to view a trace in the Opik dashboard
- */
-export function getTraceUrl(traceId?: string): string {
-  const id = traceId || currentTraceId;
-  // Use Opik Cloud URL if no base URL is set
-  const baseUrl = OPIK_BASE_URL || 'https://www.comet.com/opik';
-  const workspace = OPIK_WORKSPACE || 'default';
-
-  if (!id) {
-    return `${baseUrl}/${workspace}/${OPIK_PROJECT}`;
-  }
-  return `${baseUrl}/${workspace}/${OPIK_PROJECT}/traces/${id}`;
 }
 
 /**
@@ -220,13 +173,16 @@ export function getCurrentTraceId(): string | null {
   return currentTraceId;
 }
 
-// Export service
-export const opik = {
-  init: initOpik,
-  trace,
-  logFeedback,
-  getTraceUrl,
-  getCurrentTraceId,
-};
+/**
+ * Get the trace URL for the dashboard
+ */
+export function getTraceUrl(traceId?: string): string {
+  const id = traceId || currentTraceId;
+  const baseUrl = OPIK_BASE_URL || 'https://www.comet.com/opik';
+  const workspace = OPIK_WORKSPACE || 'default';
 
-export default opik;
+  if (!id) {
+    return `${baseUrl}/${workspace}/${OPIK_PROJECT}`;
+  }
+  return `${baseUrl}/${workspace}/${OPIK_PROJECT}/traces/${id}`;
+}

@@ -235,7 +235,7 @@ export function SwipeCard(props: SwipeCardProps) {
         <div class="grid grid-cols-2 gap-4">
           <div class="bg-slate-50 dark:bg-slate-700 rounded-lg p-3 text-center">
             <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
-              {props.weeklyEarnings}€
+              ${props.weeklyEarnings}
             </div>
             <div class="text-xs text-slate-500 dark:text-slate-400">/week</div>
           </div>

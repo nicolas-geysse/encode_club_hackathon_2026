@@ -84,7 +84,7 @@ export function MissionList(props: MissionListProps) {
         </div>
         <div class="card text-center py-4 bg-green-50 dark:bg-green-900/20">
           <div class="text-2xl font-bold text-green-700 dark:text-green-400">
-            {stats().totalEarnings}€
+            ${stats().totalEarnings}
           </div>
           <div class="text-xs text-green-600 dark:text-green-500">Earned</div>
         </div>
@@ -103,7 +103,7 @@ export function MissionList(props: MissionListProps) {
               </p>
             </div>
             <div class="text-3xl font-bold text-primary-700 dark:text-primary-300">
-              +{stats().weeklyPotential}€
+              +${stats().weeklyPotential}
             </div>
           </div>
         </div>

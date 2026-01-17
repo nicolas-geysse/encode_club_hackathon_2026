@@ -128,7 +128,7 @@ export function InventoryTab(props: InventoryTabProps) {
         <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
           <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">For sale</div>
           <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
-            {totalEstimated()}€
+            ${totalEstimated()}
           </div>
           <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
             {items().filter((i) => !i.sold).length} items
@@ -137,7 +137,7 @@ export function InventoryTab(props: InventoryTabProps) {
         <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
           <div class="text-sm text-green-600 dark:text-green-400 font-medium">Sold</div>
           <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
-            {totalSold()}€
+            ${totalSold()}
           </div>
           <div class="text-xs text-green-500 dark:text-green-400 mt-1">
             {items().filter((i) => i.sold).length} items
@@ -195,13 +195,13 @@ export function InventoryTab(props: InventoryTabProps) {
                 <div class="flex-shrink-0 text-right">
                   <Show when={item.sold}>
                     <div class="font-bold text-green-600 dark:text-green-400">
-                      {item.soldPrice}€
+                      ${item.soldPrice}
                     </div>
-                    <div class="text-xs text-slate-400 line-through">{item.estimatedValue}€</div>
+                    <div class="text-xs text-slate-400 line-through">${item.estimatedValue}</div>
                   </Show>
                   <Show when={!item.sold}>
                     <div class="font-bold text-slate-900 dark:text-slate-100">
-                      {item.estimatedValue}€
+                      ${item.estimatedValue}
                     </div>
                   </Show>
                 </div>
@@ -312,7 +312,7 @@ export function InventoryTab(props: InventoryTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Estimated value (€)
+                    Estimated value ($)
                   </label>
                   <input
                     type="number"
@@ -397,7 +397,7 @@ export function InventoryTab(props: InventoryTabProps) {
                 Sold: {modal().name}
               </h3>
               <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                Estimated: {modal().estimatedValue}€
+                Estimated: ${modal().estimatedValue}
               </p>
 
               <div class="mb-4">
@@ -414,7 +414,7 @@ export function InventoryTab(props: InventoryTabProps) {
                     autofocus
                   />
                   <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-lg">
-                    €
+                    $
                   </span>
                 </div>
               </div>

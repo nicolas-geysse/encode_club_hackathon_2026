@@ -100,7 +100,7 @@ function generateScenarios(
     scenarios.push({
       id: 'lifestyle_opt',
       title: 'Optimize my expenses',
-      description: `Apply lifestyle optimizations to save ${totalSavings}€/month`,
+      description: `Apply lifestyle optimizations to save $${totalSavings}/month`,
       category: 'lifestyle',
       weeklyHours: 0,
       weeklyEarnings: Math.round(totalSavings / 4),
@@ -319,7 +319,7 @@ export function SwipeTab(props: SwipeTabProps) {
                     <div>
                       <p class="font-medium text-green-900">{scenario.title}</p>
                       <p class="text-sm text-green-600">
-                        {scenario.weeklyHours}h/sem • {scenario.weeklyEarnings}€/wk
+                        {scenario.weeklyHours}h/wk • ${scenario.weeklyEarnings}/wk
                       </p>
                     </div>
                     <span class="text-green-500 text-xl">✓</span>
@@ -332,7 +332,7 @@ export function SwipeTab(props: SwipeTabProps) {
               <div class="flex justify-between text-lg font-bold">
                 <span>Total potential:</span>
                 <span class="text-green-600">
-                  {selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0)}€/wk
+                  ${selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0)}/wk
                 </span>
               </div>
             </div>

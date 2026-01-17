@@ -119,7 +119,7 @@ export function MissionCard(props: MissionCardProps) {
             <div class="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
               <span>💰</span>
               <span>
-                {props.mission.earningsCollected}/{props.mission.weeklyEarnings}€
+                ${props.mission.earningsCollected}/${props.mission.weeklyEarnings}
               </span>
             </div>
           </div>
@@ -140,7 +140,7 @@ export function MissionCard(props: MissionCardProps) {
               class="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
               onClick={() => {
                 const hours = prompt('Hours completed this week:', '0');
-                const earnings = prompt('Euros earned:', '0');
+                const earnings = prompt('Dollars earned:', '0');
                 if (hours && earnings) {
                   props.onLogProgress?.(parseFloat(hours), parseFloat(earnings));
                 }

@@ -65,17 +65,17 @@ export function MilestoneCard(props: MilestoneCardProps) {
           </Show>
         </div>
         <div class="text-right">
-          <div class="font-bold">{props.targetAmount}€</div>
-          <div class="text-xs opacity-75">Target: {props.cumulativeTarget}€ cumulative</div>
+          <div class="font-bold">${props.targetAmount}</div>
+          <div class="text-xs opacity-75">Target: ${props.cumulativeTarget} cumulative</div>
         </div>
       </div>
 
       <Show when={props.status === 'in_progress' || props.status === 'completed'}>
         <div class="mb-3">
           <div class="flex justify-between text-sm mb-1">
-            <span>Progres</span>
+            <span>Progress</span>
             <span>
-              {props.earnedAmount || 0}€ / {props.targetAmount}€
+              ${props.earnedAmount || 0} / ${props.targetAmount}
             </span>
           </div>
           <div class="w-full bg-white/50 rounded-full h-2">

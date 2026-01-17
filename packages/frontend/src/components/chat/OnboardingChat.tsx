@@ -17,6 +17,24 @@ interface Message {
   content: string;
 }
 
+interface AcademicEvent {
+  name: string;
+  type: 'exam' | 'vacation' | 'busy';
+  startDate?: string;
+  endDate?: string;
+}
+
+interface InventoryItem {
+  name: string;
+  category: string;
+  estimatedValue?: number;
+}
+
+interface Subscription {
+  name: string;
+  currentCost: number;
+}
+
 interface ProfileData {
   name: string;
   diploma: string;
@@ -31,6 +49,13 @@ interface ProfileData {
   minHourlyRate: number;
   hasLoan: boolean;
   loanAmount: number;
+  // New fields for extended onboarding
+  goalName?: string;
+  goalAmount?: number;
+  goalDeadline?: string;
+  academicEvents?: AcademicEvent[];
+  inventoryItems?: InventoryItem[];
+  subscriptions?: Subscription[];
 }
 
 type OnboardingStep =
@@ -41,6 +66,10 @@ type OnboardingStep =
   | 'location'
   | 'budget'
   | 'work_preferences'
+  | 'goal'
+  | 'academic_events'
+  | 'inventory'
+  | 'lifestyle'
   | 'complete';
 
 // Initial greeting message
@@ -63,6 +92,9 @@ export function OnboardingChat() {
     minHourlyRate: 12,
     hasLoan: false,
     loanAmount: 0,
+    academicEvents: [],
+    inventoryItems: [],
+    subscriptions: [],
   });
   const [isComplete, setIsComplete] = createSignal(false);
 
@@ -186,6 +218,10 @@ Want to update your profile or go straight to your plan?`,
       'location',
       'budget',
       'work_preferences',
+      'goal',
+      'academic_events',
+      'inventory',
+      'lifestyle',
       'complete',
     ];
     const currentIndex = flow.indexOf(currentStep);
@@ -203,8 +239,12 @@ Want to update your profile or go straight to your plan?`,
       studies: `Cool!\n\nWhat are your skills? (coding, languages, design, sports...)`,
       skills: `Nice!\n\nWhere do you live? What city?`,
       location: `Got it.\n\nLet's talk budget: how much do you earn and spend per month roughly?`,
-      budget: `OK for the budget!\n\nLast question: how many hours max per week can you work? And what's your minimum hourly rate?`,
-      work_preferences: `Perfect! I have everything I need.\n\nClick on "My Plan" to get started!`,
+      budget: `OK for the budget!\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`,
+      work_preferences: `Great work preferences!\n\nNow, what's your savings goal? What do you want to save for, how much, and by when?`,
+      goal: `Great goal!\n\nAny important academic events coming up? (exams, vacations, busy periods)`,
+      academic_events: `Thanks for sharing!\n\nDo you have any items you could sell? (textbooks, electronics, etc.)`,
+      inventory: `Good to know!\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
+      lifestyle: `Perfect! I have everything I need.\n\nClick on "My Plan" to get started!`,
       complete: '',
     };
 
@@ -243,6 +283,26 @@ Want to update your profile or go straight to your plan?`,
       ];
     }
 
+    // NEW: Handle goal data
+    if (data.goalName) updates.goalName = String(data.goalName);
+    if (data.goalAmount) updates.goalAmount = Number(data.goalAmount);
+    if (data.goalDeadline) updates.goalDeadline = String(data.goalDeadline);
+
+    // NEW: Handle academic events
+    if (data.academicEvents && Array.isArray(data.academicEvents)) {
+      updates.academicEvents = data.academicEvents as AcademicEvent[];
+    }
+
+    // NEW: Handle inventory items
+    if (data.inventoryItems && Array.isArray(data.inventoryItems)) {
+      updates.inventoryItems = data.inventoryItems as InventoryItem[];
+    }
+
+    // NEW: Handle subscriptions
+    if (data.subscriptions && Array.isArray(data.subscriptions)) {
+      updates.subscriptions = data.subscriptions as Subscription[];
+    }
+
     // Determine city size
     if (data.city) {
       const cityLower = String(data.city).toLowerCase();
@@ -255,8 +315,15 @@ Want to update your profile or go straight to your plan?`,
         'lille',
         'nantes',
         'nice',
+        'new york',
+        'los angeles',
+        'chicago',
+        'boston',
+        'san francisco',
+        'seattle',
+        'london',
       ];
-      const smallCities = ['village', 'campagne', 'rural'];
+      const smallCities = ['village', 'campagne', 'rural', 'town'];
       if (bigCities.some((c) => cityLower.includes(c))) {
         updates.citySize = 'large';
       } else if (smallCities.some((c) => cityLower.includes(c))) {
@@ -311,6 +378,43 @@ Want to update your profile or go straight to your plan?`,
         // Save profile to API (DuckDB)
         const finalProfile = profile() as ProfileData;
 
+        // Build planData structure for all tabs
+        const planData = {
+          setup: {
+            goalName: finalProfile.goalName || 'Savings Goal',
+            goalAmount: finalProfile.goalAmount || 1000,
+            goalDeadline:
+              finalProfile.goalDeadline ||
+              new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            academicEvents: finalProfile.academicEvents || [],
+            commitments: [],
+          },
+          skills: (finalProfile.skills || []).map((skill, idx) => ({
+            id: `skill_${idx}`,
+            name: skill,
+            hourlyRate: finalProfile.minHourlyRate || 15,
+            marketDemand: 3,
+            cognitiveEffort: 3,
+            restNeeded: 1,
+          })),
+          inventory: (finalProfile.inventoryItems || []).map((item, idx) => ({
+            id: `item_${idx}`,
+            name: item.name,
+            category: item.category,
+            estimatedValue: item.estimatedValue || 50,
+            status: 'available',
+          })),
+          lifestyle: (finalProfile.subscriptions || []).map((sub, idx) => ({
+            id: `sub_${idx}`,
+            name: sub.name,
+            currentCost: sub.currentCost,
+            category: 'subscription',
+            essential: false,
+          })),
+          trades: [],
+          selectedScenarios: [],
+        };
+
         // Normalize field names for API
         const normalizedProfile = {
           name: finalProfile.name || 'My Profile',
@@ -325,6 +429,10 @@ Want to update your profile or go straight to your plan?`,
           hasLoan: finalProfile.hasLoan,
           loanAmount: finalProfile.loanAmount,
           profileType: 'main',
+          goalName: finalProfile.goalName,
+          goalAmount: finalProfile.goalAmount,
+          goalDeadline: finalProfile.goalDeadline,
+          planData, // NEW: Include planData for all tabs
         };
 
         // Save to API first
@@ -413,8 +521,23 @@ Want to update your profile or go straight to your plan?`,
             <button
               class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               onClick={() => {
+                // Clear profile completely for fresh start
+                setProfile({
+                  skills: [],
+                  incomes: [],
+                  expenses: [],
+                  maxWorkHours: 15,
+                  minHourlyRate: 12,
+                  hasLoan: false,
+                  loanAmount: 0,
+                  academicEvents: [],
+                  inventoryItems: [],
+                  subscriptions: [],
+                });
+                // Clear localStorage
+                localStorage.removeItem('studentProfile');
                 setIsComplete(false);
-                setStep('name');
+                setStep('greeting');
                 setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
               }}
             >

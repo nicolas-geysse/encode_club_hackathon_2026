@@ -136,6 +136,32 @@ export function ProfileSelector(props: Props) {
     }
   };
 
+  const handleDelete = async (profileId: string, profileName: string, e: Event) => {
+    e.stopPropagation(); // Prevent triggering switch
+
+    // Confirmation
+    if (!confirm(`Delete profile "${profileName}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/profiles?id=${profileId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to delete profile');
+      }
+
+      // Reload profiles
+      await loadProfiles();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete profile');
+    }
+  };
+
   return (
     <div class="relative">
       {/* Profile Button */}
@@ -191,27 +217,48 @@ export function ProfileSelector(props: Props) {
 
             <For each={profiles()}>
               {(profile) => (
-                <button
-                  onClick={() => handleSwitch(profile.id)}
-                  class={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
+                <div
+                  class={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
                     profile.isActive ? 'bg-primary-50 dark:bg-primary-900/30' : ''
                   }`}
                 >
-                  <span>{getProfileIcon(profile)}</span>
-                  <div class="flex-1 min-w-0">
-                    <div class="font-medium text-slate-800 dark:text-slate-200 truncate">
-                      {profile.name}
-                    </div>
-                    <Show when={profile.goalName}>
-                      <div class="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {profile.goalName} - {profile.goalAmount}€
+                  <button
+                    onClick={() => handleSwitch(profile.id)}
+                    class="flex-1 flex items-center gap-3 text-left min-w-0"
+                  >
+                    <span>{getProfileIcon(profile)}</span>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-slate-800 dark:text-slate-200 truncate">
+                        {profile.name}
                       </div>
+                      <Show when={profile.goalName}>
+                        <div class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {profile.goalName} - ${profile.goalAmount}
+                        </div>
+                      </Show>
+                    </div>
+                    <Show when={profile.isActive}>
+                      <span class="text-primary-600 dark:text-primary-400 text-xs">✓</span>
                     </Show>
-                  </div>
-                  <Show when={profile.isActive}>
-                    <span class="text-primary-600 dark:text-primary-400 text-xs">✓</span>
+                  </button>
+                  {/* Delete button - only show if more than 1 profile */}
+                  <Show when={profiles().length > 1}>
+                    <button
+                      onClick={(e) => handleDelete(profile.id, profile.name, e)}
+                      class="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                      title="Delete profile"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
                   </Show>
-                </button>
+                </div>
               )}
             </For>
 
@@ -276,7 +323,7 @@ export function ProfileSelector(props: Props) {
 
               <div>
                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Target amount (€)
+                  Target amount ($)
                 </label>
                 <input
                   type="number"

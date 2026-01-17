@@ -186,7 +186,7 @@ export function SkillsTab(props: SkillsTabProps) {
                     </Show>
                   </div>
                   <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    <span>{skill.hourlyRate}€/h</span>
+                    <span>{skill.hourlyRate}$/h</span>
                     <span>{'⭐'.repeat(skill.marketDemand)}</span>
                     <span>Effort: {getEffortLabel(skill.cognitiveEffort)}</span>
                   </div>
@@ -261,7 +261,7 @@ export function SkillsTab(props: SkillsTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Hourly rate (€)
+                    Hourly rate ($)
                   </label>
                   <input
                     type="number"

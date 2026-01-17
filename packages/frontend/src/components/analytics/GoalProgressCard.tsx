@@ -53,8 +53,8 @@ export function GoalProgressCard(props: GoalProgressCardProps) {
       {/* Progress bar */}
       <div class="mb-4">
         <div class="flex justify-between text-sm mb-1">
-          <span class="text-slate-600 dark:text-slate-400">{props.current}€</span>
-          <span class="text-slate-900 dark:text-slate-100 font-medium">{props.target}€</span>
+          <span class="text-slate-600 dark:text-slate-400">${props.current}</span>
+          <span class="text-slate-900 dark:text-slate-100 font-medium">${props.target}</span>
         </div>
         <div class="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
           <div
@@ -73,11 +73,11 @@ export function GoalProgressCard(props: GoalProgressCardProps) {
       <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
         <div>
           <p class="text-sm text-slate-500 dark:text-slate-400">Remaining</p>
-          <p class="text-lg font-bold text-slate-900 dark:text-slate-100">{remaining()}€</p>
+          <p class="text-lg font-bold text-slate-900 dark:text-slate-100">${remaining()}</p>
         </div>
         <div>
           <p class="text-sm text-slate-500 dark:text-slate-400">Daily target</p>
-          <p class="text-lg font-bold text-slate-900 dark:text-slate-100">{dailyNeeded()}€</p>
+          <p class="text-lg font-bold text-slate-900 dark:text-slate-100">${dailyNeeded()}</p>
         </div>
       </div>
 

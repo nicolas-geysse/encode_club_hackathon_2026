@@ -25,7 +25,7 @@ export function MetricCard(props: MetricCardProps) {
 
     switch (props.format) {
       case 'currency':
-        return `${val.toLocaleString()}€`;
+        return `$${val.toLocaleString()}`;
       case 'percentage':
         return `${val}%`;
       case 'hours':

@@ -259,7 +259,7 @@ export function TradeTab(props: TradeTabProps) {
         <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
           <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">I borrowed</div>
           <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
-            {borrowedValue()}€
+            ${borrowedValue()}
           </div>
           <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
             {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
@@ -268,7 +268,7 @@ export function TradeTab(props: TradeTabProps) {
         <div class="card bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30">
           <div class="text-sm text-orange-600 dark:text-orange-400 font-medium">I lent</div>
           <div class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-1">
-            {lentValue()}€
+            ${lentValue()}
           </div>
           <div class="text-xs text-orange-500 dark:text-orange-400 mt-1">
             {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} active
@@ -279,7 +279,7 @@ export function TradeTab(props: TradeTabProps) {
           <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
             <div class="text-sm text-green-600 dark:text-green-400 font-medium">Savings</div>
             <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
-              {totalSavings()}€
+              ${totalSavings()}
             </div>
             <div class="text-xs text-green-500 dark:text-green-400 mt-1">
               {savingsPercent()}% of goal
@@ -312,7 +312,7 @@ export function TradeTab(props: TradeTabProps) {
                   </div>
                   <div class="text-right">
                     <div class="text-green-600 dark:text-green-400 font-bold">
-                      -{suggestion.estimatedSavings}€
+                      -${suggestion.estimatedSavings}
                     </div>
                     <div class="text-xs text-slate-400">to save</div>
                   </div>
@@ -398,7 +398,7 @@ export function TradeTab(props: TradeTabProps) {
 
               {/* Value */}
               <div class="flex-shrink-0 text-right">
-                <div class="font-bold text-slate-900 dark:text-slate-100">{trade.value}€</div>
+                <div class="font-bold text-slate-900 dark:text-slate-100">${trade.value}</div>
               </div>
 
               {/* Actions */}
@@ -500,7 +500,7 @@ export function TradeTab(props: TradeTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Estimated value (€)
+                    Estimated value ($)
                   </label>
                   <input
                     type="number"

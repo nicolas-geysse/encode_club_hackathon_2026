@@ -354,7 +354,7 @@ export function SwipeSession(props: SwipeSessionProps) {
 
                 {/* Hourly Rate */}
                 <div class="text-center">
-                  <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">€/h</label>
+                  <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">$/h</label>
                   <input
                     type="number"
                     min="0"

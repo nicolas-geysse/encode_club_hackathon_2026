@@ -437,11 +437,27 @@ export const budgetImpactTool = createTool({
     monthsRemaining: z.number().describe('Months of study remaining'),
   }),
   execute: async ({ context }) => {
-    return calculateBudgetImpact(
-      context.itemsValue,
-      context.currentMonthlyMargin,
-      context.monthsRemaining
-    );
+    return trace('tool.calculate_sale_impact', async (span) => {
+      span.setAttributes({
+        'input.items_value': context.itemsValue,
+        'input.current_monthly_margin': context.currentMonthlyMargin,
+        'input.months_remaining': context.monthsRemaining,
+      });
+
+      const result = calculateBudgetImpact(
+        context.itemsValue,
+        context.currentMonthlyMargin,
+        context.monthsRemaining
+      );
+
+      span.setAttributes({
+        'output.immediate_impact': result.immediateImpact,
+        'output.equivalent_months': result.equivalentMonthsOfMargin,
+        'output.projection_with_sale': result.projectionWithSale,
+      });
+
+      return result;
+    });
   },
 });
 
@@ -457,7 +473,27 @@ export const suggestHustlesTool = createTool({
     preferLowEffort: z.boolean().default(false).describe('Prefer low-effort options'),
   }),
   execute: async ({ context }) => {
-    return suggestSideHustles(context.skills, context.maxHoursWeekly, context.preferLowEffort);
+    return trace('tool.suggest_side_hustles', async (span) => {
+      span.setAttributes({
+        'input.skills_count': context.skills.length,
+        'input.max_hours_weekly': context.maxHoursWeekly,
+        'input.prefer_low_effort': context.preferLowEffort,
+      });
+
+      const result = suggestSideHustles(
+        context.skills,
+        context.maxHoursWeekly,
+        context.preferLowEffort
+      );
+
+      span.setAttributes({
+        'output.hustles_count': result.length,
+        'output.top_hustle': result[0]?.hustle.name ?? null,
+        'output.top_match_score': result[0]?.matchScore ?? 0,
+      });
+
+      return result;
+    });
   },
 });
 

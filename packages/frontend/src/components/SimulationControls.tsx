@@ -4,7 +4,7 @@
  * Footer component for time simulation controls.
  * Features:
  * - Shows current simulated date when simulating
- * - Shows JOUR X/Y based on goal deadline
+ * - Shows DAY X/Y based on goal deadline
  * - Advance buttons: +1d, +7d, +30d
  * - Reset button
  * - Daily check-in tracking (once per real day, stored in localStorage)
@@ -225,7 +225,7 @@ export function SimulationControls(props: Props) {
           >
             <span>⏱️</span>
             {state().isSimulating ? (
-              <span class="font-medium">+{state().offsetDays}j</span>
+              <span class="font-medium">+{state().offsetDays}d</span>
             ) : (
               <span>Simulation</span>
             )}

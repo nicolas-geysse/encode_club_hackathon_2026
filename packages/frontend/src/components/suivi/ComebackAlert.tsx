@@ -174,7 +174,7 @@ export function ComebackAlert(props: ComebackAlertProps) {
                           Week {week.week}
                         </span>
                         <span class="font-bold text-green-600 dark:text-green-400">
-                          +{week.target}€
+                          +${week.target}
                         </span>
                       </div>
                       <div class="mt-1 h-2 bg-green-100 dark:bg-green-900/50 rounded-full overflow-hidden">
@@ -207,10 +207,10 @@ export function ComebackAlert(props: ComebackAlertProps) {
                 </div>
                 <div class="text-right">
                   <div class="text-3xl font-bold text-green-700 dark:text-green-300 tabular-nums">
-                    +{animatedTotal()}€
+                    +${animatedTotal()}
                   </div>
                   <div class="text-sm text-green-600 dark:text-green-400">
-                    = {Math.round(totalCatchUp() / window().suggestedCatchUpWeeks)}€/week
+                    = ${Math.round(totalCatchUp() / window().suggestedCatchUpWeeks)}/week
                   </div>
                 </div>
               </div>
