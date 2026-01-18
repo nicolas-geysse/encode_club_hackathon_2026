@@ -170,7 +170,7 @@ export function SwipeCard(props: SwipeCardProps) {
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      <Card class="h-full w-full overflow-hidden border-border/50 shadow-xl bg-card">
+      <Card class="h-full w-full overflow-hidden border-border/50 shadow-xl bg-[#121215]">
         {/* Swipe Indicator Overlays */}
         <div
           class={cn(

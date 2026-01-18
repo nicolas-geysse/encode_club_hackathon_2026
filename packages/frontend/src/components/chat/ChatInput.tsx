@@ -204,7 +204,7 @@ export function ChatInput(props: ChatInputProps) {
 
   return (
     <form class="w-full bg-transparent" onSubmit={handleSubmit}>
-      <div class="relative flex items-end gap-2 p-1.5 rounded-3xl bg-secondary/30 border border-white/10 shadow-sm transition-all focus-within:bg-secondary/50 focus-within:shadow-md focus-within:ring-1 focus-within:ring-primary/20">
+      <div class="relative flex items-end gap-2 p-1.5 rounded-3xl bg-secondary/30 border border-white/10 shadow-sm transition-all focus-within:bg-secondary/50 focus-within:shadow-md">
         {/* Microphone button */}
         <Button
           type="button"
@@ -243,7 +243,7 @@ export function ChatInput(props: ChatInputProps) {
         {/* Text input */}
         <Textarea
           ref={(el: any) => (textareaRef = el)}
-          class="flex-1 bg-transparent border-none shadow-none resize-none min-h-[44px] max-h-32 py-3 px-2 focus-visible:ring-0 text-base"
+          class="flex-1 bg-transparent border-none shadow-none resize-none min-h-[44px] max-h-32 py-3 px-2 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none text-base"
           placeholder={props.placeholder || 'Type a message...'}
           value={text()}
           onInput={(e: any) => {

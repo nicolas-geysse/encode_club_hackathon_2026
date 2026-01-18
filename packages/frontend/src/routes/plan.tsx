@@ -340,10 +340,10 @@ export default function PlanPage() {
       <Show when={hasProfile()} fallback={<NoProfileView />}>
         <div class="flex flex-col h-full space-y-6">
           <Tabs value={activeTab()} onChange={setActiveTab} class="w-full">
-            <div class="sticky top-0 z-10 -mx-6 px-6 bg-background/80 backdrop-blur-xl border-b border-border/50">
+            <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50">
               {/* Desktop Tabs */}
               <div class="hidden md:block py-3">
-                <TabsList class="w-full justify-start h-auto bg-transparent p-0 gap-6 overflow-x-auto">
+                <TabsList class="w-full justify-start h-auto bg-transparent p-0 pl-2 md:pl-4 gap-6 overflow-x-auto">
                   <For each={TABS}>
                     {(tab) => (
                       <TabsTrigger

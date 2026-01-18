@@ -1263,10 +1263,10 @@ export function OnboardingChat() {
   };
 
   return (
-    <div class="h-[calc(100vh-64px)] overflow-hidden bg-background">
+    <div class="fixed inset-x-0 top-16 md:pl-64 bottom-16 md:bottom-0 z-30 bg-background">
       <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] h-full">
         {/* Left Sidebar (Desktop Only) */}
-        <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-8 h-full">
+        <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-6 h-full">
           <div class="flex flex-col items-center text-center mb-10">
             <div class="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-background mb-4">
               B
@@ -1303,7 +1303,7 @@ export function OnboardingChat() {
             ref={(el) => (messagesContainerRef = el)}
             class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth"
           >
-            <div class="max-w-3xl mx-auto w-full">
+            <div class="w-full">
               <For each={messages()}>
                 {(msg) => (
                   <ChatMessage
@@ -1395,7 +1395,7 @@ export function OnboardingChat() {
 
           {/* Input Area */}
           <div class="p-4 md:p-6 bg-background/80 backdrop-blur-xl border-t border-border z-20">
-            <div class="max-w-3xl mx-auto w-full relative">
+            <div class="w-full relative">
               <Show
                 when={isComplete()}
                 fallback={
