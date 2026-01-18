@@ -171,12 +171,42 @@ export function getTotalSoldValue(items: InventoryItem[]): number {
 }
 
 /**
+ * Clear all inventory items for a profile (for re-onboarding)
+ */
+export async function clearItemsForProfile(profileId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/inventory?profileId=${profileId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      logger.error('Failed to clear inventory items', { error: error.message });
+      return false;
+    }
+
+    logger.info('Cleared all inventory items for profile', { profileId });
+    return true;
+  } catch (error) {
+    logger.error('Error clearing inventory items', { error });
+    return false;
+  }
+}
+
+/**
  * Bulk create inventory items (useful for migration from onboarding)
+ * Clears existing items first to prevent duplicates
  */
 export async function bulkCreateItems(
   profileId: string,
-  items: Array<Omit<CreateInventoryItemInput, 'profileId'>>
+  items: Array<Omit<CreateInventoryItemInput, 'profileId'>>,
+  clearFirst = true
 ): Promise<InventoryItem[]> {
+  // Clear existing items first to prevent orphaned data
+  if (clearFirst) {
+    await clearItemsForProfile(profileId);
+  }
+
   const created: InventoryItem[] = [];
 
   for (const itemInput of items) {
@@ -201,6 +231,7 @@ export const inventoryService = {
   markAsSold,
   getTotalEstimatedValue,
   getTotalSoldValue,
+  clearItemsForProfile,
   bulkCreateItems,
 };
 

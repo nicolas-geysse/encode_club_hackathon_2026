@@ -125,12 +125,42 @@ export function getTotalIncome(items: IncomeItem[]): number {
 }
 
 /**
+ * Clear all income items for a profile (for re-onboarding)
+ */
+export async function clearItemsForProfile(profileId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/income?profileId=${profileId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      logger.error('Failed to clear income items', { error: error.message });
+      return false;
+    }
+
+    logger.info('Cleared all income items for profile', { profileId });
+    return true;
+  } catch (error) {
+    logger.error('Error clearing income items', { error });
+    return false;
+  }
+}
+
+/**
  * Bulk create income items (useful for migration from onboarding)
+ * Clears existing items first to prevent duplicates
  */
 export async function bulkCreateItems(
   profileId: string,
-  items: Array<Omit<CreateIncomeItemInput, 'profileId'>>
+  items: Array<Omit<CreateIncomeItemInput, 'profileId'>>,
+  clearFirst = true
 ): Promise<IncomeItem[]> {
+  // Clear existing items first to prevent orphaned data
+  if (clearFirst) {
+    await clearItemsForProfile(profileId);
+  }
+
   const created: IncomeItem[] = [];
 
   for (const itemInput of items) {
@@ -153,6 +183,7 @@ export const incomeService = {
   updateItem,
   deleteItem,
   getTotalIncome,
+  clearItemsForProfile,
   bulkCreateItems,
 };
 

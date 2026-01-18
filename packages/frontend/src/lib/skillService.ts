@@ -123,12 +123,42 @@ export async function deleteSkill(skillId: string): Promise<boolean> {
 }
 
 /**
+ * Clear all skills for a profile (for re-onboarding)
+ */
+export async function clearSkillsForProfile(profileId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/skills?profileId=${profileId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      logger.error('Failed to clear skills', { error: error.message });
+      return false;
+    }
+
+    logger.info('Cleared all skills for profile', { profileId });
+    return true;
+  } catch (error) {
+    logger.error('Error clearing skills', { error });
+    return false;
+  }
+}
+
+/**
  * Bulk create skills (useful for migration from onboarding)
+ * Clears existing skills first to prevent duplicates
  */
 export async function bulkCreateSkills(
   profileId: string,
-  skills: Array<Omit<CreateSkillInput, 'profileId'>>
+  skills: Array<Omit<CreateSkillInput, 'profileId'>>,
+  clearFirst = true
 ): Promise<Skill[]> {
+  // Clear existing skills first to prevent orphaned data
+  if (clearFirst) {
+    await clearSkillsForProfile(profileId);
+  }
+
   const created: Skill[] = [];
 
   for (const skillInput of skills) {
@@ -149,6 +179,7 @@ export const skillService = {
   createSkill,
   updateSkill,
   deleteSkill,
+  clearSkillsForProfile,
   bulkCreateSkills,
 };
 

@@ -168,12 +168,42 @@ export function getPotentialSavings(items: LifestyleItem[]): number {
 }
 
 /**
+ * Clear all lifestyle items for a profile (for re-onboarding)
+ */
+export async function clearItemsForProfile(profileId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/lifestyle?profileId=${profileId}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      logger.error('Failed to clear lifestyle items', { error: error.message });
+      return false;
+    }
+
+    logger.info('Cleared all lifestyle items for profile', { profileId });
+    return true;
+  } catch (error) {
+    logger.error('Error clearing lifestyle items', { error });
+    return false;
+  }
+}
+
+/**
  * Bulk create lifestyle items (useful for migration from onboarding)
+ * Clears existing items first to prevent duplicates
  */
 export async function bulkCreateItems(
   profileId: string,
-  items: Array<Omit<CreateLifestyleItemInput, 'profileId'>>
+  items: Array<Omit<CreateLifestyleItemInput, 'profileId'>>,
+  clearFirst = true
 ): Promise<LifestyleItem[]> {
+  // Clear existing items first to prevent orphaned data
+  if (clearFirst) {
+    await clearItemsForProfile(profileId);
+  }
+
   const created: LifestyleItem[] = [];
 
   for (const itemInput of items) {
@@ -201,6 +231,7 @@ export const lifestyleService = {
   getTotalCurrentCost,
   getTotalOptimizedCost,
   getPotentialSavings,
+  clearItemsForProfile,
   bulkCreateItems,
 };
 
