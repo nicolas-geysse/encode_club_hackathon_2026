@@ -199,27 +199,55 @@ export async function bulkCreateItems(
   items: Array<Omit<CreateLifestyleItemInput, 'profileId'>>,
   clearFirst = true
 ): Promise<LifestyleItem[]> {
-  // Clear existing items first to prevent orphaned data
-  if (clearFirst) {
-    await clearItemsForProfile(profileId);
-  }
+  logger.info('bulkCreateItems called', {
+    profileId,
+    itemCount: items.length,
+    clearFirst,
+    items: items.map((i) => ({ name: i.name, category: i.category, cost: i.currentCost })),
+  });
 
-  const created: LifestyleItem[] = [];
-
-  for (const itemInput of items) {
-    // Ensure currentCost has a value (defense in depth)
-    const item = await createItem({
-      profileId,
-      ...itemInput,
-      currentCost: itemInput.currentCost ?? 10, // Default $10/month
-    });
-    if (item) {
-      created.push(item);
+  try {
+    // Clear existing items first to prevent orphaned data
+    if (clearFirst) {
+      await clearItemsForProfile(profileId);
     }
-  }
 
-  logger.info('Bulk created lifestyle items', { profileId, count: created.length });
-  return created;
+    const created: LifestyleItem[] = [];
+    const failed: string[] = [];
+
+    for (const itemInput of items) {
+      // Ensure currentCost has a value (defense in depth)
+      const item = await createItem({
+        profileId,
+        ...itemInput,
+        currentCost: itemInput.currentCost ?? 10, // Default $10/month
+      });
+      if (item) {
+        created.push(item);
+      } else {
+        failed.push(itemInput.name);
+      }
+    }
+
+    if (failed.length > 0) {
+      logger.warn('Some lifestyle items failed to create', { failed, profileId });
+    }
+
+    logger.info('Bulk created lifestyle items', {
+      profileId,
+      successCount: created.length,
+      failedCount: failed.length,
+    });
+    return created;
+  } catch (error) {
+    logger.error('CRITICAL: bulkCreateItems failed', {
+      error,
+      profileId,
+      itemCount: items.length,
+    });
+    // Re-throw so caller knows it failed
+    throw error;
+  }
 }
 
 export const lifestyleService = {

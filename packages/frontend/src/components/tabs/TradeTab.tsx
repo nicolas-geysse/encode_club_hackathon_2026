@@ -24,6 +24,7 @@ import {
   Check,
   AlertCircle,
 } from 'lucide-solid';
+import { cn } from '~/lib/cn';
 
 interface TradeItem {
   id: string;
@@ -715,7 +716,7 @@ export function TradeTab(props: TradeTabProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    class="text-green-600 border-green-200 hover:bg-green-50"
+                    class="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-900/20"
                     onClick={() => addInventoryItemToSell(item)}
                   >
                     List for sale
@@ -760,22 +761,49 @@ export function TradeTab(props: TradeTabProps) {
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card class="max-w-md w-full">
             <CardContent class="p-6">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <Dynamic component={getTypeIcon(newTrade().type || 'sell')} class="h-5 w-5" />
-                  {editingTradeId() ? 'Edit' : 'New'}{' '}
-                  {getTypeInfo(newTrade().type || 'sell')?.label}
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    resetForm();
-                  }}
-                >
-                  <X class="h-4 w-4" />
-                </Button>
+              <div class="flex flex-col gap-4 mb-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-lg font-semibold text-foreground">
+                    {editingTradeId() ? 'Edit Trade' : 'New Trade'}
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setShowAddForm(false);
+                      resetForm();
+                    }}
+                  >
+                    <X class="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Type Selection Pills */}
+                <div class="flex flex-wrap gap-2">
+                  <For each={TRADE_TYPES}>
+                    {(type) => (
+                      <button
+                        class={cn(
+                          'px-3 py-1 text-xs font-medium rounded-full border transition-all flex items-center gap-1',
+                          newTrade().type === type.id
+                            ? `bg-${type.color}-600 text-white border-${type.color}-600`
+                            : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                        )}
+                        onClick={() => {
+                          setNewTrade({
+                            ...newTrade(),
+                            type: type.id as TradeItem['type'],
+                            partner: editingTradeId() ? newTrade().partner : '', // Keep partner if editing, else reset
+                            // Reset label-dependent fields if needed
+                          });
+                        }}
+                      >
+                        <Dynamic component={type.icon} class="h-3 w-3" />
+                        {type.label}
+                      </button>
+                    )}
+                  </For>
+                </div>
               </div>
 
               <div class="space-y-4">

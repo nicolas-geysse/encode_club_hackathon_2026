@@ -5,9 +5,12 @@
  * Shows timeline from creation to deadline with progress milestones.
  */
 
-import { createMemo, Show, For } from 'solid-js';
+import { createMemo, Show, For, createSignal } from 'solid-js';
 import { type Goal, type GoalComponent, goalService } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Tooltip, TooltipTrigger, TooltipContent } from '~/components/ui/Tooltip';
+import { Pencil, Check, Trash2, CheckCircle2, RotateCcw } from 'lucide-solid';
 
 interface GoalTimelineProps {
   goal: Goal;
@@ -24,6 +27,8 @@ interface GoalTimelineProps {
 
 export function GoalTimeline(props: GoalTimelineProps) {
   const currency = () => props.currency || 'USD';
+  const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
+  const [showCompleteConfirm, setShowCompleteConfirm] = createSignal(false);
 
   // Calculate days remaining
   const daysRemaining = createMemo(() => {
@@ -200,28 +205,53 @@ export function GoalTimeline(props: GoalTimelineProps) {
         </div>
 
         {/* Action Buttons */}
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="px-3 py-1.5 text-xs font-medium rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800/40 transition-colors"
-            onClick={() => props.onEdit?.(props.goal)}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-            onClick={() => props.onToggleStatus?.(props.goal)}
-          >
-            {props.goal.status === 'completed' ? 'Reactivate' : 'Complete'}
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 text-xs font-medium rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800/40 transition-colors"
-            onClick={() => props.onDelete?.(props.goal.id)}
-          >
-            Delete
-          </button>
+        <div class="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger>
+              <button
+                type="button"
+                class="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                onClick={() => props.onEdit?.(props.goal)}
+              >
+                <Pencil class="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Edit Goal</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger>
+              <button
+                type="button"
+                class={`h-8 w-8 flex items-center justify-center rounded-md transition-colors ${
+                  props.goal.status === 'completed'
+                    ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                    : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
+                }`}
+                onClick={() => setShowCompleteConfirm(true)}
+              >
+                <Show when={props.goal.status === 'completed'} fallback={<Check class="h-4 w-4" />}>
+                  <RotateCcw class="h-4 w-4" />
+                </Show>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {props.goal.status === 'completed' ? 'Reactivate Goal' : 'Mark as Completed'}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger>
+              <button
+                type="button"
+                class="h-8 w-8 flex items-center justify-center rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Delete Goal</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -454,6 +484,37 @@ export function GoalTimeline(props: GoalTimelineProps) {
           </div>
         </div>
       </Show>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm()}
+        title="Delete Goal"
+        message={`Are you sure you want to delete "${props.goal.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          props.onDelete?.(props.goal.id);
+          setShowDeleteConfirm(false);
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={showCompleteConfirm()}
+        title={props.goal.status === 'completed' ? 'Reactivate Goal' : 'Complete Goal'}
+        message={
+          props.goal.status === 'completed'
+            ? `Are you sure you want to reactivate "${props.goal.name}"?`
+            : `Are you sure you want to mark "${props.goal.name}" as completed?`
+        }
+        confirmLabel={props.goal.status === 'completed' ? 'Reactivate' : 'Complete'}
+        variant={props.goal.status === 'completed' ? 'default' : 'success'}
+        onCancel={() => setShowCompleteConfirm(false)}
+        onConfirm={() => {
+          props.onToggleStatus?.(props.goal);
+          setShowCompleteConfirm(false);
+        }}
+      />
     </div>
   );
 }

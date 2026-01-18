@@ -16,6 +16,7 @@ import {
   type LifestyleItem,
   type CreateLifestyleItemInput,
 } from '~/lib/lifestyleService';
+import { mergeExpenseSources } from '~/lib/expenseUtils';
 import { incomeService } from '~/lib/incomeService';
 import { monthsUntil, formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
@@ -99,13 +100,16 @@ export function BudgetTab(props: BudgetTabProps) {
   });
 
   // Use context data (from DB) as source of truth when profile exists
+  // Falls back to profile.expenses if lifestyle_items is empty (DuckDB issue workaround)
   createEffect(() => {
     const ctxItems = contextLifestyle();
     const ctxIncome = contextIncome();
     const currentProfile = profile();
 
     if (currentProfile?.id) {
-      setLocalItems(ctxItems);
+      // Merge lifestyle_items with profile.expenses fallback
+      const mergedItems = mergeExpenseSources(ctxItems, currentProfile.expenses);
+      setLocalItems(mergedItems);
       setLocalIncomeItems(ctxIncome);
       return;
     }
@@ -185,8 +189,16 @@ export function BudgetTab(props: BudgetTabProps) {
     const isIncomeCategory = activeCategory() === 'income';
 
     if (!currentProfile?.id) {
-      // No profile - fall back to local-only mode (only for expenses)
-      if (!isIncomeCategory) {
+      // No profile - fall back to local-only mode
+      if (isIncomeCategory) {
+        const item: IncomeItem = {
+          id: `income_${Date.now()}`,
+          profileId: '',
+          name: base.name,
+          amount: base.amount || 0,
+        };
+        setLocalIncomeItems([...localIncomeItems(), item]);
+      } else {
         const item: LifestyleItem = {
           id: `lifestyle_${Date.now()}`,
           profileId: '',
@@ -241,11 +253,15 @@ export function BudgetTab(props: BudgetTabProps) {
     const currentProfile = profile();
     const isIncomeCategory = activeCategory() === 'income';
 
-    if (!currentProfile?.id && !isIncomeCategory) {
-      // Local-only mode (only for expenses)
-      const updated = items().filter((item) => item.id !== id);
-      setLocalItems(updated);
-      props.onItemsChange?.(updated.map(itemToLegacy));
+    if (!currentProfile?.id) {
+      // Local-only mode
+      if (isIncomeCategory) {
+        setLocalIncomeItems(localIncomeItems().filter((item) => item.id !== id));
+      } else {
+        const updated = items().filter((item) => item.id !== id);
+        setLocalItems(updated);
+        props.onItemsChange?.(updated.map(itemToLegacy));
+      }
       return;
     }
 
@@ -265,7 +281,16 @@ export function BudgetTab(props: BudgetTabProps) {
   };
 
   const resetNewItem = () => {
-    setNewItem({ name: '', category: 'subscriptions', currentCost: 0, amount: 0 });
+    const active = activeCategory();
+    setNewItem({
+      name: '',
+      category:
+        active !== 'income'
+          ? (active as LifestyleItem['category'])
+          : (undefined as unknown as LifestyleItem['category']),
+      currentCost: 0,
+      amount: 0,
+    });
     setEditingItemId(null);
   };
 
@@ -296,20 +321,34 @@ export function BudgetTab(props: BudgetTabProps) {
     const data = newItem();
     const isIncomeCategory = activeCategory() === 'income';
 
-    if (!currentProfile?.id && !isIncomeCategory) {
-      // Local-only mode - update in local array (expenses only)
-      const updated = items().map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              name: data.name || item.name,
-              category: data.category || item.category,
-              currentCost: data.currentCost ?? item.currentCost,
-            }
-          : item
-      );
-      setLocalItems(updated);
-      props.onItemsChange?.(updated.map(itemToLegacy));
+    if (!currentProfile?.id) {
+      // Local-only mode
+      if (isIncomeCategory) {
+        setLocalIncomeItems(
+          localIncomeItems().map((item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  name: data.name || item.name,
+                  amount: data.amount ?? item.amount,
+                }
+              : item
+          )
+        );
+      } else {
+        const updated = items().map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                name: data.name || item.name,
+                category: data.category || item.category,
+                currentCost: data.currentCost ?? item.currentCost,
+              }
+            : item
+        );
+        setLocalItems(updated);
+        props.onItemsChange?.(updated.map(itemToLegacy));
+      }
       setShowAddForm(false);
       resetNewItem();
       return;
@@ -471,7 +510,19 @@ export function BudgetTab(props: BudgetTabProps) {
             <Dynamic component={getCategoryInfo(activeCategory())?.icon} class="h-5 w-5" />
             {getCategoryInfo(activeCategory())?.label}
           </h3>
-          <Button size="sm" onClick={() => setShowAddForm(true)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              const active = activeCategory();
+              if (active !== 'income') {
+                setNewItem({
+                  ...newItem(),
+                  category: active as LifestyleItem['category'],
+                });
+              }
+              setShowAddForm(true);
+            }}
+          >
             <Plus class="h-4 w-4 mr-2" /> Add
           </Button>
         </div>
@@ -659,26 +710,63 @@ export function BudgetTab(props: BudgetTabProps) {
                   />
                 </div>
 
-                <Show when={!isIncomeCategory()}>
-                  <div>
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Category
-                    </label>
-                    <Select
-                      value={newItem().category}
-                      onChange={(e: any) =>
+                <div>
+                  <label class="block text-sm font-medium text-muted-foreground mb-2">
+                    Category
+                  </label>
+                  <div class="flex flex-wrap gap-2">
+                    {/* Include Income in the choices to allow switching */}
+                    <button
+                      class={cn(
+                        'px-3 py-1 text-xs font-medium rounded-full border transition-all',
+                        (newItem().category as unknown as string) === 'income' ||
+                          (isIncomeCategory() && !newItem().category) ||
+                          ((newItem().amount || 0) > 0 && isIncomeCategory())
+                          ? 'bg-green-600 text-white border-green-600'
+                          : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                      )}
+                      onClick={() => {
+                        // Switch to Income mode
+                        setActiveCategory('income'); // Update the main view filter too for consistency
                         setNewItem({
                           ...newItem(),
-                          category: e.currentTarget.value as LifestyleItem['category'],
-                        })
-                      }
-                      options={CATEGORIES.filter((c) => c.type === 'expense').map((c) => ({
-                        value: c.id,
-                        label: c.label,
-                      }))}
-                    />
+                          category: undefined, // Income doesn't have a category field in the same way
+                          amount: newItem().currentCost || 0, // Transfer value if exists
+                          currentCost: undefined,
+                        });
+                      }}
+                    >
+                      Income
+                    </button>
+
+                    <For each={CATEGORIES.filter((c) => c.type === 'expense')}>
+                      {(cat) => (
+                        <button
+                          class={cn(
+                            'px-3 py-1 text-xs font-medium rounded-full border transition-all',
+                            newItem().category === cat.id
+                              ? 'bg-red-600 text-white border-red-600'
+                              : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                          )}
+                          onClick={() => {
+                            // Switch to Expense mode (if was income)
+                            if (activeCategory() === 'income') {
+                              setActiveCategory(cat.id); // Update main view
+                            }
+                            setNewItem({
+                              ...newItem(),
+                              category: cat.id as LifestyleItem['category'],
+                              currentCost: newItem().amount || newItem().currentCost || 0, // Transfer value
+                              amount: undefined,
+                            });
+                          }}
+                        >
+                          {cat.label}
+                        </button>
+                      )}
+                    </For>
                   </div>
-                </Show>
+                </div>
               </div>
 
               <div class="flex gap-3 mt-6">

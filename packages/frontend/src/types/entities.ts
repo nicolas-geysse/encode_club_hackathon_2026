@@ -96,6 +96,13 @@ export interface CreateInventoryItemInput {
   platform?: string;
 }
 
+// === EXPENSE (legacy profile format) ===
+
+export interface Expense {
+  category: string;
+  amount: number;
+}
+
 // === INCOME ===
 
 export interface IncomeItem {

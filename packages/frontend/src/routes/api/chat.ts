@@ -1055,17 +1055,56 @@ function extractDataWithRegex(
   }
 
   // Fallback: if we have numbers but no specific matches, use heuristics
-  if (numbers.length > 0 && !data.income && !data.expenses && !data.maxWorkHours) {
+  // Check both data (current message) AND context (previous messages) for existing values
+  const hasIncome = data.income || context?.income;
+  const hasExpenses = data.expenses || context?.expenses;
+  const hasMaxWorkHours = data.maxWorkHours || context?.maxWorkHours;
+  const hasMinHourlyRate = data.minHourlyRate || context?.minHourlyRate;
+
+  // Debug logging for expense extraction
+  console.log('[extractDataWithRegex] Context:', {
+    income: context?.income,
+    expenses: context?.expenses,
+    hasIncome,
+    hasExpenses,
+    numbers,
+    message: message.substring(0, 50),
+  });
+
+  if (numbers.length > 0 && (!hasIncome || !hasExpenses || !hasMaxWorkHours)) {
     for (const num of numbers) {
-      if (num >= 500 && num <= 10000 && !data.income) {
+      // Income: 500-10000 range, only if not already set
+      if (num >= 500 && num <= 10000 && !hasIncome && !data.income) {
+        console.log('[extractDataWithRegex] Setting income:', num);
         data.income = num;
-      } else if (num >= 100 && num <= 5000 && data.income && !data.expenses) {
+      }
+      // Expenses: 100-5000 range, only if income is already known (from context or current message)
+      else if (
+        num >= 100 &&
+        num <= 5000 &&
+        (hasIncome || data.income) &&
+        !hasExpenses &&
+        !data.expenses
+      ) {
+        console.log('[extractDataWithRegex] Setting expenses:', num);
         data.expenses = num;
-      } else if (num >= 5 && num <= 40 && !data.maxWorkHours) {
+      }
+      // Max work hours: 5-40 range
+      else if (num >= 5 && num <= 40 && !hasMaxWorkHours && !data.maxWorkHours) {
         data.maxWorkHours = num;
-      } else if (num >= 8 && num <= 100 && data.maxWorkHours && !data.minHourlyRate) {
+      }
+      // Min hourly rate: 8-100 range, only if work hours already set
+      else if (
+        num >= 8 &&
+        num <= 100 &&
+        (hasMaxWorkHours || data.maxWorkHours) &&
+        !hasMinHourlyRate &&
+        !data.minHourlyRate
+      ) {
         data.minHourlyRate = num;
-      } else if (num >= 100 && num <= 50000 && !data.goalAmount) {
+      }
+      // Goal amount: 100-50000 range
+      else if (num >= 100 && num <= 50000 && !data.goalAmount && !context?.goalAmount) {
         data.goalAmount = num;
       }
     }

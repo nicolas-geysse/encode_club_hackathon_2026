@@ -117,6 +117,7 @@ export function GoalsTab(props: GoalsTabProps) {
     startDate: '',
     endDate: '',
   });
+  const [isSameDay, setIsSameDay] = createSignal(false);
   const [newCommitment, setNewCommitment] = createSignal<Partial<Commitment>>({
     type: 'class',
     name: '',
@@ -499,25 +500,27 @@ export function GoalsTab(props: GoalsTabProps) {
               <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Target class="h-5 w-5 text-primary" /> Quick goal
               </h3>
-              <div class="flex gap-3 flex-wrap">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <For each={presets}>
                   {(preset) => (
                     <button
                       type="button"
-                      class={`px-4 py-2 rounded-lg border-2 transition-all flex items-center gap-2 ${
+                      class={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 text-center hover:scale-[1.02] active:scale-[0.98] ${
                         goalName() === preset.name
-                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
-                          : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 bg-[#FAFBFC] dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+                          ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary'
+                          : 'border-border bg-card hover:border-primary/50 text-foreground'
                       }`}
                       onClick={() => applyPreset(preset)}
                     >
-                      <span>{preset.icon}</span>
-                      <span>{preset.name}</span>
-                      <span class="text-sm text-slate-500 dark:text-slate-400">
-                        ({formatCurrency(preset.amount, currency())})
-                      </span>
+                      <span class="text-2xl mb-1">{preset.icon}</span>
+                      <div class="flex flex-col">
+                        <span class="font-medium text-sm">{preset.name}</span>
+                        <span class="text-xs text-muted-foreground">
+                          {formatCurrency(preset.amount, currency())}
+                        </span>
+                      </div>
                       <Show when={preset.components.length > 0}>
-                        <span class="text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 px-1.5 py-0.5 rounded">
+                        <span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full mt-1">
                           {preset.components.length} steps
                         </span>
                       </Show>
@@ -570,6 +573,7 @@ export function GoalsTab(props: GoalsTabProps) {
                       value={goalDeadline() || ''}
                       onInput={(e: any) => setGoalDeadline(e.currentTarget.value)}
                       min={new Date().toISOString().split('T')[0]}
+                      class="dark:[color-scheme:dark]"
                     />
                   </div>
                 </div>
@@ -857,20 +861,64 @@ export function GoalsTab(props: GoalsTabProps) {
                   value={newEvent().name}
                   onInput={(e: any) => setNewEvent({ ...newEvent(), name: e.currentTarget.value })}
                 />
-                <Input
-                  type="date"
-                  value={newEvent().startDate}
-                  onInput={(e: any) =>
-                    setNewEvent({ ...newEvent(), startDate: e.currentTarget.value })
-                  }
-                />
-                <Input
-                  type="date"
-                  value={newEvent().endDate}
-                  onInput={(e: any) =>
-                    setNewEvent({ ...newEvent(), endDate: e.currentTarget.value })
-                  }
-                />
+
+                {/* Dates Section - Spans 2 columns to allow side-by-side date pickers with checkbox */}
+                <div class="col-span-1 md:col-span-2 flex items-start gap-4">
+                  <div class="flex-1">
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Start date
+                    </label>
+                    <Input
+                      type="date"
+                      value={newEvent().startDate}
+                      onInput={(e: any) =>
+                        setNewEvent({
+                          ...newEvent(),
+                          startDate: e.currentTarget.value,
+                          endDate: isSameDay() ? e.currentTarget.value : newEvent().endDate,
+                        })
+                      }
+                      class="dark:[color-scheme:dark]"
+                    />
+                  </div>
+
+                  <div class="flex flex-col justify-end h-full pb-2">
+                    <label
+                      class="flex flex-col items-center gap-1 cursor-pointer"
+                      title="The event ends on the same day"
+                    >
+                      <input
+                        type="checkbox"
+                        class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
+                        checked={isSameDay()}
+                        onChange={(e) => {
+                          setIsSameDay(e.currentTarget.checked);
+                          if (e.currentTarget.checked) {
+                            setNewEvent({ ...newEvent(), endDate: newEvent().startDate });
+                          }
+                        }}
+                      />
+                      <span class="text-[10px] text-muted-foreground whitespace-nowrap">
+                        Same day
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="flex-1">
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      End date
+                    </label>
+                    <Input
+                      type="date"
+                      value={newEvent().endDate}
+                      disabled={isSameDay()}
+                      onInput={(e: any) =>
+                        setNewEvent({ ...newEvent(), endDate: e.currentTarget.value })
+                      }
+                      class={`dark:[color-scheme:dark] ${isSameDay() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+                </div>
               </div>
 
               <Button

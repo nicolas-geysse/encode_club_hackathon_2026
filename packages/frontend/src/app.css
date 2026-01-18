@@ -66,3 +66,40 @@
     transform: translateX(100%);
   }
 }
+
+@keyframes spin-periodic {
+
+  0%,
+  85% {
+    transform: rotate(0deg);
+  }
+
+  90%,
+  95% {
+    transform: rotate(180deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bounce-x-continuous {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-spin-periodic {
+  animation: spin-periodic 5s ease-in-out infinite;
+}
+
+.animate-bounce-x {
+  animation: bounce-x-continuous 1s ease-in-out infinite;
+}

@@ -9,6 +9,7 @@ import { createSignal, createEffect, For, Show, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { Repeat } from 'lucide-solid';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { createLogger } from '~/lib/logger';
 
@@ -828,10 +829,24 @@ export function OnboardingChat() {
       if (merged !== undefined) updates.subscriptions = merged;
     }
 
-    // Determine city size
+    // Determine city size AND currency based on city/region
     if (data.city) {
       const cityLower = String(data.city).toLowerCase();
-      const bigCities = [
+
+      // Big cities by region
+      const ukCities = [
+        'london',
+        'manchester',
+        'birmingham',
+        'leeds',
+        'glasgow',
+        'edinburgh',
+        'liverpool',
+        'bristol',
+        'oxford',
+        'cambridge',
+      ];
+      const frenchCities = [
         'paris',
         'lyon',
         'marseille',
@@ -840,21 +855,59 @@ export function OnboardingChat() {
         'lille',
         'nantes',
         'nice',
+        'strasbourg',
+        'montpellier',
+      ];
+      const usCities = [
         'new york',
         'los angeles',
         'chicago',
         'boston',
         'san francisco',
         'seattle',
-        'london',
+        'miami',
+        'denver',
+        'austin',
+        'washington',
       ];
+      const euroCities = [
+        'berlin',
+        'munich',
+        'amsterdam',
+        'rotterdam',
+        'brussels',
+        'vienna',
+        'madrid',
+        'barcelona',
+        'rome',
+        'milan',
+        'dublin',
+      ];
+
+      const bigCities = [...ukCities, ...frenchCities, ...usCities, ...euroCities];
       const smallCities = ['village', 'campagne', 'rural', 'town'];
+
+      // Set city size
       if (bigCities.some((c) => cityLower.includes(c))) {
         updates.citySize = 'large';
       } else if (smallCities.some((c) => cityLower.includes(c))) {
         updates.citySize = 'small';
       } else {
         updates.citySize = 'medium';
+      }
+
+      // Auto-detect currency from city (if not already set)
+      if (!currentProfile.currency) {
+        if (ukCities.some((c) => cityLower.includes(c))) {
+          updates.currency = 'GBP';
+        } else if (
+          frenchCities.some((c) => cityLower.includes(c)) ||
+          euroCities.some((c) => cityLower.includes(c))
+        ) {
+          updates.currency = 'EUR';
+        } else if (usCities.some((c) => cityLower.includes(c))) {
+          updates.currency = 'USD';
+        }
       }
     }
 
@@ -1337,10 +1390,13 @@ export function OnboardingChat() {
           </div>
 
           {/* Action buttons (Restart / Start Plan) */}
+          {/* Action buttons (Restart / Start Plan) */}
+          {/* Action buttons (Restart / Start Plan) */}
           <Show when={isComplete()}>
             <div class="absolute top-4 right-4 z-10 flex gap-2">
               <button
-                class="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-background/80 backdrop-blur hover:bg-muted/50 rounded-lg border border-border transition-colors"
+                class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground border border-border hover:scale-105 active:scale-95 transition-all shadow-md animate-in fade-in zoom-in duration-300 animate-spin-periodic"
+                title="Restart Onboarding"
                 onClick={async () => {
                   /* Reuse existing restart logic */
                   setProfile({
@@ -1388,7 +1444,7 @@ export function OnboardingChat() {
                   setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
                 }}
               >
-                Restart
+                <Repeat class="h-5 w-5" />
               </button>
             </div>
           </Show>
@@ -1415,18 +1471,51 @@ export function OnboardingChat() {
                     disabled={loading()}
                   />
                   <button
-                    class="hidden md:flex items-center justify-center px-6 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-full transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+                    class="hidden md:flex items-center justify-center gap-2 px-6 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-full transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20 animate-in slide-in-from-right-4 duration-500 group"
                     onClick={goToPlan}
                   >
-                    Start My Plan →
+                    Start My Plan
+                    <div class="bg-white/20 rounded-full p-1 ml-1 animate-bounce-x">
+                      <input type="button" class="hidden" />{' '}
+                      {/* Dummy to avoid typescript error on empty div if needed */}
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="3"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M5 12h14" />
+                        <path d="m12 5 7 7-7 7" />
+                      </svg>
+                    </div>
                   </button>
                 </div>
                 {/* Mobile CTA */}
                 <button
-                  class="md:hidden w-full mt-3 py-3 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg"
+                  class="md:hidden w-full mt-3 py-3 flex items-center justify-center gap-2 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg animate-in slide-in-from-bottom-4 duration-500 group"
                   onClick={goToPlan}
                 >
-                  Start My Plan →
+                  Start My Plan
+                  <svg
+                    class="animate-bounce-x"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
                 </button>
               </Show>
             </div>

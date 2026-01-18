@@ -40,3 +40,8 @@ packages/frontend/data/
 data/
 *.duckdb
 *.duckdb.wal
+
+# AI/Agent tool artifacts
+.agent/
+.claude/
+_bmad-output/

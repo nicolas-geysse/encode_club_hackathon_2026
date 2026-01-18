@@ -18,7 +18,6 @@ import { Select } from '~/components/ui/Select';
 import {
   Briefcase,
   Lightbulb,
-  Star,
   Check,
   Pencil,
   Trash2,
@@ -26,7 +25,12 @@ import {
   X,
   TrendingUp,
   Clock,
-  Zap,
+  Hand,
+  Brain,
+  BrainCircuit,
+  Users,
+  Bed,
+  HelpCircle,
 } from 'lucide-solid';
 
 interface SkillsTabProps {
@@ -104,6 +108,91 @@ function calculateArbitrageScore(skill: Skill): number {
       weights.effort * normalizedEffort +
       weights.rest * normalizedRest) *
     10
+  );
+}
+
+// Rest needed steps configuration
+const REST_STEPS = [
+  { hours: 0, label: '0h' },
+  { hours: 4, label: '4h' },
+  { hours: 8, label: '8h' },
+  { hours: 12, label: '12h' },
+  { hours: 24, label: '24h (1 day)' },
+  { hours: 48, label: '2 days' },
+  { hours: 72, label: '3 days' },
+  { hours: 96, label: '4 days' },
+  { hours: 120, label: '5 days' },
+  { hours: 144, label: '6 days' },
+  { hours: 168, label: '7 days' },
+];
+
+function getClosestRestStepIndex(hours: number): number {
+  let closestIndex = 0;
+  let minDiff = Math.abs(hours - REST_STEPS[0].hours);
+
+  for (let i = 1; i < REST_STEPS.length; i++) {
+    const diff = Math.abs(hours - REST_STEPS[i].hours);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestIndex = i;
+    }
+  }
+  return closestIndex;
+}
+
+interface IconRatingProps {
+  value: number;
+  max: number;
+  icon: any; // Lucide icon component
+  onChange: (value: number) => void;
+  labels?: string[];
+  activeColor?: string;
+  emptyLabel?: string;
+}
+
+function IconRating(props: IconRatingProps) {
+  const [hoverValue, setHoverValue] = createSignal<number | null>(null);
+
+  const handleRatingClick = (rating: number) => {
+    if (props.value === rating) {
+      props.onChange(0); // Toggle off
+    } else {
+      props.onChange(rating);
+    }
+  };
+
+  const currentLabel = () => {
+    const v = hoverValue() ?? props.value;
+    if (v === 0) return props.emptyLabel || '';
+    return props.labels ? props.labels[v - 1] : '';
+  };
+
+  return (
+    <div class="space-y-2">
+      <div class="flex items-center gap-1 flex-wrap">
+        <For each={Array.from({ length: props.max }, (_, i) => i + 1)}>
+          {(rating) => (
+            <button
+              type="button"
+              class="focus:outline-none transition-transform hover:scale-110 active:scale-95 p-0.5"
+              onMouseEnter={() => setHoverValue(rating)}
+              onMouseLeave={() => setHoverValue(null)}
+              onClick={() => handleRatingClick(rating)}
+            >
+              <props.icon
+                class={`h-6 w-6 transition-colors ${
+                  rating <= (hoverValue() ?? props.value)
+                    ? props.activeColor || 'text-primary'
+                    : 'text-muted-foreground/20'
+                }`}
+                fill={rating <= (hoverValue() ?? props.value) ? 'currentColor' : 'none'}
+              />
+            </button>
+          )}
+        </For>
+      </div>
+      <div class="text-sm font-medium text-muted-foreground min-h-[1.25rem]">{currentLabel()}</div>
+    </div>
   );
 }
 
@@ -422,14 +511,20 @@ export function SkillsTab(props: SkillsTabProps) {
                       </Show>
                     </div>
                     <div class="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                      <span class="flex items-center gap-1">
+                      <span class="flex items-center gap-1" title="Hourly Rate">
                         {formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}
                       </span>
-                      <span class="flex items-center gap-1">
-                        <Star class="h-3 w-3 text-yellow-500" /> {skill.marketDemand}
+                      <span class="flex items-center gap-1" title="Market Demand">
+                        <Users class="h-3 w-3 text-yellow-500" /> {skill.marketDemand}/5
                       </span>
-                      <span class="flex items-center gap-1">
-                        <Zap class="h-3 w-3" /> Effort: {getEffortLabel(skill.cognitiveEffort)}
+                      <span class="flex items-center gap-1" title="Cognitive Effort">
+                        <BrainCircuit class="h-3 w-3 text-pink-500" />{' '}
+                        {getEffortLabel(skill.cognitiveEffort)}
+                      </span>
+                      <span class="flex items-center gap-1" title="Rest Needed">
+                        <Bed class="h-3 w-3 text-indigo-500" />{' '}
+                        {REST_STEPS.find((s) => s.hours === (skill.restNeeded || 0))?.label ||
+                          (skill.restNeeded || 0) + 'h'}
                       </span>
                     </div>
                   </div>
@@ -493,7 +588,8 @@ export function SkillsTab(props: SkillsTabProps) {
           <Card class="max-w-md w-full">
             <CardContent class="p-6">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-foreground">
+                <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Briefcase class="h-5 w-5 text-primary" />
                   {editingSkillId() ? 'Edit skill' : 'New skill'}
                 </h3>
                 <Button
@@ -508,9 +604,10 @@ export function SkillsTab(props: SkillsTabProps) {
                 </Button>
               </div>
 
-              <div class="space-y-4">
+              <div class="space-y-6">
+                {/* Name */}
                 <div>
-                  <label class="block text-sm font-medium text-muted-foreground mb-1">Name</label>
+                  <label class="block text-sm font-medium text-foreground mb-1">Name</label>
                   <Input
                     type="text"
                     placeholder="Ex: Python, Excel, Coaching..."
@@ -521,87 +618,92 @@ export function SkillsTab(props: SkillsTabProps) {
                   />
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Hourly rate ({currencySymbol()})
-                    </label>
-                    <Input
-                      type="number"
-                      min="5"
-                      max="100"
-                      value={newSkill().hourlyRate}
-                      onInput={(e: any) =>
-                        setNewSkill({
-                          ...newSkill(),
-                          hourlyRate: parseInt(e.currentTarget.value) || 15,
-                        })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Market demand (1-5)
-                    </label>
-                    <Input
-                      type="range"
-                      min="1"
-                      max="5"
-                      class="w-full mt-2"
-                      value={newSkill().marketDemand}
-                      onInput={(e: any) =>
-                        setNewSkill({
-                          ...newSkill(),
-                          marketDemand: parseInt(e.currentTarget.value),
-                        })
-                      }
-                    />
-                    <div class="text-center text-sm text-muted-foreground mt-1">
-                      {'⭐'.repeat(newSkill().marketDemand || 3)}
-                    </div>
-                  </div>
+                {/* Hourly Rate */}
+                <div>
+                  <label class="block text-sm font-medium text-foreground mb-1">
+                    Hourly rate ({currencySymbol()})
+                  </label>
+                  <Input
+                    type="number"
+                    min="5"
+                    max="100"
+                    value={newSkill().hourlyRate}
+                    onInput={(e: any) =>
+                      setNewSkill({
+                        ...newSkill(),
+                        hourlyRate: parseInt(e.currentTarget.value) || 15,
+                      })
+                    }
+                  />
                 </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Cognitive effort
-                    </label>
-                    <Select
-                      value={newSkill().cognitiveEffort}
-                      onChange={(e: any) =>
-                        setNewSkill({
-                          ...newSkill(),
-                          cognitiveEffort: parseInt(e.currentTarget.value),
-                        })
-                      }
-                      options={[
-                        { value: 1, label: '1 - Very low' },
-                        { value: 2, label: '2 - Low' },
-                        { value: 3, label: '3 - Moderate' },
-                        { value: 4, label: '4 - High' },
-                        { value: 5, label: '5 - Very high' },
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Rest needed (h)
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="8"
-                      step="0.5"
-                      value={newSkill().restNeeded}
-                      onInput={(e: any) =>
-                        setNewSkill({
-                          ...newSkill(),
-                          restNeeded: parseFloat(e.currentTarget.value) || 1,
-                        })
-                      }
-                    />
-                  </div>
+                {/* Market Demand */}
+                <div>
+                  <label class="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                    Market demand
+                    <div class="group relative">
+                      <HelpCircle class="h-4 w-4 text-muted-foreground cursor-help" />
+                      <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg border opacity-0 group-hover:opacity-100 transition-opacity w-48 text-center pointer-events-none">
+                        How easy is it to find clients?
+                      </div>
+                    </div>
+                  </label>
+                  <IconRating
+                    value={newSkill().marketDemand || 3}
+                    max={5}
+                    icon={Users}
+                    activeColor="text-yellow-500"
+                    onChange={(val) => setNewSkill({ ...newSkill(), marketDemand: val })}
+                    labels={['Very low', 'Low', 'Moderate', 'High', 'Very high']}
+                  />
+                </div>
+
+                {/* Cognitive Effort */}
+                <div>
+                  <label class="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                    Cognitive Effort
+                    <div class="group relative">
+                      <HelpCircle class="h-4 w-4 text-muted-foreground cursor-help" />
+                      <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg border opacity-0 group-hover:opacity-100 transition-opacity w-48 text-center pointer-events-none">
+                        How mentally draining is this task?
+                      </div>
+                    </div>
+                  </label>
+                  <IconRating
+                    value={newSkill().cognitiveEffort || 3}
+                    max={5}
+                    icon={BrainCircuit}
+                    activeColor="text-pink-500"
+                    onChange={(val) => setNewSkill({ ...newSkill(), cognitiveEffort: val })}
+                    labels={['Very low', 'Low', 'Moderate', 'High', 'Very high']}
+                  />
+                </div>
+
+                {/* Rest Needed */}
+                <div>
+                  <label class="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                    Rest needed
+                    <div class="group relative">
+                      <HelpCircle class="h-4 w-4 text-muted-foreground cursor-help" />
+                      <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg border opacity-0 group-hover:opacity-100 transition-opacity w-48 text-center pointer-events-none">
+                        Recovery time needed after 1h of work
+                      </div>
+                    </div>
+                  </label>
+                  <IconRating
+                    value={getClosestRestStepIndex(newSkill().restNeeded || 0)}
+                    max={10}
+                    icon={Bed}
+                    activeColor="text-indigo-500"
+                    emptyLabel="0h (No rest needed)"
+                    onChange={(index) => {
+                      setNewSkill({
+                        ...newSkill(),
+                        restNeeded: REST_STEPS[index].hours,
+                      });
+                    }}
+                    labels={REST_STEPS.slice(1).map((s) => s.label)}
+                  />
                 </div>
               </div>
 

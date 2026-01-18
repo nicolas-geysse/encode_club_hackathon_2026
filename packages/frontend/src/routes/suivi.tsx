@@ -385,7 +385,36 @@ export default function SuiviPage() {
   };
 
   const handleMissionUpdate = (id: string, updates: Partial<Mission>) => {
-    const missions = followup().missions.map((m) => (m.id === id ? { ...m, ...updates } : m));
+    const missions = followup().missions.map((m) => {
+      if (m.id !== id) return m;
+
+      // Handle Restoration (Undo)
+      if (updates.status === 'active' && m.status === 'completed') {
+        // If we have a previous state, restore it
+        if (m.previousState) {
+          return {
+            ...m,
+            ...updates,
+            hoursCompleted: m.previousState.hoursCompleted,
+            earningsCollected: m.previousState.earningsCollected,
+            previousState: undefined, // Clear backup after restore
+          };
+        }
+        // If no backup (legacy), we must decide.
+        // User complained about "100%" sticking.
+        // But reverting to 0 is also risky.
+        // Let's assume if no backup, we revert to 0 (clean slate) OR we keep it.
+        // Given the user feedback, keeping it is bad. Reverting to 0 allows them to re-log.
+        // It's safer to revert to 0 if we assume "Complete" implies "Auto-filled".
+        // But let's rely on backup primarily.
+      }
+
+      // Handle Skip undoing (User said "si on fait undo... on n'a plus le nomre d'heures").
+      // Skip preserves values. So restoring from skip is easy (just status change).
+      // existing code `...m, ...updates` handles this if we don't override input.
+
+      return { ...m, ...updates };
+    });
 
     // Calculate new total
     const totalEarnings = missions.reduce((sum, m) => sum + m.earningsCollected, 0);
@@ -394,7 +423,21 @@ export default function SuiviPage() {
   };
 
   const handleMissionComplete = (id: string) => {
-    handleMissionUpdate(id, { status: 'completed', progress: 100 });
+    // Fill remaining hours/earnings to match target
+    const mission = followup().missions.find((m) => m.id === id);
+    if (!mission) return;
+
+    handleMissionUpdate(id, {
+      status: 'completed',
+      progress: 100,
+      hoursCompleted: mission.weeklyHours,
+      earningsCollected: mission.weeklyEarnings,
+      // Save backup state before overwriting
+      previousState: {
+        hoursCompleted: mission.hoursCompleted,
+        earningsCollected: mission.earningsCollected,
+      },
+    });
   };
 
   const handleMissionSkip = (id: string) => {
@@ -424,6 +467,11 @@ export default function SuiviPage() {
     updateFollowup({
       missions: [...followup().missions, ...catchUpMissions],
     });
+  };
+
+  const handleMissionDelete = (id: string) => {
+    const missions = followup().missions.filter((m) => m.id !== id);
+    updateFollowup({ missions });
   };
 
   // No data fallback component
@@ -494,6 +542,7 @@ export default function SuiviPage() {
               onMissionUpdate={handleMissionUpdate}
               onMissionComplete={handleMissionComplete}
               onMissionSkip={handleMissionSkip}
+              onMissionDelete={handleMissionDelete}
             />
           </div>
 

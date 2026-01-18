@@ -17,8 +17,10 @@ import {
   GraduationCap,
   Home,
   Repeat,
-  X,
-  Plus,
+  Hand,
+  RotateCcw,
+  Trash2,
+  CheckCircle2,
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
@@ -34,6 +36,10 @@ export interface Mission {
   startDate: string;
   hoursCompleted: number;
   earningsCollected: number;
+  previousState?: {
+    hoursCompleted: number;
+    earningsCollected: number;
+  };
 }
 
 interface MissionCardProps {
@@ -41,7 +47,9 @@ interface MissionCardProps {
   currency?: Currency;
   onComplete?: () => void;
   onSkip?: () => void;
-  onLogProgress?: (hours: number, earnings: number) => void;
+  onUndo?: () => void;
+  onDelete?: () => void;
+  onLogProgress?: () => void;
 }
 
 export function MissionCard(props: MissionCardProps) {
@@ -137,42 +145,64 @@ export function MissionCard(props: MissionCardProps) {
           </div>
 
           {/* Actions */}
-          <Show when={props.mission.status === 'active'}>
-            <div class="flex-shrink-0 flex flex-col gap-2">
+          {/* Actions */}
+          <div class="flex-shrink-0 flex flex-col items-end gap-2">
+            <Show when={props.mission.status === 'active'}>
+              <div class="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  class="gap-1 h-8 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={props.onComplete}
+                >
+                  <CheckCircle2 class="h-4 w-4" />
+                  To be done
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="gap-1 h-8 px-3 text-muted-foreground hover:text-foreground"
+                  onClick={props.onLogProgress}
+                  title="Log Progress"
+                >
+                  <Clock class="h-4 w-4" />
+                  <span>Log</span>
+                </Button>
+              </div>
+              <div class="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="gap-1 h-8 px-3 text-muted-foreground hover:text-foreground"
+                  onClick={props.onSkip}
+                  title="Skip Mission"
+                >
+                  <Hand class="h-4 w-4" />
+                  <span>Skip</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="gap-1 h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                  onClick={props.onDelete}
+                  title="Delete Mission"
+                >
+                  <Trash2 class="h-4 w-4" />
+                </Button>
+              </div>
+            </Show>
+
+            <Show when={props.mission.status !== 'active'}>
               <Button
-                size="sm"
                 variant="outline"
-                class="h-8 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 border-green-200 dark:border-green-900"
-                onClick={() => props.onComplete?.()}
-              >
-                <Check class="h-3.5 w-3.5" />
-                <span class="sr-only sm:not-sr-only">Done</span>
-              </Button>
-              <Button
                 size="sm"
-                variant="ghost"
-                class="h-8 gap-1"
-                onClick={() => {
-                  const hours = prompt('Hours completed this week:', '0');
-                  const earnings = prompt('Dollars earned:', '0');
-                  if (hours && earnings) {
-                    props.onLogProgress?.(parseFloat(hours), parseFloat(earnings));
-                  }
-                }}
+                class="gap-1 h-8 text-muted-foreground hover:text-primary"
+                onClick={props.onUndo}
               >
-                <Plus class="h-3.5 w-3.5" />
-                <span class="sr-only sm:not-sr-only">Log</span>
+                <RotateCcw class="h-4 w-4" />
+                Undo
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                class="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                onClick={() => props.onSkip?.()}
-              >
-                <X class="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </Show>
+            </Show>
+          </div>
         </div>
       </CardContent>
     </Card>

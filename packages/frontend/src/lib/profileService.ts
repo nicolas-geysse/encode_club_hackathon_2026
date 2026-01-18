@@ -6,6 +6,8 @@
  */
 
 import { createLogger } from './logger';
+import { normalizeExpenses } from './expenseUtils';
+import type { Expense } from '../types/entities';
 
 const logger = createLogger('ProfileService');
 
@@ -14,10 +16,8 @@ export interface IncomeSource {
   amount: number;
 }
 
-export interface Expense {
-  category: string;
-  amount: number;
-}
+// Re-export Expense from canonical source
+export type { Expense };
 
 export interface FullProfile {
   id: string;
@@ -81,6 +81,10 @@ export async function loadActiveProfile(): Promise<FullProfile | null> {
     if (!profile) {
       return loadFromLocalStorage();
     }
+    // Normalize expenses: handle corrupted data where expenses might be a number
+    if (profile.expenses !== undefined) {
+      profile.expenses = normalizeExpenses(profile.expenses);
+    }
     return profile;
   } catch (error) {
     logger.warn('API unreachable, using localStorage fallback', { error });
@@ -98,6 +102,7 @@ function loadFromLocalStorage(): FullProfile | null {
 
     const local = JSON.parse(stored);
     // Map localStorage format to FullProfile format
+    // Normalize expenses: handle corrupted data where expenses might be a number
     return {
       id: local.id || 'local-profile',
       name: local.name || 'My Profile',
@@ -109,7 +114,7 @@ function loadFromLocalStorage(): FullProfile | null {
       city: local.city,
       citySize: local.citySize,
       incomeSources: local.incomes || local.incomeSources,
-      expenses: local.expenses,
+      expenses: normalizeExpenses(local.expenses),
       maxWorkHoursWeekly: local.maxWorkHours,
       minHourlyRate: local.minHourlyRate,
       hasLoan: local.hasLoan,
@@ -130,7 +135,12 @@ export async function loadProfile(profileId: string): Promise<FullProfile | null
       logger.error('Failed to load profile', { profileId });
       return null;
     }
-    return response.json();
+    const profile = await response.json();
+    // Normalize expenses: handle corrupted data where expenses might be a number
+    if (profile && profile.expenses !== undefined) {
+      profile.expenses = normalizeExpenses(profile.expenses);
+    }
+    return profile;
   } catch (error) {
     logger.error('Error loading profile', { error });
     return null;

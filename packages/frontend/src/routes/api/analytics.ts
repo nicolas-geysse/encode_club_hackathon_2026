@@ -216,7 +216,7 @@ export async function GET(event: APIEvent) {
 
     // Calculate totals from income_items
     const incomeFromItems = incomeItems.reduce((sum, i) => sum + i.amount, 0);
-    const totalIncome = profile.monthly_income || incomeFromItems;
+    const totalIncome = incomeFromItems; // Use calculated total from items (source of truth)
     const totalExpenses = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
     const netMargin = totalIncome - totalExpenses;
 

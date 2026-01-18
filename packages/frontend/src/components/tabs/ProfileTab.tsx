@@ -11,6 +11,7 @@
 import { createSignal, Show, For, createEffect } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
+import { calculateTotalExpenses } from '~/lib/expenseUtils';
 import {
   formatDate,
   formatCurrency,
@@ -40,6 +41,7 @@ export function ProfileTab(props: ProfileTabProps) {
     loading: contextLoading,
     refreshProfile,
     lifestyle: contextLifestyle,
+    income: contextIncome,
   } = useProfile();
 
   // Get currency from profile context, fallback to USD
@@ -99,21 +101,13 @@ export function ProfileTab(props: ProfileTabProps) {
     const p = profile();
     if (!p) return { income: 0, expenses: 0, margin: 0 };
 
-    const income = (p.incomeSources || []).reduce(
-      (sum: number, s: { amount?: number }) => sum + (s.amount || 0),
-      0
-    );
+    // Use dynamic income from context (same as Budget Tab)
+    const incomeItems = contextIncome();
+    const income = incomeItems.reduce((sum, item) => sum + item.amount, 0);
 
-    // Use lifestyle_items as source of truth for expenses
-    // Falls back to profile.expenses if lifestyle items not yet loaded
+    // Use merged expense sources (lifestyle_items + profile.expenses fallback)
     const lifestyleItems = contextLifestyle();
-    const expenses =
-      lifestyleItems.length > 0
-        ? lifestyleItems.reduce((sum, item) => sum + item.currentCost, 0)
-        : (p.expenses || []).reduce(
-            (sum: number, e: { amount?: number }) => sum + (e.amount || 0),
-            0
-          );
+    const expenses = calculateTotalExpenses(lifestyleItems, p.expenses);
 
     return { income, expenses, margin: income - expenses };
   };

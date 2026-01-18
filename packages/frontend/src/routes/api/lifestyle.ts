@@ -17,7 +17,12 @@ let lifestyleSchemaInitialized = false;
 
 // Initialize lifestyle schema if needed
 async function ensureLifestyleSchema(): Promise<void> {
-  if (lifestyleSchemaInitialized) return;
+  if (lifestyleSchemaInitialized) {
+    logger.debug('Schema already initialized, skipping');
+    return;
+  }
+
+  logger.info('Initializing lifestyle_items schema...');
 
   try {
     await executeSchema(`
@@ -46,9 +51,10 @@ async function ensureLifestyleSchema(): Promise<void> {
     }
 
     lifestyleSchemaInitialized = true;
-    logger.info('Schema initialized');
+    logger.info('Schema initialized successfully - lifestyle_items table ready');
   } catch (error) {
-    logger.debug('Schema init note', { error });
+    logger.error('CRITICAL: Failed to initialize lifestyle_items schema', { error });
+    // Still mark as initialized to avoid retry loops, but log the error
     lifestyleSchemaInitialized = true;
   }
 }

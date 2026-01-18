@@ -3,21 +3,36 @@ import { MissionCard, type Mission } from './MissionCard';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { CheckCircle2, Clock, Wallet, Target, Trophy, Inbox, Zap } from 'lucide-solid';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { LogProgressDialog } from './LogProgressDialog';
+import { CheckCircle2, Clock, Wallet, Target, Trophy, Inbox, Zap, Hand } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
 interface MissionListProps {
   missions: Mission[];
   onMissionUpdate?: (id: string, updates: Partial<Mission>) => void;
   onMissionComplete?: (id: string) => void;
+  onMissionDelete?: (id: string) => void;
   onMissionSkip?: (id: string) => void;
   currency?: Currency;
 }
 
-type FilterType = 'all' | 'active' | 'completed';
+type FilterType = 'all' | 'active' | 'completed' | 'skipped';
 
 export function MissionList(props: MissionListProps) {
   const [filter, setFilter] = createSignal<FilterType>('all');
+
+  // Dialog States
+  const [confirmState, setConfirmState] = createSignal<{
+    isOpen: boolean;
+    type: 'complete' | 'skip' | 'undo' | 'delete';
+    missionId: string | null;
+  }>({ isOpen: false, type: 'complete', missionId: null });
+
+  const [logState, setLogState] = createSignal<{
+    isOpen: boolean;
+    missionId: string | null;
+  }>({ isOpen: false, missionId: null });
 
   const filteredMissions = createMemo(() => {
     switch (filter()) {
@@ -25,6 +40,8 @@ export function MissionList(props: MissionListProps) {
         return props.missions.filter((m) => m.status === 'active');
       case 'completed':
         return props.missions.filter((m) => m.status === 'completed');
+      case 'skipped':
+        return props.missions.filter((m) => m.status === 'skipped');
       default:
         return props.missions;
     }
@@ -44,7 +61,10 @@ export function MissionList(props: MissionListProps) {
     };
   });
 
-  const handleLogProgress = (id: string, hours: number, earnings: number) => {
+  const handleLogProgress = (hours: number, earnings: number) => {
+    const id = logState().missionId;
+    if (!id) return;
+
     const mission = props.missions.find((m) => m.id === id);
     if (!mission) return;
 
@@ -58,6 +78,24 @@ export function MissionList(props: MissionListProps) {
       progress,
       status: progress >= 100 ? 'completed' : 'active',
     });
+  };
+
+  const executeAction = () => {
+    const { type, missionId } = confirmState();
+    if (!missionId) return;
+
+    if (type === 'complete') {
+      props.onMissionComplete?.(missionId);
+    } else if (type === 'skip') {
+      props.onMissionSkip?.(missionId);
+    } else if (type === 'delete') {
+      props.onMissionDelete?.(missionId);
+    } else if (type === 'undo') {
+      // Undo completion/skip -> Set back to active without resetting progress/earnings
+      // This preserves partial data if restoring from skipped, or full data if restoring from completed.
+      props.onMissionUpdate?.(missionId, { status: 'active' });
+    }
+    setConfirmState({ ...confirmState(), isOpen: false });
   };
 
   return (
@@ -144,7 +182,7 @@ export function MissionList(props: MissionListProps) {
 
       {/* Filter Tabs using Kobalte Tabs */}
       <Tabs value={filter()} onChange={(v: string) => setFilter(v as FilterType)} class="w-full">
-        <TabsList class="mb-4 w-full justify-start">
+        <TabsList class="mb-4 w-full justify-start overflow-x-auto">
           <TabsTrigger value="all" class="flex-1 sm:flex-none">
             All ({stats().total})
           </TabsTrigger>
@@ -154,13 +192,10 @@ export function MissionList(props: MissionListProps) {
           <TabsTrigger value="completed" class="flex-1 sm:flex-none">
             Completed ({stats().completed})
           </TabsTrigger>
+          <TabsTrigger value="skipped" class="flex-1 sm:flex-none">
+            Skipped ({props.missions.filter((m) => m.status === 'skipped').length})
+          </TabsTrigger>
         </TabsList>
-
-        {/* We can render the list directly since logic handles filtering, 
-            but for animation/structure, we could use TabsContent. 
-            However, we want to animate the list changes.
-            Let's just use the filtered list directly below the tabs control.
-        */}
       </Tabs>
 
       {/* Mission Cards */}
@@ -170,9 +205,15 @@ export function MissionList(props: MissionListProps) {
             <MissionCard
               mission={mission}
               currency={props.currency}
-              onComplete={() => props.onMissionComplete?.(mission.id)}
-              onSkip={() => props.onMissionSkip?.(mission.id)}
-              onLogProgress={(hours, earnings) => handleLogProgress(mission.id, hours, earnings)}
+              onComplete={() =>
+                setConfirmState({ isOpen: true, type: 'complete', missionId: mission.id })
+              }
+              onSkip={() => setConfirmState({ isOpen: true, type: 'skip', missionId: mission.id })}
+              onDelete={() =>
+                setConfirmState({ isOpen: true, type: 'delete', missionId: mission.id })
+              }
+              onUndo={() => setConfirmState({ isOpen: true, type: 'undo', missionId: mission.id })}
+              onLogProgress={() => setLogState({ isOpen: true, missionId: mission.id })}
             />
           )}
         </For>
@@ -186,7 +227,14 @@ export function MissionList(props: MissionListProps) {
                 fallback={
                   <Show
                     when={filter() === 'completed'}
-                    fallback={<Inbox class="h-8 w-8 opacity-50" />}
+                    fallback={
+                      <Show
+                        when={filter() === 'skipped'}
+                        fallback={<Inbox class="h-8 w-8 opacity-50" />}
+                      >
+                        <Hand class="h-8 w-8 opacity-50" />
+                      </Show>
+                    }
                   >
                     <Trophy class="h-8 w-8 opacity-50" />
                   </Show>
@@ -200,14 +248,14 @@ export function MissionList(props: MissionListProps) {
                 ? 'No active missions'
                 : filter() === 'completed'
                   ? 'No completed missions'
-                  : 'No missions'}
+                  : filter() === 'skipped'
+                    ? 'No skipped missions'
+                    : 'No missions'}
             </h3>
             <p class="text-sm max-w-xs mx-auto">
               {filter() === 'active'
                 ? 'Use Swipe Scenarios to create missions'
-                : filter() === 'completed'
-                  ? 'Complete missions to see them here'
-                  : 'Go to the Swipe tab to generate missions'}
+                : 'Check other tabs or generate new missions'}
             </p>
           </div>
         </Show>
@@ -220,6 +268,62 @@ export function MissionList(props: MissionListProps) {
           up!
         </div>
       </Show>
+
+      {/* Dialogs */}
+      <ConfirmDialog
+        isOpen={confirmState().isOpen}
+        title={
+          confirmState().type === 'complete'
+            ? 'Complete Mission'
+            : confirmState().type === 'skip'
+              ? 'Skip Mission'
+              : confirmState().type === 'delete'
+                ? 'Delete Mission'
+                : 'Undo Status'
+        }
+        message={
+          confirmState().type === 'complete'
+            ? 'Are you sure you want to mark this mission as completed?'
+            : confirmState().type === 'skip'
+              ? 'Are you sure you want to skip this mission? It will be moved to the skipped tab.'
+              : confirmState().type === 'delete'
+                ? 'Are you sure you want to permanently delete this mission?'
+                : 'Restore this mission to active status?'
+        }
+        confirmLabel={
+          confirmState().type === 'complete'
+            ? 'Complete'
+            : confirmState().type === 'skip'
+              ? 'Skip'
+              : confirmState().type === 'delete'
+                ? 'Delete'
+                : 'Undo'
+        }
+        variant={
+          confirmState().type === 'delete'
+            ? 'danger'
+            : confirmState().type === 'skip'
+              ? 'warning'
+              : 'default'
+        }
+        onConfirm={executeAction}
+        onCancel={() => setConfirmState({ ...confirmState(), isOpen: false })}
+      />
+
+      <LogProgressDialog
+        isOpen={logState().isOpen}
+        onClose={() => setLogState({ ...logState(), isOpen: false })}
+        onSave={handleLogProgress}
+        title="Log Progress"
+        currentHours={
+          props.missions.find((m) => m.id === logState().missionId)?.hoursCompleted || 0
+        }
+        currentEarnings={
+          props.missions.find((m) => m.id === logState().missionId)?.earningsCollected || 0
+        }
+        targetHours={props.missions.find((m) => m.id === logState().missionId)?.weeklyHours}
+        targetEarnings={props.missions.find((m) => m.id === logState().missionId)?.weeklyEarnings}
+      />
     </div>
   );
 }
