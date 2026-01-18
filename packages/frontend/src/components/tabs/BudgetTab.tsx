@@ -24,7 +24,7 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
-import { Slider } from '~/components/ui/Slider';
+import { MonthPicker } from '~/components/ui/MonthPicker';
 import {
   Wallet,
   Home,
@@ -547,28 +547,19 @@ export function BudgetTab(props: BudgetTabProps) {
                     </div>
                   </div>
 
-                  {/* Pause Slider */}
                   <Show when={maxPauseMonths() > 0}>
-                    <div class="pt-2 pb-1">
-                      <Slider
-                        min={0}
+                    <div class="pt-2">
+                      <MonthPicker
                         max={maxPauseMonths()}
-                        step={1}
-                        value={[item.pausedMonths]}
-                        onChange={(vals: number[]) => updatePausedMonths(item.id, vals[0])}
+                        value={item.pausedMonths}
+                        onChange={(val) => updatePausedMonths(item.id, val)}
                         disabled={isLoading()}
-                        label="Pause duration"
-                        valueDisplay={(val: number) => (
-                          <span
-                            class={cn(
-                              val > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : ''
-                            )}
-                          >
-                            {val} mo
-                            {val > 0 && ` (-${formatCurrency(val * item.currentCost, currency())})`}
-                          </span>
-                        )}
                       />
+                      <Show when={item.pausedMonths > 0}>
+                        <div class="mt-2 text-center text-xs text-amber-600 dark:text-amber-400 font-medium">
+                          Saves {formatCurrency(item.pausedMonths * item.currentCost, currency())}
+                        </div>
+                      </Show>
                     </div>
                   </Show>
 

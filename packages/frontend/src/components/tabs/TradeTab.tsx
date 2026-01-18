@@ -559,18 +559,26 @@ export function TradeTab(props: TradeTabProps) {
       {/* Type Tabs */}
       <div class="flex flex-wrap gap-2">
         <For each={TRADE_TYPES}>
-          {(type) => (
-            <Button
-              variant={activeType() === type.id ? 'default' : 'outline'}
-              size="sm"
-              class={activeType() === type.id ? 'bg-primary text-primary-foreground' : 'bg-card'}
-              onClick={() => setActiveType(type.id)}
-              title={type.description}
-            >
-              <Dynamic component={type.icon} class="h-4 w-4 mr-2" />
-              {type.label}
-            </Button>
-          )}
+          {(type) => {
+            const activeColors: Record<string, string> = {
+              sell: 'bg-green-600 hover:bg-green-700 text-white',
+              borrow: 'bg-blue-600 hover:bg-blue-700 text-white',
+              trade: 'bg-purple-600 hover:bg-purple-700 text-white',
+              lend: 'bg-orange-500 hover:bg-orange-600 text-white',
+            };
+            return (
+              <Button
+                variant={activeType() === type.id ? 'default' : 'outline'}
+                size="sm"
+                class={activeType() === type.id ? activeColors[type.id] : 'bg-card'}
+                onClick={() => setActiveType(type.id)}
+                title={type.description}
+              >
+                <Dynamic component={type.icon} class="h-4 w-4 mr-2" />
+                {type.label}
+              </Button>
+            );
+          }}
         </For>
       </div>
 
