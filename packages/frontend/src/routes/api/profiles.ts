@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Profiles API Route
  *
@@ -9,6 +8,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
 import { query, execute, executeSchema, escapeSQL } from './_db';
+import { createLogger } from '../../lib/logger';
+
+const logger = createLogger('Profiles');
 
 // Schema initialization flag (persists across requests in same process)
 let schemaInitialized = false;
@@ -74,18 +76,18 @@ async function migrateEmbeddedGoals(): Promise<void> {
         `);
         migrated++;
       } catch (err) {
-        console.warn(`[Profiles] Failed to migrate goal for profile ${p.id}:`, err);
+        logger.warn(`Failed to migrate goal for profile ${p.id}`, { error: err });
       }
     }
 
     if (migrated > 0) {
-      console.log(`[Profiles] Migrated ${migrated} embedded goals to goals table`);
+      logger.info(`Migrated ${migrated} embedded goals to goals table`);
     }
 
     goalsMigrationDone = true;
   } catch (err) {
     // Goals table might not exist yet, will be created by goals.ts
-    console.log('[Profiles] Goal migration skipped (goals table may not exist yet):', err);
+    logger.info('Goal migration skipped (goals table may not exist yet)', { error: err });
     goalsMigrationDone = true;
   }
 }
@@ -151,13 +153,13 @@ async function ensureProfilesSchema(): Promise<void> {
     }
 
     schemaInitialized = true;
-    console.log('[Profiles] Schema initialized');
+    logger.info('Schema initialized');
 
     // Run goal migration after schema is ready
     // Delay slightly to ensure goals table schema is also initialized
     setTimeout(() => {
       migrateEmbeddedGoals().catch((err) => {
-        console.warn('[Profiles] Goal migration error:', err);
+        logger.warn('Goal migration error', { error: err });
       });
     }, 100);
   } catch {
@@ -305,7 +307,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Profiles] GET error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -434,7 +436,7 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Profiles] POST error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -481,7 +483,7 @@ export async function PUT(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Profiles] PUT error:', error);
+    logger.error('PUT error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -578,7 +580,7 @@ export async function DELETE(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Profiles] DELETE error:', error);
+    logger.error('DELETE error', { error });
     return new Response(
       JSON.stringify({
         error: true,

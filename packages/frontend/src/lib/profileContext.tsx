@@ -16,6 +16,9 @@ import {
 } from 'solid-js';
 import { profileService, type FullProfile } from './profileService';
 import { skillService, type Skill } from './skillService';
+import { createLogger } from './logger';
+
+const logger = createLogger('ProfileContext');
 
 /** Goal type from API */
 export interface Goal {
@@ -121,7 +124,7 @@ export const ProfileProvider: ParentComponent = (props) => {
       const loaded = await profileService.loadActiveProfile();
       setProfile(loaded);
     } catch (error) {
-      console.error('[ProfileContext] Failed to load profile:', error);
+      logger.error('Failed to load profile', { error });
       setProfile(null);
     } finally {
       setLoading(false);
@@ -141,7 +144,7 @@ export const ProfileProvider: ParentComponent = (props) => {
           setGoals([]);
         }
       } catch (error) {
-        console.error('[ProfileContext] Failed to load goals:', error);
+        logger.error('Failed to load goals', { error });
         setGoals([]);
       }
     } else {
@@ -156,7 +159,7 @@ export const ProfileProvider: ParentComponent = (props) => {
         const data = await skillService.listSkills(currentProfile.id);
         setSkills(data);
       } catch (error) {
-        console.error('[ProfileContext] Failed to load skills:', error);
+        logger.error('Failed to load skills', { error });
         setSkills([]);
       }
     } else {
@@ -176,7 +179,7 @@ export const ProfileProvider: ParentComponent = (props) => {
           setInventory([]);
         }
       } catch (error) {
-        console.error('[ProfileContext] Failed to load inventory:', error);
+        logger.error('Failed to load inventory', { error });
         setInventory([]);
       }
     } else {
@@ -196,7 +199,7 @@ export const ProfileProvider: ParentComponent = (props) => {
           setLifestyle([]);
         }
       } catch (error) {
-        console.error('[ProfileContext] Failed to load lifestyle:', error);
+        logger.error('Failed to load lifestyle', { error });
         setLifestyle([]);
       }
     } else {
@@ -216,7 +219,7 @@ export const ProfileProvider: ParentComponent = (props) => {
           setIncome([]);
         }
       } catch (error) {
-        console.error('[ProfileContext] Failed to load income:', error);
+        logger.error('Failed to load income', { error });
         setIncome([]);
       }
     } else {
@@ -241,7 +244,7 @@ export const ProfileProvider: ParentComponent = (props) => {
         refreshLifestyle(),
         refreshIncome(),
       ]).catch((err) => {
-        console.error('[ProfileContext] Failed to refresh data:', err);
+        logger.error('Failed to refresh data', { error: err });
       });
     } else {
       setGoals([]);

@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Goals API Route
  *
@@ -12,6 +11,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
 import { query, execute, executeSchema, escapeSQL } from './_db';
+import { createLogger } from '../../lib/logger';
+
+const logger = createLogger('Goals');
 
 // Schema initialization flag (persists across requests in same process)
 let goalsSchemaInitialized = false;
@@ -57,10 +59,10 @@ async function ensureGoalsSchema(): Promise<void> {
     `);
 
     goalsSchemaInitialized = true;
-    console.log('[Goals] Schema initialized');
+    logger.info('Schema initialized');
   } catch (error) {
     // Tables might already exist, mark as initialized anyway
-    console.log('[Goals] Schema init note:', error);
+    logger.info('Schema init note', { error });
     goalsSchemaInitialized = true;
   }
 }
@@ -243,7 +245,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Goals] GET error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -343,7 +345,7 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Goals] POST error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -441,7 +443,7 @@ export async function PUT(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Goals] PUT error:', error);
+    logger.error('PUT error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -484,7 +486,7 @@ export async function DELETE(event: APIEvent) {
 
       await execute(`DELETE FROM goals WHERE profile_id = ${escapedProfileId}`);
 
-      console.log(`[Goals] Bulk deleted ${count} goals for profile ${profileId}`);
+      logger.info(`Bulk deleted ${count} goals`, { profileId });
       return new Response(JSON.stringify({ success: true, deletedCount: count }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -526,7 +528,7 @@ export async function DELETE(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Goals] DELETE error:', error);
+    logger.error('DELETE error', { error });
     return new Response(
       JSON.stringify({
         error: true,

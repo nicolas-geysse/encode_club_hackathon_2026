@@ -1297,7 +1297,7 @@ export function OnboardingChat() {
         </div>
 
         {/* Right Chat Area */}
-        <div class="flex flex-col h-full relative bg-background/50">
+        <div class="flex flex-col h-full min-h-0 relative bg-background/50">
           {/* Messages */}
           <div
             ref={(el) => (messagesContainerRef = el)}

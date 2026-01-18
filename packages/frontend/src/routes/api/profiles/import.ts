@@ -8,6 +8,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
 import { execute, escapeSQL } from '../_db';
+import { createLogger } from '../../../lib/logger';
+
+const logger = createLogger('ProfileImport');
 
 interface ImportedProfile {
   id?: string;
@@ -82,10 +85,16 @@ export async function POST(event: APIEvent) {
       await execute(`UPDATE profiles SET is_active = FALSE`);
     }
 
+    // Format skills array for DuckDB (VARCHAR[])
+    const skillsSQL =
+      profile.skills && Array.isArray(profile.skills) && profile.skills.length > 0
+        ? `ARRAY[${profile.skills.map((s) => escapeSQL(s)).join(', ')}]`
+        : 'NULL';
+
     // Insert imported profile
     await execute(`
       INSERT INTO profiles (
-        id, name, diploma, city, city_size, income_sources, expenses,
+        id, name, diploma, skills, city, city_size, income_sources, expenses,
         max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
         monthly_income, monthly_expenses, monthly_margin,
         profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
@@ -94,6 +103,7 @@ export async function POST(event: APIEvent) {
         '${profileId}',
         ${escapeSQL(profile.name + ' (Imported)')},
         ${escapeSQL(profile.diploma)},
+        ${skillsSQL},
         ${escapeSQL(profile.city)},
         ${escapeSQL(profile.citySize)},
         ${profile.incomeSources ? escapeSQL(JSON.stringify(profile.incomeSources)) : 'NULL'},
@@ -117,6 +127,55 @@ export async function POST(event: APIEvent) {
       )
     `);
 
+    // Create skills in dedicated skills table (for SkillsTab)
+    if (profile.skills && profile.skills.length > 0) {
+      try {
+        for (const skillName of profile.skills) {
+          const skillId = uuidv4();
+          await execute(`
+            INSERT INTO skills (id, profile_id, name, level, hourly_rate, market_demand, cognitive_effort, rest_needed)
+            VALUES (
+              '${skillId}',
+              '${profileId}',
+              ${escapeSQL(skillName)},
+              'intermediate',
+              ${profile.minHourlyRate || 15},
+              3,
+              3,
+              1
+            )
+          `);
+        }
+        logger.info('Created skills from import', { profileId, count: profile.skills.length });
+      } catch (skillError) {
+        // Non-fatal: skills table might not exist yet
+        logger.warn('Failed to create skills from import', { error: skillError });
+      }
+    }
+
+    // Create goal in dedicated goals table if we have goal data
+    if (profile.goalName && profile.goalAmount) {
+      try {
+        const goalId = uuidv4();
+        await execute(`
+          INSERT INTO goals (id, profile_id, name, amount, deadline, priority, status)
+          VALUES (
+            '${goalId}',
+            '${profileId}',
+            ${escapeSQL(profile.goalName)},
+            ${profile.goalAmount},
+            ${profile.goalDeadline ? escapeSQL(profile.goalDeadline) : 'NULL'},
+            1,
+            'active'
+          )
+        `);
+        logger.info('Created goal from import', { profileId, goalName: profile.goalName });
+      } catch (goalError) {
+        // Non-fatal: goals table might not exist yet
+        logger.warn('Failed to create goal from import', { error: goalError });
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -127,7 +186,7 @@ export async function POST(event: APIEvent) {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('[Profile Import] Error:', error);
+    logger.error('Import failed', { error });
     return new Response(
       JSON.stringify({
         error: true,

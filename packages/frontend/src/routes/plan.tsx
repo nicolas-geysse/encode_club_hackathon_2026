@@ -18,6 +18,12 @@ import { profileService, type FullProfile } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
 import { useProfile } from '~/lib/profileContext';
+import type {
+  LegacySkill,
+  LegacyLifestyleItem,
+  InventoryCategory,
+  ItemCondition,
+} from '~/types/entities';
 import { PageLoader } from '~/components/PageLoader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { Card } from '~/components/ui/Card';
@@ -26,7 +32,7 @@ import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
 import { Check, User, Target, Briefcase, PiggyBank, Handshake, Dices, Menu } from 'lucide-solid';
 
-// Types for plan data - using 'any' style string types for JSON storage compatibility
+// Types for plan data - local types for plan-specific structures
 type AcademicEventType =
   | 'exam_period'
   | 'class_intensive'
@@ -34,10 +40,6 @@ type AcademicEventType =
   | 'internship'
   | 'project_deadline';
 type CommitmentType = 'class' | 'sport' | 'club' | 'family' | 'health' | 'other';
-type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
-type ItemCategory = 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
-type ItemCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-type LifestyleCategory = 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
 type TradeType = 'trade' | 'borrow' | 'lend' | 'sell';
 type TradeStatus = 'pending' | 'active' | 'completed';
 
@@ -60,34 +62,21 @@ interface SetupData {
   }>;
 }
 
-interface Skill {
-  id: string;
-  name: string;
-  level: SkillLevel;
-  hourlyRate: number;
-  marketDemand: number;
-  cognitiveEffort: number;
-  restNeeded: number;
-  score?: number;
-}
+// Use LegacySkill from entities.ts (same structure as local Skill)
+type Skill = LegacySkill;
+
+// Use LegacyLifestyleItem from entities.ts (same structure as local LifestyleItem)
+type LifestyleItem = LegacyLifestyleItem;
 
 interface Item {
   id: string;
   name: string;
-  category: ItemCategory;
+  category: InventoryCategory;
   estimatedValue: number;
   condition: ItemCondition;
   platform?: string;
   sold?: boolean;
   soldPrice?: number;
-}
-
-interface LifestyleItem {
-  id: string;
-  category: LifestyleCategory;
-  name: string;
-  currentCost: number;
-  pausedMonths?: number;
 }
 
 interface TradeItem {
