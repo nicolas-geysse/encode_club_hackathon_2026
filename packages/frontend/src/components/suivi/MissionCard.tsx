@@ -5,6 +5,7 @@
  */
 
 import { Show } from 'solid-js';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 export interface Mission {
   id: string;
@@ -22,6 +23,7 @@ export interface Mission {
 
 interface MissionCardProps {
   mission: Mission;
+  currency?: Currency;
   onComplete?: () => void;
   onSkip?: () => void;
   onLogProgress?: (hours: number, earnings: number) => void;
@@ -119,7 +121,8 @@ export function MissionCard(props: MissionCardProps) {
             <div class="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
               <span>💰</span>
               <span>
-                ${props.mission.earningsCollected}/${props.mission.weeklyEarnings}
+                {formatCurrency(props.mission.earningsCollected, props.currency)}/
+                {formatCurrency(props.mission.weeklyEarnings, props.currency)}
               </span>
             </div>
           </div>

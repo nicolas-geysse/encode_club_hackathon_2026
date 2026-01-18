@@ -14,7 +14,14 @@ import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
-import { weeksBetween, addWeeks, toISO, formatDate, defaultDeadline90Days } from '~/lib/dateUtils';
+import {
+  weeksBetween,
+  addWeeks,
+  toISO,
+  formatDate,
+  defaultDeadline90Days,
+  type Currency,
+} from '~/lib/dateUtils';
 import { PageLoader } from '~/components/PageLoader';
 
 // Types
@@ -53,6 +60,9 @@ export default function SuiviPage() {
     energyHistory: [],
     missions: [],
   });
+
+  // Get currency from profile
+  const currency = (): Currency => (activeProfile()?.currency as Currency) || 'USD';
 
   // Compute total hours from missions
   const totalHours = () => {
@@ -444,11 +454,12 @@ export default function SuiviPage() {
               currentWeek={followup().currentWeek}
               totalWeeks={followup().totalWeeks}
               totalHours={totalHours()}
+              currency={currency()}
             />
           </Show>
 
           {/* Section 2: Financial Breakdown (right after goal) */}
-          <AnalyticsDashboard />
+          <AnalyticsDashboard currency={currency()} />
 
           {/* Section 3: Missions */}
           <div>
@@ -457,6 +468,7 @@ export default function SuiviPage() {
             </h3>
             <MissionList
               missions={followup().missions}
+              currency={currency()}
               onMissionUpdate={handleMissionUpdate}
               onMissionComplete={handleMissionComplete}
               onMissionSkip={handleMissionSkip}
@@ -472,6 +484,7 @@ export default function SuiviPage() {
               energyHistory={followup().energyHistory.map((e) => e.level)}
               weeklyDeficit={(setup()?.goalAmount || 500) - followup().currentAmount}
               capacities={[90, 80, 70]}
+              currency={currency()}
               onAcceptPlan={handleComebackAccept}
               onDeclinePlan={() => {}}
             />

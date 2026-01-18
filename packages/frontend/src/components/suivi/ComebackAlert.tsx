@@ -7,6 +7,7 @@
 
 import { Show, For, createMemo, createEffect, createSignal } from 'solid-js';
 import { celebrateComeback } from '~/lib/confetti';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 interface ComebackWindow {
   detected: boolean;
@@ -26,6 +27,7 @@ interface ComebackAlertProps {
   energyHistory: number[];
   weeklyDeficit: number;
   capacities: number[]; // Available capacity for next weeks
+  currency?: Currency;
   onAcceptPlan?: (plan: CatchUpPlan[]) => void;
   onDeclinePlan?: () => void;
 }
@@ -179,7 +181,7 @@ export function ComebackAlert(props: ComebackAlertProps) {
                           Week {week.week}
                         </span>
                         <span class="font-bold text-green-600 dark:text-green-400">
-                          +${week.target}
+                          {formatCurrency(week.target, props.currency, { showSign: true })}
                         </span>
                       </div>
                       <div class="mt-1 h-2 bg-green-100 dark:bg-green-900/50 rounded-full overflow-hidden">
@@ -212,10 +214,15 @@ export function ComebackAlert(props: ComebackAlertProps) {
                 </div>
                 <div class="text-right">
                   <div class="text-3xl font-bold text-green-700 dark:text-green-300 tabular-nums">
-                    +${animatedTotal()}
+                    {formatCurrency(animatedTotal(), props.currency, { showSign: true })}
                   </div>
                   <div class="text-sm text-green-600 dark:text-green-400">
-                    = ${Math.round(totalCatchUp() / window().suggestedCatchUpWeeks)}/week
+                    ={' '}
+                    {formatCurrency(
+                      Math.round(totalCatchUp() / window().suggestedCatchUpWeeks),
+                      props.currency
+                    )}
+                    /week
                   </div>
                 </div>
               </div>

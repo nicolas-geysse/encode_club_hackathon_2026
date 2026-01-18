@@ -7,6 +7,7 @@
 
 import { Show, createSignal, createEffect, onMount } from 'solid-js';
 import { celebrateGoalAchieved } from '~/lib/confetti';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 interface TimelineHeroProps {
   goalName: string;
@@ -18,6 +19,7 @@ interface TimelineHeroProps {
   currentWeek: number;
   totalWeeks: number;
   totalHours?: number;
+  currency?: Currency;
 }
 
 export function TimelineHero(props: TimelineHeroProps) {
@@ -115,10 +117,12 @@ export function TimelineHero(props: TimelineHeroProps) {
               goalAchieved() ? 'text-yellow-100' : 'text-primary-600 dark:text-white'
             }`}
           >
-            ${animatedAmount()}
+            {formatCurrency(animatedAmount(), props.currency)}
           </span>
           <span class="text-slate-500 dark:text-slate-300 mx-1">/</span>
-          <span class="text-slate-600 dark:text-slate-300">${props.goalAmount}</span>
+          <span class="text-slate-600 dark:text-slate-300">
+            {formatCurrency(props.goalAmount, props.currency)}
+          </span>
         </div>
       </div>
 
@@ -163,7 +167,7 @@ export function TimelineHero(props: TimelineHeroProps) {
         </div>
         <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-2 text-center">
           <div class="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-            ${props.weeklyTarget}
+            {formatCurrency(props.weeklyTarget, props.currency)}
           </div>
           <div class="text-xs text-slate-500 dark:text-slate-400">/week</div>
         </div>
@@ -191,7 +195,7 @@ export function TimelineHero(props: TimelineHeroProps) {
                   : 'text-red-700 dark:text-red-400'
             }`}
           >
-            {goalAchieved() ? '+' : ''}${props.currentAmount}
+            {formatCurrency(props.currentAmount, props.currency, { showSign: goalAchieved() })}
           </div>
           <div class="text-xs text-slate-500 dark:text-slate-400">earned</div>
         </div>

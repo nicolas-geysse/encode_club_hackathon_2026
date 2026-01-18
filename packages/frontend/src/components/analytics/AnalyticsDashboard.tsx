@@ -6,6 +6,7 @@
  */
 
 import { createSignal, onMount, Show, For } from 'solid-js';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 interface AnalyticsData {
   summary: {
@@ -19,6 +20,7 @@ interface AnalyticsData {
 
 interface AnalyticsDashboardProps {
   profileId?: string;
+  currency?: Currency;
 }
 
 export function AnalyticsDashboard(props: AnalyticsDashboardProps) {
@@ -102,13 +104,13 @@ export function AnalyticsDashboard(props: AnalyticsDashboardProps) {
         <div class="grid grid-cols-3 gap-3 mb-4">
           <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
             <div class="text-lg font-bold text-green-700 dark:text-green-400">
-              +${data()!.summary.totalIncome}
+              {formatCurrency(data()!.summary.totalIncome, props.currency, { showSign: true })}
             </div>
             <div class="text-xs text-green-600 dark:text-green-500">Income</div>
           </div>
           <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center">
             <div class="text-lg font-bold text-red-700 dark:text-red-400">
-              -${data()!.summary.totalExpenses}
+              -{formatCurrency(data()!.summary.totalExpenses, props.currency)}
             </div>
             <div class="text-xs text-red-600 dark:text-red-500">Expenses</div>
           </div>
@@ -126,8 +128,7 @@ export function AnalyticsDashboard(props: AnalyticsDashboardProps) {
                   : 'text-amber-700 dark:text-amber-400'
               }`}
             >
-              {data()!.summary.netMargin >= 0 ? '+$' : '-$'}
-              {Math.abs(data()!.summary.netMargin)}
+              {formatCurrency(data()!.summary.netMargin, props.currency, { showSign: true })}
             </div>
             <div class="text-xs text-slate-600 dark:text-slate-400">Net</div>
           </div>
@@ -151,7 +152,7 @@ export function AnalyticsDashboard(props: AnalyticsDashboardProps) {
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="text-slate-900 dark:text-slate-100 font-medium">
-                          ${item.amount}
+                          {formatCurrency(item.amount, props.currency)}
                         </span>
                         <span class="text-xs text-slate-400 w-10 text-right">
                           {item.percentage}%
@@ -180,7 +181,7 @@ export function AnalyticsDashboard(props: AnalyticsDashboardProps) {
                       </div>
                       <div class="flex items-center gap-2">
                         <span class="text-slate-900 dark:text-slate-100 font-medium">
-                          ${item.amount}
+                          {formatCurrency(item.amount, props.currency)}
                         </span>
                         <span class="text-xs text-slate-400 w-10 text-right">
                           {item.percentage}%

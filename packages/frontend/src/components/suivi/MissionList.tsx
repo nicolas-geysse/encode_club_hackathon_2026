@@ -6,12 +6,14 @@
 
 import { createSignal, For, Show, createMemo } from 'solid-js';
 import { MissionCard, type Mission } from './MissionCard';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 interface MissionListProps {
   missions: Mission[];
   onMissionUpdate?: (id: string, updates: Partial<Mission>) => void;
   onMissionComplete?: (id: string) => void;
   onMissionSkip?: (id: string) => void;
+  currency?: Currency;
 }
 
 type FilterType = 'all' | 'active' | 'completed';
@@ -84,7 +86,7 @@ export function MissionList(props: MissionListProps) {
         </div>
         <div class="card text-center py-4 bg-green-50 dark:bg-green-900/20">
           <div class="text-2xl font-bold text-green-700 dark:text-green-400">
-            ${stats().totalEarnings}
+            {formatCurrency(stats().totalEarnings, props.currency)}
           </div>
           <div class="text-xs text-green-600 dark:text-green-500">Earned</div>
         </div>
@@ -103,7 +105,7 @@ export function MissionList(props: MissionListProps) {
               </p>
             </div>
             <div class="text-3xl font-bold text-primary-700 dark:text-primary-300">
-              +${stats().weeklyPotential}
+              {formatCurrency(stats().weeklyPotential, props.currency, { showSign: true })}
             </div>
           </div>
         </div>
@@ -135,6 +137,7 @@ export function MissionList(props: MissionListProps) {
           {(mission) => (
             <MissionCard
               mission={mission}
+              currency={props.currency}
               onComplete={() => props.onMissionComplete?.(mission.id)}
               onSkip={() => props.onMissionSkip?.(mission.id)}
               onLogProgress={(hours, earnings) => handleLogProgress(mission.id, hours, earnings)}

@@ -600,8 +600,7 @@ export function TradeTab(props: TradeTabProps) {
               {/* Value */}
               <div class="flex-shrink-0 text-right">
                 <div class="font-bold text-slate-900 dark:text-slate-100">
-                  {currencySymbol()}
-                  {trade.value}
+                  {formatCurrency(trade.value, currency())}
                 </div>
               </div>
 
@@ -685,8 +684,7 @@ export function TradeTab(props: TradeTabProps) {
                   <div class="text-sm text-slate-500 dark:text-slate-400">From your inventory</div>
                 </div>
                 <div class="text-right font-bold text-green-600 dark:text-green-400">
-                  {currencySymbol()}
-                  {item.estimatedValue}
+                  {formatCurrency(item.estimatedValue, currency())}
                 </div>
                 <button
                   type="button"
