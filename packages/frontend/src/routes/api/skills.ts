@@ -11,7 +11,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
-import { query, execute, escapeSQL } from './_db';
+import { query, execute, executeSchema, escapeSQL } from './_db';
 
 // Schema initialization flag (persists across requests in same process)
 let skillsSchemaInitialized = false;
@@ -21,7 +21,7 @@ async function ensureSkillsSchema(): Promise<void> {
   if (skillsSchemaInitialized) return;
 
   try {
-    await execute(`
+    await executeSchema(`
       CREATE TABLE IF NOT EXISTS skills (
         id VARCHAR PRIMARY KEY,
         profile_id VARCHAR NOT NULL,

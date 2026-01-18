@@ -118,6 +118,19 @@ async function initializeDatabaseInternal(state: DuckDBState): Promise<void> {
       }
     });
   });
+
+  // B - Reduce auto-checkpoint threshold to 1MB (default is 16MB)
+  // This ensures more frequent checkpoints, reducing WAL corruption risk on crash
+  await new Promise<void>((resolve) => {
+    conn.exec(`SET checkpoint_threshold = '1MB'`, (err) => {
+      if (err) {
+        console.warn('[DuckDB] Failed to set checkpoint_threshold:', err.message);
+      } else {
+        console.log('[DuckDB] Checkpoint threshold set to 1MB');
+      }
+      resolve(); // Non-fatal, continue regardless
+    });
+  });
 }
 
 /**
@@ -215,6 +228,28 @@ export async function execute(sql: string): Promise<void> {
 }
 
 /**
+ * Execute schema change with immediate checkpoint.
+ * Use for CREATE TABLE, ALTER TABLE, DROP TABLE to ensure schema changes
+ * are persisted immediately and survive crashes/HMR.
+ */
+export async function executeSchema(sql: string): Promise<void> {
+  await execute(sql);
+
+  // A - Immediate checkpoint after schema change
+  const state = getGlobalState();
+  if (state.conn) {
+    await new Promise<void>((resolve) => {
+      state.conn!.exec('CHECKPOINT', (err) => {
+        if (err) {
+          console.warn('[DuckDB] Schema checkpoint failed:', err.message);
+        }
+        resolve();
+      });
+    });
+  }
+}
+
+/**
  * Execute a query that returns results (for writes with RETURNING)
  */
 export async function queryWrite<T = Record<string, unknown>>(sql: string): Promise<T[]> {
@@ -264,3 +299,41 @@ export async function closeDatabase(): Promise<void> {
 
 export const DATABASE_PATH = DB_PATH;
 export const DATABASE_DIR = DB_DIR;
+
+// C - Graceful shutdown: checkpoint before closing
+let shutdownInProgress = false;
+
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
+
+  console.log(`[DuckDB] ${signal} received, checkpointing before shutdown...`);
+
+  const state = getGlobalState();
+  if (state.conn && state.initialized) {
+    try {
+      await new Promise<void>((resolve) => {
+        state.conn!.exec('CHECKPOINT', (err) => {
+          if (err) {
+            console.warn('[DuckDB] Checkpoint on shutdown failed:', err.message);
+          } else {
+            console.log('[DuckDB] Checkpoint completed');
+          }
+          resolve();
+        });
+      });
+    } catch {
+      // Ignore errors during shutdown
+    }
+  }
+
+  await closeDatabase();
+  process.exit(0);
+}
+
+// Register shutdown handlers (once per process)
+if (!(globalThis as Record<string, unknown>).__stride_shutdown_registered__) {
+  (globalThis as Record<string, unknown>).__stride_shutdown_registered__ = true;
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}

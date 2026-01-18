@@ -11,7 +11,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
-import { query, execute, escapeSQL } from './_db';
+import { query, execute, executeSchema, escapeSQL } from './_db';
 
 // Schema initialization flag (persists across requests in same process)
 let goalsSchemaInitialized = false;
@@ -22,7 +22,7 @@ async function ensureGoalsSchema(): Promise<void> {
 
   try {
     // Create goals table
-    await execute(`
+    await executeSchema(`
       CREATE TABLE IF NOT EXISTS goals (
         id VARCHAR PRIMARY KEY,
         profile_id VARCHAR NOT NULL,
@@ -41,7 +41,7 @@ async function ensureGoalsSchema(): Promise<void> {
     `);
 
     // Create goal_components table
-    await execute(`
+    await executeSchema(`
       CREATE TABLE IF NOT EXISTS goal_components (
         id VARCHAR PRIMARY KEY,
         goal_id VARCHAR NOT NULL,

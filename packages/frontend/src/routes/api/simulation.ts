@@ -7,7 +7,7 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import { query, execute } from './_db';
+import { query, execute, executeSchema } from './_db';
 
 // Helper to get base URL from request
 function getBaseUrl(event: APIEvent): string {
@@ -30,7 +30,7 @@ async function ensureSimulationState(): Promise<void> {
   if (schemaInitialized) return;
 
   try {
-    await execute(`
+    await executeSchema(`
       CREATE TABLE IF NOT EXISTS simulation_state (
         id VARCHAR PRIMARY KEY DEFAULT 'global',
         simulated_date DATE DEFAULT CURRENT_DATE,

@@ -8,7 +8,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
-import { query, execute, escapeSQL } from './_db';
+import { query, execute, executeSchema, escapeSQL } from './_db';
 
 // Schema initialization flag
 let schemaInitialized = false;
@@ -187,7 +187,7 @@ async function ensureCertificationsSchema(): Promise<void> {
 
   try {
     // Certifications reference table
-    await execute(`
+    await executeSchema(`
       CREATE TABLE IF NOT EXISTS certifications (
         id VARCHAR PRIMARY KEY,
         code VARCHAR NOT NULL UNIQUE,
@@ -203,7 +203,7 @@ async function ensureCertificationsSchema(): Promise<void> {
     `);
 
     // Profile-certifications junction table
-    await execute(`
+    await executeSchema(`
       CREATE TABLE IF NOT EXISTS profile_certifications (
         id VARCHAR PRIMARY KEY,
         profile_id VARCHAR NOT NULL,

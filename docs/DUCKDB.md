@@ -216,6 +216,31 @@ const DB_PATH = process.env.DUCKDB_PATH
 
 ---
 
+### 6. BigInt et JSON.stringify
+
+DuckDB retourne des `BigInt` pour `COUNT(*)`, `SUM()`, etc. Or `JSON.stringify()` ne sait pas sérialiser les BigInt.
+
+```typescript
+// ❌ WRONG - Crash "Do not know how to serialize a BigInt" :
+const countResult = await query<{ count: number }>(
+  `SELECT COUNT(*) as count FROM skills`
+);
+return JSON.stringify({ count: countResult[0].count }); // CRASH!
+```
+
+```typescript
+// ✅ CORRECT - Convertir en Number :
+const countResult = await query<{ count: bigint }>(
+  `SELECT COUNT(*) as count FROM skills`
+);
+const count = Number(countResult[0]?.count || 0);
+return JSON.stringify({ count }); // OK
+```
+
+**Fonctions concernées :** `COUNT(*)`, `SUM()`, `MAX()`, `MIN()` avec colonnes INTEGER/BIGINT.
+
+---
+
 ## Debugging Checklist
 
 ### Erreur: "Connection was never established"
@@ -248,6 +273,12 @@ lsof +D data/
 1. ✅ Utilisez `createRequire`, pas import direct
 2. ✅ Vérifiez `app.config.ts`: `ssr.external: ['duckdb']`
 3. ✅ Les types sont dans `src/types/duckdb.d.ts` (pas d'import du package)
+
+### Erreur: "Do not know how to serialize a BigInt"
+
+1. ✅ Utilisez-vous `COUNT(*)`, `SUM()`, ou autre agrégation?
+2. ✅ Convertissez avec `Number()` avant `JSON.stringify()`
+3. ✅ Typez correctement: `query<{ count: bigint }>` pas `number`
 
 ---
 
@@ -454,3 +485,41 @@ SELECT * FROM GRAPH_TABLE(student_graph
   COLUMNS (a.id as skill, b.id as job, e.edge_type)
 );
 ```
+
+---
+
+### 7. Protection WAL et Checkpoints
+
+DuckDB utilise un WAL (Write-Ahead Log) qui peut causer des corruptions si le serveur crash avant un checkpoint.
+
+**Protections implémentées :**
+
+1. **Seuil auto-checkpoint à 1 Mo** (au lieu de 16 Mo par défaut)
+   ```sql
+   SET checkpoint_threshold = '1MB';
+   ```
+
+2. **CHECKPOINT après schema changes**
+   ```typescript
+   // Utiliser executeSchema() au lieu de execute() pour CREATE/ALTER/DROP TABLE
+   await executeSchema(`CREATE TABLE IF NOT EXISTS ...`);
+   ```
+
+3. **Graceful shutdown hooks**
+   - SIGTERM et SIGINT déclenchent un CHECKPOINT avant fermeture
+   - Protège les arrêts propres (Ctrl+C, docker stop, etc.)
+
+**En cas de corruption WAL :**
+```bash
+# Supprimer le WAL corrompu (les données non-checkpointées seront perdues)
+rm data/stride.duckdb.wal
+```
+
+**API disponible dans `_db.ts` :**
+
+| Fonction | Usage |
+|----------|-------|
+| `execute(sql)` | Écritures normales (INSERT, UPDATE, DELETE) |
+| `executeSchema(sql)` | Schema changes (CREATE, ALTER, DROP TABLE) |
+| `query(sql)` | Lectures |
+| `queryWrite(sql)` | Écritures avec RETURNING |

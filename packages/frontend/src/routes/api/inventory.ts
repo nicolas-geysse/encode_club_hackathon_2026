@@ -8,7 +8,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
-import { query, execute, escapeSQL } from './_db';
+import { query, execute, executeSchema, escapeSQL } from './_db';
 
 // Schema initialization flag
 let inventorySchemaInitialized = false;
@@ -18,7 +18,7 @@ async function ensureInventorySchema(): Promise<void> {
   if (inventorySchemaInitialized) return;
 
   try {
-    await execute(`
+    await executeSchema(`
       CREATE TABLE IF NOT EXISTS inventory_items (
         id VARCHAR PRIMARY KEY,
         profile_id VARCHAR NOT NULL,
