@@ -270,16 +270,24 @@ export function formatCurrency(
 ): string {
   const { compact = false, showSign = false } = options;
   const symbol = getCurrencySymbol(currency);
-  const sign = showSign && amount >= 0 ? '+' : '';
-  const formattedAmount = compact ? amount.toLocaleString() : amount.toString();
 
-  // EUR: symbol after the number
-  if (currency === 'EUR') {
-    return `${sign}${formattedAmount}€`;
+  const absAmount = Math.abs(amount);
+  const formattedAbs = compact ? absAmount.toLocaleString() : absAmount.toString();
+
+  let sign = '';
+  if (amount < 0) {
+    sign = '-';
+  } else if (showSign) {
+    sign = '+';
   }
 
-  // USD, GBP, and others: symbol before the number
-  return `${sign}${symbol}${formattedAmount}`;
+  // EUR: symbol after the number. e.g. -100€
+  if (currency === 'EUR') {
+    return `${sign}${formattedAbs}€`;
+  }
+
+  // USD, GBP, and others: symbol before the number. e.g. -$100
+  return `${sign}${symbol}${formattedAbs}`;
 }
 
 /**

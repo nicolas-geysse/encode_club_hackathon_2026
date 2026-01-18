@@ -221,7 +221,7 @@ export function SwipeSession(props: SwipeSessionProps) {
   const canUndo = () => swipeHistory().length > 0;
 
   return (
-    <div class="flex flex-col md:flex-row items-center justify-center py-4 w-full max-w-5xl mx-auto gap-3">
+    <div class="flex flex-col md:flex-row items-center md:items-end justify-center py-4 w-full max-w-7xl mx-auto gap-6">
       {/* (Left Column content skipped - implies it is unchanged in this replacement block if I target correctly, but replace_file_content replaces the whole block. I will target the gap line first, then the buttons separately to avoid massive context.) */}
 
       {/* Left Column: AI Context & Adjustments */}
@@ -375,10 +375,13 @@ export function SwipeSession(props: SwipeSessionProps) {
             </div>
           </Card>
         </Show>
+
+        {/* Spacer to align left column content with Card bottom (compensating for buttons on right) */}
+        <div class="h-24 hidden md:block shrink-0" aria-hidden="true" />
       </div>
 
       {/* Right Column: Cards & Actions */}
-      <div class="flex-1 flex flex-col items-center min-w-0 order-1 md:order-2 w-full">
+      <div class="flex flex-col items-center min-w-0 order-1 md:order-2 w-auto">
         {/* Counter Only (Progress Bar removed) */}
         <div class="w-80 flex flex-col items-center gap-3 mb-6">
           <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -501,6 +504,9 @@ export function SwipeSession(props: SwipeSessionProps) {
           </div>
         </Show>
       </div>
+
+      {/* Right Spacer for Balance (Centers the Card) */}
+      <div class="w-full md:w-72 hidden md:block shrink-0 order-3" aria-hidden="true" />
     </div>
   );
 }
