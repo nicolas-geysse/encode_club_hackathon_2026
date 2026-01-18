@@ -239,7 +239,7 @@ export function SwipeTab(props: SwipeTabProps) {
   };
 
   return (
-    <div class="p-6 max-w-5xl mx-auto">
+    <div class="p-6">
       {/* Idle Phase - Roll the Dice */}
       <Show when={phase() === 'idle'}>
         <RollDice onRoll={handleRoll} />

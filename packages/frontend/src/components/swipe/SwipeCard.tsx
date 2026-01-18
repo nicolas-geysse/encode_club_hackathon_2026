@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show } from 'solid-js';
+import { createSignal, onMount, createEffect, on, Show } from 'solid-js';
 import { Card, CardContent } from '~/components/ui/Card';
 import { cn } from '~/lib/cn';
 import {
@@ -9,6 +9,10 @@ import {
   RefreshCw,
   Clock,
   DollarSign,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-solid';
 
 export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
@@ -25,6 +29,7 @@ export interface SwipeCardProps {
   category: string;
   onSwipe: (direction: SwipeDirection, timeSpent: number, adjustments?: CardAdjustments) => void;
   isActive?: boolean;
+  triggerSwipe?: SwipeDirection | null;
 }
 
 export interface CardAdjustments {
@@ -49,6 +54,45 @@ export function SwipeCard(props: SwipeCardProps) {
   });
 
   const getAdjustments = (): CardAdjustments => ({});
+
+  const animateSwipe = (direction: SwipeDirection) => {
+    const timeSpent = Date.now() - startTime();
+    const adjustments = getAdjustments();
+
+    const exitPositions = {
+      right: { x: 400, y: position().y },
+      left: { x: -400, y: position().y },
+      up: { x: position().x, y: -400 },
+      down: { x: position().x, y: 400 },
+    };
+    const exitRotations = {
+      right: 30,
+      left: -30,
+      up: 0,
+      down: 0,
+    };
+
+    setPosition(exitPositions[direction]);
+    setRotation(exitRotations[direction]);
+    setSwipeDirection(direction);
+
+    setTimeout(() => {
+      props.onSwipe(direction, timeSpent, adjustments);
+      setSwipeDirection(null);
+    }, 200);
+  };
+
+  createEffect(
+    on(
+      () => props.triggerSwipe,
+      (trigger) => {
+        if (props.isActive && trigger) {
+          animateSwipe(trigger);
+        }
+      },
+      { defer: true }
+    )
+  );
 
   const handlePointerDown = (e: PointerEvent) => {
     if (!props.isActive) return;
@@ -105,28 +149,7 @@ export function SwipeCard(props: SwipeCardProps) {
     }
 
     if (direction) {
-      const timeSpent = Date.now() - startTime();
-      const adjustments = getAdjustments();
-
-      const exitPositions = {
-        right: { x: 400, y: position().y },
-        left: { x: -400, y: position().y },
-        up: { x: position().x, y: -400 },
-        down: { x: position().x, y: 400 },
-      };
-      const exitRotations = {
-        right: 30,
-        left: -30,
-        up: 0,
-        down: 0,
-      };
-
-      setPosition(exitPositions[direction]);
-      setRotation(exitRotations[direction]);
-
-      setTimeout(() => {
-        props.onSwipe(direction!, timeSpent, adjustments);
-      }, 200);
+      animateSwipe(direction);
     } else {
       setPosition({ x: 0, y: 0 });
       setRotation(0);
@@ -231,7 +254,7 @@ export function SwipeCard(props: SwipeCardProps) {
           </p>
 
           {/* Stats */}
-          <div class="space-y-4 pt-6 border-t border-border/50">
+          <div class="space-y-4 mb-6">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <div class="p-2.5 rounded-2xl bg-green-500/10 text-green-600">
@@ -258,9 +281,16 @@ export function SwipeCard(props: SwipeCardProps) {
           </div>
 
           {/* Footer Hint */}
-          <div class="mt-auto pt-6 flex justify-between text-[10px] font-medium text-muted-foreground uppercase tracking-widest opacity-60">
-            <span>← Nope</span>
-            <span>Like →</span>
+          {/* Footer Hint */}
+          <div class="mt-auto pt-6 flex justify-between items-center w-full px-2">
+            <div class="flex gap-6">
+              <ArrowLeft class="h-5 w-5 text-red-500/80" />
+              <ArrowDown class="h-5 w-5 text-orange-500/80" />
+            </div>
+            <div class="flex gap-6">
+              <ArrowUp class="h-5 w-5 text-blue-500/80" />
+              <ArrowRight class="h-5 w-5 text-green-500/80" />
+            </div>
           </div>
         </CardContent>
       </Card>

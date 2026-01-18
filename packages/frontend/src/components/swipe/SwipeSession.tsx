@@ -105,6 +105,7 @@ export function SwipeSession(props: SwipeSessionProps) {
   const [rejected, setRejected] = createSignal<Scenario[]>([]);
   const [swipeHistory, setSwipeHistory] = createSignal<SwipeHistoryEntry[]>([]);
   const [negativeFeedback, setNegativeFeedback] = createSignal<Set<string>>(new Set());
+  const [triggerSwipe, setTriggerSwipe] = createSignal<SwipeDirection | null>(null);
 
   // Adjustments for current card (reset when moving to next card)
   const getDefaultAdjustments = (): CardAdjustments => {
@@ -147,6 +148,7 @@ export function SwipeSession(props: SwipeSessionProps) {
   };
 
   const handleSwipe = (direction: SwipeDirection, timeSpent: number) => {
+    setTriggerSwipe(null); // Reset trigger to prevent double firing on next card
     const scenario = props.scenarios[currentIndex()];
     const previousPrefs = { ...preferences() };
 
@@ -219,32 +221,28 @@ export function SwipeSession(props: SwipeSessionProps) {
   const canUndo = () => swipeHistory().length > 0;
 
   return (
-    <div class="flex flex-col items-center py-4 relative min-h-[600px] w-full max-w-lg mx-auto">
-      {/* Top Bar: Progress & AI-Learning status */}
-      <div class="w-full flex items-center justify-between px-4 mb-4">
-        <div class="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-          <span class="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">
-            {currentIndex() + 1} / {props.scenarios.length}
-          </span>
-          <span>Cards</span>
-        </div>
+    <div class="flex flex-col md:flex-row items-center justify-center py-4 w-full max-w-5xl mx-auto gap-3">
+      {/* (Left Column content skipped - implies it is unchanged in this replacement block if I target correctly, but replace_file_content replaces the whole block. I will target the gap line first, then the buttons separately to avoid massive context.) */}
 
-        <div class="flex flex-col gap-2 p-3 bg-muted/20 rounded-xl border border-white/5 backdrop-blur-sm w-fit mx-auto md:mx-0">
-          <div class="flex items-center gap-2 mb-1 justify-center md:justify-start">
+      {/* Left Column: AI Context & Adjustments */}
+      <div class="w-full md:w-72 space-y-4 flex flex-col shrink-0 order-2 md:order-1">
+        {/* AI Context Block */}
+        <div class="flex flex-col gap-2 p-3 bg-muted/20 rounded-xl border border-white/5 backdrop-blur-sm w-full">
+          <div class="flex items-center gap-2 mb-1">
             <div class="p-1 bg-purple-500/10 rounded-md">
               <Bot class="h-3.5 w-3.5 text-purple-400" />
             </div>
-            <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">
+            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               AI Context
             </span>
           </div>
 
-          <div class="flex items-end gap-5 pt-1">
+          <div class="flex items-end justify-between gap-2 pt-1">
             {/* Effort */}
             <Tooltip>
               <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group">
-                  <div class="h-8 w-2 bg-blue-950/30 rounded-full relative overflow-hidden">
+                <div class="flex flex-col items-center gap-1.5 group w-full">
+                  <div class="h-8 w-1.5 bg-blue-950/30 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().effortSensitivity * 100}%` }}
@@ -260,17 +258,14 @@ export function SwipeSession(props: SwipeSessionProps) {
                 <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
                   Influence: {Math.round(preferences().effortSensitivity * 100)}%
                 </div>
-                <div class="text-[10px] text-muted-foreground/80 leading-tight">
-                  How much you prioritize avoiding high cognitive load tasks.
-                </div>
               </TooltipContent>
             </Tooltip>
 
             {/* Pay */}
             <Tooltip>
               <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group">
-                  <div class="h-8 w-2 bg-green-950/30 rounded-full relative overflow-hidden">
+                <div class="flex flex-col items-center gap-1.5 group w-full">
+                  <div class="h-8 w-1.5 bg-green-950/30 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().hourlyRatePriority * 100}%` }}
@@ -286,17 +281,14 @@ export function SwipeSession(props: SwipeSessionProps) {
                 <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
                   Influence: {Math.round(preferences().hourlyRatePriority * 100)}%
                 </div>
-                <div class="text-[10px] text-muted-foreground/80 leading-tight">
-                  How much weight is given to maximizing income per hour.
-                </div>
               </TooltipContent>
             </Tooltip>
 
             {/* Flexibility */}
             <Tooltip>
               <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group">
-                  <div class="h-8 w-2 bg-purple-950/30 rounded-full relative overflow-hidden">
+                <div class="flex flex-col items-center gap-1.5 group w-full">
+                  <div class="h-8 w-1.5 bg-purple-950/30 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().timeFlexibility * 100}%` }}
@@ -312,17 +304,14 @@ export function SwipeSession(props: SwipeSessionProps) {
                 <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
                   Influence: {Math.round(preferences().timeFlexibility * 100)}%
                 </div>
-                <div class="text-[10px] text-muted-foreground/80 leading-tight">
-                  Importance of having a malleable schedule (e.g. async work).
-                </div>
               </TooltipContent>
             </Tooltip>
 
             {/* Stability */}
             <Tooltip>
               <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group">
-                  <div class="h-8 w-2 bg-amber-950/30 rounded-full relative overflow-hidden">
+                <div class="flex flex-col items-center gap-1.5 group w-full">
+                  <div class="h-8 w-1.5 bg-amber-950/30 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().incomeStability * 100}%` }}
@@ -338,122 +327,27 @@ export function SwipeSession(props: SwipeSessionProps) {
                 <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
                   Influence: {Math.round(preferences().incomeStability * 100)}%
                 </div>
-                <div class="text-[10px] text-muted-foreground/80 leading-tight">
-                  Preference for guaranteed returns vs. variable/risky income.
-                </div>
               </TooltipContent>
             </Tooltip>
           </div>
         </div>
-      </div>
 
-      <Progress value={progress()} class="h-1 w-full max-w-xs mb-8 bg-muted/50" />
-
-      {/* Card Stack Area */}
-      <div class="relative w-full flex justify-center mb-8 z-10">
-        <div class="relative w-80 h-[420px]">
-          <For each={props.scenarios}>
-            {(scenario, index) => (
-              <Show when={index() >= currentIndex()}>
-                <SwipeCard
-                  id={scenario.id}
-                  title={scenario.title}
-                  description={scenario.description}
-                  weeklyHours={
-                    index() === currentIndex()
-                      ? (adjustments().customWeeklyHours ?? scenario.weeklyHours)
-                      : scenario.weeklyHours
-                  }
-                  weeklyEarnings={
-                    index() === currentIndex()
-                      ? (adjustments().customWeeklyHours ?? scenario.weeklyHours) *
-                        (adjustments().customHourlyRate ?? scenario.hourlyRate)
-                      : scenario.weeklyEarnings
-                  }
-                  effortLevel={scenario.effortLevel}
-                  flexibilityScore={scenario.flexibilityScore}
-                  hourlyRate={
-                    index() === currentIndex()
-                      ? (adjustments().customHourlyRate ?? scenario.hourlyRate)
-                      : scenario.hourlyRate
-                  }
-                  category={scenario.category}
-                  onSwipe={handleSwipe}
-                  isActive={index() === currentIndex()}
-                />
-              </Show>
-            )}
-          </For>
-
-          {/* Empty State / Complete */}
-          <Show when={currentIndex() >= props.scenarios.length}>
-            <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-card border border-border rounded-3xl shadow-sm animate-in fade-in zoom-in duration-300">
-              <div class="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
-                <Heart class="h-10 w-10 text-green-600" />
-              </div>
-              <h3 class="text-xl font-bold text-foreground mb-2">All Done!</h3>
-              <p class="text-muted-foreground">Preparing your personalized plan...</p>
-            </div>
-          </Show>
-        </div>
-      </div>
-
-      {/* Controls / Adjustments */}
-      <Show when={currentIndex() < props.scenarios.length}>
-        <div class="w-80 space-y-6">
-          {/* Action Buttons */}
-          <div class="flex items-center justify-center gap-5">
-            <Button
-              variant="outline"
-              size="icon"
-              class="h-12 w-12 rounded-full border-muted-foreground/20 hover:border-red-500/50 hover:bg-red-500/5 hover:text-red-600 transition-all"
-              onClick={() => handleSwipe('left', 200)}
-            >
-              <X class="h-5 w-5" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              class="h-10 w-10 rounded-full border-muted-foreground/20 text-muted-foreground opacity-70 hover:opacity-100 hover:bg-muted"
-              onClick={handleUndo}
-              disabled={!canUndo()}
-            >
-              <RotateCcw class="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              class="h-12 w-12 rounded-full border-muted-foreground/20 hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-600 transition-all"
-              onClick={() => handleSwipe('up', 200)}
-            >
-              <Star class="h-5 w-5" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              class="h-12 w-12 rounded-full border-green-500 text-green-600 bg-green-500/10 hover:bg-green-500/20 hover:scale-110 shadow-lg shadow-green-500/10 transition-all"
-              onClick={() => handleSwipe('right', 200)}
-            >
-              <Heart class="h-6 w-6" />
-            </Button>
-          </div>
-
-          {/* Collapsible Adjustments */}
-          <Card class="bg-muted/30 border-none shadow-none">
-            <div class="p-4 space-y-4">
-              <div class="flex justify-between items-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        {/* Adjustments Card */}
+        <Show when={currentIndex() < props.scenarios.length}>
+          <Card class="bg-muted/30 border-none shadow-none w-full">
+            <div class="p-3 space-y-3">
+              <div class="flex justify-between items-center text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 <span>Adjust Assumptions</span>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                  <label class="text-xs text-muted-foreground">Rate ({currencySymbol()}/h)</label>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                  <label class="text-[10px] text-muted-foreground">
+                    Rate ({currencySymbol()}/h)
+                  </label>
                   <Input
                     type="number"
-                    class="h-8 bg-background border-border"
+                    class="h-8 bg-background border-border text-xs"
                     value={adjustments().customHourlyRate}
                     onInput={(e) =>
                       setAdjustments({
@@ -463,11 +357,11 @@ export function SwipeSession(props: SwipeSessionProps) {
                     }
                   />
                 </div>
-                <div class="space-y-1.5">
-                  <label class="text-xs text-muted-foreground">Hours/week</label>
+                <div class="space-y-1">
+                  <label class="text-[10px] text-muted-foreground">Hours/week</label>
                   <Input
                     type="number"
-                    class="h-8 bg-background border-border"
+                    class="h-8 bg-background border-border text-xs"
                     value={adjustments().customWeeklyHours}
                     onInput={(e) =>
                       setAdjustments({
@@ -480,8 +374,133 @@ export function SwipeSession(props: SwipeSessionProps) {
               </div>
             </div>
           </Card>
+        </Show>
+      </div>
+
+      {/* Right Column: Cards & Actions */}
+      <div class="flex-1 flex flex-col items-center min-w-0 order-1 md:order-2 w-full">
+        {/* Counter Only (Progress Bar removed) */}
+        <div class="w-80 flex flex-col items-center gap-3 mb-6">
+          <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Card {currentIndex() + 1} / {props.scenarios.length}
+          </div>
         </div>
-      </Show>
+
+        {/* Card Stack Area */}
+        <div class="relative w-full flex justify-center mb-10 z-10">
+          <div class="relative w-80 h-[420px]">
+            <For each={props.scenarios}>
+              {(scenario, index) => (
+                <Show when={index() >= currentIndex()}>
+                  <SwipeCard
+                    id={scenario.id}
+                    title={scenario.title}
+                    description={scenario.description}
+                    weeklyHours={
+                      index() === currentIndex()
+                        ? (adjustments().customWeeklyHours ?? scenario.weeklyHours)
+                        : scenario.weeklyHours
+                    }
+                    weeklyEarnings={
+                      index() === currentIndex()
+                        ? (adjustments().customWeeklyHours ?? scenario.weeklyHours) *
+                          (adjustments().customHourlyRate ?? scenario.hourlyRate)
+                        : scenario.weeklyEarnings
+                    }
+                    effortLevel={scenario.effortLevel}
+                    flexibilityScore={scenario.flexibilityScore}
+                    hourlyRate={
+                      index() === currentIndex()
+                        ? (adjustments().customHourlyRate ?? scenario.hourlyRate)
+                        : scenario.hourlyRate
+                    }
+                    category={scenario.category}
+                    onSwipe={handleSwipe}
+                    isActive={index() === currentIndex()}
+                    triggerSwipe={triggerSwipe()}
+                  />
+                </Show>
+              )}
+            </For>
+
+            {/* Empty State / Complete */}
+            <Show when={currentIndex() >= props.scenarios.length}>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-card border border-border rounded-3xl shadow-sm animate-in fade-in zoom-in duration-300">
+                <div class="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mb-4">
+                  <Heart class="h-10 w-10 text-green-600" />
+                </div>
+                <h3 class="text-xl font-bold text-foreground mb-2">All Done!</h3>
+                <p class="text-muted-foreground">Preparing your personalized plan...</p>
+              </div>
+            </Show>
+          </div>
+        </div>
+
+        {/* Action Buttons with Labels */}
+        <Show when={currentIndex() < props.scenarios.length}>
+          <div class="w-80 grid grid-cols-4 gap-2">
+            {/* Not for me (Left) */}
+            <div class="flex flex-col items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"
+                onClick={() => setTriggerSwipe('left')}
+              >
+                <X class="h-6 w-6" />
+              </Button>
+              <span class="text-[10px] font-bold text-red-600 uppercase tracking-tight text-center leading-tight transition-colors">
+                Not for me
+              </span>
+            </div>
+
+            {/* Meh (Down) */}
+            <div class="flex flex-col items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-orange-500 hover:bg-orange-500/10 hover:border-orange-500/20 transition-all shadow-sm"
+                onClick={() => setTriggerSwipe('down')}
+              >
+                <ThumbsDown class="h-6 w-6" />
+              </Button>
+              <span class="text-[10px] font-bold text-orange-600 uppercase tracking-tight text-center leading-tight transition-colors">
+                Meh
+              </span>
+            </div>
+
+            {/* Super Like (Up) */}
+            <div class="flex flex-col items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-blue-500 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
+                onClick={() => setTriggerSwipe('up')}
+              >
+                <Star class="h-6 w-6" />
+              </Button>
+              <span class="text-[10px] font-bold text-blue-600 uppercase tracking-tight text-center leading-tight transition-colors">
+                Super like
+              </span>
+            </div>
+
+            {/* I'll take it (Right) */}
+            <div class="flex flex-col items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-green-500 hover:bg-green-500/10 hover:border-green-500/20 transition-all shadow-sm"
+                onClick={() => setTriggerSwipe('right')}
+              >
+                <Heart class="h-6 w-6" />
+              </Button>
+              <span class="text-[10px] font-bold text-green-600 uppercase tracking-tight text-center leading-tight transition-colors">
+                I'll take it!
+              </span>
+            </div>
+          </div>
+        </Show>
+      </div>
     </div>
   );
 }

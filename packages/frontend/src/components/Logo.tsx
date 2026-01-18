@@ -97,7 +97,7 @@ export function Logo(props: LogoProps) {
 
             {/* Accented 'cut' with subtle rounded corners and primary color */}
             <rect
-              x="144"
+              x="128"
               y="22"
               width="9"
               height="60"

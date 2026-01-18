@@ -445,7 +445,7 @@ export default function SuiviPage() {
   return (
     <Show when={!isLoading()} fallback={<PageLoader />}>
       <Show when={hasData()} fallback={<NoPlanView />}>
-        <div class="space-y-6 max-w-4xl mx-auto">
+        <div class="space-y-6">
           {/* Quick Action - Top of page */}
           <Card class="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
             <CardContent class="p-6 flex items-center justify-between">

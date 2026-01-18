@@ -119,7 +119,7 @@ export function ProfileTab(props: ProfileTabProps) {
   };
 
   return (
-    <div class="p-6 space-y-6 max-w-5xl mx-auto">
+    <div class="p-6 space-y-6">
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>

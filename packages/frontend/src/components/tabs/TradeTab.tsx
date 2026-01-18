@@ -450,7 +450,7 @@ export function TradeTab(props: TradeTabProps) {
   };
 
   return (
-    <div class="p-6 space-y-6 max-w-5xl mx-auto">
+    <div class="p-6 space-y-6">
       {/* Summary Cards */}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card class="border-green-500/20 bg-green-500/5">

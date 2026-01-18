@@ -1,5 +1,4 @@
 import { createSignal, For, Show, createMemo } from 'solid-js';
-import { Motion, Presence } from 'solid-motionone';
 import { MissionCard, type Mission } from './MissionCard';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -166,29 +165,17 @@ export function MissionList(props: MissionListProps) {
 
       {/* Mission Cards */}
       <div class="space-y-3">
-        <Presence>
-          <For each={filteredMissions()}>
-            {(mission) => (
-              <Motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3, easing: [0.4, 0, 0.2, 1] }}
-                class="w-full"
-              >
-                <MissionCard
-                  mission={mission}
-                  currency={props.currency}
-                  onComplete={() => props.onMissionComplete?.(mission.id)}
-                  onSkip={() => props.onMissionSkip?.(mission.id)}
-                  onLogProgress={(hours, earnings) =>
-                    handleLogProgress(mission.id, hours, earnings)
-                  }
-                />
-              </Motion.div>
-            )}
-          </For>
-        </Presence>
+        <For each={filteredMissions()}>
+          {(mission) => (
+            <MissionCard
+              mission={mission}
+              currency={props.currency}
+              onComplete={() => props.onMissionComplete?.(mission.id)}
+              onSkip={() => props.onMissionSkip?.(mission.id)}
+              onLogProgress={(hours, earnings) => handleLogProgress(mission.id, hours, earnings)}
+            />
+          )}
+        </For>
 
         {/* Empty State */}
         <Show when={filteredMissions().length === 0}>
