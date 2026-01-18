@@ -33,7 +33,7 @@
   }
 
   .card {
-    @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6;
+    @apply bg-[#FAFBFC] dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6;
   }
 
   .input-field {
@@ -41,7 +41,7 @@
   }
 
   .metric-card {
-    @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 flex flex-col;
+    @apply bg-[#FAFBFC] dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 flex flex-col;
   }
 
   .metric-value {

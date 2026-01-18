@@ -1237,7 +1237,7 @@ export function OnboardingChat() {
               <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white text-lg shadow-sm">
                 B
               </div>
-              <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shadow-sm">
+              <div class="bg-[#FAFBFC] dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shadow-sm">
                 <div class="flex items-center gap-2">
                   <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
                   <div
@@ -1257,7 +1257,7 @@ export function OnboardingChat() {
 
       {/* Action buttons when complete */}
       <Show when={isComplete()}>
-        <div class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
+        <div class="border-t border-slate-200 dark:border-slate-700 bg-[#FAFBFC] dark:bg-slate-800 px-4 py-3">
           <div class="flex items-center justify-between max-w-5xl mx-auto">
             {/* Left - Secondary action */}
             <button

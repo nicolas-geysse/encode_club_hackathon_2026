@@ -233,7 +233,7 @@ export function SimulationControls(props: Props) {
 
           {/* Dropdown when expanded */}
           <Show when={expanded()}>
-            <div class="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-4 z-50 min-w-[280px]">
+            <div class="absolute right-0 top-full mt-2 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-4 z-50 min-w-[280px]">
               <div class="text-sm text-slate-600 dark:text-slate-300 mb-3">
                 {state().isSimulating ? (
                   <>
@@ -308,7 +308,7 @@ export function SimulationControls(props: Props) {
           {/* Daily check-in modal (same as non-compact) */}
           <Show when={showDailyCheckin()}>
             <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+              <div class="bg-[#FAFBFC] dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
                 <div class="text-center mb-4">
                   <span class="text-4xl">👋</span>
                   <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-2">
@@ -455,7 +455,7 @@ export function SimulationControls(props: Props) {
         {/* Daily check-in modal */}
         <Show when={showDailyCheckin()}>
           <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div class="bg-[#FAFBFC] dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
               <div class="text-center mb-4">
                 <span class="text-4xl">👋</span>
                 <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-2">New day!</h3>

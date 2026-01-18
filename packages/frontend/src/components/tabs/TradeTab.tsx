@@ -478,7 +478,7 @@ export function TradeTab(props: TradeTabProps) {
               {(suggestion) => (
                 <button
                   type="button"
-                  class="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-purple-100 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-600 transition-colors text-left"
+                  class="flex items-center justify-between p-3 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg border border-purple-100 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-600 transition-colors text-left"
                   onClick={() => addFromSuggestion(suggestion)}
                 >
                   <div>

@@ -277,7 +277,7 @@ export function SwipeSession(props: SwipeSessionProps) {
           const hasHours =
             currentScenario?.weeklyHours > 0 && currentScenario?.category !== 'selling';
           return (
-            <div class="w-full max-w-sm mb-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-2">
+            <div class="w-full max-w-sm mb-3 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-2">
               <p class="text-xs text-slate-500 dark:text-slate-400 mb-1 font-medium">
                 Adjust before swiping:
               </p>

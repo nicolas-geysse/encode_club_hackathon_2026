@@ -98,7 +98,7 @@ export function NotificationBell(props: NotificationBellProps) {
 
       {/* Dropdown */}
       <Show when={isOpen()}>
-        <div class="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
+        <div class="absolute right-0 mt-2 w-80 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
           <div class="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
             <h3 class="font-semibold text-slate-900 dark:text-slate-100">Notifications</h3>
             <Show when={props.notifications.length > 0}>

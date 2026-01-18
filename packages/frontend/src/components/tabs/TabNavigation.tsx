@@ -35,7 +35,7 @@ interface TabNavigationProps {
 
 export function TabNavigation(props: TabNavigationProps) {
   return (
-    <div class="border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
+    <div class="border-b border-slate-200 dark:border-slate-700 bg-surface dark:bg-slate-800 sticky top-0 z-10">
       <div class="flex overflow-x-auto scrollbar-hide">
         <For each={TABS}>
           {(tab) => {

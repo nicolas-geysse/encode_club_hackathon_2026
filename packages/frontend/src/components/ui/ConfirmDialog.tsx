@@ -21,7 +21,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
   return (
     <Show when={props.isOpen}>
       <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-sm w-full shadow-xl">
+        <div class="bg-[#FAFBFC] dark:bg-slate-800 rounded-lg p-6 max-w-sm w-full shadow-xl">
           <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">{props.title}</h3>
           <p class="mt-2 text-slate-600 dark:text-slate-400">{props.message}</p>
           <div class="mt-4 flex gap-3 justify-end">

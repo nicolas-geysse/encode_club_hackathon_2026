@@ -108,7 +108,7 @@ export default function App() {
             return (
               <div class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex flex-col transition-colors">
                 <RouteProgress />
-                <header class="sticky top-0 z-50 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-700">
+                <header class="sticky top-0 z-50 bg-surface dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-700">
                   <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between">
                       <a href="/" class="flex items-center">
@@ -183,7 +183,7 @@ export default function App() {
                     {props.children}
                   </Suspense>
                 </main>
-                <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
+                <footer class="bg-surface dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700">
                   <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
                     <p class="text-center text-slate-500 dark:text-slate-400 text-sm">
                       Stride - Encode Club Hackathon 2026 | Powered by Groq GPT-OSS 120B | Traced by

@@ -49,7 +49,7 @@ export function MetricCard(props: MetricCardProps) {
       case 'amber':
         return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
       default:
-        return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
+        return 'bg-[#FAFBFC] dark:bg-slate-800 border-slate-200 dark:border-slate-700';
     }
   };
 

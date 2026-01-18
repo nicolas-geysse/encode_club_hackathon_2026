@@ -56,7 +56,7 @@ export function ChatMessage(props: ChatMessageProps) {
         <div
           class={`rounded-2xl px-4 py-3 ${
             isAssistant()
-              ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm'
+              ? 'bg-[#FAFBFC] dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm'
               : 'bg-primary-600 text-white'
           }`}
         >

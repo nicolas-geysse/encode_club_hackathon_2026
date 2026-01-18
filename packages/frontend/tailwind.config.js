@@ -17,6 +17,12 @@ export default {
           800: "#075985",
           900: "#0c4a6e",
         },
+        // Softer light theme surfaces (less harsh than pure white)
+        surface: {
+          DEFAULT: "#F7F9FB",  // Main background (header, footer, nav)
+          card: "#FAFBFC",     // Cards and elevated elements
+          input: "#FFFFFF",    // Input fields (keep white for clarity)
+        },
       },
     },
   },

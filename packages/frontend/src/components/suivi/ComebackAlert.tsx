@@ -165,7 +165,7 @@ export function ComebackAlert(props: ComebackAlertProps) {
               <For each={catchUpPlan()}>
                 {(week, index) => (
                   <div
-                    class="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm transition-all duration-300"
+                    class="flex items-center gap-3 p-3 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg shadow-sm transition-all duration-300"
                     style={{
                       'animation-delay': `${index() * 100}ms`,
                       animation: showContent() ? 'slideIn 0.3s ease-out forwards' : 'none',
@@ -241,7 +241,7 @@ export function ComebackAlert(props: ComebackAlertProps) {
             </button>
             <button
               type="button"
-              class="px-4 py-3 bg-white dark:bg-slate-700 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 rounded-xl font-medium hover:bg-green-50 dark:hover:bg-slate-600 transition-colors"
+              class="px-4 py-3 bg-[#FAFBFC] dark:bg-slate-700 border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300 rounded-xl font-medium hover:bg-green-50 dark:hover:bg-slate-600 transition-colors"
               onClick={props.onDeclinePlan}
             >
               Later

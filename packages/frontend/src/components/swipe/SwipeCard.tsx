@@ -151,7 +151,7 @@ export function SwipeCard(props: SwipeCardProps) {
   return (
     <div
       ref={cardRef}
-      class={`absolute w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border-2 overflow-hidden cursor-grab select-none transition-shadow ${
+      class={`absolute w-80 bg-[#FAFBFC] dark:bg-slate-800 rounded-2xl shadow-xl border-2 overflow-hidden cursor-grab select-none transition-shadow ${
         isDragging() ? 'cursor-grabbing shadow-2xl' : ''
       } ${
         swipeDirection() === 'right'

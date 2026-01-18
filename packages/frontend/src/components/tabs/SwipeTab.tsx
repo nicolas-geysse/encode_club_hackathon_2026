@@ -314,7 +314,7 @@ export function SwipeTab(props: SwipeTabProps) {
           </div>
 
           {/* Selected Scenarios */}
-          <div class="card bg-white dark:bg-slate-800">
+          <div class="card bg-[#FAFBFC] dark:bg-slate-800">
             <h3 class="font-medium text-slate-900 dark:text-slate-100 mb-3">
               Selected scenarios ({selectedScenarios().length})
             </h3>

@@ -203,7 +203,7 @@ export function ChatInput(props: ChatInputProps) {
 
   return (
     <form
-      class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4"
+      class="border-t border-slate-200 dark:border-slate-700 bg-[#FAFBFC] dark:bg-slate-800 p-4"
       onSubmit={handleSubmit}
     >
       <div class="flex gap-2 items-end max-w-5xl mx-auto">
