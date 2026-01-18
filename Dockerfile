@@ -43,7 +43,7 @@ COPY packages/frontend/package.json ./packages/frontend/
 COPY packages/mcp-server/package.json ./packages/mcp-server/
 
 # Install production dependencies only
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # Copy built output from builder stage
 COPY --from=builder /app/packages/frontend/.output ./packages/frontend/.output
