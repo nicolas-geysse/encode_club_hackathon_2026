@@ -158,82 +158,93 @@ export function ProfileTab(props: ProfileTabProps) {
 
       {/* Profile Display */}
       <Show when={!loading() && profile() && !editing()}>
-        {/* Goal Card - at the top */}
+        {/* Current Goal - wrapped container */}
         <Show when={profile()?.goalName}>
-          <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 border-primary-200 dark:border-primary-700">
+          <div class="card bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 border-primary-200 dark:border-primary-700">
             <h3 class="text-sm font-medium text-primary-700 dark:text-primary-300 mb-4 flex items-center gap-2">
               <span>🎯</span> Current Goal
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
-                  Goal
-                </label>
-                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
+            <div class="grid grid-cols-3 gap-4">
+              {/* Goal Name */}
+              <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-4">
+                <div class="text-sm text-primary-600 dark:text-primary-400">Goal</div>
+                <div class="text-xl font-bold text-primary-900 dark:text-primary-100 mt-1">
                   {profile()?.goalName}
-                </p>
+                </div>
               </div>
-              <div>
-                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
-                  Amount
-                </label>
-                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
+
+              {/* Amount */}
+              <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-4">
+                <div class="text-sm text-primary-600 dark:text-primary-400">💰 Target</div>
+                <div class="text-xl font-bold text-primary-900 dark:text-primary-100 mt-1">
                   {formatCurrency(profile()?.goalAmount || 0, currency())}
-                </p>
+                </div>
               </div>
-              <div>
-                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
-                  Deadline
-                </label>
-                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
+
+              {/* Deadline */}
+              <div class="bg-white/50 dark:bg-slate-800/50 rounded-lg p-4">
+                <div class="text-sm text-primary-600 dark:text-primary-400">📅 Deadline</div>
+                <div class="text-xl font-bold text-primary-900 dark:text-primary-100 mt-1">
                   {profile()?.goalDeadline
-                    ? formatDate(profile()!.goalDeadline!, 'MMMM D, YYYY')
+                    ? formatDate(profile()!.goalDeadline!, 'MMM D, YYYY')
                     : 'Not set'}
-                </p>
+                </div>
               </div>
             </div>
           </div>
         </Show>
 
-        {/* Budget Summary Card */}
-        <div class="card">
-          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-            <span>💰</span> Budget Summary
-          </h3>
-          {(() => {
-            const budget = calculateBudgetSummary();
-            return (
-              <div class="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Income
-                  </label>
-                  <p class="text-lg font-bold text-green-600 dark:text-green-400">
-                    {formatCurrencyWithSuffix(budget.income, currency(), '/mo')}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Expenses
-                  </label>
-                  <p class="text-lg font-bold text-red-600 dark:text-red-400">
-                    {formatCurrencyWithSuffix(budget.expenses, currency(), '/mo')}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Margin
-                  </label>
-                  <p
-                    class={`text-lg font-bold ${budget.margin >= 0 ? 'text-primary-600 dark:text-primary-400' : 'text-red-600 dark:text-red-400'}`}
-                  >
-                    {formatCurrency(budget.margin, currency(), { showSign: true })}/mo
-                  </p>
+        {/* Budget Summary Cards */}
+        {(() => {
+          const budget = calculateBudgetSummary();
+          return (
+            <div class="grid grid-cols-3 gap-4">
+              {/* Income */}
+              <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
+                <div class="text-sm text-green-600 dark:text-green-400">💵 Income</div>
+                <div class="text-2xl font-bold text-green-700 dark:text-green-100 mt-1">
+                  {formatCurrencyWithSuffix(budget.income, currency(), '/mo')}
                 </div>
               </div>
-            );
-          })()}
-        </div>
+
+              {/* Expenses */}
+              <div class="card bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30">
+                <div class="text-sm text-red-600 dark:text-red-400">💸 Expenses</div>
+                <div class="text-2xl font-bold text-red-700 dark:text-red-100 mt-1">
+                  -{formatCurrencyWithSuffix(budget.expenses, currency(), '/mo')}
+                </div>
+              </div>
+
+              {/* Net Margin */}
+              <div
+                class={`card bg-gradient-to-br ${
+                  budget.margin >= 0
+                    ? 'from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30'
+                    : 'from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30'
+                }`}
+              >
+                <div
+                  class={`text-sm ${
+                    budget.margin >= 0
+                      ? 'text-primary-600 dark:text-primary-400'
+                      : 'text-amber-600 dark:text-amber-400'
+                  }`}
+                >
+                  📊 Margin
+                </div>
+                <div
+                  class={`text-2xl font-bold mt-1 ${
+                    budget.margin >= 0
+                      ? 'text-primary-700 dark:text-primary-100'
+                      : 'text-amber-700 dark:text-amber-100'
+                  }`}
+                >
+                  {formatCurrency(budget.margin, currency(), { showSign: true })}/mo
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Personal Info Card */}
         <div class="card">
