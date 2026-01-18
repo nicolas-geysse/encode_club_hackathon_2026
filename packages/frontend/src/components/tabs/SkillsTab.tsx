@@ -375,6 +375,18 @@ export function SkillsTab(props: SkillsTabProps) {
         </button>
       </div>
 
+      {/* Scoring Explanation */}
+      <div class="card bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          💡 How does it work?
+        </h4>
+        <p class="text-sm text-slate-600 dark:text-slate-400">
+          The score balances 4 criteria: hourly rate (30%), market demand (25%), cognitive effort
+          (25%), and rest time (20%). A well-paid but exhausting job may score lower than a
+          lower-paid but easier job.
+        </p>
+      </div>
+
       {/* Quick Add Templates */}
       <div class="card">
         <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Quick add</h3>
@@ -622,18 +634,6 @@ export function SkillsTab(props: SkillsTabProps) {
           </div>
         </div>
       </Show>
-
-      {/* Scoring Explanation */}
-      <div class="card bg-slate-50 dark:bg-slate-700">
-        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-          How does it work?
-        </h4>
-        <p class="text-sm text-slate-600 dark:text-slate-400">
-          The score balances 4 criteria: hourly rate (30%), market demand (25%), cognitive effort
-          (25%), and rest time (20%). A well-paid but exhausting job may score lower than a
-          lower-paid but easier job.
-        </p>
-      </div>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
