@@ -11,6 +11,23 @@ import { skillService, type Skill, type CreateSkillInput } from '~/lib/skillServ
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { type LegacySkill, skillToLegacy } from '~/types/entities';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Button } from '~/components/ui/Button';
+import { Input } from '~/components/ui/Input';
+import { Select } from '~/components/ui/Select';
+import {
+  Briefcase,
+  Lightbulb,
+  Star,
+  Check,
+  Pencil,
+  Trash2,
+  Plus,
+  X,
+  TrendingUp,
+  Clock,
+  Zap,
+} from 'lucide-solid';
 
 interface SkillsTabProps {
   initialSkills?: LegacySkill[];
@@ -333,127 +350,124 @@ export function SkillsTab(props: SkillsTabProps) {
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <span>💼</span> Skill Arbitrage
+          <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+            <Briefcase class="h-6 w-6 text-primary" /> Skill Arbitrage
           </h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p class="text-sm text-muted-foreground mt-1">
             The highest paying job isn't necessarily the best
           </p>
         </div>
-        <button
-          type="button"
-          class="btn-primary"
-          onClick={() => setShowAddForm(true)}
-          disabled={isLoading()}
-        >
-          + Add
-        </button>
+        <Button onClick={() => setShowAddForm(true)} disabled={isLoading()}>
+          <Plus class="h-4 w-4 mr-2" /> Add
+        </Button>
       </div>
 
       {/* Scoring Explanation */}
-      <div class="card bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-          💡 How does it work?
-        </h4>
-        <p class="text-sm text-slate-600 dark:text-slate-400">
-          The score balances 4 criteria: hourly rate (30%), market demand (25%), cognitive effort
-          (25%), and rest time (20%). A well-paid but exhausting job may score lower than a
-          lower-paid but easier job.
-        </p>
-      </div>
+      <Card class="bg-muted/30 border-primary/20">
+        <CardContent class="p-4">
+          <h4 class="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+            <Lightbulb class="h-4 w-4 text-amber-500" /> How does it work?
+          </h4>
+          <p class="text-sm text-muted-foreground">
+            The score balances 4 criteria: hourly rate (30%), market demand (25%), cognitive effort
+            (25%), and rest time (20%). A well-paid but exhausting job may score lower than a
+            lower-paid but easier job.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Quick Add Templates */}
-      <div class="card">
-        <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Quick add</h3>
-        <div class="flex flex-wrap gap-2">
-          <For each={SKILL_TEMPLATES.filter((t) => !skills().some((s) => s.name === t.name))}>
-            {(template) => (
-              <button
-                type="button"
-                class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-full transition-colors disabled:opacity-50"
-                onClick={() => addSkill(template)}
-                disabled={isLoading()}
-              >
-                {template.name}
-              </button>
-            )}
-          </For>
-        </div>
-      </div>
+      <Card>
+        <CardContent class="p-4">
+          <h3 class="text-sm font-medium text-foreground mb-3">Quick add</h3>
+          <div class="flex flex-wrap gap-2">
+            <For each={SKILL_TEMPLATES.filter((t) => !skills().some((s) => s.name === t.name))}>
+              {(template) => (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="rounded-full h-8"
+                  onClick={() => addSkill(template)}
+                  disabled={isLoading()}
+                >
+                  <Plus class="h-3 w-3 mr-1" />
+                  {template.name}
+                </Button>
+              )}
+            </For>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Skills List with Scores */}
       <Show when={skills().length > 0}>
         <div class="space-y-3">
           <For each={skills()}>
             {(skill, index) => (
-              <div class="card flex items-center gap-4">
-                {/* Rank */}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
-                  {index() + 1}
-                </div>
+              <Card>
+                <CardContent class="p-4 flex items-center gap-4">
+                  {/* Rank */}
+                  <div class="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground">
+                    {index() + 1}
+                  </div>
 
-                {/* Skill Info */}
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <h4 class="font-semibold text-slate-900 dark:text-slate-100">{skill.name}</h4>
-                    <Show when={index() === 0}>
-                      <span class="px-2 py-0.5 text-xs font-medium bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded-full">
-                        Recommended
+                  {/* Skill Info */}
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <h4 class="font-semibold text-foreground">{skill.name}</h4>
+                      <Show when={index() === 0}>
+                        <span class="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full flex items-center gap-1">
+                          <Check class="h-3 w-3" /> Recommended
+                        </span>
+                      </Show>
+                    </div>
+                    <div class="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                      <span class="flex items-center gap-1">
+                        {formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}
                       </span>
-                    </Show>
+                      <span class="flex items-center gap-1">
+                        <Star class="h-3 w-3 text-yellow-500" /> {skill.marketDemand}
+                      </span>
+                      <span class="flex items-center gap-1">
+                        <Zap class="h-3 w-3" /> Effort: {getEffortLabel(skill.cognitiveEffort)}
+                      </span>
+                    </div>
                   </div>
-                  <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    <span>{formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}</span>
-                    <span>{'⭐'.repeat(skill.marketDemand)}</span>
-                    <span>Effort: {getEffortLabel(skill.cognitiveEffort)}</span>
+
+                  {/* Score */}
+                  <div
+                    class={`flex-shrink-0 px-3 py-1.5 rounded-lg font-bold ${getScoreColor(
+                      skill.score || 0
+                    )}`}
+                  >
+                    {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}/10
                   </div>
-                </div>
 
-                {/* Score */}
-                <div
-                  class={`flex-shrink-0 px-3 py-1.5 rounded-lg font-bold ${getScoreColor(
-                    skill.score || 0
-                  )}`}
-                >
-                  {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}/10
-                </div>
-
-                {/* Edit & Remove */}
-                <div class="flex-shrink-0 flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="text-slate-400 hover:text-primary-500 transition-colors disabled:opacity-50"
-                    onClick={() => handleEdit(skill)}
-                    disabled={isLoading()}
-                    title="Edit skill"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                    onClick={() => setDeleteConfirm({ id: skill.id, name: skill.name })}
-                    disabled={isLoading()}
-                    title="Delete skill"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+                  {/* Edit & Remove */}
+                  <div class="flex-shrink-0 flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={() => handleEdit(skill)}
+                      disabled={isLoading()}
+                      title="Edit skill"
+                    >
+                      <Pencil class="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteConfirm({ id: skill.id, name: skill.name })}
+                      disabled={isLoading()}
+                      title="Delete skill"
+                    >
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </For>
         </div>
@@ -461,152 +475,163 @@ export function SkillsTab(props: SkillsTabProps) {
 
       {/* Empty State */}
       <Show when={skills().length === 0 && !showAddForm()}>
-        <div class="card text-center py-12">
-          <div class="text-4xl mb-4">💼</div>
-          <h3 class="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
-            No skills added
-          </h3>
-          <p class="text-slate-500 dark:text-slate-400 mb-4">
-            Add your skills to discover the best jobs
-          </p>
-          <button type="button" class="btn-primary" onClick={() => setShowAddForm(true)}>
-            Add a skill
-          </button>
-        </div>
+        <Card class="text-center py-12">
+          <CardContent>
+            <div class="flex justify-center mb-4">
+              <Briefcase class="h-12 w-12 text-muted-foreground/50" />
+            </div>
+            <h3 class="text-lg font-medium text-foreground mb-2">No skills added</h3>
+            <p class="text-muted-foreground mb-4">Add your skills to discover the best jobs</p>
+            <Button onClick={() => setShowAddForm(true)}>Add a skill</Button>
+          </CardContent>
+        </Card>
       </Show>
 
       {/* Add/Edit Form Modal */}
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              {editingSkillId() ? 'Edit skill' : 'New skill'}
-            </h3>
-
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  class="input-field"
-                  placeholder="Ex: Python, Excel, Coaching..."
-                  value={newSkill().name}
-                  onInput={(e) => setNewSkill({ ...newSkill(), name: e.currentTarget.value })}
-                />
+          <Card class="max-w-md w-full">
+            <CardContent class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-foreground">
+                  {editingSkillId() ? 'Edit skill' : 'New skill'}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetNewSkill();
+                  }}
+                >
+                  <X class="h-4 w-4" />
+                </Button>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Hourly rate ({currencySymbol()})
-                  </label>
-                  <input
-                    type="number"
-                    class="input-field"
-                    min="5"
-                    max="100"
-                    value={newSkill().hourlyRate}
-                    onInput={(e) =>
-                      setNewSkill({
-                        ...newSkill(),
-                        hourlyRate: parseInt(e.currentTarget.value) || 15,
-                      })
+                  <label class="block text-sm font-medium text-muted-foreground mb-1">Name</label>
+                  <Input
+                    type="text"
+                    placeholder="Ex: Python, Excel, Coaching..."
+                    value={newSkill().name}
+                    onInput={(e: any) =>
+                      setNewSkill({ ...newSkill(), name: e.currentTarget.value })
                     }
                   />
                 </div>
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Market demand (1-5)
-                  </label>
-                  <input
-                    type="range"
-                    class="w-full"
-                    min="1"
-                    max="5"
-                    value={newSkill().marketDemand}
-                    onInput={(e) =>
-                      setNewSkill({ ...newSkill(), marketDemand: parseInt(e.currentTarget.value) })
-                    }
-                  />
-                  <div class="text-center text-sm text-slate-500 dark:text-slate-400">
-                    {'⭐'.repeat(newSkill().marketDemand || 3)}
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Hourly rate ({currencySymbol()})
+                    </label>
+                    <Input
+                      type="number"
+                      min="5"
+                      max="100"
+                      value={newSkill().hourlyRate}
+                      onInput={(e: any) =>
+                        setNewSkill({
+                          ...newSkill(),
+                          hourlyRate: parseInt(e.currentTarget.value) || 15,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Market demand (1-5)
+                    </label>
+                    <Input
+                      type="range"
+                      min="1"
+                      max="5"
+                      class="w-full mt-2"
+                      value={newSkill().marketDemand}
+                      onInput={(e: any) =>
+                        setNewSkill({
+                          ...newSkill(),
+                          marketDemand: parseInt(e.currentTarget.value),
+                        })
+                      }
+                    />
+                    <div class="text-center text-sm text-muted-foreground mt-1">
+                      {'⭐'.repeat(newSkill().marketDemand || 3)}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Cognitive effort
+                    </label>
+                    <Select
+                      value={newSkill().cognitiveEffort}
+                      onChange={(e: any) =>
+                        setNewSkill({
+                          ...newSkill(),
+                          cognitiveEffort: parseInt(e.currentTarget.value),
+                        })
+                      }
+                      options={[
+                        { value: 1, label: '1 - Very low' },
+                        { value: 2, label: '2 - Low' },
+                        { value: 3, label: '3 - Moderate' },
+                        { value: 4, label: '4 - High' },
+                        { value: 5, label: '5 - Very high' },
+                      ]}
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Rest needed (h)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="8"
+                      step="0.5"
+                      value={newSkill().restNeeded}
+                      onInput={(e: any) =>
+                        setNewSkill({
+                          ...newSkill(),
+                          restNeeded: parseFloat(e.currentTarget.value) || 1,
+                        })
+                      }
+                    />
                   </div>
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Cognitive effort (1-5)
-                  </label>
-                  <select
-                    class="input-field"
-                    value={newSkill().cognitiveEffort}
-                    onChange={(e) =>
-                      setNewSkill({
-                        ...newSkill(),
-                        cognitiveEffort: parseInt(e.currentTarget.value),
-                      })
-                    }
-                  >
-                    <option value="1">1 - Very low</option>
-                    <option value="2">2 - Low</option>
-                    <option value="3">3 - Moderate</option>
-                    <option value="4">4 - High</option>
-                    <option value="5">5 - Very high</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Rest needed (h)
-                  </label>
-                  <input
-                    type="number"
-                    class="input-field"
-                    min="0"
-                    max="8"
-                    step="0.5"
-                    value={newSkill().restNeeded}
-                    onInput={(e) =>
-                      setNewSkill({
-                        ...newSkill(),
-                        restNeeded: parseFloat(e.currentTarget.value) || 1,
-                      })
-                    }
-                  />
-                </div>
+              <div class="flex gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  class="flex-1"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetNewSkill();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  class="flex-1"
+                  onClick={() => (editingSkillId() ? updateSkill() : addSkill())}
+                  disabled={!newSkill().name || isLoading()}
+                >
+                  {isLoading()
+                    ? editingSkillId()
+                      ? 'Updating...'
+                      : 'Adding...'
+                    : editingSkillId()
+                      ? 'Update'
+                      : 'Add'}
+                </Button>
               </div>
-            </div>
-
-            <div class="flex gap-3 mt-6">
-              <button
-                type="button"
-                class="btn-secondary flex-1"
-                onClick={() => {
-                  setShowAddForm(false);
-                  resetNewSkill();
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                class="btn-primary flex-1"
-                onClick={() => (editingSkillId() ? updateSkill() : addSkill())}
-                disabled={!newSkill().name || isLoading()}
-              >
-                {isLoading()
-                  ? editingSkillId()
-                    ? 'Updating...'
-                    : 'Adding...'
-                  : editingSkillId()
-                    ? 'Update'
-                    : 'Add'}
-              </button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </Show>
 

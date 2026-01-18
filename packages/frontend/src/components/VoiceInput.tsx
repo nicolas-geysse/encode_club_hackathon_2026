@@ -7,6 +7,7 @@
 
 import { createSignal, onCleanup, Show } from 'solid-js';
 import { transcribeAudio, blobToBase64 } from '~/lib/api';
+import { Mic, Square, Loader2 } from 'lucide-solid';
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
@@ -137,45 +138,16 @@ export function VoiceInput(props: VoiceInputProps) {
             isRecording()
               ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse focus:ring-red-500'
               : isTranscribing()
-                ? 'bg-slate-300 text-slate-500 cursor-wait'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-600 focus:ring-primary-500'
+                ? 'bg-muted text-muted-foreground cursor-wait'
+                : 'bg-muted hover:bg-muted/80 text-foreground focus:ring-primary'
           }
           ${props.disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
         title={isRecording() ? 'Stop' : isTranscribing() ? 'Transcribing...' : 'Speak'}
       >
-        <Show
-          when={!isTranscribing()}
-          fallback={
-            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              />
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-          }
-        >
-          <Show
-            when={!isRecording()}
-            fallback={
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="6" width="12" height="12" rx="2" />
-              </svg>
-            }
-          >
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-            </svg>
+        <Show when={!isTranscribing()} fallback={<Loader2 class="w-5 h-5 animate-spin" />}>
+          <Show when={!isRecording()} fallback={<Square class="w-5 h-5 fill-current" />}>
+            <Mic class="w-5 h-5" />
           </Show>
         </Show>
       </button>

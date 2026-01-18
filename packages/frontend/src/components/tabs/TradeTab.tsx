@@ -5,8 +5,25 @@
  */
 
 import { createSignal, For, Show } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Button } from '~/components/ui/Button';
+import { Input } from '~/components/ui/Input';
+import {
+  Banknote,
+  Download,
+  Repeat,
+  Upload,
+  Lightbulb,
+  Plus,
+  Trash2,
+  Pencil,
+  X,
+  Check,
+  AlertCircle,
+} from 'lucide-solid';
 
 interface TradeItem {
   id: string;
@@ -170,28 +187,28 @@ const TRADE_TYPES = [
   {
     id: 'sell',
     label: 'Sell',
-    icon: '💰',
+    icon: Banknote,
     color: 'green',
     description: 'One-time sales for income',
   },
   {
     id: 'borrow',
     label: 'Borrow',
-    icon: '📥',
+    icon: Download,
     color: 'blue',
     description: 'Items you need without buying',
   },
   {
     id: 'trade',
     label: 'Trade',
-    icon: '🔄',
+    icon: Repeat,
     color: 'purple',
     description: 'Exchange skills or items',
   },
   {
     id: 'lend',
     label: 'Lend',
-    icon: '📤',
+    icon: Upload,
     color: 'orange',
     description: 'Share unused items with friends',
   },
@@ -402,6 +419,11 @@ export function TradeTab(props: TradeTabProps) {
 
   const getTypeInfo = (type: string) => TRADE_TYPES.find((t) => t.id === type);
 
+  const getTypeIcon = (type: string) => {
+    const info = TRADE_TYPES.find((t) => t.id === type);
+    return info?.icon || Banknote;
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
@@ -430,109 +452,124 @@ export function TradeTab(props: TradeTabProps) {
   return (
     <div class="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Summary Cards */}
-      <div class="grid grid-cols-3 gap-4">
-        <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
-          <div class="text-sm text-green-600 dark:text-green-400 font-medium">💰 From Sales</div>
-          <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
-            {formatCurrency(soldValue(), currency())}
-          </div>
-          <div class="flex items-center justify-between text-xs mt-1">
-            <span class="text-green-500 dark:text-green-400">
-              {trades().filter((t) => t.type === 'sell' && t.status === 'completed').length} sold
-            </span>
-            <Show when={potentialSaleValue() > 0}>
-              <span class="text-amber-600 dark:text-amber-400">
-                {formatCurrency(potentialSaleValue(), currency(), { showSign: true })} potential
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card class="border-green-500/20 bg-green-500/5">
+          <CardContent class="p-6">
+            <div class="text-sm text-green-600 dark:text-green-400 font-medium flex items-center gap-2">
+              <Banknote class="h-4 w-4" /> From Sales
+            </div>
+            <div class="text-2xl font-bold text-green-900 dark:text-green-100 mt-2">
+              {formatCurrency(soldValue(), currency())}
+            </div>
+            <div class="flex items-center justify-between text-xs mt-1 text-green-600/80 dark:text-green-400/80">
+              <span>
+                {trades().filter((t) => t.type === 'sell' && t.status === 'completed').length} sold
               </span>
-            </Show>
-          </div>
-        </div>
-        <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
-          <div class="text-sm text-blue-600 dark:text-blue-400 font-medium">📥 Borrowed</div>
-          <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
-            {formatCurrency(borrowedValue(), currency())}
-          </div>
-          <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
-            {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
-          </div>
-        </div>
-        <div class="card bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30">
-          <div class="text-sm text-orange-600 dark:text-orange-400 font-medium">📤 Lent</div>
-          <div class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-1">
-            {formatCurrency(lentValue(), currency())}
-          </div>
-          <div class="text-xs text-orange-500 dark:text-orange-400 mt-1">
-            {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} active
-          </div>
-        </div>
+              <Show when={potentialSaleValue() > 0}>
+                <span class="text-amber-600 dark:text-amber-400 ml-2">
+                  {formatCurrency(potentialSaleValue(), currency(), { showSign: true })} potential
+                </span>
+              </Show>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card class="border-blue-500/20 bg-blue-500/5">
+          <CardContent class="p-6">
+            <div class="text-sm text-blue-600 dark:text-blue-400 font-medium flex items-center gap-2">
+              <Download class="h-4 w-4" /> Borrowed
+            </div>
+            <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">
+              {formatCurrency(borrowedValue(), currency())}
+            </div>
+            <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
+              {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card class="border-orange-500/20 bg-orange-500/5">
+          <CardContent class="p-6">
+            <div class="text-sm text-orange-600 dark:text-orange-400 font-medium flex items-center gap-2">
+              <Upload class="h-4 w-4" /> Lent
+            </div>
+            <div class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-2">
+              {formatCurrency(lentValue(), currency())}
+            </div>
+            <div class="text-xs text-orange-500 dark:text-orange-400 mt-1">
+              {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} active
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Goal-based suggestions (Borrow/Trade) */}
       <Show when={suggestions().filter((s) => s.sourceType === 'goal').length > 0}>
-        <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-purple-200 dark:border-purple-800">
-          <h3 class="font-medium text-purple-900 dark:text-purple-200 mb-3 flex items-center gap-2">
-            <span>💡</span> Suggestions for "{props.goalName || 'your goal'}"
-          </h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <For each={suggestions().filter((s) => s.sourceType === 'goal')}>
-              {(suggestion) => (
-                <button
-                  type="button"
-                  class="flex items-center justify-between p-3 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg border border-purple-100 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-600 transition-colors text-left"
-                  onClick={() => addFromSuggestion(suggestion)}
-                >
-                  <div>
-                    <div class="font-medium text-slate-900 dark:text-slate-100">
-                      {suggestion.name}
+        <Card class="bg-purple-500/5 border-purple-500/20">
+          <CardContent class="p-4">
+            <h3 class="font-medium text-purple-900 dark:text-purple-200 mb-3 flex items-center gap-2">
+              <Lightbulb class="h-4 w-4" /> Suggestions for "{props.goalName || 'your goal'}"
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <For each={suggestions().filter((s) => s.sourceType === 'goal')}>
+                {(suggestion) => (
+                  <Button
+                    variant="outline"
+                    class="h-auto p-3 flex items-center justify-between text-left whitespace-normal"
+                    onClick={() => addFromSuggestion(suggestion)}
+                  >
+                    <div>
+                      <div class="font-medium text-foreground">{suggestion.name}</div>
+                      <div class="text-xs text-muted-foreground font-normal">
+                        {suggestion.description}
+                      </div>
                     </div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400">
-                      {suggestion.description}
+                    <div class="text-right ml-2">
+                      <div class="text-green-600 dark:text-green-400 font-bold">
+                        -{formatCurrency(suggestion.estimatedSavings, currency())}
+                      </div>
+                      <div class="text-xs text-muted-foreground font-normal">to save</div>
                     </div>
-                  </div>
-                  <div class="text-right">
-                    <div class="text-green-600 dark:text-green-400 font-bold">
-                      -{formatCurrency(suggestion.estimatedSavings, currency())}
-                    </div>
-                    <div class="text-xs text-slate-400">to save</div>
-                  </div>
-                </button>
-              )}
-            </For>
-          </div>
-        </div>
+                  </Button>
+                )}
+              </For>
+            </div>
+          </CardContent>
+        </Card>
       </Show>
 
       {/* Tips - at the top for visibility */}
-      <div class="card bg-slate-50 dark:bg-slate-700">
-        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">💡 Tip</h4>
-        <p class="text-sm text-slate-600 dark:text-slate-400">
-          {activeType() === 'sell'
-            ? 'Selling unused items is a quick way to generate cash. List on marketplaces or ask friends!'
-            : activeType() === 'borrow'
-              ? 'Borrowing textbooks or equipment can help you save money. Ask your friends or the library!'
-              : activeType() === 'lend'
-                ? 'Lending unused items strengthens bonds and can lead to future exchanges.'
-                : 'Bartering is a great way to get what you need without spending. Offer your skills!'}
-        </p>
-      </div>
+      <Card class="bg-muted/50 border-none">
+        <CardContent class="p-4">
+          <h4 class="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+            <Lightbulb class="h-4 w-4 text-amber-500" /> Tip
+          </h4>
+          <p class="text-sm text-muted-foreground">
+            {activeType() === 'sell'
+              ? 'Selling unused items is a quick way to generate cash. List on marketplaces or ask friends!'
+              : activeType() === 'borrow'
+                ? 'Borrowing textbooks or equipment can help you save money. Ask your friends or the library!'
+                : activeType() === 'lend'
+                  ? 'Lending unused items strengthens bonds and can lead to future exchanges.'
+                  : 'Bartering is a great way to get what you need without spending. Offer your skills!'}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Type Tabs */}
       <div class="flex flex-wrap gap-2">
         <For each={TRADE_TYPES}>
           {(type) => (
-            <button
-              type="button"
-              class={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
-                activeType() === type.id
-                  ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-              }`}
+            <Button
+              variant={activeType() === type.id ? 'default' : 'outline'}
+              size="sm"
+              class={activeType() === type.id ? 'bg-primary text-primary-foreground' : 'bg-card'}
               onClick={() => setActiveType(type.id)}
               title={type.description}
             >
-              <span>{type.icon}</span>
-              <span>{type.label}</span>
-            </button>
+              <Dynamic component={type.icon} class="h-4 w-4 mr-2" />
+              {type.label}
+            </Button>
           )}
         </For>
       </div>
@@ -540,118 +577,105 @@ export function TradeTab(props: TradeTabProps) {
       {/* Trades List */}
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="font-medium text-slate-900 dark:text-slate-100">
-            {getTypeInfo(activeType())?.icon} {getTypeInfo(activeType())?.label}
+          <h3 class="font-medium text-foreground flex items-center gap-2">
+            <Dynamic component={getTypeIcon(activeType())} class="h-5 w-5" />
+            {getTypeInfo(activeType())?.label}
           </h3>
-          <button
-            type="button"
-            class="btn-primary text-sm px-4 py-2"
+          <Button
+            size="sm"
             onClick={() => {
               setNewTrade({ ...newTrade(), type: activeType() as TradeItem['type'] });
               setShowAddForm(true);
             }}
           >
-            + Add
-          </button>
+            <Plus class="h-4 w-4 mr-2" /> Add
+          </Button>
         </div>
 
         <For each={trades().filter((t) => t.type === activeType())}>
           {(trade) => (
-            <div class="card flex items-center gap-4">
-              {/* Icon */}
-              <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-2xl">
-                {getTypeInfo(trade.type)?.icon}
-              </div>
-
-              {/* Trade Info */}
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <h4 class="font-medium text-slate-900 dark:text-slate-100">{trade.name}</h4>
-                  <span
-                    class={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                      getStatusBadge(trade.status).class
-                    }`}
-                  >
-                    {getStatusBadge(trade.status).label}
-                  </span>
+            <Card>
+              <CardContent class="p-4 flex items-center gap-4">
+                {/* Icon */}
+                <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-primary">
+                  <Dynamic component={getTypeIcon(trade.type)} class="h-6 w-6" />
                 </div>
-                <div class="flex items-center gap-3 mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  <span>
-                    {trade.type === 'borrow' ? 'From' : trade.type === 'lend' ? 'To' : 'With'}{' '}
-                    <strong>{trade.partner}</strong>
-                  </span>
-                  <Show when={trade.dueDate}>
-                    <span class="text-slate-300 dark:text-slate-600">•</span>
-                    <span>Return: {new Date(trade.dueDate!).toLocaleDateString('en-US')}</span>
+
+                {/* Trade Info */}
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-medium text-foreground">{trade.name}</h4>
+                    <span
+                      class={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                        getStatusBadge(trade.status).class
+                      }`}
+                    >
+                      {getStatusBadge(trade.status).label}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                    <span>
+                      {trade.type === 'borrow' ? 'From' : trade.type === 'lend' ? 'To' : 'With'}{' '}
+                      <strong>{trade.partner}</strong>
+                    </span>
+                    <Show when={trade.dueDate}>
+                      <span class="text-muted-foreground/50">•</span>
+                      <span>Return: {new Date(trade.dueDate!).toLocaleDateString('en-US')}</span>
+                    </Show>
+                  </div>
+                  <Show when={trade.description}>
+                    <p class="text-sm text-muted-foreground/70 mt-1">{trade.description}</p>
                   </Show>
                 </div>
-                <Show when={trade.description}>
-                  <p class="text-sm text-slate-400 mt-1">{trade.description}</p>
-                </Show>
-              </div>
 
-              {/* Value */}
-              <div class="flex-shrink-0 text-right">
-                <div class="font-bold text-slate-900 dark:text-slate-100">
-                  {formatCurrency(trade.value, currency())}
+                {/* Value */}
+                <div class="flex-shrink-0 text-right">
+                  <div class="font-bold text-foreground">
+                    {formatCurrency(trade.value, currency())}
+                  </div>
                 </div>
-              </div>
 
-              {/* Actions */}
-              <div class="flex-shrink-0 flex items-center gap-2">
-                {/* Cancel button for pending trades */}
-                <Show when={trade.status === 'pending'}>
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                    onClick={() => cancelSale(trade.id)}
+                {/* Actions */}
+                <div class="flex-shrink-0 flex items-center gap-2">
+                  {/* Cancel button for pending trades */}
+                  <Show when={trade.status === 'pending'}>
+                    <Button variant="outline" size="sm" onClick={() => cancelSale(trade.id)}>
+                      Cancel
+                    </Button>
+                  </Show>
+                  {/* Confirm/Done buttons for non-completed trades */}
+                  <Show when={trade.status !== 'completed'}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      class={trade.status === 'pending' ? 'text-primary' : 'text-green-600'}
+                      onClick={() =>
+                        updateStatus(trade.id, trade.status === 'pending' ? 'active' : 'completed')
+                      }
+                    >
+                      <Check class="h-4 w-4 mr-1" />
+                      {trade.status === 'pending' ? 'Confirm' : 'Done'}
+                    </Button>
+                  </Show>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEditTrade(trade)}
+                    title="Edit"
                   >
-                    Cancel
-                  </button>
-                </Show>
-                {/* Confirm/Done buttons for non-completed trades */}
-                <Show when={trade.status !== 'completed'}>
-                  <button
-                    type="button"
-                    class="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
-                    onClick={() =>
-                      updateStatus(trade.id, trade.status === 'pending' ? 'active' : 'completed')
-                    }
+                    <Pencil class="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="hover:text-destructive"
+                    onClick={() => setDeleteConfirm({ id: trade.id, name: trade.name })}
                   >
-                    {trade.status === 'pending' ? 'Confirm' : 'Done'}
-                  </button>
-                </Show>
-                <button
-                  type="button"
-                  class="text-slate-400 hover:text-primary-500 transition-colors"
-                  onClick={() => handleEditTrade(trade)}
-                  title="Edit"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                    />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="text-slate-400 hover:text-red-500 transition-colors"
-                  onClick={() => setDeleteConfirm({ id: trade.id, name: trade.name })}
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
+                    <Trash2 class="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </For>
 
@@ -659,7 +683,7 @@ export function TradeTab(props: TradeTabProps) {
         <Show
           when={activeType() === 'sell' && props.inventoryItems && props.inventoryItems.length > 0}
         >
-          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2 mt-4 font-medium uppercase tracking-wide">
+          <div class="text-xs text-muted-foreground mb-2 mt-4 font-medium uppercase tracking-wide">
             Available from inventory
           </div>
           <For
@@ -668,25 +692,28 @@ export function TradeTab(props: TradeTabProps) {
             )}
           >
             {(item) => (
-              <div class="card flex items-center gap-4">
-                <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-2xl">
-                  💰
-                </div>
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-medium text-slate-900 dark:text-slate-100">{item.name}</h4>
-                  <div class="text-sm text-slate-500 dark:text-slate-400">From your inventory</div>
-                </div>
-                <div class="text-right font-bold text-green-600 dark:text-green-400">
-                  {formatCurrency(item.estimatedValue, currency())}
-                </div>
-                <button
-                  type="button"
-                  class="px-3 py-1.5 text-sm bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
-                  onClick={() => addInventoryItemToSell(item)}
-                >
-                  List for sale
-                </button>
-              </div>
+              <Card>
+                <CardContent class="p-4 flex items-center gap-4">
+                  <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center text-green-600">
+                    <Banknote class="h-6 w-6" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="font-medium text-foreground">{item.name}</h4>
+                    <div class="text-sm text-muted-foreground">From your inventory</div>
+                  </div>
+                  <div class="text-right font-bold text-green-600 dark:text-green-400">
+                    {formatCurrency(item.estimatedValue, currency())}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    class="text-green-600 border-green-200 hover:bg-green-50"
+                    onClick={() => addInventoryItemToSell(item)}
+                  >
+                    List for sale
+                  </Button>
+                </CardContent>
+              </Card>
             )}
           </For>
         </Show>
@@ -703,8 +730,10 @@ export function TradeTab(props: TradeTabProps) {
             )
           }
         >
-          <div class="text-center py-8 text-slate-500 dark:text-slate-400">
-            <div class="text-4xl mb-3">{getTypeInfo(activeType())?.icon}</div>
+          <div class="text-center py-12 text-muted-foreground">
+            <div class="flex justify-center mb-3">
+              <Dynamic component={getTypeIcon(activeType())} class="h-12 w-12 opacity-20" />
+            </div>
             <p>
               {activeType() === 'sell'
                 ? "You haven't listed anything for sale"
@@ -721,108 +750,121 @@ export function TradeTab(props: TradeTabProps) {
       {/* Add/Edit Form Modal */}
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              {getTypeInfo(newTrade().type || 'sell')?.icon} {editingTradeId() ? 'Edit' : 'New'}{' '}
-              {getTypeInfo(newTrade().type || 'sell')?.label}
-            </h3>
-
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  What?
-                </label>
-                <input
-                  type="text"
-                  class="input-field"
-                  placeholder="Ex: Laptop, Math textbook..."
-                  value={newTrade().name}
-                  onInput={(e) => setNewTrade({ ...newTrade(), name: e.currentTarget.value })}
-                />
+          <Card class="max-w-md w-full">
+            <CardContent class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Dynamic component={getTypeIcon(newTrade().type || 'sell')} class="h-5 w-5" />
+                  {editingTradeId() ? 'Edit' : 'New'}{' '}
+                  {getTypeInfo(newTrade().type || 'sell')?.label}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetForm();
+                  }}
+                >
+                  <X class="h-4 w-4" />
+                </Button>
               </div>
 
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  {newTrade().type === 'borrow'
-                    ? 'From whom?'
-                    : newTrade().type === 'lend'
-                      ? 'To whom?'
-                      : 'With whom?'}
-                </label>
-                <input
-                  type="text"
-                  class="input-field"
-                  placeholder="Person's name"
-                  value={newTrade().partner}
-                  onInput={(e) => setNewTrade({ ...newTrade(), partner: e.currentTarget.value })}
-                />
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Estimated value ({currencySymbol()})
-                  </label>
-                  <input
-                    type="number"
-                    class="input-field"
-                    min="0"
-                    value={newTrade().value}
-                    onInput={(e) =>
-                      setNewTrade({ ...newTrade(), value: parseInt(e.currentTarget.value) || 0 })
+                  <label class="block text-sm font-medium text-muted-foreground mb-1">What?</label>
+                  <Input
+                    type="text"
+                    placeholder="Ex: Laptop, Math textbook..."
+                    value={newTrade().name}
+                    onInput={(e: any) =>
+                      setNewTrade({ ...newTrade(), name: e.currentTarget.value })
                     }
                   />
                 </div>
+
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Return date
+                  <label class="block text-sm font-medium text-muted-foreground mb-1">
+                    {newTrade().type === 'borrow'
+                      ? 'From whom?'
+                      : newTrade().type === 'lend'
+                        ? 'To whom?'
+                        : 'With whom?'}
                   </label>
-                  <input
-                    type="date"
-                    class="input-field"
-                    value={newTrade().dueDate}
-                    onInput={(e) => setNewTrade({ ...newTrade(), dueDate: e.currentTarget.value })}
+                  <Input
+                    type="text"
+                    placeholder="Person's name"
+                    value={newTrade().partner}
+                    onInput={(e: any) =>
+                      setNewTrade({ ...newTrade(), partner: e.currentTarget.value })
+                    }
+                  />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Estimated value ({currencySymbol()})
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={newTrade().value}
+                      onInput={(e: any) =>
+                        setNewTrade({ ...newTrade(), value: parseInt(e.currentTarget.value) || 0 })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Return date
+                    </label>
+                    <Input
+                      type="date"
+                      value={newTrade().dueDate}
+                      onInput={(e: any) =>
+                        setNewTrade({ ...newTrade(), dueDate: e.currentTarget.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium text-muted-foreground mb-1">
+                    Notes (optional)
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Ex: Return before vacation"
+                    value={newTrade().description}
+                    onInput={(e: any) =>
+                      setNewTrade({ ...newTrade(), description: e.currentTarget.value })
+                    }
                   />
                 </div>
               </div>
 
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Notes (optional)
-                </label>
-                <input
-                  type="text"
-                  class="input-field"
-                  placeholder="Ex: Return before vacation"
-                  value={newTrade().description}
-                  onInput={(e) =>
-                    setNewTrade({ ...newTrade(), description: e.currentTarget.value })
-                  }
-                />
+              <div class="flex gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  class="flex-1"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetForm();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  class="flex-1"
+                  onClick={() => (editingTradeId() ? updateTrade() : addTrade())}
+                  disabled={!newTrade().name || !newTrade().partner}
+                >
+                  {editingTradeId() ? 'Update' : 'Add'}
+                </Button>
               </div>
-            </div>
-
-            <div class="flex gap-3 mt-6">
-              <button
-                type="button"
-                class="btn-secondary flex-1"
-                onClick={() => {
-                  setShowAddForm(false);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                class="btn-primary flex-1"
-                onClick={() => (editingTradeId() ? updateTrade() : addTrade())}
-                disabled={!newTrade().name || !newTrade().partner}
-              >
-                {editingTradeId() ? 'Update' : 'Add'}
-              </button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </Show>
 

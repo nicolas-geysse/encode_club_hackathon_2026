@@ -1210,151 +1210,229 @@ export function OnboardingChat() {
     navigate('/plan');
   };
 
+  // Helper for left sidebar context
+  const getStepContext = (s: OnboardingStep) => {
+    const contextMap: Record<string, { title: string; description: string }> = {
+      greeting: {
+        title: 'Welcome!',
+        description: "I'm Bruno, your AI financial coach. Let's get to know each other.",
+      },
+      region: {
+        title: 'Location',
+        description: 'This helps me set the right currency and suggestions.',
+      },
+      name: { title: 'About You', description: 'What should I call you?' },
+      studies: {
+        title: 'Education',
+        description: 'Your studies help me match you with relevant student jobs.',
+      },
+      skills: {
+        title: 'Your Superpowers',
+        description: "Skills are your biggest asset. Don't be shy!",
+      },
+      certifications: {
+        title: 'Qualifications',
+        description: 'Official certs can boost your hourly rate significantly.',
+      },
+      location: { title: 'City', description: 'Job opportunities vary by location.' },
+      budget: {
+        title: 'Money Talk',
+        description: 'Understanding your cash flow is key to saving.',
+      },
+      work_preferences: {
+        title: 'Availability',
+        description: 'Balancing work and studies is crucial.',
+      },
+      goal: { title: 'The Dream', description: 'What are we saving for? Make it inspiring!' },
+      academic_events: {
+        title: 'Schedule',
+        description: "We'll plan around your exams and holidays.",
+      },
+      inventory: {
+        title: 'Hidden Assets',
+        description: 'You might be sitting on extra cash without knowing it.',
+      },
+      trade: {
+        title: 'Smart Trades',
+        description: 'Bartering can save you money without spending.',
+      },
+      lifestyle: { title: 'Subscriptions', description: 'Small recurring costs add up fast.' },
+      complete: { title: 'All Set!', description: "Your profile is ready. Let's make a plan." },
+    };
+    return contextMap[s] || { title: 'Chat', description: 'Ask me anything about your finance.' };
+  };
+
   return (
-    <div class="flex flex-col h-[calc(100vh-180px)] max-w-5xl mx-auto">
-      {/* Chat messages */}
-      <div
-        ref={(el) => (messagesContainerRef = el)}
-        class="flex-1 overflow-y-auto px-4 py-6 space-y-1"
-      >
-        <For each={messages()}>
-          {(msg) => (
-            <ChatMessage
-              role={msg.role}
-              content={msg.content}
-              avatar="B"
-              name={msg.role === 'assistant' ? 'Bruno' : undefined}
-              badge={msg.source}
-            />
-          )}
-        </For>
-
-        <Show when={loading()}>
-          <div class="flex justify-start mb-4">
-            <div class="flex items-start gap-3">
-              <div class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white text-lg shadow-sm">
-                B
-              </div>
-              <div class="bg-[#FAFBFC] dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 shadow-sm">
-                <div class="flex items-center gap-2">
-                  <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
-                  <div
-                    class="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
-                    style={{ 'animation-delay': '0.1s' }}
-                  />
-                  <div
-                    class="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
-                    style={{ 'animation-delay': '0.2s' }}
-                  />
-                </div>
-              </div>
+    <div class="h-[calc(100vh-64px)] overflow-hidden bg-background">
+      <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] h-full">
+        {/* Left Sidebar (Desktop Only) */}
+        <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-8 h-full">
+          <div class="flex flex-col items-center text-center mb-10">
+            <div class="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-background mb-4">
+              B
             </div>
+            <h2 class="text-2xl font-bold text-foreground">Bruno</h2>
+            <p class="text-muted-foreground font-medium">Financial Coach</p>
           </div>
-        </Show>
-      </div>
 
-      {/* Action buttons when complete */}
-      <Show when={isComplete()}>
-        <div class="border-t border-slate-200 dark:border-slate-700 bg-[#FAFBFC] dark:bg-slate-800 px-4 py-3">
-          <div class="flex items-center justify-between max-w-5xl mx-auto">
-            {/* Left - Secondary action */}
-            <button
-              class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              onClick={async () => {
-                // Clear profile completely for fresh start
-                setProfile({
-                  skills: [],
-                  certifications: [],
-                  incomes: [],
-                  expenses: [],
-                  maxWorkHours: 15,
-                  minHourlyRate: 12,
-                  hasLoan: false,
-                  loanAmount: 0,
-                  academicEvents: [],
-                  inventoryItems: [],
-                  subscriptions: [],
-                });
-                // Clear localStorage - remove all profile-related keys
-                localStorage.removeItem('studentProfile');
-                localStorage.removeItem('planData');
-                localStorage.removeItem('activeProfileId');
+          <div class="flex-1">
+            <Show when={!isComplete()}>
+              <div class="bg-card border border-border/50 rounded-2xl p-6 shadow-sm">
+                <div class="text-xs font-bold uppercase tracking-widest text-primary mb-2">
+                  Current Step
+                </div>
+                <h3 class="text-xl font-semibold mb-2 text-card-foreground">
+                  {getStepContext(step()).title}
+                </h3>
+                <p class="text-sm text-muted-foreground leading-relaxed">
+                  {getStepContext(step()).description}
+                </p>
+              </div>
+            </Show>
+          </div>
 
-                // Clear old data from DB if we have a profileId (prevents duplicate data after re-onboarding)
-                // IMPORTANT: Get profileId BEFORE clearing anything
-                const oldProfileId = profileId();
-                logger.debug('Restart clicked', { profileId: oldProfileId });
-
-                if (oldProfileId) {
-                  try {
-                    // Delete old goals, skills, inventory, lifestyle, income for this profile
-                    // Check each response for success
-                    const deleteResults = await Promise.all([
-                      fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                    ]);
-
-                    // Log results for debugging
-                    const names = ['goals', 'skills', 'inventory', 'lifestyle', 'income'];
-                    for (let i = 0; i < deleteResults.length; i++) {
-                      const res = deleteResults[i];
-                      if (!res.ok) {
-                        logger.error(`Failed to delete ${names[i]}`, {
-                          status: res.status,
-                          statusText: res.statusText,
-                        });
-                      } else {
-                        const data = await res.json();
-                        logger.debug(`Deleted ${names[i]}`, data);
-                      }
-                    }
-                    logger.info('Cleared old data for profile', { profileId: oldProfileId });
-
-                    // Refresh context to reflect the cleared data
-                    await Promise.all([
-                      refreshSkills(),
-                      refreshInventory(),
-                      refreshLifestyle(),
-                      refreshIncome(),
-                    ]);
-                    logger.debug('Refreshed context after clearing data');
-                  } catch (e) {
-                    logger.warn('Failed to clear old data', { error: e });
-                  }
-                } else {
-                  logger.debug('No profileId to clear, starting fresh');
-                }
-
-                // Generate new threadId for new conversation
-                setThreadId(generateThreadId());
-                setProfileId(undefined); // Force new profile
-                setIsComplete(false);
-                setChatMode('onboarding');
-                setStep('greeting');
-                setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
-              }}
-            >
-              Restart onboarding
-            </button>
-
-            {/* Right - Primary action */}
-            <button class="btn-primary px-6 py-2" onClick={goToPlan}>
-              Start My Plan
-            </button>
+          <div class="text-xs text-muted-foreground text-center mt-auto">
+            Powered by Mastra & DuckDB
           </div>
         </div>
-      </Show>
 
-      {/* Chat input - always visible */}
-      <ChatInput
-        ref={(el) => (chatInputRef = el)}
-        onSend={handleSend}
-        placeholder={isComplete() ? 'Ask Bruno anything...' : 'Type your response...'}
-        disabled={loading()}
-      />
+        {/* Right Chat Area */}
+        <div class="flex flex-col h-full relative bg-background/50">
+          {/* Messages */}
+          <div
+            ref={(el) => (messagesContainerRef = el)}
+            class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth"
+          >
+            <div class="max-w-3xl mx-auto w-full">
+              <For each={messages()}>
+                {(msg) => (
+                  <ChatMessage
+                    role={msg.role}
+                    content={msg.content}
+                    avatar="B"
+                    name={msg.role === 'assistant' ? 'Bruno' : undefined}
+                    badge={msg.source}
+                  />
+                )}
+              </For>
+
+              <Show when={loading()}>
+                <div class="flex justify-start mb-4 pl-2">
+                  <div class="flex items-center gap-2 px-4 py-3 bg-muted/50 rounded-2xl rounded-tl-none">
+                    <div class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" />
+                    <div
+                      class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"
+                      style={{ 'animation-delay': '0.1s' }}
+                    />
+                    <div
+                      class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"
+                      style={{ 'animation-delay': '0.2s' }}
+                    />
+                  </div>
+                </div>
+              </Show>
+              {/* Spacer for bottom scroll */}
+              <div class="h-4" />
+            </div>
+          </div>
+
+          {/* Action buttons (Restart / Start Plan) */}
+          <Show when={isComplete()}>
+            <div class="absolute top-4 right-4 z-10 flex gap-2">
+              <button
+                class="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-background/80 backdrop-blur hover:bg-muted/50 rounded-lg border border-border transition-colors"
+                onClick={async () => {
+                  /* Reuse existing restart logic */
+                  setProfile({
+                    skills: [],
+                    certifications: [],
+                    incomes: [],
+                    expenses: [],
+                    maxWorkHours: 15,
+                    minHourlyRate: 12,
+                    hasLoan: false,
+                    loanAmount: 0,
+                    academicEvents: [],
+                    inventoryItems: [],
+                    subscriptions: [],
+                  });
+                  localStorage.removeItem('studentProfile');
+                  localStorage.removeItem('planData');
+                  localStorage.removeItem('activeProfileId');
+
+                  const oldProfileId = profileId();
+                  if (oldProfileId) {
+                    try {
+                      await Promise.all([
+                        fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      ]);
+                      await Promise.all([
+                        refreshSkills(),
+                        refreshInventory(),
+                        refreshLifestyle(),
+                        refreshIncome(),
+                      ]);
+                    } catch (e) {
+                      logger.warn('Failed to clear old data', { error: e });
+                    }
+                  }
+                  setThreadId(generateThreadId());
+                  setProfileId(undefined);
+                  setIsComplete(false);
+                  setChatMode('onboarding');
+                  setStep('greeting');
+                  setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+                }}
+              >
+                Restart
+              </button>
+            </div>
+          </Show>
+
+          {/* Input Area */}
+          <div class="p-4 md:p-6 bg-background/80 backdrop-blur-xl border-t border-border z-20">
+            <div class="max-w-3xl mx-auto w-full relative">
+              <Show
+                when={isComplete()}
+                fallback={
+                  <ChatInput
+                    ref={(el) => (chatInputRef = el)}
+                    onSend={handleSend}
+                    placeholder="Type your response..."
+                    disabled={loading()}
+                  />
+                }
+              >
+                <div class="flex gap-4">
+                  <ChatInput
+                    ref={(el) => (chatInputRef = el)}
+                    onSend={handleSend}
+                    placeholder="Ask Bruno anything..."
+                    disabled={loading()}
+                  />
+                  <button
+                    class="hidden md:flex items-center justify-center px-6 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-full transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+                    onClick={goToPlan}
+                  >
+                    Start My Plan →
+                  </button>
+                </div>
+                {/* Mobile CTA */}
+                <button
+                  class="md:hidden w-full mt-3 py-3 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg"
+                  onClick={goToPlan}
+                >
+                  Start My Plan →
+                </button>
+              </Show>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

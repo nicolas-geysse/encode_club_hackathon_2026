@@ -8,7 +8,9 @@
  */
 
 import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { useProfile, type IncomeItem } from '~/lib/profileContext';
+import { cn } from '~/lib/cn';
 import {
   lifestyleService,
   type LifestyleItem,
@@ -18,6 +20,27 @@ import { incomeService } from '~/lib/incomeService';
 import { monthsUntil, formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { type LegacyLifestyleItem, itemToLegacy, legacyToItem } from '~/types/entities';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Button } from '~/components/ui/Button';
+import { Input } from '~/components/ui/Input';
+import { Select } from '~/components/ui/Select';
+import {
+  Wallet,
+  Home,
+  Utensils,
+  Bus,
+  Tv,
+  Pin,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Pencil,
+  Trash2,
+  Plus,
+  X,
+  AlertCircle,
+  PiggyBank,
+} from 'lucide-solid';
 
 interface BudgetTabProps {
   initialItems?: LegacyLifestyleItem[];
@@ -32,18 +55,18 @@ interface BudgetTabProps {
 interface CategoryInfo {
   id: string;
   label: string;
-  icon: string;
+  icon: any;
   color: string;
   type: 'income' | 'expense';
 }
 
 const CATEGORIES: CategoryInfo[] = [
-  { id: 'income', label: 'Income', icon: '💵', color: 'green', type: 'income' },
-  { id: 'housing', label: 'Housing', icon: '🏠', color: 'blue', type: 'expense' },
-  { id: 'food', label: 'Food', icon: '🍕', color: 'orange', type: 'expense' },
-  { id: 'transport', label: 'Transport', icon: '🚌', color: 'emerald', type: 'expense' },
-  { id: 'subscriptions', label: 'Subscriptions', icon: '📺', color: 'purple', type: 'expense' },
-  { id: 'other', label: 'Other', icon: '📌', color: 'slate', type: 'expense' },
+  { id: 'income', label: 'Income', icon: Wallet, color: 'green', type: 'income' },
+  { id: 'housing', label: 'Housing', icon: Home, color: 'blue', type: 'expense' },
+  { id: 'food', label: 'Food', icon: Utensils, color: 'orange', type: 'expense' },
+  { id: 'transport', label: 'Transport', icon: Bus, color: 'emerald', type: 'expense' },
+  { id: 'subscriptions', label: 'Subscriptions', icon: Tv, color: 'purple', type: 'expense' },
+  { id: 'other', label: 'Other', icon: Pin, color: 'slate', type: 'expense' },
 ];
 
 export function BudgetTab(props: BudgetTabProps) {
@@ -94,63 +117,12 @@ export function BudgetTab(props: BudgetTabProps) {
   });
 
   // Load data on mount if profile exists
+  // Note: Item creation is handled by OnboardingChat, not here
   onMount(async () => {
     const currentProfile = profile();
     if (!currentProfile?.id) return;
 
     await Promise.all([refreshLifestyle(), refreshIncome()]);
-    const existingExpenseItems = contextLifestyle();
-    const existingIncomeItems = contextIncome();
-
-    setIsLoading(true);
-    try {
-      // If no lifestyle items exist AND profile has expenses breakdown, create from that
-      if (
-        existingExpenseItems.length === 0 &&
-        props.profileExpenses &&
-        props.profileExpenses.length > 0
-      ) {
-        // Map category names to display names
-        const categoryNames: Record<string, string> = {
-          rent: 'Rent',
-          housing: 'Rent',
-          food: 'Food & Groceries',
-          transport: 'Transport',
-          subscriptions: 'Subscriptions',
-          other: 'Other expenses',
-        };
-
-        for (const expense of props.profileExpenses) {
-          // Normalize 'rent' to 'housing'
-          const normalizedCategory = expense.category === 'rent' ? 'housing' : expense.category;
-          await lifestyleService.createItem({
-            profileId: currentProfile.id,
-            name: categoryNames[expense.category] || expense.category,
-            category: normalizedCategory as LifestyleItem['category'],
-            currentCost: expense.amount,
-          });
-        }
-        await refreshLifestyle();
-      }
-
-      // If no income items exist AND profile has income sources, create from that
-      if (
-        existingIncomeItems.length === 0 &&
-        props.profileIncomeSources &&
-        props.profileIncomeSources.length > 0
-      ) {
-        for (const income of props.profileIncomeSources) {
-          await incomeService.createItem({
-            profileId: currentProfile.id,
-            name: income.source === 'total' ? 'Monthly income' : income.source,
-            amount: income.amount,
-          });
-        }
-        await refreshIncome();
-      }
-    } finally {
-      setIsLoading(false);
-    }
   });
 
   const items = () => localItems();
@@ -374,113 +346,119 @@ export function BudgetTab(props: BudgetTabProps) {
   return (
     <div class="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Summary Cards */}
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Income */}
-        <div class="card bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30">
-          <div class="text-sm text-green-600 dark:text-green-400">Income</div>
-          <div class="text-2xl font-bold text-green-700 dark:text-green-100 mt-1">
-            {formatCurrency(totalIncome(), currency(), { showSign: true })}
-          </div>
-          <div class="text-xs text-green-500 dark:text-green-400">
-            {incomeItems().length} source{incomeItems().length !== 1 ? 's' : ''}
-          </div>
-        </div>
+        <Card class="border-green-500/20 bg-green-500/5">
+          <CardContent class="p-6">
+            <div class="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
+              <Wallet class="h-4 w-4" /> Income
+            </div>
+            <div class="text-2xl font-bold text-green-700 dark:text-green-300 mt-2">
+              {formatCurrency(totalIncome(), currency(), { showSign: true })}
+            </div>
+            <div class="text-xs text-green-600/80 dark:text-green-400/80 mt-1">
+              {incomeItems().length} source{incomeItems().length !== 1 ? 's' : ''}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Total Expenses */}
-        <div class="card bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30">
-          <div class="text-sm text-red-600 dark:text-red-400">Expenses</div>
-          <div class="text-2xl font-bold text-red-700 dark:text-red-100 mt-1">
-            -{formatCurrency(activeMonthlyTotal(), currency())}
-          </div>
-          <div class="text-xs text-red-500 dark:text-red-400">
-            {pausedItemsCount() > 0 ? `${pausedItemsCount()} paused` : 'this month'}
-          </div>
-        </div>
+        <Card class="border-red-500/20 bg-red-500/5">
+          <CardContent class="p-6">
+            <div class="text-sm font-medium text-red-600 dark:text-red-400 flex items-center gap-2">
+              <TrendingDown class="h-4 w-4" /> Expenses
+            </div>
+            <div class="text-2xl font-bold text-red-700 dark:text-red-300 mt-2">
+              -{formatCurrency(activeMonthlyTotal(), currency())}
+            </div>
+            <div class="text-xs text-red-600/80 dark:text-red-400/80 mt-1">
+              {pausedItemsCount() > 0 ? `${pausedItemsCount()} paused` : 'this month'}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Net Margin */}
-        <div
-          class={`card bg-gradient-to-br ${
-            netMargin() >= 0
-              ? 'from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30'
-              : 'from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30'
-          }`}
+        <Card
+          class={cn(
+            'border-opacity-20',
+            netMargin() >= 0 ? 'border-primary bg-primary/10' : 'border-amber-500 bg-amber-500/10'
+          )}
         >
-          <div
-            class={`text-sm ${
-              netMargin() >= 0
-                ? 'text-primary-600 dark:text-primary-400'
-                : 'text-amber-600 dark:text-amber-400'
-            }`}
-          >
-            Net Margin
-          </div>
-          <div
-            class={`text-2xl font-bold mt-1 ${
-              netMargin() >= 0
-                ? 'text-primary-700 dark:text-primary-100'
-                : 'text-amber-700 dark:text-amber-100'
-            }`}
-          >
-            {formatCurrency(netMargin(), currency(), { showSign: true })}
-          </div>
-          <div
-            class={`text-xs ${
-              netMargin() >= 0
-                ? 'text-primary-500 dark:text-primary-400'
-                : 'text-amber-500 dark:text-amber-400'
-            }`}
-          >
-            per month
-          </div>
-        </div>
+          <CardContent class="p-6">
+            <div
+              class={cn(
+                'text-sm font-medium flex items-center gap-2',
+                netMargin() >= 0 ? 'text-primary' : 'text-amber-600 dark:text-amber-400'
+              )}
+            >
+              <TrendingUp class="h-4 w-4" /> Net Margin
+            </div>
+            <div
+              class={cn(
+                'text-2xl font-bold mt-2',
+                netMargin() >= 0 ? 'text-primary' : 'text-amber-700 dark:text-amber-300'
+              )}
+            >
+              {formatCurrency(netMargin(), currency(), { showSign: true })}
+            </div>
+            <div
+              class={cn(
+                'text-xs mt-1',
+                netMargin() >= 0 ? 'text-primary/80' : 'text-amber-600/80 dark:text-amber-400/80'
+              )}
+            >
+              per month
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Pause Savings Info */}
       <Show when={totalPauseSavings() > 0}>
-        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
-          <div class="flex items-center gap-2 text-green-700 dark:text-green-300">
-            <span class="text-lg">🎯</span>
-            <span class="text-sm">
+        <Card class="bg-green-500/10 border-green-500/20">
+          <CardContent class="p-4 flex items-center gap-3">
+            <PiggyBank class="h-5 w-5 text-green-600" />
+            <span class="text-sm text-green-700 dark:text-green-300">
               You'll save <strong>{formatCurrency(totalPauseSavings(), currency())}</strong> by
               pausing expenses!
             </span>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </Show>
 
       {/* Deadline Info */}
       <Show when={maxPauseMonths() > 0 && !isIncomeCategory()}>
-        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
-          <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-            <span class="text-lg">🎯</span>
-            <span class="text-sm">
+        <Card class="bg-amber-500/10 border-amber-500/20">
+          <CardContent class="p-4 flex items-center gap-3">
+            <Target class="h-5 w-5 text-amber-600" />
+            <span class="text-sm text-amber-700 dark:text-amber-300">
               You have <strong>{maxPauseMonths()} months</strong> until your goal deadline. Pause
               expenses to save money!
             </span>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </Show>
 
       {/* Category Tabs */}
       <div class="flex gap-2 flex-wrap">
         <For each={CATEGORIES}>
           {(cat) => (
-            <button
-              type="button"
-              class={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all ${
+            <Button
+              variant={activeCategory() === cat.id ? 'default' : 'outline'}
+              size="sm"
+              class={cn(
+                'rounded-full transition-all',
                 activeCategory() === cat.id
                   ? cat.type === 'income'
-                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 ring-2 ring-green-300 dark:ring-green-700'
-                    : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 ring-2 ring-red-300 dark:ring-red-700'
-                  : cat.type === 'income'
-                    ? 'bg-green-50 dark:bg-green-900/20 text-green-600/70 dark:text-green-400/70 hover:bg-green-100 dark:hover:bg-green-900/30'
-                    : 'bg-red-50 dark:bg-red-900/20 text-red-600/70 dark:text-red-400/70 hover:bg-red-100 dark:hover:bg-red-900/30'
-              }`}
+                    ? 'bg-green-600 hover:bg-green-800 text-white'
+                    : 'bg-red-600 hover:bg-red-800 text-white'
+                  : 'bg-card hover:bg-muted'
+              )}
               onClick={() => setActiveCategory(cat.id)}
             >
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
-            </button>
+              <Dynamic component={cat.icon} class="h-4 w-4 mr-2" />
+              {cat.label}
+            </Button>
           )}
         </For>
       </div>
@@ -488,73 +466,60 @@ export function BudgetTab(props: BudgetTabProps) {
       {/* Items List */}
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <h3 class="font-medium text-slate-900 dark:text-slate-100">
-            {getCategoryInfo(activeCategory())?.icon} {getCategoryInfo(activeCategory())?.label}
+          <h3 class="font-medium text-foreground flex items-center gap-2">
+            <Dynamic component={getCategoryInfo(activeCategory())?.icon} class="h-5 w-5" />
+            {getCategoryInfo(activeCategory())?.label}
           </h3>
-          <button
-            type="button"
-            class="btn-primary text-sm px-4 py-2"
-            onClick={() => setShowAddForm(true)}
-          >
-            + Add
-          </button>
+          <Button size="sm" onClick={() => setShowAddForm(true)}>
+            <Plus class="h-4 w-4 mr-2" /> Add
+          </Button>
         </div>
 
         {/* Income Items */}
         <Show when={isIncomeCategory()}>
           <For each={incomeItems()}>
             {(item) => (
-              <div class="card space-y-3">
-                {/* Header: Name + Amount */}
-                <div class="flex items-center justify-between">
-                  <h4 class="font-medium text-slate-900 dark:text-slate-100">{item.name}</h4>
-                  <div class="font-bold text-green-600 dark:text-green-400">
-                    {formatCurrency(item.amount, currency(), { showSign: true })}/mo
+              <Card>
+                <CardContent class="p-4 space-y-3">
+                  {/* Header: Name + Amount */}
+                  <div class="flex items-center justify-between">
+                    <h4 class="font-medium text-foreground">{item.name}</h4>
+                    <div class="font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(item.amount, currency(), { showSign: true })}/mo
+                    </div>
                   </div>
-                </div>
 
-                {/* Actions: Edit / Delete */}
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                  <button
-                    type="button"
-                    class="text-slate-400 hover:text-primary-500 transition-colors disabled:opacity-50"
-                    onClick={() => handleEditIncome(item)}
-                    disabled={isLoading()}
-                    title="Edit income"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </button>
+                  {/* Actions: Edit / Delete */}
+                  <div class="flex justify-end gap-2 pt-2 border-t border-border">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={() => handleEditIncome(item)}
+                      disabled={isLoading()}
+                      title="Edit income"
+                    >
+                      <Pencil class="h-4 w-4" />
+                    </Button>
 
-                  <button
-                    type="button"
-                    class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                    onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
-                    disabled={isLoading()}
-                    title="Delete income"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
+                      disabled={isLoading()}
+                      title="Delete income"
+                    >
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </For>
 
           <Show when={incomeItems().length === 0}>
-            <div class="text-center py-8 text-slate-500 dark:text-slate-400">
+            <div class="text-center py-8 text-muted-foreground">
               No income sources yet. Add your first one!
             </div>
           </Show>
@@ -564,93 +529,83 @@ export function BudgetTab(props: BudgetTabProps) {
         <Show when={!isIncomeCategory()}>
           <For each={items().filter((i) => i.category === activeCategory())}>
             {(item) => (
-              <div class="card space-y-3">
-                {/* Header: Name + Cost */}
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <h4 class="font-medium text-slate-900 dark:text-slate-100">{item.name}</h4>
-                    <Show when={item.pausedMonths > 0}>
-                      <span class="px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full">
-                        Paused {item.pausedMonths}mo
-                      </span>
-                    </Show>
-                  </div>
-                  <div class="font-bold text-slate-900 dark:text-slate-100">
-                    {formatCurrency(item.currentCost, currency())}/mo
-                  </div>
-                </div>
-
-                {/* Pause Slider */}
-                <Show when={maxPauseMonths() > 0}>
-                  <div class="space-y-2">
-                    <div class="flex items-center justify-between text-sm">
-                      <span class="text-slate-500 dark:text-slate-400">Pause for:</span>
-                      <span class="font-medium text-amber-600 dark:text-amber-400">
-                        {item.pausedMonths} month{item.pausedMonths !== 1 ? 's' : ''}
-                        {item.pausedMonths > 0 &&
-                          ` = -${formatCurrency(item.pausedMonths * item.currentCost, currency())}`}
-                      </span>
+              <Card>
+                <CardContent class="p-4 space-y-3">
+                  {/* Header: Name + Cost */}
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <h4 class="font-medium text-foreground">{item.name}</h4>
+                      <Show when={item.pausedMonths > 0}>
+                        <span class="px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full">
+                          Paused {item.pausedMonths}mo
+                        </span>
+                      </Show>
                     </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max={maxPauseMonths()}
-                      value={item.pausedMonths}
-                      onInput={(e) => updatePausedMonths(item.id, parseInt(e.currentTarget.value))}
-                      class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                    <div class="font-bold text-foreground">
+                      {formatCurrency(item.currentCost, currency())}/mo
+                    </div>
+                  </div>
+
+                  {/* Pause Slider */}
+                  <Show when={maxPauseMonths() > 0}>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between text-sm">
+                        <span class="text-muted-foreground">Pause for:</span>
+                        <span class="font-medium text-amber-600 dark:text-amber-400">
+                          {item.pausedMonths} month{item.pausedMonths !== 1 ? 's' : ''}
+                          {item.pausedMonths > 0 &&
+                            ` = -${formatCurrency(item.pausedMonths * item.currentCost, currency())}`}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max={maxPauseMonths()}
+                        value={item.pausedMonths}
+                        onInput={(e) =>
+                          updatePausedMonths(item.id, parseInt(e.currentTarget.value))
+                        }
+                        class="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        disabled={isLoading()}
+                      />
+                      <div class="flex justify-between text-xs text-muted-foreground">
+                        <span>0</span>
+                        <span>{maxPauseMonths()} mo</span>
+                      </div>
+                    </div>
+                  </Show>
+
+                  {/* Actions: Edit / Delete */}
+                  <div class="flex justify-end gap-2 pt-2 border-t border-border">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={() => handleEditExpense(item)}
                       disabled={isLoading()}
-                    />
-                    <div class="flex justify-between text-xs text-slate-400">
-                      <span>0</span>
-                      <span>{maxPauseMonths()} mo</span>
-                    </div>
+                      title="Edit expense"
+                    >
+                      <Pencil class="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
+                      disabled={isLoading()}
+                      title="Delete expense"
+                    >
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
                   </div>
-                </Show>
-
-                {/* Actions: Edit / Delete */}
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-                  <button
-                    type="button"
-                    class="text-slate-400 hover:text-primary-500 transition-colors disabled:opacity-50"
-                    onClick={() => handleEditExpense(item)}
-                    disabled={isLoading()}
-                    title="Edit expense"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </button>
-
-                  <button
-                    type="button"
-                    class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                    onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
-                    disabled={isLoading()}
-                    title="Delete expense"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             )}
           </For>
 
           <Show when={items().filter((i) => i.category === activeCategory()).length === 0}>
-            <div class="text-center py-8 text-slate-500 dark:text-slate-400">
-              No items in this category
-            </div>
+            <div class="text-center py-8 text-muted-foreground">No items in this category</div>
           </Show>
         </Show>
       </div>
@@ -658,109 +613,113 @@ export function BudgetTab(props: BudgetTabProps) {
       {/* Add/Edit Form Modal */}
       <Show when={showAddForm()}>
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div class="card max-w-md w-full">
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              {editingItemId()
-                ? isIncomeCategory()
-                  ? 'Edit income'
-                  : 'Edit expense'
-                : isIncomeCategory()
-                  ? 'New income'
-                  : 'New expense'}
-            </h3>
-
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  class="input-field"
-                  placeholder={
-                    isIncomeCategory()
-                      ? 'Ex: Scholarship, Part-time job...'
-                      : 'Ex: Netflix, Transit, Groceries...'
-                  }
-                  value={newItem().name}
-                  onInput={(e) => setNewItem({ ...newItem(), name: e.currentTarget.value })}
-                />
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  {isIncomeCategory() ? 'Monthly amount' : 'Monthly cost'} ({currencySymbol()})
-                </label>
-                <input
-                  type="number"
-                  class="input-field"
-                  min="0"
-                  value={isIncomeCategory() ? newItem().amount : newItem().currentCost}
-                  onInput={(e) => {
-                    const val = parseInt(e.currentTarget.value) || 0;
-                    if (isIncomeCategory()) {
-                      setNewItem({ ...newItem(), amount: val });
-                    } else {
-                      setNewItem({ ...newItem(), currentCost: val });
-                    }
+          <Card class="max-w-md w-full">
+            <CardContent class="p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-foreground">
+                  {editingItemId()
+                    ? isIncomeCategory()
+                      ? 'Edit income'
+                      : 'Edit expense'
+                    : isIncomeCategory()
+                      ? 'New income'
+                      : 'New expense'}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetNewItem();
                   }}
-                />
+                >
+                  <X class="h-4 w-4" />
+                </Button>
               </div>
 
-              <Show when={!isIncomeCategory()}>
+              <div class="space-y-4">
                 <div>
-                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Category
-                  </label>
-                  <select
-                    class="input-field"
-                    value={newItem().category}
-                    onChange={(e) =>
-                      setNewItem({
-                        ...newItem(),
-                        category: e.currentTarget.value as LifestyleItem['category'],
-                      })
+                  <label class="block text-sm font-medium text-muted-foreground mb-1">Name</label>
+                  <Input
+                    type="text"
+                    placeholder={
+                      isIncomeCategory()
+                        ? 'Ex: Scholarship, Part-time job...'
+                        : 'Ex: Netflix, Transit, Groceries...'
                     }
-                  >
-                    <For each={CATEGORIES.filter((c) => c.type === 'expense')}>
-                      {(cat) => (
-                        <option value={cat.id}>
-                          {cat.icon} {cat.label}
-                        </option>
-                      )}
-                    </For>
-                  </select>
+                    value={newItem().name}
+                    onInput={(e: any) => setNewItem({ ...newItem(), name: e.currentTarget.value })}
+                  />
                 </div>
-              </Show>
-            </div>
 
-            <div class="flex gap-3 mt-6">
-              <button
-                type="button"
-                class="btn-secondary flex-1"
-                onClick={() => {
-                  setShowAddForm(false);
-                  resetNewItem();
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                class="btn-primary flex-1"
-                onClick={() => (editingItemId() ? updateItem() : addItem())}
-                disabled={!newItem().name || isLoading()}
-              >
-                {isLoading()
-                  ? editingItemId()
-                    ? 'Updating...'
-                    : 'Adding...'
-                  : editingItemId()
-                    ? 'Update'
-                    : 'Add'}
-              </button>
-            </div>
-          </div>
+                <div>
+                  <label class="block text-sm font-medium text-muted-foreground mb-1">
+                    {isIncomeCategory() ? 'Monthly amount' : 'Monthly cost'} ({currencySymbol()})
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={isIncomeCategory() ? newItem().amount : newItem().currentCost}
+                    onInput={(e: any) => {
+                      const val = parseInt(e.currentTarget.value) || 0;
+                      if (isIncomeCategory()) {
+                        setNewItem({ ...newItem(), amount: val });
+                      } else {
+                        setNewItem({ ...newItem(), currentCost: val });
+                      }
+                    }}
+                  />
+                </div>
+
+                <Show when={!isIncomeCategory()}>
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      Category
+                    </label>
+                    <Select
+                      value={newItem().category}
+                      onChange={(e: any) =>
+                        setNewItem({
+                          ...newItem(),
+                          category: e.currentTarget.value as LifestyleItem['category'],
+                        })
+                      }
+                      options={CATEGORIES.filter((c) => c.type === 'expense').map((c) => ({
+                        value: c.id,
+                        label: c.label,
+                      }))}
+                    />
+                  </div>
+                </Show>
+              </div>
+
+              <div class="flex gap-3 mt-6">
+                <Button
+                  variant="outline"
+                  class="flex-1"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetNewItem();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  class="flex-1"
+                  onClick={() => (editingItemId() ? updateItem() : addItem())}
+                  disabled={!newItem().name || isLoading()}
+                >
+                  {isLoading()
+                    ? editingItemId()
+                      ? 'Updating...'
+                      : 'Adding...'
+                    : editingItemId()
+                      ? 'Update'
+                      : 'Add'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </Show>
 

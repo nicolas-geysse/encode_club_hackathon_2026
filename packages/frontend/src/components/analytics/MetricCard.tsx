@@ -4,12 +4,16 @@
  * Displays a single metric with label, value, and optional trend.
  */
 
-import { Show } from 'solid-js';
+import { Show, type Component } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
+import { Card, CardContent } from '~/components/ui/Card';
+import { ArrowUp, ArrowDown, ArrowRight } from 'lucide-solid';
+import { cn } from '~/lib/cn';
 
 interface MetricCardProps {
   label: string;
   value: string | number;
-  icon?: string;
+  icon?: Component<{ class?: string }>;
   trend?: {
     value: number;
     direction: 'up' | 'down' | 'neutral';
@@ -38,63 +42,63 @@ export function MetricCard(props: MetricCardProps) {
     }
   };
 
-  const getColorClasses = () => {
-    switch (props.color) {
-      case 'green':
-        return 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
-      case 'red':
-        return 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
-      case 'blue':
-        return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
-      case 'amber':
-        return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
-      default:
-        return 'bg-[#FAFBFC] dark:bg-slate-800 border-slate-200 dark:border-slate-700';
-    }
-  };
-
-  const getTrendColor = () => {
-    if (!props.trend) return '';
-    switch (props.trend.direction) {
-      case 'up':
-        return 'text-green-600 dark:text-green-400';
-      case 'down':
-        return 'text-red-600 dark:text-red-400';
-      default:
-        return 'text-slate-500 dark:text-slate-400';
-    }
-  };
-
-  const getTrendIcon = () => {
-    if (!props.trend) return '';
-    switch (props.trend.direction) {
-      case 'up':
-        return '↑';
-      case 'down':
-        return '↓';
-      default:
-        return '→';
-    }
-  };
-
   return (
-    <div class={`rounded-xl border p-4 ${getColorClasses()}`}>
-      <div class="flex items-start justify-between">
-        <div>
-          <p class="text-sm text-slate-500 dark:text-slate-400">{props.label}</p>
-          <p class="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{formatValue()}</p>
+    <Card
+      class={cn(
+        'hover:shadow-md transition-shadow',
+        props.color === 'green' &&
+          'border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-900/10',
+        props.color === 'red' &&
+          'border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-900/10',
+        props.color === 'blue' &&
+          'border-blue-200 bg-blue-50/50 dark:border-blue-900 dark:bg-blue-900/10',
+        props.color === 'amber' &&
+          'border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-900/10'
+      )}
+    >
+      <CardContent class="p-6">
+        <div class="flex items-center justify-between space-y-0 pb-2">
+          <p class="text-sm font-medium text-muted-foreground">{props.label}</p>
+          <Show when={props.icon}>
+            <div
+              class={cn(
+                'h-4 w-4 text-muted-foreground',
+                props.color === 'green' && 'text-green-600',
+                props.color === 'red' && 'text-red-600'
+              )}
+            >
+              <Dynamic component={props.icon} class="h-4 w-4" />
+            </div>
+          </Show>
         </div>
-        <Show when={props.icon}>
-          <span class="text-2xl">{props.icon}</span>
+        <div class="flex items-center space-x-2">
+          <div class="text-2xl font-bold">{formatValue()}</div>
+        </div>
+        <Show when={props.trend}>
+          <div
+            class={cn(
+              'flex items-center text-xs',
+              props.trend!.direction === 'up'
+                ? 'text-green-600 dark:text-green-400'
+                : props.trend!.direction === 'down'
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-muted-foreground'
+            )}
+          >
+            <Show when={props.trend!.direction === 'up'}>
+              <ArrowUp class="mr-1 h-3 w-3" />
+            </Show>
+            <Show when={props.trend!.direction === 'down'}>
+              <ArrowDown class="mr-1 h-3 w-3" />
+            </Show>
+            <Show when={props.trend!.direction === 'neutral'}>
+              <ArrowRight class="mr-1 h-3 w-3" />
+            </Show>
+            <span class="font-medium">{Math.abs(props.trend!.value)}%</span>
+            <span class="ml-1 text-muted-foreground">vs last week</span>
+          </div>
         </Show>
-      </div>
-      <Show when={props.trend}>
-        <div class={`flex items-center gap-1 mt-2 text-sm font-medium ${getTrendColor()}`}>
-          <span>{getTrendIcon()}</span>
-          <span>{Math.abs(props.trend!.value)}%</span>
-          <span class="text-slate-400 dark:text-slate-500 font-normal">vs last week</span>
-        </div>
-      </Show>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

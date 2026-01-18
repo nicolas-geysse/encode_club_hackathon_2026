@@ -1,11 +1,8 @@
-/**
- * Chat Input Component
- *
- * Text input with send button and optional voice input.
- * Uses Groq Whisper for speech-to-text.
- */
-
 import { createSignal, createEffect, Show, onCleanup } from 'solid-js';
+import { Button } from '~/components/ui/Button';
+import { Textarea } from '~/components/ui/Textarea';
+import { Mic, Square, Loader2, Send } from 'lucide-solid';
+import { cn } from '~/lib/cn';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -57,6 +54,10 @@ export function ChatInput(props: ChatInputProps) {
     if (message && !props.disabled && !isProcessing()) {
       props.onSend(message);
       setText('');
+      // Reset height
+      if (textareaRef) {
+        textareaRef.style.height = 'auto';
+      }
     }
   };
 
@@ -202,23 +203,20 @@ export function ChatInput(props: ChatInputProps) {
   const canSend = () => text().trim() && !isDisabled();
 
   return (
-    <form
-      class="border-t border-slate-200 dark:border-slate-700 bg-[#FAFBFC] dark:bg-slate-800 p-4"
-      onSubmit={handleSubmit}
-    >
-      <div class="flex gap-2 items-end max-w-5xl mx-auto">
+    <form class="w-full bg-transparent" onSubmit={handleSubmit}>
+      <div class="relative flex items-end gap-2 p-1.5 rounded-3xl bg-secondary/30 border border-white/10 shadow-sm transition-all focus-within:bg-secondary/50 focus-within:shadow-md focus-within:ring-1 focus-within:ring-primary/20">
         {/* Microphone button */}
-        <button
+        <Button
           type="button"
           onClick={toggleRecording}
           disabled={isDisabled()}
-          class={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-all relative ${
-            isRecording()
-              ? 'bg-red-500 hover:bg-red-600 text-white'
-              : isProcessing()
-                ? 'bg-amber-500 text-white cursor-wait'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-          } ${isDisabled() && !isProcessing() ? 'opacity-50 cursor-not-allowed' : ''}`}
+          size="icon"
+          variant="ghost"
+          class={cn(
+            'rounded-full h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-background/50',
+            isRecording() &&
+              'text-red-500 hover:text-red-600 bg-red-100/10 hover:bg-red-100/20 animate-pulse'
+          )}
           title={
             isRecording() ? 'Stop recording' : isProcessing() ? 'Processing...' : 'Voice input'
           }
@@ -226,7 +224,7 @@ export function ChatInput(props: ChatInputProps) {
           {/* Audio level ring */}
           <Show when={isRecording()}>
             <div
-              class="absolute inset-0 rounded-full border-2 border-red-300"
+              class="absolute inset-0 rounded-full border-2 border-red-500/50"
               style={{
                 transform: `scale(${1 + audioLevel() * 0.3})`,
                 opacity: 0.5,
@@ -235,97 +233,53 @@ export function ChatInput(props: ChatInputProps) {
             />
           </Show>
 
-          <Show
-            when={isProcessing()}
-            fallback={
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <Show
-                  when={isRecording()}
-                  fallback={
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                    />
-                  }
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-                  />
-                </Show>
-              </svg>
-            }
-          >
-            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              />
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
+          <Show when={!isProcessing()} fallback={<Loader2 class="h-5 w-5 animate-spin" />}>
+            <Show when={!isRecording()} fallback={<Square class="h-4 w-4 fill-current" />}>
+              <Mic class="h-5 w-5" />
+            </Show>
           </Show>
-        </button>
+        </Button>
 
         {/* Text input */}
-        <div class="flex-1 relative">
-          <textarea
-            ref={(el) => (textareaRef = el)}
-            class="input-field resize-none min-h-[44px] max-h-32 py-3 pr-4 w-full"
-            placeholder={props.placeholder || 'Type a message...'}
-            value={text()}
-            onInput={(e) => setText(e.currentTarget.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isDisabled()}
-            rows={1}
-            autofocus
-          />
-        </div>
+        <Textarea
+          ref={(el: any) => (textareaRef = el)}
+          class="flex-1 bg-transparent border-none shadow-none resize-none min-h-[44px] max-h-32 py-3 px-2 focus-visible:ring-0 text-base"
+          placeholder={props.placeholder || 'Type a message...'}
+          value={text()}
+          onInput={(e: any) => {
+            setText(e.currentTarget.value);
+            // Auto-grow
+            e.currentTarget.style.height = 'auto';
+            e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={isDisabled()}
+          rows={1}
+          autofocus
+        />
 
         {/* Send button */}
-        <button
+        <Button
           type="submit"
-          class={`flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+          size="icon"
+          class={cn(
+            'rounded-full h-10 w-10 shrink-0 transition-all duration-200',
             canSend()
-              ? 'bg-primary-600 hover:bg-primary-700 text-white'
-              : 'bg-slate-200 dark:bg-slate-600 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-          }`}
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md scale-100'
+              : 'bg-transparent text-muted-foreground hover:bg-background/50 scale-90 opacity-70'
+          )}
           disabled={!canSend()}
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-            />
-          </svg>
-        </button>
+          <Send class="h-5 w-5" />
+        </Button>
       </div>
 
       {/* Recording indicator */}
       <Show when={isRecording()}>
         <div class="text-center mt-2">
-          <span class="text-xs text-red-500 flex items-center justify-center gap-1">
+          <span class="text-xs text-red-500 font-medium flex items-center justify-center gap-1.5 bg-red-500/10 py-1 px-3 rounded-full inline-flex mx-auto">
             <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            Recording... Click mic to stop
+            Recording...
           </span>
         </div>
       </Show>

@@ -6,6 +6,8 @@
  */
 
 import { createSignal, For, Show } from 'solid-js';
+import { Button } from '~/components/ui/Button';
+import { Bell, Check, AlertTriangle, Info, BellOff, Trash2 } from 'lucide-solid';
 
 export interface Notification {
   id: string;
@@ -30,26 +32,26 @@ export function NotificationBell(props: NotificationBellProps) {
   const getTypeIcon = (type: Notification['type']) => {
     switch (type) {
       case 'success':
-        return '✅';
+        return <Check class="h-4 w-4 text-green-600" />;
       case 'warning':
-        return '⚠️';
+        return <AlertTriangle class="h-4 w-4 text-amber-600" />;
       case 'info':
-        return 'ℹ️';
+        return <Info class="h-4 w-4 text-blue-600" />;
       default:
-        return '📌';
+        return <Bell class="h-4 w-4 text-primary" />;
     }
   };
 
   const getTypeBgClass = (type: Notification['type']) => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800';
+        return 'bg-green-100/50 dark:bg-green-900/20 border-green-200 dark:border-green-800';
       case 'warning':
-        return 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800';
+        return 'bg-amber-100/50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
       case 'info':
-        return 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800';
+        return 'bg-blue-100/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
       default:
-        return 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600';
+        return 'bg-muted border-border';
     }
   };
 
@@ -69,45 +71,36 @@ export function NotificationBell(props: NotificationBellProps) {
   return (
     <div class="relative">
       {/* Bell Button */}
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setIsOpen(!isOpen())}
-        class="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+        class="relative rounded-full"
         title="Notifications"
       >
-        <svg
-          class="w-5 h-5 text-slate-600 dark:text-slate-300"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
-        </svg>
-
+        <Bell class="h-5 w-5" />
         {/* Unread Badge */}
         <Show when={unreadCount() > 0}>
-          <span class="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-xs font-bold text-white bg-red-500 rounded-full">
+          <span class="absolute top-0 right-0 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-bold text-white bg-destructive rounded-full border-2 border-background">
             {unreadCount() > 9 ? '9+' : unreadCount()}
           </span>
         </Show>
-      </button>
+      </Button>
 
       {/* Dropdown */}
       <Show when={isOpen()}>
-        <div class="absolute right-0 mt-2 w-80 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
-          <div class="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600">
-            <h3 class="font-semibold text-slate-900 dark:text-slate-100">Notifications</h3>
+        <div class="absolute right-0 mt-2 w-80 bg-popover rounded-lg shadow-lg border border-border z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div class="flex items-center justify-between px-4 py-3 bg-muted/50 border-b border-border">
+            <h3 class="font-semibold text-foreground text-sm">Notifications</h3>
             <Show when={props.notifications.length > 0}>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => props.onClearAll?.()}
-                class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                class="h-auto p-0 text-xs text-muted-foreground hover:text-destructive"
               >
                 Clear all
-              </button>
+              </Button>
             </Show>
           </div>
 
@@ -115,8 +108,8 @@ export function NotificationBell(props: NotificationBellProps) {
             <Show
               when={props.notifications.length > 0}
               fallback={
-                <div class="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
-                  <div class="text-3xl mb-2">🔔</div>
+                <div class="px-4 py-8 text-center text-muted-foreground">
+                  <BellOff class="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p class="text-sm">No notifications</p>
                 </div>
               }
@@ -124,8 +117,8 @@ export function NotificationBell(props: NotificationBellProps) {
               <For each={props.notifications}>
                 {(notification) => (
                   <div
-                    class={`px-4 py-3 border-b dark:border-slate-700 last:border-b-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                      !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                    class={`px-4 py-3 border-b border-border last:border-b-0 cursor-pointer hover:bg-muted/50 transition-colors ${
+                      !notification.read ? 'bg-primary/5' : ''
                     }`}
                     onClick={() => props.onMarkAsRead?.(notification.id)}
                   >
@@ -137,19 +130,19 @@ export function NotificationBell(props: NotificationBellProps) {
                       </span>
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between gap-2">
-                          <h4 class="font-medium text-slate-900 dark:text-slate-100 text-sm truncate">
+                          <h4 class="font-medium text-foreground text-sm truncate">
                             {notification.title}
                           </h4>
-                          <span class="text-xs text-slate-400 flex-shrink-0">
+                          <span class="text-xs text-muted-foreground flex-shrink-0">
                             {formatTime(notification.timestamp)}
                           </span>
                         </div>
-                        <p class="text-sm text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-2">
+                        <p class="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                           {notification.message}
                         </p>
                       </div>
                       <Show when={!notification.read}>
-                        <span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
+                        <span class="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0 mt-1.5" />
                       </Show>
                     </div>
                   </div>

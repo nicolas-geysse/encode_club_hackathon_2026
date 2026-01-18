@@ -6,6 +6,19 @@
  */
 
 import { For, Show, createMemo } from 'solid-js';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Button } from '~/components/ui/Button';
+import {
+  Zap,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Smile,
+  Meh,
+  Frown,
+} from 'lucide-solid';
+import { cn } from '~/lib/cn';
 
 interface EnergyEntry {
   week: number;
@@ -79,7 +92,7 @@ export function EnergyHistory(props: EnergyHistoryProps) {
   });
 
   const getEnergyEmoji = (level: number) => {
-    if (level >= 80) return '🚀';
+    if (level >= 80) return '😄';
     if (level >= 60) return '😊';
     if (level >= 40) return '😐';
     if (level >= 20) return '😔';
@@ -120,149 +133,178 @@ export function EnergyHistory(props: EnergyHistoryProps) {
   };
 
   return (
-    <div class="card">
-      <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-        <span>⚡</span> Energy
-      </h3>
+    <Card>
+      <CardContent class="p-6">
+        <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Zap class="h-5 w-5 text-yellow-500 fill-yellow-500" /> Energy
+        </h3>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Left Column: Current Energy + Emoji Input */}
-        <div class="space-y-3">
-          {/* Current energy display */}
-          <div class="flex items-center gap-3">
-            <span class="text-3xl">{getEnergyEmoji(currentEnergy())}</span>
-            <div class="flex-1">
-              <div class="flex items-baseline gap-2">
-                <span class="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {currentEnergy()}%
-                </span>
-                <span class="text-sm text-slate-500 dark:text-slate-400">current</span>
-              </div>
-              <div class="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden mt-1">
-                <div
-                  class={`h-full transition-all duration-500 ${getEnergyColor(currentEnergy())}`}
-                  style={{ width: `${currentEnergy()}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Emoji input */}
-          <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2">
-            <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">How are you this week?</p>
-            <div class="flex gap-1">
-              <For
-                each={[
-                  { emoji: '😴', level: 20 },
-                  { emoji: '😔', level: 40 },
-                  { emoji: '😐', level: 60 },
-                  { emoji: '😊', level: 80 },
-                  { emoji: '🚀', level: 100 },
-                ]}
-              >
-                {(option) => (
-                  <button
-                    type="button"
-                    class={`flex-1 py-2 rounded text-xl transition-all hover:scale-110 ${
-                      currentEnergy() >= option.level - 10 && currentEnergy() < option.level + 10
-                        ? 'bg-primary-100 dark:bg-primary-900/40 ring-2 ring-primary-500'
-                        : 'bg-[#FAFBFC] dark:bg-slate-600 hover:bg-slate-100 dark:hover:bg-slate-500'
-                    }`}
-                    onClick={() =>
-                      props.onEnergyUpdate?.(
-                        props.history.length > 0 ? props.history[props.history.length - 1].week : 1,
-                        option.level
-                      )
-                    }
-                  >
-                    {option.emoji}
-                  </button>
-                )}
-              </For>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Inline mini-bars + stats */}
-        <div class="space-y-3">
-          {/* Mini bar chart */}
-          <div class="flex items-end gap-0.5 h-16">
-            <For each={props.history.slice(-8)}>
-              {(entry) => (
-                <div class="flex-1 flex flex-col items-center gap-0.5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column: Current Energy + Emoji Input */}
+          <div class="space-y-4">
+            {/* Current energy display */}
+            <div class="flex items-center gap-4">
+              <div class="flex-1">
+                <div class="flex items-baseline gap-2">
+                  <span class="text-3xl font-bold text-foreground">{currentEnergy()}%</span>
+                  <span class="text-sm text-muted-foreground">current</span>
+                </div>
+                <div class="h-2.5 bg-secondary rounded-full overflow-hidden mt-2">
                   <div
-                    class={`w-full rounded-t transition-all ${getEnergyColor(entry.level)} ${
-                      entry.level < threshold() ? 'opacity-60' : ''
-                    }`}
-                    style={{ height: `${Math.max(entry.level, 5)}%` }}
-                    title={`Week ${entry.week}: ${entry.level}%`}
+                    class={cn(
+                      'h-full transition-all duration-500',
+                      getEnergyColor(currentEnergy())
+                    )}
+                    style={{ width: `${currentEnergy()}%` }}
                   />
                 </div>
-              )}
-            </For>
-            <Show when={props.history.length === 0}>
-              <div class="flex-1 text-center text-slate-400 dark:text-slate-500 text-xs py-4">
-                No data yet
               </div>
-            </Show>
+            </div>
+
+            {/* Emoji input */}
+            <div class="bg-muted/50 rounded-xl p-3">
+              <p class="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">
+                How are you this week?
+              </p>
+              <div class="flex gap-2">
+                <For
+                  each={[
+                    { emoji: '😴', level: 20 },
+                    { emoji: '😔', level: 40 },
+                    { emoji: '😐', level: 60 },
+                    { emoji: '😊', level: 80 },
+                    { emoji: '😄', level: 100 },
+                  ]}
+                >
+                  {(option) => (
+                    <Button
+                      variant="ghost"
+                      class={cn(
+                        'flex-1 h-12 text-2xl hover:scale-110 transition-transform',
+                        currentEnergy() >= option.level - 10 && currentEnergy() < option.level + 10
+                          ? 'bg-primary/20 ring-2 ring-primary'
+                          : 'bg-background hover:bg-muted'
+                      )}
+                      onClick={() =>
+                        props.onEnergyUpdate?.(
+                          props.history.length > 0
+                            ? props.history[props.history.length - 1].week
+                            : 1,
+                          option.level
+                        )
+                      }
+                    >
+                      {option.emoji}
+                    </Button>
+                  )}
+                </For>
+              </div>
+            </div>
           </div>
 
-          {/* Stats row */}
-          <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span>
-              Avg: <strong class="text-slate-700 dark:text-slate-200">{averageEnergy()}%</strong>
-            </span>
-            <span>
-              Min: <strong class="text-slate-700 dark:text-slate-200">{minEnergy()}%</strong>
-            </span>
-            <span class="text-red-400">Threshold: {threshold()}%</span>
+          {/* Right Column: Inline mini-bars + stats */}
+          <div class="space-y-4">
+            {/* Mini bar chart */}
+            <div class="flex items-end gap-1 h-20 pt-2">
+              <For each={props.history.slice(-8)}>
+                {(entry) => (
+                  <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative">
+                    <div
+                      class={cn(
+                        'w-full rounded-t-sm transition-all hover:opacity-80',
+                        getEnergyColor(entry.level),
+                        entry.level < threshold() ? 'opacity-60' : ''
+                      )}
+                      style={{ height: `${Math.max(entry.level, 5)}%` }}
+                    />
+                    {/* Tooltip */}
+                    <div class="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-md whitespace-nowrap">
+                      Week {entry.week}: {entry.level}%
+                    </div>
+                  </div>
+                )}
+              </For>
+              <Show when={props.history.length === 0}>
+                <div class="flex-1 text-center text-muted-foreground text-xs py-4 flex flex-col items-center justify-center h-full bg-muted/30 rounded">
+                  <span class="text-xl mb-1">📉</span>
+                  No data yet
+                </div>
+              </Show>
+            </div>
+
+            {/* Stats row */}
+            <div class="flex justify-between text-xs text-muted-foreground pt-2 border-t border-border">
+              <span class="flex items-center gap-1">
+                Avg: <strong class="text-foreground">{averageEnergy()}%</strong>
+              </span>
+              <span class="flex items-center gap-1">
+                Min: <strong class="text-foreground">{minEnergy()}%</strong>
+              </span>
+              <span class="text-destructive flex items-center gap-1">
+                Threshold: {threshold()}%
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Inline Energy Debt Alert */}
-      <Show when={debt()}>
-        {(debtInfo) => {
-          const severity = getSeverityClasses(debtInfo().severity);
-          return (
-            <div class={`mt-4 p-3 rounded-lg border ${severity.bg} ${severity.border}`}>
-              <div class="flex items-center gap-2">
-                <span class="text-xl">⚠️</span>
+        {/* Inline Energy Debt Alert */}
+        <Show when={debt()}>
+          {(debtInfo) => {
+            const severity = getSeverityClasses(debtInfo().severity);
+            return (
+              <div
+                class={cn(
+                  'mt-6 p-4 rounded-lg border flex items-center gap-3',
+                  severity.bg,
+                  severity.border
+                )}
+              >
+                <div class={cn('p-2 rounded-full bg-white/50 dark:bg-black/20', severity.text)}>
+                  <AlertTriangle class="h-5 w-5" />
+                </div>
                 <div class="flex-1">
-                  <span class={`font-semibold ${severity.text}`}>
-                    Energy Debt ({severity.label})
-                  </span>
-                  <span class={`text-sm ${severity.text} ml-2`}>
+                  <div class="flex items-center gap-2">
+                    <span class={cn('font-bold', severity.text)}>
+                      Energy Debt ({severity.label})
+                    </span>
+                  </div>
+                  <span class={cn('text-sm block mt-0.5', severity.text)}>
                     {debtInfo().consecutiveLowWeeks} weeks below {threshold()}%
                   </span>
                 </div>
-                <button
-                  type="button"
-                  class="px-3 py-1 bg-[#FAFBFC] dark:bg-slate-700 rounded text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                <Button
+                  size="sm"
+                  variant="outline"
+                  class={cn(
+                    'bg-background/50 border-transparent hover:bg-background/80',
+                    severity.text
+                  )}
                 >
                   Self-Care
-                </button>
+                </Button>
               </div>
-            </div>
-          );
-        }}
-      </Show>
+            );
+          }}
+        </Show>
 
-      {/* Inline Comeback Alert */}
-      <Show when={isComeback() && !debt()}>
-        <div class="mt-4 p-3 rounded-lg bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700">
-          <div class="flex items-center gap-2">
-            <span class="text-xl animate-bounce">🚀</span>
+        {/* Inline Comeback Alert */}
+        <Show when={isComeback() && !debt()}>
+          <div class="mt-6 p-4 rounded-lg bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 flex items-center gap-3">
+            <div class="p-2 rounded-full bg-green-200/50 dark:bg-green-800/50 text-green-700 dark:text-green-300">
+              <Zap class="h-5 w-5 animate-pulse" />
+            </div>
             <div class="flex-1">
-              <span class="font-semibold text-green-700 dark:text-green-300">Comeback Mode!</span>
-              <span class="text-sm text-green-600 dark:text-green-400 ml-2">
+              <span class="font-bold text-green-800 dark:text-green-200">Comeback Mode!</span>
+              <span class="text-sm text-green-700 dark:text-green-300 block mt-0.5">
                 Energy recovered to {currentEnergy()}%
               </span>
             </div>
-            <span class="text-green-600 dark:text-green-400 text-sm">Ready to catch up</span>
+            <span class="text-green-700 dark:text-green-300 text-sm font-medium">
+              Ready to catch up
+            </span>
           </div>
-        </div>
-      </Show>
-    </div>
+        </Show>
+      </CardContent>
+    </Card>
   );
 }

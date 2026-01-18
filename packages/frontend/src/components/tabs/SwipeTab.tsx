@@ -9,6 +9,10 @@ import { RollDice } from '../swipe/RollDice';
 import { SwipeSession } from '../swipe/SwipeSession';
 import { celebrateBig } from '~/lib/confetti';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Button } from '~/components/ui/Button';
+import { Progress } from '~/components/ui/Progress';
+import { ClipboardList, RotateCcw, Check, Dices, Info } from 'lucide-solid';
 
 export interface Scenario {
   id: string;
@@ -243,9 +247,9 @@ export function SwipeTab(props: SwipeTabProps) {
 
       {/* Rolling Animation */}
       <Show when={phase() === 'rolling'}>
-        <div class="flex flex-col items-center justify-center py-20">
-          <div class="text-6xl animate-bounce mb-6">🎲</div>
-          <p class="text-lg text-slate-600 animate-pulse">Generating scenarios...</p>
+        <div class="flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <Dices class="h-16 w-16 animate-bounce mb-6 text-primary" />
+          <p class="text-lg animate-pulse">Generating scenarios...</p>
         </div>
       </Show>
 
@@ -263,100 +267,92 @@ export function SwipeTab(props: SwipeTabProps) {
       <Show when={phase() === 'complete'}>
         <div class="space-y-6">
           <div class="text-center">
-            <div class="text-4xl mb-4">📋</div>
-            <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Review Your Plan</h2>
-            <p class="text-slate-500 dark:text-slate-400 mt-2">
+            <ClipboardList class="h-12 w-12 mx-auto mb-4 text-primary" />
+            <h2 class="text-2xl font-bold text-foreground">Review Your Plan</h2>
+            <p class="text-muted-foreground mt-2">
               I've learned your preferences. Review your selections before validating.
             </p>
           </div>
 
           {/* Preference Summary */}
-          <div class="card bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30">
-            <h3 class="font-medium text-primary-900 dark:text-primary-100 mb-3">Your profile</h3>
-            <div class="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span class="text-primary-600 dark:text-primary-400">💪 Effort tolerance:</span>
-                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
-                  <div
-                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
-                    style={{ width: `${(1 - preferences().effortSensitivity) * 100}%` }}
-                  />
+          <Card>
+            <CardContent class="p-6">
+              <h3 class="font-medium text-foreground mb-4">Your profile</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                <div class="space-y-2">
+                  <span class="text-muted-foreground flex items-center gap-2">
+                    💪 Effort tolerance
+                  </span>
+                  <Progress value={(1 - preferences().effortSensitivity) * 100} class="h-2" />
+                </div>
+                <div class="space-y-2">
+                  <span class="text-muted-foreground flex items-center gap-2">💰 Pay priority</span>
+                  <Progress value={preferences().hourlyRatePriority * 100} class="h-2" />
+                </div>
+                <div class="space-y-2">
+                  <span class="text-muted-foreground flex items-center gap-2">
+                    📅 Schedule flexibility
+                  </span>
+                  <Progress value={preferences().timeFlexibility * 100} class="h-2" />
+                </div>
+                <div class="space-y-2">
+                  <span class="text-muted-foreground flex items-center gap-2">
+                    🛡️ Income stability
+                  </span>
+                  <Progress value={preferences().incomeStability * 100} class="h-2" />
                 </div>
               </div>
-              <div>
-                <span class="text-primary-600 dark:text-primary-400">💰 Pay priority:</span>
-                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
-                  <div
-                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
-                    style={{ width: `${preferences().hourlyRatePriority * 100}%` }}
-                  />
-                </div>
-              </div>
-              <div>
-                <span class="text-primary-600 dark:text-primary-400">📅 Schedule flexibility:</span>
-                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
-                  <div
-                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
-                    style={{ width: `${preferences().timeFlexibility * 100}%` }}
-                  />
-                </div>
-              </div>
-              <div>
-                <span class="text-primary-600 dark:text-primary-400">🛡️ Income stability:</span>
-                <div class="mt-1 h-2 bg-primary-200 dark:bg-primary-700 rounded-full">
-                  <div
-                    class="h-full bg-primary-600 dark:bg-primary-400 rounded-full"
-                    style={{ width: `${preferences().incomeStability * 100}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Selected Scenarios */}
-          <div class="card bg-[#FAFBFC] dark:bg-slate-800">
-            <h3 class="font-medium text-slate-900 dark:text-slate-100 mb-3">
-              Selected scenarios ({selectedScenarios().length})
-            </h3>
-            <div class="space-y-2">
-              <For each={selectedScenarios()}>
-                {(scenario) => (
-                  <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div>
-                      <p class="font-medium text-green-900 dark:text-green-100">{scenario.title}</p>
-                      <p class="text-sm text-green-600 dark:text-green-400">
-                        {scenario.weeklyHours}h/wk •{' '}
-                        {formatCurrency(scenario.weeklyEarnings, currency())}/wk
-                      </p>
+          <Card>
+            <CardContent class="p-6">
+              <h3 class="font-medium text-foreground mb-4">
+                Selected scenarios ({selectedScenarios().length})
+              </h3>
+              <div class="space-y-2">
+                <For each={selectedScenarios()}>
+                  {(scenario) => (
+                    <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                      <div>
+                        <p class="font-medium text-foreground">{scenario.title}</p>
+                        <p class="text-sm text-muted-foreground">
+                          {scenario.weeklyHours}h/wk •{' '}
+                          {formatCurrency(scenario.weeklyEarnings, currency())}/wk
+                        </p>
+                      </div>
+                      <Check class="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
-                    <span class="text-green-500 dark:text-green-400 text-xl">✓</span>
-                  </div>
-                )}
-              </For>
-            </div>
-
-            <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-              <div class="flex justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
-                <span>Total potential:</span>
-                <span class="text-green-600 dark:text-green-400">
-                  {formatCurrency(
-                    selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
-                    currency()
                   )}
-                  /wk
-                </span>
+                </For>
               </div>
-            </div>
-          </div>
+
+              <div class="mt-4 pt-4 border-t border-border">
+                <div class="flex justify-between text-lg font-bold text-foreground">
+                  <span>Total potential:</span>
+                  <span class="text-green-600 dark:text-green-400">
+                    {formatCurrency(
+                      selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
+                      currency()
+                    )}
+                    /wk
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Actions */}
           <div class="flex gap-4">
-            <button type="button" class="btn-secondary flex-1" onClick={handleReset}>
+            <Button variant="outline" class="flex-1" onClick={handleReset}>
+              <RotateCcw class="h-4 w-4 mr-2" />
               Start over
-            </button>
-            <button type="button" class="btn-primary flex-1" onClick={handleValidate}>
+            </Button>
+            <Button class="flex-1" onClick={handleValidate}>
+              <Check class="h-4 w-4 mr-2" />
               Validate my plan
-            </button>
+            </Button>
           </div>
         </div>
       </Show>

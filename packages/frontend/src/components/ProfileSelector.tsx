@@ -7,8 +7,30 @@
  */
 
 import { createSignal, Show, For, onMount } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { profileService, type ProfileSummary, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
+import { Button } from '~/components/ui/Button';
+import { Input } from '~/components/ui/Input';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from '~/components/ui/Card';
+import {
+  User,
+  Target,
+  ChevronDown,
+  Plus,
+  Trash2,
+  Check,
+  Download,
+  Upload,
+  MoreVertical,
+} from 'lucide-solid';
 
 interface Props {
   onProfileChange?: (profile: FullProfile | null) => void;
@@ -103,9 +125,9 @@ export function ProfileSelector(props: Props) {
   };
 
   const getProfileIcon = (profile: ProfileSummary | FullProfile | null) => {
-    if (!profile) return '👤';
-    if (profile.profileType === 'goal-clone') return '🎯';
-    return '👤';
+    if (!profile) return User;
+    if (profile.profileType === 'goal-clone') return Target;
+    return User;
   };
 
   const handleExport = async () => {
@@ -172,127 +194,115 @@ export function ProfileSelector(props: Props) {
   return (
     <div class="relative">
       {/* Profile Button */}
-      <button
+      <Button
+        variant="outline"
         onClick={() => setIsOpen(!isOpen())}
-        class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm"
+        class="flex items-center gap-2 h-9 px-3 bg-muted/50 hover:bg-muted border-border"
         disabled={loading()}
       >
         <Show when={!loading()} fallback={<span class="animate-pulse">...</span>}>
-          <span>{getProfileIcon(activeProfile())}</span>
-          <span class="font-medium text-slate-700 dark:text-slate-200 max-w-[120px] truncate">
+          <Dynamic component={getProfileIcon(activeProfile())} class="h-4 w-4" />
+          <span class="font-medium max-w-[120px] truncate hidden sm:inline">
             {activeProfile()?.name || 'No profile'}
           </span>
           <Show when={activeProfile()?.goalName}>
-            <span class="text-xs text-slate-500 dark:text-slate-400 max-w-[80px] truncate">
+            <span class="text-xs text-muted-foreground max-w-[80px] truncate hidden md:inline">
               ({activeProfile()?.goalName})
             </span>
           </Show>
-          <svg
-            class={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${isOpen() ? 'rotate-180' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
+          <ChevronDown
+            class={`w-4 h-4 text-muted-foreground transition-transform ${isOpen() ? 'rotate-180' : ''}`}
+          />
         </Show>
-      </button>
+      </Button>
 
       {/* Dropdown */}
       <Show when={isOpen()}>
-        <div class="absolute right-0 mt-2 w-64 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-50">
+        <div class="absolute right-0 mt-2 w-72 bg-popover rounded-md shadow-md border border-border z-50 animate-in fade-in zoom-in-95 duration-200">
           <div class="py-2">
-            <div class="px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">
+            <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               My Profiles
             </div>
 
             <Show when={profiles().length === 0}>
               <a
                 href="/"
-                class="w-full flex items-center gap-3 px-3 py-2 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+                class="w-full flex items-center gap-3 px-3 py-2 text-primary hover:bg-accent hover:text-accent-foreground transition-colors"
                 onClick={() => setIsOpen(false)}
               >
-                <span>➕</span>
+                <Plus class="h-4 w-4" />
                 <span class="text-sm font-medium">Create a profile</span>
               </a>
             </Show>
 
-            <For each={profiles()}>
-              {(profile) => (
-                <div
-                  class={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                    profile.isActive ? 'bg-primary-50 dark:bg-primary-900/30' : ''
-                  }`}
-                >
-                  <button
+            <div class="max-h-[300px] overflow-y-auto">
+              <For each={profiles()}>
+                {(profile) => (
+                  <div
+                    class={`group w-full flex items-center gap-2 px-3 py-2 hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer ${
+                      profile.isActive ? 'bg-primary/5' : ''
+                    }`}
                     onClick={() => handleSwitch(profile.id)}
-                    class="flex-1 flex items-center gap-3 text-left min-w-0"
                   >
-                    <span>{getProfileIcon(profile)}</span>
+                    <Dynamic
+                      component={getProfileIcon(profile)}
+                      class="h-4 w-4 text-muted-foreground"
+                    />
                     <div class="flex-1 min-w-0">
-                      <div class="font-medium text-slate-800 dark:text-slate-200 truncate">
-                        {profile.name}
-                      </div>
+                      <div class="font-medium text-sm truncate">{profile.name}</div>
                       <Show when={profile.goalName}>
-                        <div class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        <div class="text-xs text-muted-foreground truncate">
                           {profile.goalName} - ${profile.goalAmount}
                         </div>
                       </Show>
                     </div>
                     <Show when={profile.isActive}>
-                      <span class="text-primary-600 dark:text-primary-400 text-xs">✓</span>
+                      <Check class="h-4 w-4 text-primary" />
                     </Show>
-                  </button>
-                  {/* Delete button - only show if more than 1 profile */}
-                  <Show when={profiles().length > 1}>
-                    <button
-                      onClick={(e) => handleDelete(profile.id, profile.name, e)}
-                      class="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                      title="Delete profile"
-                    >
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                  </Show>
-                </div>
-              )}
-            </For>
 
-            <div class="border-t border-slate-200 dark:border-slate-700 mt-2 pt-2">
-              <button
+                    {/* Delete button - only show if more than 1 profile */}
+                    <Show when={profiles().length > 1}>
+                      <button
+                        onClick={(e) => handleDelete(profile.id, profile.name, e)}
+                        class="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
+                        title="Delete profile"
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </button>
+                    </Show>
+                  </div>
+                )}
+              </For>
+            </div>
+
+            <div class="border-t border-border mt-2 pt-2 px-1">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setIsOpen(false);
                   setShowNewGoalModal(true);
                 }}
-                class="w-full flex items-center gap-3 px-3 py-2 text-left text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
+                class="w-full justify-start gap-2 mb-1"
               >
-                <span>🎯</span>
-                <span class="text-sm font-medium">New goal</span>
-              </button>
+                <Target class="h-4 w-4" />
+                New goal
+              </Button>
             </div>
 
-            <div class="border-t border-slate-200 dark:border-slate-700 mt-2 pt-2">
-              <button
+            <div class="border-t border-border mt-2 pt-2 px-1">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleExport}
-                class="w-full flex items-center gap-3 px-3 py-2 text-left text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                class="w-full justify-start gap-2 mb-1"
               >
-                <span>📤</span>
-                <span class="text-sm">Export profile</span>
-              </button>
-              <label class="w-full flex items-center gap-3 px-3 py-2 text-left text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer">
-                <span>📥</span>
-                <span class="text-sm">Import profile</span>
+                <Upload class="h-4 w-4" />
+                Export profile
+              </Button>
+              <label class="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors">
+                <Download class="h-4 w-4" />
+                Import profile
                 <input type="file" accept=".json" class="hidden" onChange={handleImport} />
               </label>
             </div>
@@ -307,35 +317,35 @@ export function ProfileSelector(props: Props) {
 
       {/* New Goal Modal */}
       <Show when={showNewGoalModal()}>
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div class="bg-[#FAFBFC] dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">New goal</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              Create a new profile based on "{activeProfile()?.name}" with a new goal.
-            </p>
-
-            <div class="space-y-4">
+        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <Card class="w-full max-w-md mx-4 shadow-xl">
+            <CardHeader>
+              <CardTitle>New goal</CardTitle>
+              <CardDescription>
+                Create a new profile based on "{activeProfile()?.name}" with a new goal.
+              </CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Goal name
-                </label>
-                <input
+                <label class="block text-sm font-medium text-foreground mb-1">Goal name</label>
+                <Input
                   type="text"
                   value={newGoalForm().name}
-                  onInput={(e) => setNewGoalForm({ ...newGoalForm(), name: e.currentTarget.value })}
+                  onInput={(e: any) =>
+                    setNewGoalForm({ ...newGoalForm(), name: e.currentTarget.value })
+                  }
                   placeholder="Ex: Driver's license"
-                  class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label class="block text-sm font-medium text-foreground mb-1">
                   Target amount ($)
                 </label>
-                <input
+                <Input
                   type="number"
                   value={newGoalForm().amount}
-                  onInput={(e) =>
+                  onInput={(e: any) =>
                     setNewGoalForm({
                       ...newGoalForm(),
                       amount: parseInt(e.currentTarget.value) || 0,
@@ -343,44 +353,40 @@ export function ProfileSelector(props: Props) {
                   }
                   min="0"
                   step="50"
-                  class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label class="block text-sm font-medium text-foreground mb-1">
                   Deadline (optional)
                 </label>
-                <input
+                <Input
                   type="date"
                   value={newGoalForm().deadline}
-                  onInput={(e) =>
+                  onInput={(e: any) =>
                     setNewGoalForm({ ...newGoalForm(), deadline: e.currentTarget.value })
                   }
-                  class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
-            </div>
-
-            <div class="flex gap-3 mt-6">
-              <button
+            </CardContent>
+            <CardFooter class="flex gap-3 justify-end">
+              <Button
+                variant="outline"
                 onClick={() => {
                   setShowNewGoalModal(false);
                   setNewGoalForm({ name: '', amount: 500, deadline: '' });
                 }}
-                class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleDuplicateForGoal}
                 disabled={!newGoalForm().name || !newGoalForm().amount}
-                class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create
-              </button>
-            </div>
-          </div>
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       </Show>
     </div>

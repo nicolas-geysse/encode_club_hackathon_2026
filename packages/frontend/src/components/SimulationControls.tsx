@@ -14,6 +14,9 @@
 
 import { createSignal, Show, onMount, createMemo } from 'solid-js';
 import { simulationService } from '~/lib/simulationService';
+import { Button } from '~/components/ui/Button';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Timer, X, RotateCcw, Settings, Clock } from 'lucide-solid';
 
 // Export SimulationState type for use in app.tsx
 export interface SimulationState {
@@ -197,149 +200,144 @@ export function SimulationControls(props: Props) {
       fallback={
         <div class="relative flex items-center gap-2">
           {/* Day Counter Display */}
-          <div class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 rounded-lg">
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">DAY</span>
-            <span class="text-lg font-bold text-primary-600 dark:text-primary-400">
-              {daysInfo().currentDay}
-            </span>
-            <span class="text-slate-400">/</span>
-            <span class="text-sm text-slate-500 dark:text-slate-400">{daysInfo().totalDays}</span>
+          <div class="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-lg">
+            <span class="text-xs text-muted-foreground font-medium">DAY</span>
+            <span class="text-lg font-bold text-primary">{daysInfo().currentDay}</span>
+            <span class="text-muted-foreground">/</span>
+            <span class="text-sm text-muted-foreground">{daysInfo().totalDays}</span>
             {/* Mini progress bar */}
-            <div class="w-12 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden ml-1">
+            <div class="w-12 h-1.5 bg-secondary rounded-full overflow-hidden ml-1">
               <div
-                class="h-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-300"
+                class="h-full bg-primary transition-all duration-300"
                 style={{ width: `${progressPct()}%` }}
               />
             </div>
           </div>
 
           {/* Simulation Controls Button */}
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setExpanded(!expanded())}
-            class={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-colors ${
+            class={`flex items-center gap-2 h-9 px-3 rounded-full text-sm transition-colors ${
               state().isSimulating
                 ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
           >
-            <span>⏱️</span>
+            <Clock class="h-4 w-4" />
             {state().isSimulating ? (
               <span class="font-medium">+{state().offsetDays}d</span>
             ) : (
               <span>Simulation</span>
             )}
-          </button>
+          </Button>
 
           {/* Dropdown when expanded */}
           <Show when={expanded()}>
-            <div class="absolute right-0 top-full mt-2 bg-[#FAFBFC] dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-4 z-50 min-w-[280px]">
-              <div class="text-sm text-slate-600 dark:text-slate-300 mb-3">
-                {state().isSimulating ? (
-                  <>
-                    <div class="font-medium text-amber-800 dark:text-amber-300">
-                      Simulated date: {formatDate(state().simulatedDate)}
-                    </div>
-                    <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      +{state().offsetDays}d since {formatDate(state().realDate)}
-                    </div>
-                  </>
-                ) : (
-                  <div>Today: {formatDate(state().realDate)}</div>
-                )}
-              </div>
+            <Card class="absolute right-0 top-full mt-2 z-50 min-w-[280px] shadow-lg">
+              <CardContent class="p-4 space-y-3">
+                <div class="text-sm text-muted-foreground mb-3">
+                  {state().isSimulating ? (
+                    <>
+                      <div class="font-medium text-amber-800 dark:text-amber-300">
+                        Simulated date: {formatDate(state().simulatedDate)}
+                      </div>
+                      <div class="text-xs text-muted-foreground mt-1">
+                        +{state().offsetDays}d since {formatDate(state().realDate)}
+                      </div>
+                    </>
+                  ) : (
+                    <div>Today: {formatDate(state().realDate)}</div>
+                  )}
+                </div>
 
-              <div class="flex flex-wrap gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={() => handleAdvance(1)}
-                  disabled={loading()}
-                  class="px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  +1 day
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAdvance(7)}
-                  disabled={loading()}
-                  class="px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  +1 week
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAdvance(30)}
-                  disabled={loading()}
-                  class="px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  +1 month
-                </button>
-              </div>
+                <div class="flex flex-wrap gap-2 mb-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleAdvance(1)}
+                    disabled={loading()}
+                    class="h-8"
+                  >
+                    +1 day
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleAdvance(7)}
+                    disabled={loading()}
+                    class="h-8"
+                  >
+                    +1 week
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleAdvance(30)}
+                    disabled={loading()}
+                    class="h-8"
+                  >
+                    +1 month
+                  </Button>
+                </div>
 
-              <Show when={state().isSimulating}>
+                <Show when={state().isSimulating}>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleReset}
+                    disabled={loading()}
+                    class="w-full"
+                  >
+                    <RotateCcw class="h-4 w-4 mr-2" />
+                    Back to real time
+                  </Button>
+                </Show>
+
+                {/* Click outside to close (button X) */}
                 <button
                   type="button"
-                  onClick={handleReset}
-                  disabled={loading()}
-                  class="w-full px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900/70 text-red-700 dark:text-red-300 rounded-lg transition-colors disabled:opacity-50"
+                  class="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setExpanded(false)}
                 >
-                  Back to real time
+                  <X class="h-4 w-4" />
                 </button>
-              </Show>
-
-              {/* Click outside to close */}
-              <button
-                type="button"
-                class="absolute top-2 right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                onClick={() => setExpanded(false)}
-              >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
+              </CardContent>
+            </Card>
           </Show>
 
           {/* Daily check-in modal (same as non-compact) */}
           <Show when={showDailyCheckin()}>
-            <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div class="bg-[#FAFBFC] dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-                <div class="text-center mb-4">
-                  <span class="text-4xl">👋</span>
-                  <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-2">
-                    New day!
-                  </h3>
-                  <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                    {formatDate(state().realDate)}
-                    {state().isSimulating && (
-                      <span class="text-amber-600 dark:text-amber-400 ml-1">
-                        (simulated: {formatDate(state().simulatedDate)})
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div class="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={completeDailyCheckin}
-                    class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                  >
-                    Let's go!
-                  </button>
-                  <a
-                    href="/suivi"
-                    onClick={completeDailyCheckin}
-                    class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-center"
-                  >
-                    View my progress
-                  </a>
-                </div>
-              </div>
+            <div class="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+              <Card class="w-full max-w-md mx-4 shadow-xl">
+                <CardContent class="p-6">
+                  <div class="text-center mb-4">
+                    <span class="text-4xl">👋</span>
+                    <h3 class="text-lg font-bold text-foreground mt-2">New day!</h3>
+                    <p class="text-muted-foreground text-sm mt-1">
+                      {formatDate(state().realDate)}
+                      {state().isSimulating && (
+                        <span class="text-amber-600 dark:text-amber-400 ml-1">
+                          (simulated: {formatDate(state().simulatedDate)})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div class="flex gap-3">
+                    <Button onClick={completeDailyCheckin} class="flex-1">
+                      Let's go!
+                    </Button>
+                    <a
+                      href="/suivi"
+                      onClick={completeDailyCheckin}
+                      class="flex-1 inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+                    >
+                      View my progress
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </Show>
         </div>
@@ -352,7 +350,7 @@ export function SimulationControls(props: Props) {
           <div class="bg-amber-50 dark:bg-amber-900/30 border-t border-amber-200 dark:border-amber-800 px-4 py-2">
             <div class="max-w-7xl mx-auto flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <span class="text-amber-600 dark:text-amber-400 text-lg">⏱️</span>
+                <Timer class="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 <div class="text-sm">
                   <span class="text-amber-800 dark:text-amber-300 font-medium">
                     Simulated date: {formatDate(state().simulatedDate)}
@@ -365,70 +363,58 @@ export function SimulationControls(props: Props) {
 
               <div class="flex items-center gap-2">
                 <Show when={expanded()}>
-                  <button
-                    onClick={() => handleAdvance(1)}
-                    disabled={loading()}
-                    class="px-2 py-1 text-xs bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded transition-colors disabled:opacity-50"
-                  >
-                    +1d
-                  </button>
-                  <button
-                    onClick={() => handleAdvance(7)}
-                    disabled={loading()}
-                    class="px-2 py-1 text-xs bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded transition-colors disabled:opacity-50"
-                  >
-                    +7d
-                  </button>
-                  <button
-                    onClick={() => handleAdvance(30)}
-                    disabled={loading()}
-                    class="px-2 py-1 text-xs bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-900/70 text-amber-800 dark:text-amber-300 rounded transition-colors disabled:opacity-50"
-                  >
-                    +30d
-                  </button>
-                  <Show when={state().isSimulating}>
-                    <button
-                      onClick={handleReset}
+                  {/* Actions in non-compact mode */}
+                  <div class="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAdvance(1)}
                       disabled={loading()}
-                      class="px-2 py-1 text-xs bg-red-100 dark:bg-red-900/50 hover:bg-red-200 dark:hover:bg-red-900/70 text-red-700 dark:text-red-300 rounded transition-colors disabled:opacity-50"
+                      class="h-7 text-xs"
                     >
-                      Reset
-                    </button>
-                  </Show>
+                      +1d
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAdvance(7)}
+                      disabled={loading()}
+                      class="h-7 text-xs"
+                    >
+                      +7d
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAdvance(30)}
+                      disabled={loading()}
+                      class="h-7 text-xs"
+                    >
+                      +30d
+                    </Button>
+                    <Show when={state().isSimulating}>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={handleReset}
+                        disabled={loading()}
+                        class="h-7 text-xs"
+                      >
+                        Reset
+                      </Button>
+                    </Show>
+                  </div>
                 </Show>
-                <button
+                <Button
+                  size="icon"
+                  variant="ghost"
                   onClick={() => setExpanded(!expanded())}
-                  class="p-1 text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
+                  class="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"
                 >
-                  <Show
-                    when={expanded()}
-                    fallback={
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                        />
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                      </svg>
-                    }
-                  >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
+                  <Show when={expanded()} fallback={<Settings class="h-4 w-4" />}>
+                    <X class="h-4 w-4" />
                   </Show>
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -436,72 +422,65 @@ export function SimulationControls(props: Props) {
 
         {/* Simulation toggle button - shown when not simulating */}
         <Show when={!state().isSimulating && !expanded()}>
-          <button
+          <Button
+            size="icon"
             onClick={() => setExpanded(true)}
-            class="fixed bottom-4 right-4 p-3 bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 text-white rounded-full shadow-lg transition-colors z-40"
+            class="fixed bottom-4 right-4 h-12 w-12 rounded-full shadow-lg z-40"
             title="Simulation mode"
           >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </button>
+            <Clock class="h-6 w-6" />
+          </Button>
         </Show>
 
         {/* Daily check-in modal */}
         <Show when={showDailyCheckin()}>
-          <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div class="bg-[#FAFBFC] dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-              <div class="text-center mb-4">
-                <span class="text-4xl">👋</span>
-                <h3 class="text-lg font-bold text-slate-900 dark:text-slate-100 mt-2">New day!</h3>
-                <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                  {formatDate(state().realDate)}
-                  {state().isSimulating && (
-                    <span class="text-amber-600 dark:text-amber-400 ml-1">
-                      (simulated: {formatDate(state().simulatedDate)})
-                    </span>
-                  )}
-                </p>
-              </div>
-
-              <div class="space-y-3 mb-6">
-                <div class="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                  <p class="text-sm text-slate-700 dark:text-slate-300">
-                    How are you feeling today? Did you make progress on your goals?
+          <div class="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+            <Card class="w-full max-w-md mx-4 shadow-xl">
+              <CardContent class="p-6">
+                <div class="text-center mb-4">
+                  <span class="text-4xl">👋</span>
+                  <h3 class="text-lg font-bold text-foreground mt-2">New day!</h3>
+                  <p class="text-muted-foreground text-sm mt-1">
+                    {formatDate(state().realDate)}
+                    {state().isSimulating && (
+                      <span class="text-amber-600 dark:text-amber-400 ml-1">
+                        (simulated: {formatDate(state().simulatedDate)})
+                      </span>
+                    )}
                   </p>
                 </div>
 
-                <Show when={state().isSimulating}>
-                  <div class="p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <p class="text-sm text-amber-800 dark:text-amber-300">
-                      <strong>Note:</strong> You are in simulation mode. Data is offset by +
-                      {state().offsetDays} days.
+                <div class="space-y-3 mb-6">
+                  <div class="p-3 bg-muted rounded-lg">
+                    <p class="text-sm text-foreground">
+                      How are you feeling today? Did you make progress on your goals?
                     </p>
                   </div>
-                </Show>
-              </div>
 
-              <div class="flex gap-3">
-                <button
-                  onClick={completeDailyCheckin}
-                  class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                >
-                  Let's go!
-                </button>
-                <a
-                  href="/suivi"
-                  onClick={completeDailyCheckin}
-                  class="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-center"
-                >
-                  View my progress
-                </a>
-              </div>
-            </div>
+                  <Show when={state().isSimulating}>
+                    <div class="p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <p class="text-sm text-amber-800 dark:text-amber-300">
+                        <strong>Note:</strong> You are in simulation mode. Data is offset by +
+                        {state().offsetDays} days.
+                      </p>
+                    </div>
+                  </Show>
+                </div>
+
+                <div class="flex gap-3">
+                  <Button onClick={completeDailyCheckin} class="flex-1">
+                    Let's go!
+                  </Button>
+                  <a
+                    href="/suivi"
+                    onClick={completeDailyCheckin}
+                    class="flex-1 inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+                  >
+                    View my progress
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </Show>
       </>

@@ -14,6 +14,9 @@ import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
+import { Card, CardContent } from '~/components/ui/Card';
+import { Button } from '~/components/ui/Button';
+import { ClipboardList, MessageSquare, Target } from 'lucide-solid';
 import {
   weeksBetween,
   addWeeks,
@@ -425,34 +428,41 @@ export default function SuiviPage() {
 
   // No data fallback component
   const NoPlanView = () => (
-    <div class="card text-center py-12 max-w-md mx-auto">
-      <div class="text-4xl mb-4">📋</div>
-      <h2 class="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">No plan yet</h2>
-      <p class="text-slate-500 dark:text-slate-400 mb-6">First set up your goal in My Plan</p>
-      <a href="/plan" class="btn-primary">
-        Create my plan
-      </a>
-    </div>
+    <Card class="max-w-md mx-auto text-center">
+      <CardContent class="py-12 flex flex-col items-center">
+        <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <ClipboardList class="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h2 class="text-xl font-bold text-foreground mb-2">No plan yet</h2>
+        <p class="text-muted-foreground mb-6">First set up your goal in My Plan</p>
+        <Button as="a" href="/plan">
+          Create my plan
+        </Button>
+      </CardContent>
+    </Card>
   );
 
   return (
     <Show when={!isLoading()} fallback={<PageLoader />}>
       <Show when={hasData()} fallback={<NoPlanView />}>
-        <div class="space-y-4 max-w-4xl mx-auto">
+        <div class="space-y-6 max-w-4xl mx-auto">
           {/* Quick Action - Top of page */}
-          <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20">
-            <div class="flex items-center justify-between">
-              <div>
-                <h4 class="font-semibold text-primary-900 dark:text-primary-100">Need help?</h4>
-                <p class="text-sm text-primary-600 dark:text-primary-300">
-                  Bruno can help you optimize your plan
-                </p>
+          <Card class="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+            <CardContent class="p-6 flex items-center justify-between">
+              <div class="flex items-center gap-4">
+                <div class="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                  <MessageSquare class="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 class="font-semibold text-foreground">Need help?</h4>
+                  <p class="text-sm text-muted-foreground">Bruno can help you optimize your plan</p>
+                </div>
               </div>
-              <a href="/" class="btn-primary">
+              <Button as="a" href="/">
                 Talk to Bruno
-              </a>
-            </div>
-          </div>
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Section 1: Goal Hero + Key Metrics */}
           <Show when={setup()}>
@@ -475,8 +485,8 @@ export default function SuiviPage() {
 
           {/* Section 3: Missions */}
           <div>
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-              <span>🎯</span> Missions
+            <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Target class="h-5 w-5 text-primary" /> Missions
             </h3>
             <MissionList
               missions={followup().missions}
