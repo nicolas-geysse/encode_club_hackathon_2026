@@ -8,43 +8,6 @@
 import confetti from 'canvas-confetti';
 
 /**
- * Basic celebration confetti burst
- * Use for: mission completion, small achievements
- */
-export function celebrateSmall(): void {
-  confetti({
-    particleCount: 50,
-    spread: 60,
-    origin: { y: 0.7 },
-  });
-}
-
-/**
- * Medium celebration with multiple bursts
- * Use for: goal milestones, comeback mode activation
- */
-export function celebrateMedium(): void {
-  const count = 100;
-  const defaults = {
-    origin: { y: 0.7 },
-  };
-
-  function fire(particleRatio: number, opts: confetti.Options) {
-    confetti({
-      ...defaults,
-      ...opts,
-      particleCount: Math.floor(count * particleRatio),
-    });
-  }
-
-  fire(0.25, { spread: 26, startVelocity: 55 });
-  fire(0.2, { spread: 60 });
-  fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
-  fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
-  fire(0.1, { spread: 120, startVelocity: 45 });
-}
-
-/**
  * Big celebration with fireworks effect
  * Use for: goal completion, major achievements
  */
@@ -130,42 +93,8 @@ export function celebrateComeback(): void {
   });
 }
 
-/**
- * Energy recovery celebration
- * Use for: energy going from low (<40) to high (>80)
- */
-export function celebrateEnergyRecovery(): void {
-  const end = Date.now() + 1500;
-
-  const colors = ['#10B981', '#3B82F6', '#8B5CF6'];
-
-  (function frame() {
-    confetti({
-      particleCount: 3,
-      angle: 60,
-      spread: 55,
-      origin: { x: 0 },
-      colors: colors,
-    });
-    confetti({
-      particleCount: 3,
-      angle: 120,
-      spread: 55,
-      origin: { x: 1 },
-      colors: colors,
-    });
-
-    if (Date.now() < end) {
-      requestAnimationFrame(frame);
-    }
-  })();
-}
-
 export default {
-  celebrateSmall,
-  celebrateMedium,
   celebrateBig,
   celebrateGoalAchieved,
   celebrateComeback,
-  celebrateEnergyRecovery,
 };

@@ -7,45 +7,19 @@
 
 import { createLogger } from './logger';
 
+// Re-export types from canonical source
+export type { LifestyleItem, CreateLifestyleItemInput, LifestyleCategory } from '../types/entities';
+import type { LifestyleItem, CreateLifestyleItemInput, LifestyleCategory } from '../types/entities';
+
 const logger = createLogger('LifestyleService');
 
 /**
- * Lifestyle expense item
+ * Input for updating a lifestyle item (internal use)
  */
-export interface LifestyleItem {
-  id: string;
-  profileId: string;
-  name: string;
-  category: 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
-  currentCost: number;
-  optimizedCost?: number;
-  suggestion?: string;
-  essential: boolean;
-  applied: boolean;
-  pausedMonths: number;
-  createdAt?: string;
-}
-
-/**
- * Input for creating a new lifestyle item
- */
-export interface CreateLifestyleItemInput {
-  profileId: string;
-  name: string;
-  category?: 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
-  currentCost: number;
-  optimizedCost?: number;
-  suggestion?: string;
-  essential?: boolean;
-}
-
-/**
- * Input for updating a lifestyle item
- */
-export interface UpdateLifestyleItemInput {
+interface UpdateLifestyleItemInput {
   id: string;
   name?: string;
-  category?: 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
+  category?: LifestyleCategory;
   currentCost?: number;
   optimizedCost?: number;
   suggestion?: string;
@@ -78,25 +52,6 @@ export async function listItems(
   } catch (error) {
     logger.error('Error listing lifestyle items', { error });
     return [];
-  }
-}
-
-/**
- * Get a specific lifestyle item by ID
- */
-export async function getItem(itemId: string): Promise<LifestyleItem | null> {
-  try {
-    const response = await fetch(`/api/lifestyle?id=${itemId}`);
-    if (!response.ok) {
-      const error = await response.json();
-      logger.error('Failed to get lifestyle item', { error: error.message });
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    logger.error('Error getting lifestyle item', { error });
-    return null;
   }
 }
 
@@ -239,7 +194,6 @@ export async function bulkCreateItems(
 
 export const lifestyleService = {
   listItems,
-  getItem,
   createItem,
   updateItem,
   deleteItem,

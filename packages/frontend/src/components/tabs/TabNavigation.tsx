@@ -9,9 +9,6 @@ import { For } from 'solid-js';
 
 export type TabId = 'profile' | 'goals' | 'skills' | 'budget' | 'trade' | 'swipe';
 
-// Backward compatibility alias for 'setup' -> 'goals', 'inventory' -> 'trade', 'lifestyle' -> 'budget'
-export type LegacyTabId = TabId | 'setup' | 'inventory' | 'lifestyle';
-
 interface Tab {
   id: TabId;
   label: string;

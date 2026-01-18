@@ -10,37 +10,12 @@ import { useProfile } from '~/lib/profileContext';
 import { skillService, type Skill, type CreateSkillInput } from '~/lib/skillService';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
-
-// Legacy skill interface for backward compatibility with plan.tsx
-interface LegacySkill {
-  id: string;
-  name: string;
-  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  hourlyRate: number;
-  marketDemand: number;
-  cognitiveEffort: number;
-  restNeeded: number;
-  score?: number;
-}
+import { type LegacySkill, skillToLegacy } from '~/types/entities';
 
 interface SkillsTabProps {
   initialSkills?: LegacySkill[];
   onSkillsChange?: (skills: LegacySkill[]) => void;
   currency?: Currency;
-}
-
-// Convert new skill to legacy format for backward compat with plan.tsx
-function skillToLegacy(skill: Skill): LegacySkill {
-  return {
-    id: skill.id,
-    name: skill.name,
-    level: skill.level,
-    hourlyRate: skill.hourlyRate,
-    marketDemand: skill.marketDemand,
-    cognitiveEffort: skill.cognitiveEffort,
-    restNeeded: skill.restNeeded,
-    score: skill.score,
-  };
 }
 
 const SKILL_TEMPLATES: Partial<CreateSkillInput>[] = [

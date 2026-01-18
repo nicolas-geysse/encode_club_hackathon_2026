@@ -8,45 +8,19 @@
 
 import { createLogger } from './logger';
 
+// Re-export types from canonical source
+export type { Skill, CreateSkillInput, SkillLevel } from '../types/entities';
+import type { Skill, CreateSkillInput, SkillLevel } from '../types/entities';
+
 const logger = createLogger('SkillService');
 
 /**
- * Skill with arbitrage scoring data
+ * Input for updating an existing skill (internal use)
  */
-export interface Skill {
-  id: string;
-  profileId: string;
-  name: string;
-  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  hourlyRate: number;
-  marketDemand: number; // 1-5
-  cognitiveEffort: number; // 1-5
-  restNeeded: number; // hours
-  score?: number;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-/**
- * Input for creating a new skill
- */
-export interface CreateSkillInput {
-  profileId: string;
-  name: string;
-  level?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-  hourlyRate?: number;
-  marketDemand?: number;
-  cognitiveEffort?: number;
-  restNeeded?: number;
-}
-
-/**
- * Input for updating an existing skill
- */
-export interface UpdateSkillInput {
+interface UpdateSkillInput {
   id: string;
   name?: string;
-  level?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  level?: SkillLevel;
   hourlyRate?: number;
   marketDemand?: number;
   cognitiveEffort?: number;
@@ -70,25 +44,6 @@ export async function listSkills(profileId: string): Promise<Skill[]> {
   } catch (error) {
     logger.error('Error listing skills', { error });
     return [];
-  }
-}
-
-/**
- * Get a specific skill by ID
- */
-export async function getSkill(skillId: string): Promise<Skill | null> {
-  try {
-    const response = await fetch(`/api/skills?id=${skillId}`);
-    if (!response.ok) {
-      const error = await response.json();
-      logger.error('Failed to get skill', { error: error.message });
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    logger.error('Error getting skill', { error });
-    return null;
   }
 }
 
@@ -168,17 +123,6 @@ export async function deleteSkill(skillId: string): Promise<boolean> {
 }
 
 /**
- * Get the highest-scoring skill for a profile
- */
-export async function getTopSkill(profileId: string): Promise<Skill | null> {
-  const skills = await listSkills(profileId);
-  if (skills.length === 0) return null;
-
-  // Skills are already sorted by score descending
-  return skills[0];
-}
-
-/**
  * Bulk create skills (useful for migration from onboarding)
  */
 export async function bulkCreateSkills(
@@ -202,11 +146,9 @@ export async function bulkCreateSkills(
 
 export const skillService = {
   listSkills,
-  getSkill,
   createSkill,
   updateSkill,
   deleteSkill,
-  getTopSkill,
   bulkCreateSkills,
 };
 

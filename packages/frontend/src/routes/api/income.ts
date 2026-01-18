@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Income API Route
  *
@@ -9,6 +8,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
 import { query, execute, executeSchema, escapeSQL } from './_db';
+import { createLogger } from '../../lib/logger';
+
+const logger = createLogger('Income');
 
 // Schema initialization flag
 let incomeSchemaInitialized = false;
@@ -29,9 +31,9 @@ async function ensureIncomeSchema(): Promise<void> {
     `);
 
     incomeSchemaInitialized = true;
-    console.log('[Income] Schema initialized');
+    logger.info('Schema initialized');
   } catch (error) {
-    console.log('[Income] Schema init note:', error);
+    logger.debug('Schema init note', { error });
     incomeSchemaInitialized = true;
   }
 }
@@ -111,7 +113,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Income] GET error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -162,7 +164,7 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Income] POST error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -224,7 +226,7 @@ export async function PUT(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Income] PUT error:', error);
+    logger.error('PUT error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -255,7 +257,7 @@ export async function DELETE(event: APIEvent) {
 
       await execute(`DELETE FROM income_items WHERE profile_id = ${escapedProfileId}`);
 
-      console.log(`[Income] Bulk deleted ${count} items for profile ${profileId}`);
+      logger.info('Bulk deleted items for profile', { count, profileId });
       return new Response(JSON.stringify({ success: true, deletedCount: count }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -289,7 +291,7 @@ export async function DELETE(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Income] DELETE error:', error);
+    logger.error('DELETE error', { error });
     return new Response(
       JSON.stringify({
         error: true,

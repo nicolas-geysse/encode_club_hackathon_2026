@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Skills API Route
  *
@@ -12,6 +11,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
 import { query, execute, executeSchema, escapeSQL } from './_db';
+import { createLogger } from '../../lib/logger';
+
+const logger = createLogger('Skills');
 
 // Schema initialization flag (persists across requests in same process)
 let skillsSchemaInitialized = false;
@@ -38,10 +40,10 @@ async function ensureSkillsSchema(): Promise<void> {
     `);
 
     skillsSchemaInitialized = true;
-    console.log('[Skills] Schema initialized');
+    logger.info('Schema initialized');
   } catch (error) {
     // Table might already exist, mark as initialized anyway
-    console.log('[Skills] Schema init note:', error);
+    logger.debug('Schema init note', { error });
     skillsSchemaInitialized = true;
   }
 }
@@ -175,7 +177,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Skills] GET error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -221,7 +223,7 @@ export async function POST(event: APIEvent) {
 
     if (existing.length > 0) {
       // Skill already exists - return it instead of creating duplicate
-      console.log(`[Skills] Skill "${name}" already exists for profile, skipping duplicate`);
+      logger.debug('Skill already exists for profile, skipping duplicate', { name });
       return new Response(JSON.stringify(rowToSkill(existing[0])), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -267,7 +269,7 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Skills] POST error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -352,7 +354,7 @@ export async function PUT(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Skills] PUT error:', error);
+    logger.error('PUT error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -383,7 +385,7 @@ export async function DELETE(event: APIEvent) {
 
       await execute(`DELETE FROM skills WHERE profile_id = ${escapedProfileId}`);
 
-      console.log(`[Skills] Bulk deleted ${count} skills for profile ${profileId}`);
+      logger.info('Bulk deleted skills for profile', { count, profileId });
       return new Response(JSON.stringify({ success: true, deletedCount: count }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -419,7 +421,7 @@ export async function DELETE(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Skills] DELETE error:', error);
+    logger.error('DELETE error', { error });
     return new Response(
       JSON.stringify({
         error: true,

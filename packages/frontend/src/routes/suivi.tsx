@@ -91,8 +91,20 @@ export default function SuiviPage() {
       if (profile) {
         setActiveProfile(profile);
 
-        // Get plan data from profile
-        const planData = profile.planData as
+        // Get plan data from profile, but also check localStorage for fresher data
+        // (localStorage is saved synchronously, DuckDB save is async and may lag)
+        const storedPlanData = localStorage.getItem('planData');
+        const localPlanData = storedPlanData ? JSON.parse(storedPlanData) : null;
+
+        // Prefer localStorage selectedScenarios if available (fresher after swipe navigation)
+        const planData = {
+          ...(profile.planData || {}),
+          ...(localPlanData || {}),
+          // Explicitly prefer localStorage selectedScenarios if present
+          selectedScenarios:
+            localPlanData?.selectedScenarios ||
+            (profile.planData as Record<string, unknown>)?.selectedScenarios,
+        } as
           | {
               setup?: SetupData;
               skills?: Array<{ name: string; hourlyRate: number }>;

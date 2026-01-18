@@ -17,15 +17,7 @@ import {
 import { incomeService } from '~/lib/incomeService';
 import { monthsUntil, formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
-
-// Legacy item interface for backward compatibility with props
-interface LegacyLifestyleItem {
-  id: string;
-  category: 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
-  name: string;
-  currentCost: number;
-  pausedMonths?: number;
-}
+import { type LegacyLifestyleItem, itemToLegacy, legacyToItem } from '~/types/entities';
 
 interface BudgetTabProps {
   initialItems?: LegacyLifestyleItem[];
@@ -53,31 +45,6 @@ const CATEGORIES: CategoryInfo[] = [
   { id: 'subscriptions', label: 'Subscriptions', icon: '📺', color: 'purple', type: 'expense' },
   { id: 'other', label: 'Other', icon: '📌', color: 'slate', type: 'expense' },
 ];
-
-// Convert legacy item to new format
-function legacyToItem(legacy: LegacyLifestyleItem, profileId: string): LifestyleItem {
-  return {
-    id: legacy.id,
-    profileId,
-    name: legacy.name,
-    category: legacy.category,
-    currentCost: legacy.currentCost,
-    essential: false,
-    applied: false,
-    pausedMonths: legacy.pausedMonths || 0,
-  };
-}
-
-// Convert new item to legacy format for backward compat
-function itemToLegacy(item: LifestyleItem): LegacyLifestyleItem {
-  return {
-    id: item.id,
-    category: item.category,
-    name: item.name,
-    currentCost: item.currentCost,
-    pausedMonths: item.pausedMonths,
-  };
-}
 
 export function BudgetTab(props: BudgetTabProps) {
   // Currency from props, defaults to USD

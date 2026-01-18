@@ -10,6 +10,9 @@ import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { profileService, type FullProfile } from '~/lib/profileService';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('OnboardingChat');
 import { goalService } from '~/lib/goalService';
 import { skillService } from '~/lib/skillService';
 import { lifestyleService } from '~/lib/lifestyleService';
@@ -393,7 +396,7 @@ export function OnboardingChat() {
         return;
       }
     } catch (error) {
-      console.warn('[Onboarding] API check failed, trying localStorage:', error);
+      logger.warn('API check failed, trying localStorage', { error });
     }
 
     // Fallback: check localStorage
@@ -431,11 +434,11 @@ export function OnboardingChat() {
 
         // Try to sync localStorage to DB in background
         profileService.syncLocalToDb().catch((err) => {
-          console.warn('[Onboarding] Background sync failed:', err);
+          logger.warn('Background sync failed', { error: err });
         });
         return;
       } catch {
-        console.warn('[Onboarding] localStorage parse failed');
+        logger.warn('localStorage parse failed');
       }
     }
 
@@ -487,7 +490,7 @@ export function OnboardingChat() {
 
       return response.json();
     } catch (error) {
-      console.error('Chat API error:', error);
+      logger.error('Chat API error', { error });
       // Return fallback response
       return getFallbackResponse(message, currentStep, context, mode);
     }
@@ -769,9 +772,7 @@ export function OnboardingChat() {
         // IMPORTANT: Only create goal if we have a valid profile ID
         // This prevents orphaned goals that aren't linked to any profile
         if (!currentProfileId) {
-          console.error(
-            '[OnboardingChat] Cannot create goal: No profile ID available. Complete onboarding first.'
-          );
+          logger.error('Cannot create goal: No profile ID available. Complete onboarding first.');
           return;
         }
 
@@ -789,7 +790,7 @@ export function OnboardingChat() {
             // Goal created successfully
           })
           .catch((err) => {
-            console.error('[OnboardingChat] Failed to create goal:', err);
+            logger.error('Failed to create goal', { error: err });
           });
       }
     }
@@ -942,7 +943,7 @@ export function OnboardingChat() {
                 refreshProfile();
               })
               .catch((err) => {
-                console.error('[OnboardingChat] Failed to save profile update:', err);
+                logger.error('Failed to save profile update', { error: err });
               });
           }
         }
@@ -1051,7 +1052,7 @@ export function OnboardingChat() {
                 }),
               });
             } catch (goalError) {
-              console.error('[OnboardingChat] Failed to create goal in table:', goalError);
+              logger.error('Failed to create goal in table', { error: goalError });
               // Non-fatal: profile still saved with embedded goal data
             }
           }
@@ -1071,7 +1072,7 @@ export function OnboardingChat() {
                   }))
                 );
               } catch (skillsError) {
-                console.error('[OnboardingChat] Failed to persist skills:', skillsError);
+                logger.error('Failed to persist skills', { error: skillsError });
               }
             }
 
@@ -1094,7 +1095,7 @@ export function OnboardingChat() {
                   }))
                 );
               } catch (inventoryError) {
-                console.error('[OnboardingChat] Failed to persist inventory:', inventoryError);
+                logger.error('Failed to persist inventory', { error: inventoryError });
               }
             }
 
@@ -1125,10 +1126,7 @@ export function OnboardingChat() {
                     }))
                 );
               } catch (expenseError) {
-                console.error(
-                  '[OnboardingChat] Failed to persist expense breakdown:',
-                  expenseError
-                );
+                logger.error('Failed to persist expense breakdown', { error: expenseError });
               }
             }
 
@@ -1144,7 +1142,7 @@ export function OnboardingChat() {
                   }))
                 );
               } catch (lifestyleError) {
-                console.error('[OnboardingChat] Failed to persist lifestyle:', lifestyleError);
+                logger.error('Failed to persist lifestyle', { error: lifestyleError });
               }
             }
 
@@ -1159,7 +1157,7 @@ export function OnboardingChat() {
                   }))
                 );
               } catch (incomeError) {
-                console.error('[OnboardingChat] Failed to persist income:', incomeError);
+                logger.error('Failed to persist income', { error: incomeError });
               }
             }
           }
@@ -1174,7 +1172,7 @@ export function OnboardingChat() {
             refreshIncome(),
           ]);
         } catch (error) {
-          console.error('Failed to save profile to API:', error);
+          logger.error('Failed to save profile to API', { error });
         }
 
         // Keep localStorage as fallback
@@ -1193,7 +1191,7 @@ export function OnboardingChat() {
 
       // Source available on badge in UI (no console logging needed)
     } catch (error) {
-      console.error('Chat error:', error);
+      logger.error('Chat error', { error });
       // Add error message
       const errorMsg: Message = {
         id: `error-${Date.now()}`,
@@ -1285,7 +1283,7 @@ export function OnboardingChat() {
                 // Clear old data from DB if we have a profileId (prevents duplicate data after re-onboarding)
                 // IMPORTANT: Get profileId BEFORE clearing anything
                 const oldProfileId = profileId();
-                console.log('[OnboardingChat] Restart clicked, profileId:', oldProfileId);
+                logger.debug('Restart clicked', { profileId: oldProfileId });
 
                 if (oldProfileId) {
                   try {
@@ -1304,15 +1302,16 @@ export function OnboardingChat() {
                     for (let i = 0; i < deleteResults.length; i++) {
                       const res = deleteResults[i];
                       if (!res.ok) {
-                        console.error(
-                          `[OnboardingChat] Failed to delete ${names[i]}: ${res.status} ${res.statusText}`
-                        );
+                        logger.error(`Failed to delete ${names[i]}`, {
+                          status: res.status,
+                          statusText: res.statusText,
+                        });
                       } else {
                         const data = await res.json();
-                        console.log(`[OnboardingChat] Deleted ${names[i]}:`, data);
+                        logger.debug(`Deleted ${names[i]}`, data);
                       }
                     }
-                    console.log('[OnboardingChat] Cleared old data for profile:', oldProfileId);
+                    logger.info('Cleared old data for profile', { profileId: oldProfileId });
 
                     // Refresh context to reflect the cleared data
                     await Promise.all([
@@ -1321,12 +1320,12 @@ export function OnboardingChat() {
                       refreshLifestyle(),
                       refreshIncome(),
                     ]);
-                    console.log('[OnboardingChat] Refreshed context after clearing data');
+                    logger.debug('Refreshed context after clearing data');
                   } catch (e) {
-                    console.warn('[OnboardingChat] Failed to clear old data:', e);
+                    logger.warn('Failed to clear old data', { error: e });
                   }
                 } else {
-                  console.log('[OnboardingChat] No profileId to clear, starting fresh');
+                  logger.debug('No profileId to clear, starting fresh');
                 }
 
                 // Generate new threadId for new conversation

@@ -7,32 +7,16 @@
 
 import { createLogger } from './logger';
 
+// Re-export types from canonical source
+export type { IncomeItem, CreateIncomeItemInput } from '../types/entities';
+import type { IncomeItem, CreateIncomeItemInput } from '../types/entities';
+
 const logger = createLogger('IncomeService');
 
 /**
- * Income item
+ * Input for updating an income item (internal use)
  */
-export interface IncomeItem {
-  id: string;
-  profileId: string;
-  name: string;
-  amount: number;
-  createdAt?: string;
-}
-
-/**
- * Input for creating a new income item
- */
-export interface CreateIncomeItemInput {
-  profileId: string;
-  name: string;
-  amount: number;
-}
-
-/**
- * Input for updating an income item
- */
-export interface UpdateIncomeItemInput {
+interface UpdateIncomeItemInput {
   id: string;
   name?: string;
   amount?: number;
@@ -55,25 +39,6 @@ export async function listItems(profileId: string): Promise<IncomeItem[]> {
   } catch (error) {
     logger.error('Error listing income items', { error });
     return [];
-  }
-}
-
-/**
- * Get a specific income item by ID
- */
-export async function getItem(itemId: string): Promise<IncomeItem | null> {
-  try {
-    const response = await fetch(`/api/income?id=${itemId}`);
-    if (!response.ok) {
-      const error = await response.json();
-      logger.error('Failed to get income item', { error: error.message });
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    logger.error('Error getting income item', { error });
-    return null;
   }
 }
 
@@ -184,7 +149,6 @@ export async function bulkCreateItems(
 
 export const incomeService = {
   listItems,
-  getItem,
   createItem,
   updateItem,
   deleteItem,

@@ -127,12 +127,12 @@ export async function loadProfile(profileId: string): Promise<FullProfile | null
   try {
     const response = await fetch(`/api/profiles?id=${profileId}`);
     if (!response.ok) {
-      console.error('Failed to load profile:', profileId);
+      logger.error('Failed to load profile', { profileId });
       return null;
     }
     return response.json();
   } catch (error) {
-    console.error('Error loading profile:', error);
+    logger.error('Error loading profile', { error });
     return null;
   }
 }
@@ -144,7 +144,7 @@ export async function listProfiles(): Promise<ProfileSummary[]> {
   try {
     const response = await fetch('/api/profiles?list=true');
     if (!response.ok) {
-      console.error('Failed to list profiles');
+      logger.error('Failed to list profiles');
       return [];
     }
     const profiles = await response.json();
@@ -158,7 +158,7 @@ export async function listProfiles(): Promise<ProfileSummary[]> {
       createdAt: p.createdAt,
     }));
   } catch (error) {
-    console.error('Error listing profiles:', error);
+    logger.error('Error listing profiles', { error });
     return [];
   }
 }
@@ -250,13 +250,13 @@ export async function switchProfile(profileId: string): Promise<boolean> {
     });
 
     if (!response.ok) {
-      console.error('Failed to switch profile');
+      logger.error('Failed to switch profile');
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error switching profile:', error);
+    logger.error('Error switching profile', { error });
     return false;
   }
 }
@@ -276,7 +276,7 @@ export async function duplicateProfileForGoal(
     // Load source profile
     const source = await loadProfile(sourceProfileId);
     if (!source) {
-      console.error('Source profile not found');
+      logger.error('Source profile not found', { sourceProfileId });
       return null;
     }
 
@@ -311,7 +311,7 @@ export async function duplicateProfileForGoal(
 
     return null;
   } catch (error) {
-    console.error('Error duplicating profile:', error);
+    logger.error('Error duplicating profile', { error });
     return null;
   }
 }
@@ -326,14 +326,14 @@ export async function deleteProfile(profileId: string): Promise<boolean> {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      console.error('Failed to delete profile:', error.message);
+      const errorData = await response.json();
+      logger.error('Failed to delete profile', { message: errorData.message });
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error deleting profile:', error);
+    logger.error('Error deleting profile', { error });
     return false;
   }
 }
@@ -393,7 +393,7 @@ export async function syncLocalToDb(): Promise<boolean> {
 
     return false;
   } catch (error) {
-    console.error('Error syncing localStorage to DuckDB:', error);
+    logger.error('Error syncing localStorage to DuckDB', { error });
     return false;
   }
 }

@@ -7,48 +7,35 @@
 
 import { createLogger } from './logger';
 
+// Re-export types from canonical source
+export type {
+  InventoryItem,
+  CreateInventoryItemInput,
+  InventoryCategory,
+  ItemCondition,
+  ItemStatus,
+} from '../types/entities';
+import type {
+  InventoryItem,
+  CreateInventoryItemInput,
+  InventoryCategory,
+  ItemCondition,
+  ItemStatus,
+} from '../types/entities';
+
 const logger = createLogger('InventoryService');
 
 /**
- * Inventory item for sale
+ * Input for updating an inventory item (internal use)
  */
-export interface InventoryItem {
-  id: string;
-  profileId: string;
-  name: string;
-  category: 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
-  estimatedValue: number;
-  condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-  platform?: string;
-  status: 'available' | 'sold';
-  soldPrice?: number;
-  soldAt?: string;
-  createdAt?: string;
-}
-
-/**
- * Input for creating a new inventory item
- */
-export interface CreateInventoryItemInput {
-  profileId: string;
-  name: string;
-  category?: 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
-  estimatedValue?: number;
-  condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-  platform?: string;
-}
-
-/**
- * Input for updating an inventory item
- */
-export interface UpdateInventoryItemInput {
+interface UpdateInventoryItemInput {
   id: string;
   name?: string;
-  category?: 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
+  category?: InventoryCategory;
   estimatedValue?: number;
-  condition?: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
+  condition?: ItemCondition;
   platform?: string;
-  status?: 'available' | 'sold';
+  status?: ItemStatus;
   soldPrice?: number;
 }
 
@@ -76,25 +63,6 @@ export async function listItems(
   } catch (error) {
     logger.error('Error listing inventory items', { error });
     return [];
-  }
-}
-
-/**
- * Get a specific inventory item by ID
- */
-export async function getItem(itemId: string): Promise<InventoryItem | null> {
-  try {
-    const response = await fetch(`/api/inventory?id=${itemId}`);
-    if (!response.ok) {
-      const error = await response.json();
-      logger.error('Failed to get inventory item', { error: error.message });
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    logger.error('Error getting inventory item', { error });
-    return null;
   }
 }
 
@@ -227,7 +195,6 @@ export async function bulkCreateItems(
 
 export const inventoryService = {
   listItems,
-  getItem,
   createItem,
   updateItem,
   deleteItem,
