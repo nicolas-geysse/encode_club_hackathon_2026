@@ -1,9 +1,9 @@
 /* eslint-disable no-console */
 /**
- * Lifestyle API Route
+ * Income API Route
  *
- * Handles lifestyle expense CRUD operations using DuckDB.
- * Budget optimization: housing, food, transport, subscriptions.
+ * Handles income CRUD operations using DuckDB.
+ * Mirrors lifestyle.ts structure for expenses, but for income sources.
  */
 
 import type { APIEvent } from '@solidjs/start/server';
@@ -11,106 +11,72 @@ import { v4 as uuidv4 } from 'uuid';
 import { query, execute, executeSchema, escapeSQL } from './_db';
 
 // Schema initialization flag
-let lifestyleSchemaInitialized = false;
+let incomeSchemaInitialized = false;
 
-// Initialize lifestyle schema if needed
-async function ensureLifestyleSchema(): Promise<void> {
-  if (lifestyleSchemaInitialized) return;
+// Initialize income schema if needed
+async function ensureIncomeSchema(): Promise<void> {
+  if (incomeSchemaInitialized) return;
 
   try {
     await executeSchema(`
-      CREATE TABLE IF NOT EXISTS lifestyle_items (
+      CREATE TABLE IF NOT EXISTS income_items (
         id VARCHAR PRIMARY KEY,
         profile_id VARCHAR NOT NULL,
         name VARCHAR NOT NULL,
-        category VARCHAR DEFAULT 'subscriptions',
-        current_cost DECIMAL NOT NULL,
-        optimized_cost DECIMAL,
-        suggestion VARCHAR,
-        essential BOOLEAN DEFAULT FALSE,
-        applied BOOLEAN DEFAULT FALSE,
-        paused_months INTEGER DEFAULT 0,
+        amount DECIMAL NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Migration: Add paused_months column if table already exists
-    try {
-      await execute(
-        `ALTER TABLE lifestyle_items ADD COLUMN IF NOT EXISTS paused_months INTEGER DEFAULT 0`
-      );
-    } catch {
-      // Column may already exist, ignore
-    }
-
-    lifestyleSchemaInitialized = true;
-    console.log('[Lifestyle] Schema initialized');
+    incomeSchemaInitialized = true;
+    console.log('[Income] Schema initialized');
   } catch (error) {
-    console.log('[Lifestyle] Schema init note:', error);
-    lifestyleSchemaInitialized = true;
+    console.log('[Income] Schema init note:', error);
+    incomeSchemaInitialized = true;
   }
 }
 
-// Lifestyle item type from DB
-interface LifestyleItemRow {
+// Income item type from DB
+interface IncomeItemRow {
   id: string;
   profile_id: string;
   name: string;
-  category: string;
-  current_cost: number;
-  optimized_cost: number | null;
-  suggestion: string | null;
-  essential: boolean;
-  applied: boolean;
-  paused_months: number;
+  amount: number;
   created_at: string;
 }
 
-// Public LifestyleItem type
-export interface LifestyleItem {
+// Public IncomeItem type
+export interface IncomeItem {
   id: string;
   profileId: string;
   name: string;
-  category: 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
-  currentCost: number;
-  optimizedCost?: number;
-  suggestion?: string;
-  essential: boolean;
-  applied: boolean;
-  pausedMonths: number;
+  amount: number;
   createdAt?: string;
 }
 
-function rowToItem(row: LifestyleItemRow): LifestyleItem {
+function rowToItem(row: IncomeItemRow): IncomeItem {
   return {
     id: row.id,
     profileId: row.profile_id,
     name: row.name,
-    category: (row.category || 'subscriptions') as LifestyleItem['category'],
-    currentCost: row.current_cost,
-    optimizedCost: row.optimized_cost || undefined,
-    suggestion: row.suggestion || undefined,
-    essential: row.essential,
-    applied: row.applied,
-    pausedMonths: row.paused_months || 0,
+    amount: row.amount,
     createdAt: row.created_at,
   };
 }
 
-// GET: List lifestyle items for a profile or get specific item
+// GET: List income items for a profile or get specific item
 export async function GET(event: APIEvent) {
   try {
-    await ensureLifestyleSchema();
+    await ensureIncomeSchema();
 
     const url = new URL(event.request.url);
     const itemId = url.searchParams.get('id');
     const profileId = url.searchParams.get('profileId');
-    const category = url.searchParams.get('category');
 
     if (itemId) {
       const escapedItemId = escapeSQL(itemId);
-      const itemRows = await query<LifestyleItemRow>(
-        `SELECT * FROM lifestyle_items WHERE id = ${escapedItemId}`
+      const itemRows = await query<IncomeItemRow>(
+        `SELECT * FROM income_items WHERE id = ${escapedItemId}`
       );
 
       if (itemRows.length === 0) {
@@ -128,14 +94,8 @@ export async function GET(event: APIEvent) {
 
     if (profileId) {
       const escapedProfileId = escapeSQL(profileId);
-      let whereClause = `profile_id = ${escapedProfileId}`;
-
-      if (category) {
-        whereClause += ` AND category = ${escapeSQL(category)}`;
-      }
-
-      const itemRows = await query<LifestyleItemRow>(
-        `SELECT * FROM lifestyle_items WHERE ${whereClause} ORDER BY category, created_at DESC`
+      const itemRows = await query<IncomeItemRow>(
+        `SELECT * FROM income_items WHERE profile_id = ${escapedProfileId} ORDER BY created_at DESC`
       );
 
       const items = itemRows.map(rowToItem);
@@ -151,7 +111,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Lifestyle] GET error:', error);
+    console.error('[Income] GET error:', error);
     return new Response(
       JSON.stringify({
         error: true,
@@ -162,27 +122,19 @@ export async function GET(event: APIEvent) {
   }
 }
 
-// POST: Create a new lifestyle item
+// POST: Create a new income item
 export async function POST(event: APIEvent) {
   try {
-    await ensureLifestyleSchema();
+    await ensureIncomeSchema();
 
     const body = await event.request.json();
-    const {
-      profileId,
-      name,
-      category = 'subscriptions',
-      currentCost = 10, // Default $10/month (final safety net)
-      optimizedCost,
-      suggestion,
-      essential = false,
-    } = body;
+    const { profileId, name, amount = 0 } = body;
 
-    if (!profileId || !name || currentCost === undefined) {
+    if (!profileId || !name) {
       return new Response(
         JSON.stringify({
           error: true,
-          message: 'profileId, name, and currentCost are required',
+          message: 'profileId and name are required',
         }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
@@ -191,24 +143,17 @@ export async function POST(event: APIEvent) {
     const itemId = uuidv4();
 
     await execute(`
-      INSERT INTO lifestyle_items (
-        id, profile_id, name, category, current_cost, optimized_cost, suggestion, essential, applied, paused_months
-      ) VALUES (
+      INSERT INTO income_items (id, profile_id, name, amount)
+      VALUES (
         ${escapeSQL(itemId)},
         ${escapeSQL(profileId)},
         ${escapeSQL(name)},
-        ${escapeSQL(category)},
-        ${currentCost},
-        ${optimizedCost !== undefined ? optimizedCost : 'NULL'},
-        ${suggestion ? escapeSQL(suggestion) : 'NULL'},
-        ${essential},
-        FALSE,
-        0
+        ${amount}
       )
     `);
 
-    const itemRows = await query<LifestyleItemRow>(
-      `SELECT * FROM lifestyle_items WHERE id = ${escapeSQL(itemId)}`
+    const itemRows = await query<IncomeItemRow>(
+      `SELECT * FROM income_items WHERE id = ${escapeSQL(itemId)}`
     );
     const item = rowToItem(itemRows[0]);
 
@@ -217,7 +162,7 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Lifestyle] POST error:', error);
+    console.error('[Income] POST error:', error);
     return new Response(
       JSON.stringify({
         error: true,
@@ -228,10 +173,10 @@ export async function POST(event: APIEvent) {
   }
 }
 
-// PUT: Update lifestyle item (including applying optimization)
+// PUT: Update income item
 export async function PUT(event: APIEvent) {
   try {
-    await ensureLifestyleSchema();
+    await ensureIncomeSchema();
 
     const body = await event.request.json();
     const { id, ...updates } = body;
@@ -247,7 +192,7 @@ export async function PUT(event: APIEvent) {
 
     // Check if item exists
     const existing = await query<{ id: string }>(
-      `SELECT id FROM lifestyle_items WHERE id = ${escapedId}`
+      `SELECT id FROM income_items WHERE id = ${escapedId}`
     );
     if (existing.length === 0) {
       return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
@@ -261,38 +206,16 @@ export async function PUT(event: APIEvent) {
     if (updates.name !== undefined) {
       updateFields.push(`name = ${escapeSQL(updates.name)}`);
     }
-    if (updates.category !== undefined) {
-      updateFields.push(`category = ${escapeSQL(updates.category)}`);
-    }
-    if (updates.currentCost !== undefined) {
-      updateFields.push(`current_cost = ${updates.currentCost}`);
-    }
-    if (updates.optimizedCost !== undefined) {
-      updateFields.push(`optimized_cost = ${updates.optimizedCost}`);
-    }
-    if (updates.suggestion !== undefined) {
-      updateFields.push(
-        `suggestion = ${updates.suggestion ? escapeSQL(updates.suggestion) : 'NULL'}`
-      );
-    }
-    if (updates.essential !== undefined) {
-      updateFields.push(`essential = ${updates.essential}`);
-    }
-    if (updates.applied !== undefined) {
-      updateFields.push(`applied = ${updates.applied}`);
-    }
-    if (updates.pausedMonths !== undefined) {
-      updateFields.push(`paused_months = ${updates.pausedMonths}`);
+    if (updates.amount !== undefined) {
+      updateFields.push(`amount = ${updates.amount}`);
     }
 
     if (updateFields.length > 0) {
-      await execute(
-        `UPDATE lifestyle_items SET ${updateFields.join(', ')} WHERE id = ${escapedId}`
-      );
+      await execute(`UPDATE income_items SET ${updateFields.join(', ')} WHERE id = ${escapedId}`);
     }
 
-    const itemRows = await query<LifestyleItemRow>(
-      `SELECT * FROM lifestyle_items WHERE id = ${escapedId}`
+    const itemRows = await query<IncomeItemRow>(
+      `SELECT * FROM income_items WHERE id = ${escapedId}`
     );
     const item = rowToItem(itemRows[0]);
 
@@ -301,7 +224,7 @@ export async function PUT(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Lifestyle] PUT error:', error);
+    console.error('[Income] PUT error:', error);
     return new Response(
       JSON.stringify({
         error: true,
@@ -312,10 +235,10 @@ export async function PUT(event: APIEvent) {
   }
 }
 
-// DELETE: Delete lifestyle item(s) - supports single id or bulk by profileId
+// DELETE: Delete income item(s) - supports single id or bulk by profileId
 export async function DELETE(event: APIEvent) {
   try {
-    await ensureLifestyleSchema();
+    await ensureIncomeSchema();
 
     const url = new URL(event.request.url);
     const itemId = url.searchParams.get('id');
@@ -325,14 +248,14 @@ export async function DELETE(event: APIEvent) {
     if (profileId && !itemId) {
       const escapedProfileId = escapeSQL(profileId);
       const countResult = await query<{ count: bigint }>(
-        `SELECT COUNT(*) as count FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`
+        `SELECT COUNT(*) as count FROM income_items WHERE profile_id = ${escapedProfileId}`
       );
       // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
       const count = Number(countResult[0]?.count || 0);
 
-      await execute(`DELETE FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`);
+      await execute(`DELETE FROM income_items WHERE profile_id = ${escapedProfileId}`);
 
-      console.log(`[Lifestyle] Bulk deleted ${count} items for profile ${profileId}`);
+      console.log(`[Income] Bulk deleted ${count} items for profile ${profileId}`);
       return new Response(JSON.stringify({ success: true, deletedCount: count }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -350,7 +273,7 @@ export async function DELETE(event: APIEvent) {
     const escapedItemId = escapeSQL(itemId);
 
     const item = await query<{ name: string }>(
-      `SELECT name FROM lifestyle_items WHERE id = ${escapedItemId}`
+      `SELECT name FROM income_items WHERE id = ${escapedItemId}`
     );
     if (item.length === 0) {
       return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
@@ -359,14 +282,14 @@ export async function DELETE(event: APIEvent) {
       });
     }
 
-    await execute(`DELETE FROM lifestyle_items WHERE id = ${escapedItemId}`);
+    await execute(`DELETE FROM income_items WHERE id = ${escapedItemId}`);
 
     return new Response(JSON.stringify({ success: true, deleted: item[0].name }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Lifestyle] DELETE error:', error);
+    console.error('[Income] DELETE error:', error);
     return new Response(
       JSON.stringify({
         error: true,

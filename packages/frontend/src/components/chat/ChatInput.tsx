@@ -206,7 +206,7 @@ export function ChatInput(props: ChatInputProps) {
       class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4"
       onSubmit={handleSubmit}
     >
-      <div class="flex gap-2 items-end max-w-3xl mx-auto">
+      <div class="flex gap-2 items-end max-w-5xl mx-auto">
         {/* Microphone button */}
         <button
           type="button"

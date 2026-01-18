@@ -1,0 +1,16 @@
+<svg width="420" height="120" viewBox="0 0 420 120"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <text x="0" y="82"
+        font-family="Inter, Helvetica, Arial, sans-serif"
+        font-size="72"
+        font-weight="600"
+        letter-spacing="-2"
+        fill="currentColor">
+    Stride
+  </text>
+
+  <!-- Cut / stride -->
+  <rect x="142" y="20" width="6" height="60"
+        fill="currentColor"/>
+</svg>

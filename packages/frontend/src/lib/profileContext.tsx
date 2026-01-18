@@ -60,6 +60,16 @@ export interface LifestyleItem {
   suggestion?: string;
   essential: boolean;
   applied: boolean;
+  pausedMonths: number;
+  createdAt?: string;
+}
+
+/** Income item type from API */
+export interface IncomeItem {
+  id: string;
+  profileId: string;
+  name: string;
+  amount: number;
   createdAt?: string;
 }
 
@@ -74,6 +84,8 @@ interface ProfileContextValue {
   inventory: () => InventoryItem[];
   /** Lifestyle items for the active profile (reactive) */
   lifestyle: () => LifestyleItem[];
+  /** Income items for the active profile (reactive) */
+  income: () => IncomeItem[];
   /** Whether profile is loading */
   loading: () => boolean;
   /** Refresh profile from API - call after updates */
@@ -86,7 +98,9 @@ interface ProfileContextValue {
   refreshInventory: () => Promise<void>;
   /** Refresh lifestyle from API - call after lifestyle updates */
   refreshLifestyle: () => Promise<void>;
-  /** Refresh all data (profile, goals, skills, inventory, lifestyle) */
+  /** Refresh income from API - call after income updates */
+  refreshIncome: () => Promise<void>;
+  /** Refresh all data (profile, goals, skills, inventory, lifestyle, income) */
   refreshAll: () => Promise<void>;
 }
 
@@ -98,6 +112,7 @@ export const ProfileProvider: ParentComponent = (props) => {
   const [skills, setSkills] = createSignal<Skill[]>([]);
   const [inventory, setInventory] = createSignal<InventoryItem[]>([]);
   const [lifestyle, setLifestyle] = createSignal<LifestyleItem[]>([]);
+  const [income, setIncome] = createSignal<IncomeItem[]>([]);
   const [loading, setLoading] = createSignal(true);
 
   const refreshProfile = async () => {
@@ -189,6 +204,26 @@ export const ProfileProvider: ParentComponent = (props) => {
     }
   };
 
+  const refreshIncome = async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      try {
+        const response = await fetch(`/api/income?profileId=${currentProfile.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setIncome(Array.isArray(data) ? data : []);
+        } else {
+          setIncome([]);
+        }
+      } catch (error) {
+        console.error('[ProfileContext] Failed to load income:', error);
+        setIncome([]);
+      }
+    } else {
+      setIncome([]);
+    }
+  };
+
   const refreshAll = async () => {
     await refreshProfile();
     // After profile refreshes, the effect will trigger other refreshes
@@ -199,16 +234,21 @@ export const ProfileProvider: ParentComponent = (props) => {
     const p = profile();
     if (p?.id) {
       // Refresh all related data in parallel
-      Promise.all([refreshGoals(), refreshSkills(), refreshInventory(), refreshLifestyle()]).catch(
-        (err) => {
-          console.error('[ProfileContext] Failed to refresh data:', err);
-        }
-      );
+      Promise.all([
+        refreshGoals(),
+        refreshSkills(),
+        refreshInventory(),
+        refreshLifestyle(),
+        refreshIncome(),
+      ]).catch((err) => {
+        console.error('[ProfileContext] Failed to refresh data:', err);
+      });
     } else {
       setGoals([]);
       setSkills([]);
       setInventory([]);
       setLifestyle([]);
+      setIncome([]);
     }
   });
 
@@ -225,12 +265,14 @@ export const ProfileProvider: ParentComponent = (props) => {
         skills,
         inventory,
         lifestyle,
+        income,
         loading,
         refreshProfile,
         refreshGoals,
         refreshSkills,
         refreshInventory,
         refreshLifestyle,
+        refreshIncome,
         refreshAll,
       }}
     >

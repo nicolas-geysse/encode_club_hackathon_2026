@@ -3,6 +3,9 @@
  *
  * GET /api/analytics
  * Returns aggregated analytics data for the dashboard.
+ *
+ * Expense breakdown now reads from lifestyle_items table (single source of truth)
+ * instead of profile.expenses JSON column.
  */
 
 import type { APIEvent } from '@solidjs/start/server';
@@ -22,6 +25,22 @@ interface ProfileRow {
   goal_deadline: string | null;
   plan_data: string | null;
   followup_data: string | null;
+}
+
+interface LifestyleItemRow {
+  id: string;
+  profile_id: string;
+  name: string;
+  category: string;
+  current_cost: number;
+  paused_months: number;
+}
+
+interface IncomeItemRow {
+  id: string;
+  profile_id: string;
+  name: string;
+  amount: number;
 }
 
 interface IncomeSource {
@@ -135,32 +154,84 @@ export async function GET(event: APIEvent) {
     const profile = profiles[0];
 
     // Parse JSON data
-    const incomeSources: IncomeSource[] = profile.income_sources
-      ? JSON.parse(profile.income_sources)
-      : [];
-    const expenses: Expense[] = profile.expenses ? JSON.parse(profile.expenses) : [];
     const followupData = profile.followup_data ? JSON.parse(profile.followup_data) : null;
     const planData = profile.plan_data ? JSON.parse(profile.plan_data) : null;
 
-    // Calculate totals
-    const totalIncome =
-      profile.monthly_income || incomeSources.reduce((sum, i) => sum + i.amount, 0);
-    const totalExpenses =
-      profile.monthly_expenses || expenses.reduce((sum, e) => sum + e.amount, 0);
-    const netMargin = profile.monthly_margin || totalIncome - totalExpenses;
+    // Query income_items for income breakdown (single source of truth)
+    let incomeItems: IncomeItemRow[] = [];
+    try {
+      incomeItems = await query<IncomeItemRow>(
+        `SELECT id, profile_id, name, amount
+         FROM income_items
+         WHERE profile_id = '${profile.id}'
+         ORDER BY name`
+      );
+    } catch {
+      // Table might not exist yet, fall back to profile.income_sources
+      const fallbackIncome: IncomeSource[] = profile.income_sources
+        ? JSON.parse(profile.income_sources)
+        : [];
+      incomeItems = fallbackIncome.map((i, idx) => ({
+        id: `fallback_${idx}`,
+        profile_id: profile.id,
+        name: i.source,
+        amount: i.amount,
+      }));
+    }
 
-    // Income breakdown with percentages
-    const incomeBreakdown = incomeSources.map((i) => ({
-      source: i.source,
+    // Query lifestyle_items for expense breakdown (single source of truth)
+    let lifestyleItems: LifestyleItemRow[] = [];
+    try {
+      lifestyleItems = await query<LifestyleItemRow>(
+        `SELECT id, profile_id, name, category, current_cost, COALESCE(paused_months, 0) as paused_months
+         FROM lifestyle_items
+         WHERE profile_id = '${profile.id}'
+         ORDER BY category, name`
+      );
+    } catch {
+      // Table might not exist yet, fall back to profile.expenses
+      const fallbackExpenses: Expense[] = profile.expenses ? JSON.parse(profile.expenses) : [];
+      lifestyleItems = fallbackExpenses.map((e, i) => ({
+        id: `fallback_${i}`,
+        profile_id: profile.id,
+        name: e.category,
+        category: e.category === 'rent' ? 'housing' : e.category,
+        current_cost: e.amount,
+        paused_months: 0,
+      }));
+    }
+
+    // Aggregate by category for expense breakdown
+    const categoryTotals = lifestyleItems.reduce(
+      (acc, item) => {
+        const cat = item.category === 'rent' ? 'housing' : item.category;
+        if (!acc[cat]) {
+          acc[cat] = 0;
+        }
+        acc[cat] += item.current_cost;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    // Calculate totals from income_items
+    const incomeFromItems = incomeItems.reduce((sum, i) => sum + i.amount, 0);
+    const totalIncome = profile.monthly_income || incomeFromItems;
+    const totalExpenses = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
+    const netMargin = totalIncome - totalExpenses;
+
+    // Income breakdown with percentages (from income_items)
+    const incomeBreakdown = incomeItems.map((i) => ({
+      source: i.name,
       amount: i.amount,
       percentage: totalIncome > 0 ? Math.round((i.amount / totalIncome) * 100) : 0,
     }));
 
-    // Expense breakdown with percentages
-    const expenseBreakdown = expenses.map((e) => ({
-      category: e.category,
-      amount: e.amount,
-      percentage: totalExpenses > 0 ? Math.round((e.amount / totalExpenses) * 100) : 0,
+    // Expense breakdown with percentages (from lifestyle_items, aggregated by category)
+    const expenseBreakdown = Object.entries(categoryTotals).map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: totalExpenses > 0 ? Math.round((amount / totalExpenses) * 100) : 0,
     }));
 
     // Energy trend from followup data

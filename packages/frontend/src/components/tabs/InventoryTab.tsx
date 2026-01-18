@@ -12,6 +12,7 @@ import {
   type InventoryItem,
   type CreateInventoryItemInput,
 } from '~/lib/inventoryService';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 
 // Legacy Item interface for backward compatibility with props
 interface LegacyItem {
@@ -92,6 +93,7 @@ export function InventoryTab(props: InventoryTabProps) {
   } | null>(null);
   const [soldPrice, setSoldPrice] = createSignal(0);
   const [editingItemId, setEditingItemId] = createSignal<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = createSignal<{ id: string; name: string } | null>(null);
   const [newItem, setNewItem] = createSignal<Partial<CreateInventoryItemInput>>({
     name: '',
     category: 'electronics',
@@ -326,7 +328,7 @@ export function InventoryTab(props: InventoryTabProps) {
   };
 
   return (
-    <div class="p-6 space-y-6 max-w-3xl mx-auto">
+    <div class="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Summary Cards */}
       <div class="grid grid-cols-2 gap-4">
         <div class="card bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30">
@@ -460,7 +462,7 @@ export function InventoryTab(props: InventoryTabProps) {
                   <button
                     type="button"
                     class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
                     disabled={isLoading()}
                     title="Delete item"
                   >
@@ -552,7 +554,7 @@ export function InventoryTab(props: InventoryTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Estimated value ($)
+                    Estimated value ({currencySymbol()})
                   </label>
                   <input
                     type="number"
@@ -664,7 +666,7 @@ export function InventoryTab(props: InventoryTabProps) {
                     autofocus
                   />
                   <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 text-lg">
-                    $
+                    {currencySymbol()}
                   </span>
                 </div>
               </div>
@@ -693,6 +695,23 @@ export function InventoryTab(props: InventoryTabProps) {
           </div>
         )}
       </Show>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm()}
+        title="Delete item?"
+        message={`Are you sure you want to delete "${deleteConfirm()?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          const confirm = deleteConfirm();
+          if (confirm) {
+            removeItem(confirm.id);
+            setDeleteConfirm(null);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { createSignal, createMemo, Show, For, onMount } from 'solid-js';
 import { goalService, type Goal, type GoalComponent } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
 import { GoalTimelineList } from '~/components/GoalTimeline';
+import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 
 interface AcademicEvent {
   id: string;
@@ -37,7 +38,7 @@ interface SetupData {
 interface GoalsTabProps {
   onComplete: (data: SetupData) => void;
   initialData?: Partial<SetupData>;
-  currencySymbol?: string;
+  currency?: Currency;
 }
 
 // Component form item
@@ -51,8 +52,9 @@ interface ComponentFormItem {
 }
 
 export function GoalsTab(props: GoalsTabProps) {
-  // Currency symbol from props, defaults to $
-  const currencySymbol = () => props.currencySymbol || '$';
+  // Currency from props, defaults to USD
+  const currency = () => props.currency || 'USD';
+  const currencySymbol = () => getCurrencySymbol(currency());
 
   const [loading, setLoading] = createSignal(true);
   const [goals, setGoals] = createSignal<Goal[]>([]);
@@ -445,7 +447,7 @@ export function GoalsTab(props: GoalsTabProps) {
   };
 
   return (
-    <div class="p-6 space-y-6 max-w-3xl mx-auto">
+    <div class="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
@@ -530,7 +532,7 @@ export function GoalsTab(props: GoalsTabProps) {
                           Amount
                         </label>
                         <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
-                          ${goal.amount}
+                          {formatCurrency(goal.amount, currency())}
                         </p>
                       </div>
                       <div>
@@ -655,7 +657,7 @@ export function GoalsTab(props: GoalsTabProps) {
                     <span>{preset.icon}</span>
                     <span>{preset.name}</span>
                     <span class="text-sm text-slate-500 dark:text-slate-400">
-                      (${preset.amount})
+                      ({formatCurrency(preset.amount, currency())})
                     </span>
                     <Show when={preset.components.length > 0}>
                       <span class="text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 px-1.5 py-0.5 rounded">
@@ -690,21 +692,16 @@ export function GoalsTab(props: GoalsTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Amount
+                    Amount ({currencySymbol()})
                   </label>
-                  <div class="relative">
-                    <input
-                      type="number"
-                      class="input-field pr-8"
-                      min="50"
-                      max="10000"
-                      value={goalAmount()}
-                      onInput={(e) => setGoalAmount(parseInt(e.currentTarget.value) || 0)}
-                    />
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">
-                      $
-                    </span>
-                  </div>
+                  <input
+                    type="number"
+                    class="input-field"
+                    min="50"
+                    max="10000"
+                    value={goalAmount()}
+                    onInput={(e) => setGoalAmount(parseInt(e.currentTarget.value) || 0)}
+                  />
                 </div>
 
                 <div>
@@ -760,10 +757,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                 <span>{comp.estimatedHours}h</span>
                               </Show>
                               <Show when={comp.estimatedCost > 0}>
-                                <span>
-                                  {currencySymbol()}
-                                  {comp.estimatedCost}
-                                </span>
+                                <span>{formatCurrency(comp.estimatedCost, currency())}</span>
                               </Show>
                               <Show when={comp.dependsOn.length > 0}>
                                 <span class="text-amber-600">
@@ -830,24 +824,19 @@ export function GoalsTab(props: GoalsTabProps) {
                     h
                   </span>
                 </div>
-                <div class="relative">
-                  <input
-                    type="number"
-                    class="input-field pr-8"
-                    placeholder="Cost"
-                    min="0"
-                    value={newComponent().estimatedCost || ''}
-                    onInput={(e) =>
-                      setNewComponent({
-                        ...newComponent(),
-                        estimatedCost: parseInt(e.currentTarget.value) || 0,
-                      })
-                    }
-                  />
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                    {currencySymbol()}
-                  </span>
-                </div>
+                <input
+                  type="number"
+                  class="input-field"
+                  placeholder={`Cost (${currencySymbol()})`}
+                  min="0"
+                  value={newComponent().estimatedCost || ''}
+                  onInput={(e) =>
+                    setNewComponent({
+                      ...newComponent(),
+                      estimatedCost: parseInt(e.currentTarget.value) || 0,
+                    })
+                  }
+                />
               </div>
 
               <Show when={components().length > 0}>
@@ -913,7 +902,7 @@ export function GoalsTab(props: GoalsTabProps) {
                       <For each={availableParentGoals()}>
                         {(goal) => (
                           <option value={goal.id}>
-                            {goal.name} (${goal.amount})
+                            {goal.name} ({formatCurrency(goal.amount, currency())})
                           </option>
                         )}
                       </For>

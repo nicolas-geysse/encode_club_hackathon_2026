@@ -124,7 +124,8 @@ function detectEnergyDebt(energyHistory: EnergyEntry[]): InsightResult | null {
 function detectMilestones(
   currentAmount: number,
   goalAmount: number,
-  previousNotifications: string[]
+  previousNotifications: string[],
+  currencySymbol: string = '$'
 ): InsightResult | null {
   if (goalAmount <= 0) return null;
 
@@ -145,8 +146,8 @@ function detectMilestones(
         title: `${milestone.emoji} ${milestone.title}`,
         message:
           milestone.threshold === 100
-            ? `Congratulations! You've reached your savings goal of $${goalAmount}!`
-            : `You're ${milestone.threshold}% of the way to your goal! Current savings: $${currentAmount.toFixed(0)}`,
+            ? `Congratulations! You've reached your savings goal of ${currencySymbol}${goalAmount}!`
+            : `You're ${milestone.threshold}% of the way to your goal! Current savings: ${currencySymbol}${currentAmount.toFixed(0)}`,
         data: {
           currentAmount,
           goalAmount,
@@ -159,11 +160,24 @@ function detectMilestones(
   return null;
 }
 
+// Helper to get currency symbol from currency code
+function getCurrencySymbol(currency?: string): string {
+  switch (currency) {
+    case 'EUR':
+      return '\u20AC';
+    case 'GBP':
+      return '\u00A3';
+    default:
+      return '$';
+  }
+}
+
 // POST: Process insights and create notifications
 export async function POST(event: APIEvent) {
   try {
     const body = await event.request.json();
-    const { profileId, energyHistory, currentAmount, goalAmount, simulatedDate } = body;
+    const { profileId, energyHistory, currentAmount, goalAmount, simulatedDate, currency } = body;
+    const currencySymbol = getCurrencySymbol(currency);
 
     if (!profileId) {
       return new Response(JSON.stringify({ error: true, message: 'profileId is required' }), {
@@ -207,7 +221,12 @@ export async function POST(event: APIEvent) {
 
       // Check for Milestones
       if (currentAmount !== undefined && goalAmount !== undefined && goalAmount > 0) {
-        const milestone = detectMilestones(currentAmount, goalAmount, existingTypes);
+        const milestone = detectMilestones(
+          currentAmount,
+          goalAmount,
+          existingTypes,
+          currencySymbol
+        );
         if (milestone) {
           results.push(milestone);
         }

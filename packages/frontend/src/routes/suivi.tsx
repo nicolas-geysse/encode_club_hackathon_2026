@@ -121,10 +121,51 @@ export default function SuiviPage() {
 
           // Load followup data from profile or localStorage
           const storedFollowup = profile.followupData || localStorage.getItem('followupData');
-          if (storedFollowup) {
-            const followupData =
-              typeof storedFollowup === 'string' ? JSON.parse(storedFollowup) : storedFollowup;
-            setFollowup(followupData);
+          let existingFollowup = storedFollowup
+            ? typeof storedFollowup === 'string'
+              ? JSON.parse(storedFollowup)
+              : storedFollowup
+            : null;
+
+          // ALWAYS check selectedScenarios and merge new missions (fixes cache issue after swipe)
+          const currentScenarios = planData?.selectedScenarios || [];
+
+          if (currentScenarios.length > 0 && existingFollowup) {
+            const existingMissionTitles = new Set(
+              (existingFollowup.missions || []).map((m: Mission) => m.title)
+            );
+
+            // Create missions for scenarios that don't have a mission yet
+            const newMissions: Mission[] = [];
+            currentScenarios.forEach((scenario, index) => {
+              if (!existingMissionTitles.has(scenario.title)) {
+                newMissions.push({
+                  id: `mission_swipe_${Date.now()}_${index}`,
+                  title: scenario.title,
+                  description: scenario.description,
+                  category: scenario.category as Mission['category'],
+                  weeklyHours: scenario.weeklyHours,
+                  weeklyEarnings: scenario.weeklyEarnings,
+                  status: 'active',
+                  progress: 0,
+                  startDate: new Date().toISOString(),
+                  hoursCompleted: 0,
+                  earningsCollected: 0,
+                });
+              }
+            });
+
+            // Merge: existing missions + new missions
+            if (newMissions.length > 0) {
+              existingFollowup = {
+                ...existingFollowup,
+                missions: [...(existingFollowup.missions || []), ...newMissions],
+              };
+            }
+          }
+
+          if (existingFollowup) {
+            setFollowup(existingFollowup);
           } else {
             // Generate initial energy history (demo data) using dayjs
             const energyHistory: EnergyEntry[] = [];

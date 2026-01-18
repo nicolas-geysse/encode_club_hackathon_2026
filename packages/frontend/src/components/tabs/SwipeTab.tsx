@@ -8,6 +8,7 @@ import { createSignal, Show, For } from 'solid-js';
 import { RollDice } from '../swipe/RollDice';
 import { SwipeSession } from '../swipe/SwipeSession';
 import { celebrateBig } from '~/lib/confetti';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 export interface Scenario {
   id: string;
@@ -32,9 +33,9 @@ export interface UserPreferences {
 interface SwipeTabProps {
   skills?: { name: string; hourlyRate: number }[];
   items?: { name: string; estimatedValue: number }[];
-  lifestyle?: { name: string; optimizedCost?: number; currentCost: number }[];
+  lifestyle?: { name: string; currentCost: number; pausedMonths?: number }[];
   trades?: { name: string; value: number }[];
-  currencySymbol?: string;
+  currency?: Currency;
   onPreferencesChange?: (prefs: UserPreferences) => void;
   onScenariosSelected?: (scenarios: Scenario[]) => void;
 }
@@ -89,23 +90,21 @@ function generateScenarios(
     });
   });
 
-  // Lifestyle optimization scenarios
-  const totalSavings =
+  // Lifestyle pause savings scenarios
+  const totalPauseSavings =
     lifestyle?.reduce((sum, item) => {
-      if (item.optimizedCost !== undefined) {
-        return sum + (item.currentCost - item.optimizedCost);
-      }
-      return sum;
+      const paused = item.pausedMonths || 0;
+      return sum + paused * item.currentCost;
     }, 0) || 0;
 
-  if (totalSavings > 0) {
+  if (totalPauseSavings > 0) {
     scenarios.push({
-      id: 'lifestyle_opt',
-      title: 'Optimize my expenses',
-      description: `Apply lifestyle optimizations to save $${totalSavings}/month`,
+      id: 'lifestyle_pause',
+      title: 'Pause my expenses',
+      description: `Pause subscriptions to save ${totalPauseSavings} toward your goal`,
       category: 'lifestyle',
       weeklyHours: 0,
-      weeklyEarnings: Math.round(totalSavings / 4),
+      weeklyEarnings: Math.round(totalPauseSavings / 4),
       effortLevel: 1,
       flexibilityScore: 5,
       hourlyRate: 0,
@@ -173,8 +172,8 @@ function generateScenarios(
 }
 
 export function SwipeTab(props: SwipeTabProps) {
-  // Currency symbol from props, defaults to $
-  const currencySymbol = () => props.currencySymbol || '$';
+  // Currency from props, defaults to USD
+  const currency = () => props.currency || 'USD';
 
   const [phase, setPhase] = createSignal<'idle' | 'rolling' | 'swiping' | 'complete'>('idle');
   const [scenarios, setScenarios] = createSignal<Scenario[]>([]);
@@ -236,7 +235,7 @@ export function SwipeTab(props: SwipeTabProps) {
   };
 
   return (
-    <div class="p-6 max-w-3xl mx-auto">
+    <div class="p-6 max-w-5xl mx-auto">
       {/* Idle Phase - Roll the Dice */}
       <Show when={phase() === 'idle'}>
         <RollDice onRoll={handleRoll} />
@@ -325,8 +324,8 @@ export function SwipeTab(props: SwipeTabProps) {
                     <div>
                       <p class="font-medium text-green-900 dark:text-green-100">{scenario.title}</p>
                       <p class="text-sm text-green-600 dark:text-green-400">
-                        {scenario.weeklyHours}h/wk • {currencySymbol()}
-                        {scenario.weeklyEarnings}/wk
+                        {scenario.weeklyHours}h/wk •{' '}
+                        {formatCurrency(scenario.weeklyEarnings, currency())}/wk
                       </p>
                     </div>
                     <span class="text-green-500 dark:text-green-400 text-xl">✓</span>
@@ -339,8 +338,11 @@ export function SwipeTab(props: SwipeTabProps) {
               <div class="flex justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
                 <span>Total potential:</span>
                 <span class="text-green-600 dark:text-green-400">
-                  {currencySymbol()}
-                  {selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0)}/wk
+                  {formatCurrency(
+                    selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
+                    currency()
+                  )}
+                  /wk
                 </span>
               </div>
             </div>

@@ -22,6 +22,7 @@ export interface LifestyleItem {
   suggestion?: string;
   essential: boolean;
   applied: boolean;
+  pausedMonths: number;
   createdAt?: string;
 }
 
@@ -50,6 +51,7 @@ export interface UpdateLifestyleItemInput {
   suggestion?: string;
   essential?: boolean;
   applied?: boolean;
+  pausedMonths?: number;
 }
 
 /**

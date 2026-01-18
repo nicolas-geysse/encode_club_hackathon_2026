@@ -11,18 +11,35 @@
 import { createSignal, Show, For, createEffect } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
+import {
+  formatDate,
+  formatCurrency,
+  formatCurrencyWithSuffix,
+  getCurrencySymbol,
+  type Currency,
+} from '~/lib/dateUtils';
 
 // Alias for cleaner code
 type Profile = FullProfile;
 
 interface ProfileTabProps {
   onProfileChange?: (profile: Partial<Profile>) => void;
+  currencySymbol?: string; // Kept for backward compatibility
 }
 
 export function ProfileTab(props: ProfileTabProps) {
   // Use shared ProfileContext instead of local state
   // This ensures ProfileSelector and other components see the same data
-  const { profile: contextProfile, loading: contextLoading, refreshProfile } = useProfile();
+  const {
+    profile: contextProfile,
+    loading: contextLoading,
+    refreshProfile,
+    lifestyle: contextLifestyle,
+  } = useProfile();
+
+  // Get currency from profile context, fallback to USD
+  const currency = () => (contextProfile()?.currency as Currency) || 'USD';
+  const currencySymbol = () => getCurrencySymbol(currency());
 
   // Local state for editing UI
   const [editing, setEditing] = createSignal(false);
@@ -81,15 +98,23 @@ export function ProfileTab(props: ProfileTabProps) {
       (sum: number, s: { amount?: number }) => sum + (s.amount || 0),
       0
     );
-    const expenses = (p.expenses || []).reduce(
-      (sum: number, e: { amount?: number }) => sum + (e.amount || 0),
-      0
-    );
+
+    // Use lifestyle_items as source of truth for expenses
+    // Falls back to profile.expenses if lifestyle items not yet loaded
+    const lifestyleItems = contextLifestyle();
+    const expenses =
+      lifestyleItems.length > 0
+        ? lifestyleItems.reduce((sum, item) => sum + item.currentCost, 0)
+        : (p.expenses || []).reduce(
+            (sum: number, e: { amount?: number }) => sum + (e.amount || 0),
+            0
+          );
+
     return { income, expenses, margin: income - expenses };
   };
 
   return (
-    <div class="p-6 space-y-6 max-w-3xl mx-auto">
+    <div class="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
@@ -195,6 +220,27 @@ export function ProfileTab(props: ProfileTabProps) {
           </Show>
         </div>
 
+        {/* Certifications Card */}
+        <div class="card">
+          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <span>📜</span> Certifications
+          </h3>
+          <Show
+            when={(profile()?.certifications || []).length > 0}
+            fallback={<p class="text-slate-500 dark:text-slate-400">No certifications added yet</p>}
+          >
+            <div class="flex flex-wrap gap-2">
+              <For each={profile()?.certifications || []}>
+                {(cert: string) => (
+                  <span class="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
+                    {cert}
+                  </span>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
+
         {/* Work Preferences Card */}
         <div class="card">
           <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
@@ -214,7 +260,7 @@ export function ProfileTab(props: ProfileTabProps) {
                 Min Hourly Rate
               </label>
               <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                ${profile()?.minHourlyRate || 12}/h
+                {formatCurrencyWithSuffix(profile()?.minHourlyRate || 12, currency(), '/h')}
               </p>
             </div>
           </div>
@@ -234,7 +280,7 @@ export function ProfileTab(props: ProfileTabProps) {
                     Income
                   </label>
                   <p class="text-lg font-bold text-green-600 dark:text-green-400">
-                    ${budget.income}/mo
+                    {formatCurrencyWithSuffix(budget.income, currency(), '/mo')}
                   </p>
                 </div>
                 <div>
@@ -242,7 +288,7 @@ export function ProfileTab(props: ProfileTabProps) {
                     Expenses
                   </label>
                   <p class="text-lg font-bold text-red-600 dark:text-red-400">
-                    ${budget.expenses}/mo
+                    {formatCurrencyWithSuffix(budget.expenses, currency(), '/mo')}
                   </p>
                 </div>
                 <div>
@@ -252,7 +298,7 @@ export function ProfileTab(props: ProfileTabProps) {
                   <p
                     class={`text-lg font-bold ${budget.margin >= 0 ? 'text-primary-600 dark:text-primary-400' : 'text-red-600 dark:text-red-400'}`}
                   >
-                    {budget.margin >= 0 ? '+' : ''}${budget.margin}/mo
+                    {formatCurrency(budget.margin, currency(), { showSign: true })}/mo
                   </p>
                 </div>
               </div>
@@ -280,7 +326,7 @@ export function ProfileTab(props: ProfileTabProps) {
                   Amount
                 </label>
                 <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
-                  ${profile()?.goalAmount || 0}
+                  {formatCurrency(profile()?.goalAmount || 0, currency())}
                 </p>
               </div>
               <div>
@@ -288,7 +334,9 @@ export function ProfileTab(props: ProfileTabProps) {
                   Deadline
                 </label>
                 <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
-                  {profile()?.goalDeadline || 'Not set'}
+                  {profile()?.goalDeadline
+                    ? formatDate(profile()!.goalDeadline!, 'MMMM D, YYYY')
+                    : 'Not set'}
                 </p>
               </div>
             </div>
@@ -388,7 +436,7 @@ export function ProfileTab(props: ProfileTabProps) {
               </div>
               <div>
                 <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Min Hourly Rate ($)
+                  Min Hourly Rate ({currencySymbol()})
                 </label>
                 <input
                   type="number"
@@ -428,23 +476,6 @@ export function ProfileTab(props: ProfileTabProps) {
           </div>
         </div>
       </Show>
-
-      {/* Chat Link */}
-      <div class="card bg-slate-50 dark:bg-slate-700">
-        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-          Need to make more changes?
-        </h4>
-        <p class="text-sm text-slate-600 dark:text-slate-400 mb-3">
-          You can also update your profile by chatting with Bruno. Just say "change my city to
-          Paris" or "update my skills".
-        </p>
-        <a
-          href="/"
-          class="text-primary-600 dark:text-primary-400 text-sm font-medium hover:underline"
-        >
-          Go to Chat →
-        </a>
-      </div>
     </div>
   );
 }

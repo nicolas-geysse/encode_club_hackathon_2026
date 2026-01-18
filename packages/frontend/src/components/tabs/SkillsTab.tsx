@@ -8,6 +8,8 @@
 import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
 import { useProfile } from '~/lib/profileContext';
 import { skillService, type Skill, type CreateSkillInput } from '~/lib/skillService';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 
 // Legacy skill interface for backward compatibility with plan.tsx
 interface LegacySkill {
@@ -24,7 +26,7 @@ interface LegacySkill {
 interface SkillsTabProps {
   initialSkills?: LegacySkill[];
   onSkillsChange?: (skills: LegacySkill[]) => void;
-  currencySymbol?: string;
+  currency?: Currency;
 }
 
 // Convert new skill to legacy format for backward compat with plan.tsx
@@ -114,14 +116,16 @@ function calculateArbitrageScore(skill: Skill): number {
 }
 
 export function SkillsTab(props: SkillsTabProps) {
-  // Currency symbol from props, defaults to $
-  const currencySymbol = () => props.currencySymbol || '$';
+  // Currency from props, defaults to USD
+  const currency = () => props.currency || 'USD';
+  const currencySymbol = () => getCurrencySymbol(currency());
 
   const { profile, skills: contextSkills, refreshSkills } = useProfile();
   const [localSkills, setLocalSkills] = createSignal<Skill[]>([]);
   const [showAddForm, setShowAddForm] = createSignal(false);
   const [isLoading, setIsLoading] = createSignal(false);
   const [editingSkillId, setEditingSkillId] = createSignal<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = createSignal<{ id: string; name: string } | null>(null);
   const [newSkill, setNewSkill] = createSignal<Partial<CreateSkillInput>>({
     name: '',
     level: 'intermediate',
@@ -350,7 +354,7 @@ export function SkillsTab(props: SkillsTabProps) {
   };
 
   return (
-    <div class="p-6 space-y-6 max-w-3xl mx-auto">
+    <div class="p-6 space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
@@ -412,10 +416,7 @@ export function SkillsTab(props: SkillsTabProps) {
                     </Show>
                   </div>
                   <div class="flex items-center gap-4 mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    <span>
-                      {skill.hourlyRate}
-                      {currencySymbol()}/h
-                    </span>
+                    <span>{formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}</span>
                     <span>{'⭐'.repeat(skill.marketDemand)}</span>
                     <span>Effort: {getEffortLabel(skill.cognitiveEffort)}</span>
                   </div>
@@ -451,7 +452,7 @@ export function SkillsTab(props: SkillsTabProps) {
                   <button
                     type="button"
                     class="text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                    onClick={() => removeSkill(skill.id)}
+                    onClick={() => setDeleteConfirm({ id: skill.id, name: skill.name })}
                     disabled={isLoading()}
                     title="Delete skill"
                   >
@@ -512,7 +513,7 @@ export function SkillsTab(props: SkillsTabProps) {
               <div class="grid grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Hourly rate ($)
+                    Hourly rate ({currencySymbol()})
                   </label>
                   <input
                     type="number"
@@ -633,6 +634,23 @@ export function SkillsTab(props: SkillsTabProps) {
           lower-paid but easier job.
         </p>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm()}
+        title="Delete skill?"
+        message={`Are you sure you want to delete "${deleteConfirm()?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          const confirm = deleteConfirm();
+          if (confirm) {
+            removeSkill(confirm.id);
+            setDeleteConfirm(null);
+          }
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }

@@ -105,6 +105,7 @@ async function ensureProfilesSchema(): Promise<void> {
         field VARCHAR,
         currency VARCHAR DEFAULT 'USD',
         skills VARCHAR[],
+        certifications VARCHAR[],
         city VARCHAR,
         city_size VARCHAR,
         income_sources JSON,
@@ -142,6 +143,13 @@ async function ensureProfilesSchema(): Promise<void> {
       // Column might already exist or syntax not supported, ignore
     }
 
+    // Migration: Add certifications column if missing (for existing databases)
+    try {
+      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS certifications VARCHAR[]`);
+    } catch {
+      // Column might already exist or syntax not supported, ignore
+    }
+
     schemaInitialized = true;
     console.log('[Profiles] Schema initialized');
 
@@ -168,6 +176,7 @@ interface ProfileRow {
   field: string | null;
   currency: string | null;
   skills: string[] | null;
+  certifications: string[] | null;
   city: string | null;
   city_size: string | null;
   income_sources: string | null;
@@ -200,6 +209,7 @@ function rowToProfile(row: ProfileRow) {
     field: row.field || undefined,
     currency: (row.currency as 'USD' | 'EUR' | 'GBP') || 'USD',
     skills: row.skills || undefined,
+    certifications: row.certifications || undefined,
     city: row.city || undefined,
     citySize: row.city_size || undefined,
     incomeSources: row.income_sources ? JSON.parse(row.income_sources) : undefined,
@@ -339,6 +349,12 @@ export async function POST(event: APIEvent) {
         ? `ARRAY[${body.skills.map((s: string) => escapeSQL(s)).join(', ')}]`
         : 'NULL';
 
+    // Format certifications array for DuckDB
+    const certificationsSQL =
+      body.certifications && Array.isArray(body.certifications) && body.certifications.length > 0
+        ? `ARRAY[${body.certifications.map((c: string) => escapeSQL(c)).join(', ')}]`
+        : 'NULL';
+
     if (existing.length > 0) {
       // Update existing
       await execute(`
@@ -349,6 +365,7 @@ export async function POST(event: APIEvent) {
           field = ${escapeSQL(body.field)},
           currency = ${escapeSQL(body.currency || 'USD')},
           skills = ${skillsSQL},
+          certifications = ${certificationsSQL},
           city = ${escapeSQL(body.city)},
           city_size = ${escapeSQL(body.citySize)},
           income_sources = ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
@@ -375,7 +392,7 @@ export async function POST(event: APIEvent) {
       // Insert new
       await execute(`
         INSERT INTO profiles (
-          id, name, diploma, field, currency, skills, city, city_size, income_sources, expenses,
+          id, name, diploma, field, currency, skills, certifications, city, city_size, income_sources, expenses,
           max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
           monthly_income, monthly_expenses, monthly_margin,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
@@ -387,6 +404,7 @@ export async function POST(event: APIEvent) {
           ${escapeSQL(body.field)},
           ${escapeSQL(body.currency || 'USD')},
           ${skillsSQL},
+          ${certificationsSQL},
           ${escapeSQL(body.city)},
           ${escapeSQL(body.citySize)},
           ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},

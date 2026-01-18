@@ -1,7 +1,7 @@
 /**
  * My Plan Page (plan.tsx)
  *
- * 7 tabs: Profile, Goals, Skills, Inventory, Lifestyle, Trade, Swipe
+ * 6 tabs: Profile, Goals, Skills, Lifestyle, Trade, Swipe
  * Now uses profileService for DuckDB persistence instead of localStorage.
  */
 
@@ -11,11 +11,11 @@ import { TabNavigation, type TabId } from '~/components/tabs/TabNavigation';
 import { ProfileTab } from '~/components/tabs/ProfileTab';
 import { GoalsTab } from '~/components/tabs/GoalsTab';
 import { SkillsTab } from '~/components/tabs/SkillsTab';
-import { InventoryTab } from '~/components/tabs/InventoryTab';
-import { LifestyleTab } from '~/components/tabs/LifestyleTab';
+import { BudgetTab } from '~/components/tabs/BudgetTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab } from '~/components/tabs/SwipeTab';
 import { profileService, type FullProfile } from '~/lib/profileService';
+import { inventoryService } from '~/lib/inventoryService';
 import { useProfile } from '~/lib/profileContext';
 import { PageLoader } from '~/components/PageLoader';
 
@@ -32,7 +32,7 @@ type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 type ItemCategory = 'electronics' | 'clothing' | 'books' | 'furniture' | 'sports' | 'other';
 type ItemCondition = 'new' | 'like_new' | 'good' | 'fair' | 'poor';
 type LifestyleCategory = 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
-type TradeType = 'trade' | 'borrow' | 'lend' | 'sell' | 'optimize';
+type TradeType = 'trade' | 'borrow' | 'lend' | 'sell';
 type TradeStatus = 'pending' | 'active' | 'completed';
 
 interface SetupData {
@@ -81,9 +81,7 @@ interface LifestyleItem {
   category: LifestyleCategory;
   name: string;
   currentCost: number;
-  optimizedCost?: number;
-  suggestion?: string;
-  applied?: boolean;
+  pausedMonths?: number;
 }
 
 interface TradeItem {
@@ -137,7 +135,11 @@ function getCurrencySymbol(currency?: Currency): string {
 export default function PlanPage() {
   const navigate = useNavigate();
   // Get inventory and lifestyle from profile context (DB-backed data)
-  const { inventory: contextInventory, lifestyle: contextLifestyle } = useProfile();
+  const {
+    inventory: contextInventory,
+    lifestyle: contextLifestyle,
+    refreshInventory,
+  } = useProfile();
   const [activeTab, setActiveTab] = createSignal<TabId>('profile');
   const [isLoading, setIsLoading] = createSignal(true);
   const [hasProfile, setHasProfile] = createSignal(false);
@@ -232,17 +234,10 @@ export default function PlanPage() {
     }
   };
 
-  const handleInventoryChange = (inventory: Item[]) => {
-    setPlanData({ ...planData(), inventory });
-    if (inventory.length > 0) {
-      markTabComplete('inventory');
-    }
-  };
-
-  const handleLifestyleChange = (lifestyle: LifestyleItem[]) => {
+  const handleBudgetChange = (lifestyle: LifestyleItem[]) => {
     setPlanData({ ...planData(), lifestyle });
     if (lifestyle.length > 0) {
-      markTabComplete('lifestyle');
+      markTabComplete('budget');
     }
   };
 
@@ -292,14 +287,17 @@ export default function PlanPage() {
           {/* Tab Content */}
           <div class="flex-1 overflow-y-auto">
             <Show when={activeTab() === 'profile'}>
-              <ProfileTab onProfileChange={handleProfileChange} />
+              <ProfileTab
+                onProfileChange={handleProfileChange}
+                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+              />
             </Show>
 
             <Show when={activeTab() === 'goals'}>
               <GoalsTab
                 onComplete={handleSetupComplete}
                 initialData={planData().setup}
-                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+                currency={activeProfile()?.currency}
               />
             </Show>
 
@@ -307,23 +305,19 @@ export default function PlanPage() {
               <SkillsTab
                 initialSkills={planData().skills}
                 onSkillsChange={handleSkillsChange}
-                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+                currency={activeProfile()?.currency}
               />
             </Show>
 
-            <Show when={activeTab() === 'inventory'}>
-              <InventoryTab
-                initialItems={planData().inventory}
-                onItemsChange={handleInventoryChange}
-                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
-              />
-            </Show>
-
-            <Show when={activeTab() === 'lifestyle'}>
-              <LifestyleTab
+            <Show when={activeTab() === 'budget'}>
+              <BudgetTab
                 initialItems={planData().lifestyle}
-                onItemsChange={handleLifestyleChange}
-                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+                onItemsChange={handleBudgetChange}
+                currency={activeProfile()?.currency}
+                profileMonthlyExpenses={activeProfile()?.monthlyExpenses}
+                profileExpenses={activeProfile()?.expenses}
+                profileIncomeSources={activeProfile()?.incomeSources}
+                goalDeadline={planData().setup?.goalDeadline}
               />
             </Show>
 
@@ -333,7 +327,7 @@ export default function PlanPage() {
                 onTradesChange={handleTradesChange}
                 goalName={planData().setup?.goalName}
                 goalAmount={planData().setup?.goalAmount}
-                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+                currency={activeProfile()?.currency}
                 inventoryItems={contextInventory()
                   .filter((i) => i.status === 'available')
                   .map((i) => ({
@@ -345,9 +339,16 @@ export default function PlanPage() {
                 lifestyleItems={contextLifestyle().map((l) => ({
                   name: l.name,
                   currentCost: l.currentCost,
-                  optimizedCost: l.optimizedCost,
-                  suggestion: l.suggestion,
+                  pausedMonths: l.pausedMonths,
                 }))}
+                onInventorySold={(inventoryItemId, soldPrice) => {
+                  // Wrap in void to avoid async in tracked scope
+                  void (async () => {
+                    await inventoryService.markAsSold(inventoryItemId, soldPrice);
+                    await refreshInventory();
+                  })();
+                  return Promise.resolve();
+                }}
               />
             </Show>
 
@@ -366,13 +367,13 @@ export default function PlanPage() {
                 lifestyle={planData().lifestyle.map((l) => ({
                   name: l.name,
                   currentCost: l.currentCost,
-                  optimizedCost: l.optimizedCost,
+                  pausedMonths: l.pausedMonths,
                 }))}
                 trades={planData().trades.map((t) => ({
                   name: t.name,
                   value: t.value,
                 }))}
-                currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+                currency={activeProfile()?.currency}
                 onPreferencesChange={handleSwipePreferencesChange}
                 onScenariosSelected={handleScenariosSelected}
               />

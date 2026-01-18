@@ -14,6 +14,7 @@ import { goalService } from '~/lib/goalService';
 import { skillService } from '~/lib/skillService';
 import { lifestyleService } from '~/lib/lifestyleService';
 import { inventoryService } from '~/lib/inventoryService';
+import { incomeService } from '~/lib/incomeService';
 import { useProfile } from '~/lib/profileContext';
 
 interface Message {
@@ -151,9 +152,13 @@ interface DetectedIntent {
 // Initial greeting message - now asks for region first for currency selection
 const GREETING_MESSAGE = `Hey! I'm **Bruno**, your personal financial coach.
 
-I'll help you navigate student life and reach your goals.
+This app will help you reach any savings goal - whether it's a vacation, a new laptop, or anything else you're dreaming of!
 
-First, **are you in the US, UK, or Europe?** (This helps me show amounts in your currency)`;
+**How it works:**
+- Set an objective, an amount, and a deadline
+- I'll help you find ways to achieve it (skills, selling items, cutting expenses)
+
+First, **where are you based?** (US, UK, or Europe - this sets your currency)`;
 
 // Welcome back message for returning users (conversation mode)
 const getWelcomeBackMessage = (name: string) => `Hey **${name}**! What can I help you with?
@@ -180,7 +185,14 @@ function generateThreadId(): string {
 
 export function OnboardingChat() {
   const navigate = useNavigate();
-  const { profile: contextProfile, refreshProfile } = useProfile();
+  const {
+    profile: contextProfile,
+    refreshProfile,
+    refreshSkills,
+    refreshInventory,
+    refreshLifestyle,
+    refreshIncome,
+  } = useProfile();
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [step, setStep] = createSignal<OnboardingStep>('greeting');
@@ -690,6 +702,7 @@ export function OnboardingChat() {
     if (data.city) updates.city = String(data.city);
     if (data.maxWorkHours) updates.maxWorkHours = Number(data.maxWorkHours);
     if (data.minHourlyRate) updates.minHourlyRate = Number(data.minHourlyRate);
+    if (data.currency) updates.currency = String(data.currency) as 'USD' | 'EUR' | 'GBP';
 
     // Smart merge for skills - collected at 'studies' step
     if (data.skills !== undefined && Array.isArray(data.skills)) {
@@ -720,11 +733,13 @@ export function OnboardingChat() {
     }
     if (data.expenses) {
       const expenses = Number(data.expenses);
+      // 5 categories breakdown: rent 50%, food 25%, transport 10%, subscriptions 5%, other 10%
       updates.expenses = [
         { category: 'rent', amount: Math.round(expenses * 0.5) },
         { category: 'food', amount: Math.round(expenses * 0.25) },
         { category: 'transport', amount: Math.round(expenses * 0.1) },
-        { category: 'other', amount: Math.round(expenses * 0.15) },
+        { category: 'subscriptions', amount: Math.round(expenses * 0.05) },
+        { category: 'other', amount: Math.round(expenses * 0.1) },
       ];
     }
 
@@ -872,6 +887,8 @@ export function OnboardingChat() {
         goalName: currentProfile.goalName,
         goalAmount: currentProfile.goalAmount,
         goalDeadline: currentProfile.goalDeadline,
+        // Currency for dynamic formatting
+        currency: currentProfile.currency || 'USD',
       };
 
       // Collect recent conversation history (last 4 turns = 8 messages) for context
@@ -1017,6 +1034,10 @@ export function OnboardingChat() {
           // Create goal in dedicated goals table if we have goal data
           if (savedProfileId && finalProfile.goalName && finalProfile.goalAmount) {
             try {
+              // DELETE existing goals to prevent duplicates (same logic as "Restart onboarding")
+              await fetch(`/api/goals?profileId=${savedProfileId}`, { method: 'DELETE' });
+
+              // Then create the new goal
               await fetch('/api/goals', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1036,7 +1057,7 @@ export function OnboardingChat() {
           }
 
           // Persist extracted data to dedicated tables for tab population
-          // This ensures SkillsTab, LifestyleTab, InventoryTab show the onboarding data
+          // This ensures SkillsTab, BudgetTab, InventoryTab show the onboarding data
           if (savedProfileId) {
             // Bulk create skills in skills table
             if (finalProfile.skills && finalProfile.skills.length > 0) {
@@ -1077,6 +1098,40 @@ export function OnboardingChat() {
               }
             }
 
+            // Bulk create lifestyle items from expense breakdown (housing, food, transport, etc)
+            if (finalProfile.expenses && finalProfile.expenses.length > 0) {
+              try {
+                const categoryNames: Record<string, string> = {
+                  rent: 'Rent',
+                  housing: 'Rent',
+                  food: 'Food & Groceries',
+                  transport: 'Transport',
+                  subscriptions: 'Subscriptions',
+                  other: 'Other expenses',
+                };
+
+                await lifestyleService.bulkCreateItems(
+                  savedProfileId,
+                  finalProfile.expenses
+                    .filter((exp) => exp.category !== 'subscriptions') // Subscriptions handled separately below
+                    .map((exp) => ({
+                      name: categoryNames[exp.category] || exp.category,
+                      category: (exp.category === 'rent' ? 'housing' : exp.category) as
+                        | 'housing'
+                        | 'food'
+                        | 'transport'
+                        | 'other',
+                      currentCost: exp.amount,
+                    }))
+                );
+              } catch (expenseError) {
+                console.error(
+                  '[OnboardingChat] Failed to persist expense breakdown:',
+                  expenseError
+                );
+              }
+            }
+
             // Bulk create lifestyle items (subscriptions) in lifestyle_items table
             if (finalProfile.subscriptions && finalProfile.subscriptions.length > 0) {
               try {
@@ -1092,10 +1147,32 @@ export function OnboardingChat() {
                 console.error('[OnboardingChat] Failed to persist lifestyle:', lifestyleError);
               }
             }
+
+            // Create income items in income_items table
+            if (finalProfile.incomes && finalProfile.incomes.length > 0) {
+              try {
+                await incomeService.bulkCreateItems(
+                  savedProfileId,
+                  finalProfile.incomes.map((inc) => ({
+                    name: inc.source === 'total' ? 'Monthly income' : inc.source,
+                    amount: inc.amount,
+                  }))
+                );
+              } catch (incomeError) {
+                console.error('[OnboardingChat] Failed to persist income:', incomeError);
+              }
+            }
           }
 
           // Refresh shared profile context so header updates with new name
           await refreshProfile();
+          // Also refresh skills, inventory, lifestyle, income to ensure data is loaded before navigating
+          await Promise.all([
+            refreshSkills(),
+            refreshInventory(),
+            refreshLifestyle(),
+            refreshIncome(),
+          ]);
         } catch (error) {
           console.error('Failed to save profile to API:', error);
         }
@@ -1136,7 +1213,7 @@ export function OnboardingChat() {
   };
 
   return (
-    <div class="flex flex-col h-[calc(100vh-180px)] max-w-3xl mx-auto">
+    <div class="flex flex-col h-[calc(100vh-180px)] max-w-5xl mx-auto">
       {/* Chat messages */}
       <div
         ref={(el) => (messagesContainerRef = el)}
@@ -1181,10 +1258,8 @@ export function OnboardingChat() {
       {/* Action buttons when complete */}
       <Show when={isComplete()}>
         <div class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
-          <div class="flex items-center justify-center gap-3 max-w-3xl mx-auto">
-            <button class="btn-primary px-6 py-2" onClick={goToPlan}>
-              Start My Plan
-            </button>
+          <div class="flex items-center justify-between max-w-5xl mx-auto">
+            {/* Left - Secondary action */}
             <button
               class="px-4 py-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               onClick={async () => {
@@ -1202,8 +1277,10 @@ export function OnboardingChat() {
                   inventoryItems: [],
                   subscriptions: [],
                 });
-                // Clear localStorage
+                // Clear localStorage - remove all profile-related keys
                 localStorage.removeItem('studentProfile');
+                localStorage.removeItem('planData');
+                localStorage.removeItem('activeProfileId');
 
                 // Clear old data from DB if we have a profileId (prevents duplicate data after re-onboarding)
                 // IMPORTANT: Get profileId BEFORE clearing anything
@@ -1212,17 +1289,18 @@ export function OnboardingChat() {
 
                 if (oldProfileId) {
                   try {
-                    // Delete old goals, skills, inventory, lifestyle for this profile
+                    // Delete old goals, skills, inventory, lifestyle, income for this profile
                     // Check each response for success
                     const deleteResults = await Promise.all([
                       fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
                       fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
                       fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
                       fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
                     ]);
 
                     // Log results for debugging
-                    const names = ['goals', 'skills', 'inventory', 'lifestyle'];
+                    const names = ['goals', 'skills', 'inventory', 'lifestyle', 'income'];
                     for (let i = 0; i < deleteResults.length; i++) {
                       const res = deleteResults[i];
                       if (!res.ok) {
@@ -1235,6 +1313,15 @@ export function OnboardingChat() {
                       }
                     }
                     console.log('[OnboardingChat] Cleared old data for profile:', oldProfileId);
+
+                    // Refresh context to reflect the cleared data
+                    await Promise.all([
+                      refreshSkills(),
+                      refreshInventory(),
+                      refreshLifestyle(),
+                      refreshIncome(),
+                    ]);
+                    console.log('[OnboardingChat] Refreshed context after clearing data');
                   } catch (e) {
                     console.warn('[OnboardingChat] Failed to clear old data:', e);
                   }
@@ -1252,6 +1339,11 @@ export function OnboardingChat() {
               }}
             >
               Restart onboarding
+            </button>
+
+            {/* Right - Primary action */}
+            <button class="btn-primary px-6 py-2" onClick={goToPlan}>
+              Start My Plan
             </button>
           </div>
         </div>

@@ -28,6 +28,7 @@ export interface FullProfile {
   field?: string;
   currency?: 'USD' | 'EUR' | 'GBP'; // User's preferred currency based on region
   skills?: string[];
+  certifications?: string[]; // Professional certifications (BAFA, BNSSA, etc.)
   city?: string;
   citySize?: string;
   incomeSources?: IncomeSource[];
@@ -100,6 +101,7 @@ function loadFromLocalStorage(): FullProfile | null {
     return {
       id: local.id || 'local-profile',
       name: local.name || 'My Profile',
+      currency: local.currency || 'USD',
       profileType: 'main',
       isActive: true,
       diploma: local.diploma,
@@ -183,6 +185,7 @@ export async function saveProfile(
       const localProfile = {
         id: profile.id,
         name: profile.name,
+        currency: profile.currency,
         diploma: profile.diploma,
         skills: profile.skills,
         city: profile.city,

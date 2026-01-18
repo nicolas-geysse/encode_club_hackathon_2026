@@ -59,6 +59,19 @@ function getGroqClient(): Groq | null {
   return groqClient;
 }
 
+// Helper to get currency symbol from currency code
+function getCurrencySymbol(currency?: string): string {
+  switch (currency) {
+    case 'EUR':
+      return '\u20AC'; // €
+    case 'GBP':
+      return '\u00A3'; // £
+    case 'USD':
+    default:
+      return '$';
+  }
+}
+
 // Onboarding step types (extended for full tab population)
 type OnboardingStep =
   | 'greeting'
@@ -1695,16 +1708,19 @@ async function handleConversationMode(
               priority: 1,
             };
 
-            response = `I've created a new goal for you!\n\n🎯 **${goalName}**\n💰 Target: $${goalAmount}\n📅 Deadline: ${deadline}\n\nYou can view and manage this goal in the **Goals** tab of My Plan!`;
+            const currencySymbol = getCurrencySymbol(context.currency as string);
+            response = `I've created a new goal for you!\n\n🎯 **${goalName}**\n💰 Target: ${currencySymbol}${goalAmount}\n📅 Deadline: ${deadline}\n\nYou can view and manage this goal in the **Goals** tab of My Plan!`;
           } else if (hasName || hasAmount) {
             // Partial info - ask for the missing piece
+            const currencySymbol = getCurrencySymbol(context.currency as string);
             if (hasName && !hasAmount) {
               response = `Great, saving for **${extractedGoal?.name}**! How much do you need to save for it?`;
             } else {
-              response = `Got it, $${extractedGoal?.amount}! What are you saving for?`;
+              response = `Got it, ${currencySymbol}${extractedGoal?.amount}! What are you saving for?`;
             }
           } else {
-            response = `Great idea to set a new goal! Tell me:\n\n1. **What** are you saving for?\n2. **How much** do you need?\n3. **By when** do you need it?\n\nFor example: "Save $500 for a vacation by June"`;
+            const currencySymbol = getCurrencySymbol(context.currency as string);
+            response = `Great idea to set a new goal! Tell me:\n\n1. **What** are you saving for?\n2. **How much** do you need?\n3. **By when** do you need it?\n\nFor example: "Save ${currencySymbol}500 for a vacation by June"`;
           }
           break;
         }
@@ -1712,7 +1728,8 @@ async function handleConversationMode(
         case 'check_progress': {
           const goalName = context.goalName || 'your goal';
           const goalAmount = context.goalAmount || 'your target';
-          response = `You're working towards **${goalName}** with a target of **$${goalAmount}**.\n\nHead to **My Plan** to see your detailed progress, timeline, and weekly targets!`;
+          const currencySymbol = getCurrencySymbol(context.currency as string);
+          response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\nHead to **My Plan** to see your detailed progress, timeline, and weekly targets!`;
           break;
         }
 

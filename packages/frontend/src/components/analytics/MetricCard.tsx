@@ -16,6 +16,7 @@ interface MetricCardProps {
   };
   color?: 'default' | 'green' | 'red' | 'blue' | 'amber';
   format?: 'currency' | 'percentage' | 'number' | 'hours';
+  currencySymbol?: string;
 }
 
 export function MetricCard(props: MetricCardProps) {
@@ -24,8 +25,10 @@ export function MetricCard(props: MetricCardProps) {
     if (typeof val === 'string') return val;
 
     switch (props.format) {
-      case 'currency':
-        return `$${val.toLocaleString()}`;
+      case 'currency': {
+        const symbol = props.currencySymbol || '$';
+        return `${symbol}${val.toLocaleString()}`;
+      }
       case 'percentage':
         return `${val}%`;
       case 'hours':

@@ -145,6 +145,11 @@ export function ComebackAlert(props: ComebackAlertProps) {
                 Your energy is back up to {props.energyHistory[props.energyHistory.length - 1]}%
                 after {window().deficitWeeks} tough weeks. Time to catch up!
               </p>
+              {/* Explanation for users */}
+              <p class="text-sm text-green-600 dark:text-green-400 mt-2 italic">
+                Tu as eu des semaines difficiles - maintenant que ton energie est revenue, voici un
+                plan pour rattraper le temps perdu !
+              </p>
             </div>
           </div>
 

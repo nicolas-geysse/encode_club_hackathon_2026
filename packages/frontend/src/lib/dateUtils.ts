@@ -70,6 +70,16 @@ export function daysBetween(start: string | Date | Dayjs, end: string | Date | D
 }
 
 /**
+ * Calculate months until a deadline from now
+ * Returns 0 if deadline is in the past
+ */
+export function monthsUntil(deadline: string | Date | Dayjs): number {
+  const d = dayjs(deadline);
+  const n = dayjs();
+  return Math.max(0, Math.ceil(d.diff(n, 'month', true)));
+}
+
+/**
  * Get Monday of the current week
  * Replaces: date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
  */
@@ -223,6 +233,68 @@ export function generateWeekDates(
 }
 
 // ============================================
+// CURRENCY FORMATTING
+// ============================================
+
+export type Currency = 'USD' | 'EUR' | 'GBP';
+
+/**
+ * Get currency symbol from currency code
+ */
+export function getCurrencySymbol(currency?: Currency | string): string {
+  switch (currency) {
+    case 'EUR':
+      return '€';
+    case 'GBP':
+      return '£';
+    case 'USD':
+    default:
+      return '$';
+  }
+}
+
+/**
+ * Format amount with currency symbol in correct position
+ * - EUR: symbol after (e.g., "100€" or "100 €")
+ * - USD/GBP: symbol before (e.g., "$100" or "£100")
+ *
+ * @param amount - The numeric amount to format
+ * @param currency - Currency code ('USD', 'EUR', 'GBP')
+ * @param options - Formatting options
+ * @returns Formatted currency string
+ */
+export function formatCurrency(
+  amount: number,
+  currency?: Currency | string,
+  options: { compact?: boolean; showSign?: boolean } = {}
+): string {
+  const { compact = false, showSign = false } = options;
+  const symbol = getCurrencySymbol(currency);
+  const sign = showSign && amount >= 0 ? '+' : '';
+  const formattedAmount = compact ? amount.toLocaleString() : amount.toString();
+
+  // EUR: symbol after the number
+  if (currency === 'EUR') {
+    return `${sign}${formattedAmount}€`;
+  }
+
+  // USD, GBP, and others: symbol before the number
+  return `${sign}${symbol}${formattedAmount}`;
+}
+
+/**
+ * Format amount with currency and suffix (e.g., "/h" for hourly rate, "/mo" for monthly)
+ */
+export function formatCurrencyWithSuffix(
+  amount: number,
+  currency?: Currency | string,
+  suffix?: string
+): string {
+  const formatted = formatCurrency(amount, currency);
+  return suffix ? `${formatted}${suffix}` : formatted;
+}
+
+// ============================================
 // DEFAULTS
 // ============================================
 
@@ -247,6 +319,7 @@ export default {
   todayISO,
   weeksBetween,
   daysBetween,
+  monthsUntil,
   startOfWeek,
   endOfWeek,
   addDays,
@@ -265,4 +338,7 @@ export default {
   generateWeekDates,
   defaultDeadline,
   defaultDeadline90Days,
+  getCurrencySymbol,
+  formatCurrency,
+  formatCurrencyWithSuffix,
 };

@@ -10,6 +10,7 @@ import { RouteProgress } from '~/components/RouteProgress';
 import { ThemeProvider } from '~/lib/themeContext';
 import { ProfileProvider } from '~/lib/profileContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
+import { Logo } from '~/components/Logo';
 
 export default function App() {
   // Simulation state (managed by SimulationControls, shared with app)
@@ -110,12 +111,9 @@ export default function App() {
                 <header class="sticky top-0 z-50 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-700">
                   <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between">
-                      <a href="/" class="flex items-center space-x-3">
-                        <span class="text-2xl">🚀</span>
-                        <h1 class="text-xl font-bold text-slate-900 dark:text-slate-100">Stride</h1>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">
-                          Navigate student life
-                        </span>
+                      <a href="/" class="flex items-center">
+                        <Logo height={56} class="hidden sm:block" />
+                        <Logo height={44} compact class="sm:hidden" />
                       </a>
                       <div class="flex items-center gap-3">
                         <nav class="flex space-x-1">
