@@ -16,6 +16,7 @@ import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab } from '~/components/tabs/SwipeTab';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
+import { goalService } from '~/lib/goalService';
 import { useProfile } from '~/lib/profileContext';
 import { PageLoader } from '~/components/PageLoader';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
@@ -204,6 +205,25 @@ export default function PlanPage() {
             trades: stored.trades || [],
             selectedScenarios: stored.selectedScenarios || [],
           });
+        }
+
+        // Load primary goal to populate setup.goalDeadline if not already set
+        const currentPlanData = planData();
+        if (!currentPlanData.setup?.goalDeadline) {
+          const primaryGoal = await goalService.getPrimaryGoal(profile.id);
+          if (primaryGoal?.deadline) {
+            setPlanData({
+              ...currentPlanData,
+              setup: {
+                ...currentPlanData.setup,
+                goalName: primaryGoal.name,
+                goalAmount: primaryGoal.amount,
+                goalDeadline: primaryGoal.deadline,
+                academicEvents: currentPlanData.setup?.academicEvents || [],
+                commitments: currentPlanData.setup?.commitments || [],
+              },
+            });
+          }
         }
       } else {
         // Fallback to localStorage for backwards compatibility
