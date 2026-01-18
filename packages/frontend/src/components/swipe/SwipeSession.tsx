@@ -242,7 +242,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <Tooltip>
               <TooltipTrigger>
                 <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-blue-950/30 rounded-full relative overflow-hidden">
+                  <div class="h-8 w-1.5 bg-blue-200 dark:bg-blue-950/50 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().effortSensitivity * 100}%` }}
@@ -265,7 +265,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <Tooltip>
               <TooltipTrigger>
                 <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-green-950/30 rounded-full relative overflow-hidden">
+                  <div class="h-8 w-1.5 bg-green-200 dark:bg-green-950/50 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().hourlyRatePriority * 100}%` }}
@@ -288,7 +288,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <Tooltip>
               <TooltipTrigger>
                 <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-purple-950/30 rounded-full relative overflow-hidden">
+                  <div class="h-8 w-1.5 bg-purple-200 dark:bg-purple-950/50 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().timeFlexibility * 100}%` }}
@@ -311,7 +311,7 @@ export function SwipeSession(props: SwipeSessionProps) {
             <Tooltip>
               <TooltipTrigger>
                 <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-amber-950/30 rounded-full relative overflow-hidden">
+                  <div class="h-8 w-1.5 bg-amber-200 dark:bg-amber-950/50 rounded-full relative overflow-hidden">
                     <div
                       class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-500 ease-out"
                       style={{ height: `${preferences().incomeStability * 100}%` }}
