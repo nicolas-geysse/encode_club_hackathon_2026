@@ -526,7 +526,7 @@ export function BudgetTab(props: BudgetTabProps) {
           </h3>
           <button
             type="button"
-            class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+            class="btn-primary text-sm px-4 py-2"
             onClick={() => setShowAddForm(true)}
           >
             + Add

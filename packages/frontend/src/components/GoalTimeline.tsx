@@ -5,20 +5,25 @@
  * Shows timeline from creation to deadline with progress milestones.
  */
 
-import { createSignal, createMemo, Show, For } from 'solid-js';
+import { createMemo, Show, For } from 'solid-js';
 import { type Goal, type GoalComponent, goalService } from '~/lib/goalService';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 interface GoalTimelineProps {
   goal: Goal;
+  currency?: Currency;
   onComponentUpdate?: (
     goalId: string,
     componentId: string,
     status: GoalComponent['status']
   ) => void;
+  onEdit?: (goal: Goal) => void;
+  onDelete?: (goalId: string) => void;
+  onToggleStatus?: (goal: Goal) => void;
 }
 
 export function GoalTimeline(props: GoalTimelineProps) {
-  const [expanded, setExpanded] = createSignal(true);
+  const currency = () => props.currency || 'USD';
 
   // Calculate days remaining
   const daysRemaining = createMemo(() => {
@@ -133,13 +138,45 @@ export function GoalTimeline(props: GoalTimelineProps) {
     return Math.round(((now - start) / (end - start)) * 100);
   });
 
+  // Format deadline with day name
+  const formattedDeadline = createMemo(() => {
+    if (!props.goal.deadline) return null;
+    return new Date(props.goal.deadline).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+  });
+
+  // Get status badge color
+  const getGoalStatusColor = (status: Goal['status']) => {
+    switch (status) {
+      case 'active':
+        return 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300';
+      case 'waiting':
+        return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300';
+      case 'completed':
+        return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300';
+      case 'paused':
+        return 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400';
+      default:
+        return 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400';
+    }
+  };
+
+  // Deadline urgency color
+  const getDeadlineColor = () => {
+    const days = daysRemaining();
+    if (days === null) return 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300';
+    if (days <= 0) return 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300';
+    if (days <= 7) return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300';
+    return 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300';
+  };
+
   return (
-    <div class="card">
-      {/* Header */}
-      <div
-        class="flex items-center justify-between cursor-pointer"
-        onClick={() => setExpanded(!expanded())}
-      >
+    <div class={`card ${props.goal.status === 'completed' ? 'opacity-70' : ''}`}>
+      {/* Header Row */}
+      <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-3">
           <span class="text-2xl">
             {props.goal.status === 'completed'
@@ -149,208 +186,271 @@ export function GoalTimeline(props: GoalTimelineProps) {
                 : '🎯'}
           </span>
           <div>
-            <h3 class="font-bold text-slate-900 dark:text-slate-100">{props.goal.name}</h3>
-            <div class="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
-              <span>${props.goal.amount}</span>
-              <Show when={props.goal.deadline}>
-                <span>
-                  {daysRemaining() !== null && daysRemaining()! > 0
-                    ? `${daysRemaining()} days left`
-                    : daysRemaining() === 0
-                      ? 'Due today!'
-                      : 'Overdue'}
-                </span>
-              </Show>
-              <span>{props.goal.progress || 0}% complete</span>
-            </div>
+            <h3
+              class={`text-lg font-bold ${props.goal.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}
+            >
+              {props.goal.name}
+            </h3>
+            <span
+              class={`inline-block px-2 py-0.5 text-xs font-medium rounded-full mt-1 ${getGoalStatusColor(props.goal.status)}`}
+            >
+              {props.goal.status.charAt(0).toUpperCase() + props.goal.status.slice(1)}
+            </span>
           </div>
         </div>
-        <button type="button" class="text-slate-400 hover:text-slate-600">
-          {expanded() ? '▼' : '▶'}
-        </button>
+
+        {/* Action Buttons */}
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-1.5 text-xs font-medium rounded-md bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800/40 transition-colors"
+            onClick={() => props.onEdit?.(props.goal)}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-xs font-medium rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+            onClick={() => props.onToggleStatus?.(props.goal)}
+          >
+            {props.goal.status === 'completed' ? 'Reactivate' : 'Complete'}
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-xs font-medium rounded-md bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800/40 transition-colors"
+            onClick={() => props.onDelete?.(props.goal.id)}
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
-      <Show when={expanded()}>
-        <div class="mt-4 space-y-4">
-          {/* Main Progress Bar */}
-          <div>
-            <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-              <span>Progress</span>
-              <span>{props.goal.progress || 0}%</span>
-            </div>
-            <div class="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-              <div
-                class="h-full bg-gradient-to-r from-primary-400 to-primary-600 transition-all duration-500"
-                style={{ width: `${props.goal.progress || 0}%` }}
-              />
+      {/* Key Metrics Row */}
+      <div class="grid grid-cols-3 gap-4 mb-4">
+        {/* Amount */}
+        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+          <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+            Target
+          </p>
+          <p class="text-xl font-bold text-slate-900 dark:text-slate-100">
+            {formatCurrency(props.goal.amount, currency())}
+          </p>
+        </div>
+
+        {/* Deadline - More prominent */}
+        <div class={`rounded-lg p-3 text-center ${getDeadlineColor()}`}>
+          <p class="text-xs uppercase tracking-wider mb-1 opacity-80">Deadline</p>
+          <Show when={props.goal.deadline} fallback={<p class="text-lg font-bold">Not set</p>}>
+            <p class="text-lg font-bold">{formattedDeadline()}</p>
+            <p class="text-sm font-medium mt-0.5">
+              {daysRemaining() !== null && daysRemaining()! > 0
+                ? `${daysRemaining()} days left`
+                : daysRemaining() === 0
+                  ? 'Due today!'
+                  : `${Math.abs(daysRemaining()!)} days overdue`}
+            </p>
+          </Show>
+        </div>
+
+        {/* Progress */}
+        <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+          <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+            Progress
+          </p>
+          <p class="text-xl font-bold text-primary-600 dark:text-primary-400">
+            {props.goal.progress || 0}%
+          </p>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div class="mb-4">
+        <div class="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+          <div
+            class="h-full bg-gradient-to-r from-primary-400 to-primary-600 transition-all duration-500"
+            style={{ width: `${props.goal.progress || 0}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Time Elapsed Bar */}
+      <Show when={props.goal.deadline}>
+        <div class="mb-4">
+          <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+            <span>Time elapsed</span>
+            <span
+              class={
+                timelineProgress() > (props.goal.progress || 0)
+                  ? 'text-amber-600'
+                  : 'text-green-600'
+              }
+            >
+              {timelineProgress() > (props.goal.progress || 0)
+                ? '⚠️ Behind schedule'
+                : '✓ On track'}
+            </span>
+          </div>
+          <div class="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+            <div
+              class={`h-full transition-all duration-500 ${
+                timelineProgress() > (props.goal.progress || 0) ? 'bg-amber-500' : 'bg-green-500'
+              }`}
+              style={{ width: `${timelineProgress()}%` }}
+            />
+          </div>
+        </div>
+      </Show>
+
+      {/* Components Section */}
+      <Show when={props.goal.components && props.goal.components.length > 0}>
+        <div class="border-t border-slate-200 dark:border-slate-600 pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Components ({props.goal.components?.filter((c) => c.status === 'completed').length}/
+              {props.goal.components?.length})
+            </h4>
+            <div class="text-xs text-slate-500 dark:text-slate-400">
+              <Show when={totalHours() > 0}>
+                <span class="mr-3">{totalHours()}h total</span>
+              </Show>
+              <Show when={totalCost() > props.goal.amount}>
+                <span>{formatCurrency(totalCost(), currency())} total cost</span>
+              </Show>
             </div>
           </div>
 
-          {/* Timeline Bar (time elapsed) */}
-          <Show when={props.goal.deadline}>
-            <div>
-              <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
-                <span>Time elapsed</span>
-                <span>{timelineProgress()}%</span>
-              </div>
-              <div class="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                <div
-                  class={`h-full transition-all duration-500 ${
-                    timelineProgress() > (props.goal.progress || 0)
-                      ? 'bg-amber-500'
-                      : 'bg-green-500'
-                  }`}
-                  style={{ width: `${timelineProgress()}%` }}
-                />
-              </div>
-              <p class="text-xs text-slate-400 mt-1">
-                {timelineProgress() > (props.goal.progress || 0)
-                  ? '⚠️ Behind schedule'
-                  : '✓ On track'}
-              </p>
+          {/* Component Progress */}
+          <div class="mb-4">
+            <div class="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden flex">
+              <For each={props.goal.components}>
+                {(component) => (
+                  <div
+                    class={`h-full transition-all duration-300 ${getStatusColor(component.status)}`}
+                    style={{ width: `${100 / (props.goal.components?.length || 1)}%` }}
+                  />
+                )}
+              </For>
             </div>
-          </Show>
+          </div>
 
-          {/* Components Section */}
-          <Show when={props.goal.components && props.goal.components.length > 0}>
-            <div class="border-t border-slate-200 dark:border-slate-600 pt-4">
-              <div class="flex items-center justify-between mb-3">
-                <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Components (
-                  {props.goal.components?.filter((c) => c.status === 'completed').length}/
-                  {props.goal.components?.length})
-                </h4>
-                <div class="text-xs text-slate-500 dark:text-slate-400">
-                  <Show when={totalHours() > 0}>
-                    <span class="mr-3">{totalHours()}h total</span>
-                  </Show>
-                  <Show when={totalCost() > props.goal.amount}>
-                    <span>${totalCost()} total cost</span>
-                  </Show>
-                </div>
-              </div>
+          {/* Component List */}
+          <div class="space-y-2">
+            <For each={props.goal.components}>
+              {(component, index) => {
+                const canStart = () => canStartComponent(component);
+                const isBlocked = () => !canStart() && component.status === 'pending';
 
-              {/* Component Progress */}
-              <div class="mb-4">
-                <div class="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden flex">
-                  <For each={props.goal.components}>
-                    {(component) => (
-                      <div
-                        class={`h-full transition-all duration-300 ${getStatusColor(component.status)}`}
-                        style={{ width: `${100 / (props.goal.components?.length || 1)}%` }}
-                      />
-                    )}
-                  </For>
-                </div>
-              </div>
+                return (
+                  <div
+                    class={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                      isBlocked()
+                        ? 'bg-slate-100 dark:bg-slate-700/50 opacity-60'
+                        : 'bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 cursor-pointer'
+                    }`}
+                    onClick={() => !isBlocked() && handleComponentClick(component)}
+                  >
+                    {/* Status indicator */}
+                    <div
+                      class={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${getStatusColor(component.status)}`}
+                    >
+                      {getStatusIcon(component.status)}
+                    </div>
 
-              {/* Component List */}
-              <div class="space-y-2">
-                <For each={props.goal.components}>
-                  {(component, index) => {
-                    const canStart = () => canStartComponent(component);
-                    const isBlocked = () => !canStart() && component.status === 'pending';
-
-                    return (
-                      <div
-                        class={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                          isBlocked()
-                            ? 'bg-slate-100 dark:bg-slate-700/50 opacity-60'
-                            : 'bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 cursor-pointer'
-                        }`}
-                        onClick={() => !isBlocked() && handleComponentClick(component)}
-                      >
-                        {/* Status indicator */}
-                        <div
-                          class={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${getStatusColor(component.status)}`}
+                    {/* Component info */}
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2">
+                        <span>{getTypeIcon(component.type)}</span>
+                        <span
+                          class={`font-medium ${
+                            component.status === 'completed'
+                              ? 'text-slate-500 line-through'
+                              : 'text-slate-800 dark:text-slate-200'
+                          }`}
                         >
-                          {getStatusIcon(component.status)}
-                        </div>
-
-                        {/* Component info */}
-                        <div class="flex-1">
-                          <div class="flex items-center gap-2">
-                            <span>{getTypeIcon(component.type)}</span>
-                            <span
-                              class={`font-medium ${
-                                component.status === 'completed'
-                                  ? 'text-slate-500 line-through'
-                                  : 'text-slate-800 dark:text-slate-200'
-                              }`}
-                            >
-                              {component.name}
-                            </span>
-                          </div>
-                          <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            <Show when={component.estimatedHours}>
-                              <span>⏱️ {component.estimatedHours}h</span>
-                            </Show>
-                            <Show when={component.estimatedCost}>
-                              <span>💰 ${component.estimatedCost}</span>
-                            </Show>
-                            <Show when={isBlocked()}>
-                              <span class="text-amber-600 dark:text-amber-400">
-                                🔒 Requires: {component.dependsOn?.join(', ')}
-                              </span>
-                            </Show>
-                          </div>
-                        </div>
-
-                        {/* Connection line to next */}
-                        <Show when={index() < (props.goal.components?.length || 0) - 1}>
-                          <div class="absolute left-7 top-full h-2 w-0.5 bg-slate-300 dark:bg-slate-500" />
+                          {component.name}
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        <Show when={component.estimatedHours}>
+                          <span>⏱️ {component.estimatedHours}h</span>
+                        </Show>
+                        <Show when={component.estimatedCost}>
+                          <span>💰 {formatCurrency(component.estimatedCost!, currency())}</span>
+                        </Show>
+                        <Show when={isBlocked()}>
+                          <span class="text-amber-600 dark:text-amber-400">
+                            🔒 Requires: {component.dependsOn?.join(', ')}
+                          </span>
                         </Show>
                       </div>
-                    );
-                  }}
-                </For>
-              </div>
-            </div>
-          </Show>
+                    </div>
 
-          {/* Conditional Goal Info */}
-          <Show when={props.goal.parentGoalId}>
-            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
-              <div class="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
-                <span>⏳</span>
-                <span>This goal will activate after completing the parent goal</span>
-              </div>
-            </div>
-          </Show>
+                    {/* Connection line to next */}
+                    <Show when={index() < (props.goal.components?.length || 0) - 1}>
+                      <div class="absolute left-7 top-full h-2 w-0.5 bg-slate-300 dark:bg-slate-500" />
+                    </Show>
+                  </div>
+                );
+              }}
+            </For>
+          </div>
+        </div>
+      </Show>
 
-          {/* Quick Stats */}
-          <div class="grid grid-cols-3 gap-3 pt-4 border-t border-slate-200 dark:border-slate-600">
-            <div class="text-center">
-              <p class="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                ${Math.round((props.goal.amount * (props.goal.progress || 0)) / 100)}
-              </p>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Saved</p>
-            </div>
-            <div class="text-center">
-              <p class="text-2xl font-bold text-slate-600 dark:text-slate-300">
-                $
-                {props.goal.amount -
-                  Math.round((props.goal.amount * (props.goal.progress || 0)) / 100)}
-              </p>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Remaining</p>
-            </div>
-            <div class="text-center">
-              <Show when={daysRemaining() !== null && daysRemaining()! > 0}>
-                <p class="text-2xl font-bold text-slate-600 dark:text-slate-300">
-                  $
-                  {Math.ceil(
+      {/* Savings Summary */}
+      <div class="border-t border-slate-200 dark:border-slate-600 pt-4 mt-4">
+        <div class="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <p class="text-lg font-bold text-green-600 dark:text-green-400">
+              {formatCurrency(
+                Math.round((props.goal.amount * (props.goal.progress || 0)) / 100),
+                currency()
+              )}
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Saved</p>
+          </div>
+          <div>
+            <p class="text-lg font-bold text-slate-600 dark:text-slate-300">
+              {formatCurrency(
+                props.goal.amount -
+                  Math.round((props.goal.amount * (props.goal.progress || 0)) / 100),
+                currency()
+              )}
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Remaining</p>
+          </div>
+          <div>
+            <Show
+              when={daysRemaining() !== null && daysRemaining()! > 0}
+              fallback={
+                <>
+                  <p class="text-lg font-bold text-slate-400">-</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">Per week</p>
+                </>
+              }
+            >
+              <p class="text-lg font-bold text-primary-600 dark:text-primary-400">
+                {formatCurrency(
+                  Math.ceil(
                     (props.goal.amount -
                       Math.round((props.goal.amount * (props.goal.progress || 0)) / 100)) /
-                      (daysRemaining()! / 7)
-                  )}
-                </p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Per week</p>
-              </Show>
-              <Show when={!daysRemaining() || daysRemaining()! <= 0}>
-                <p class="text-2xl font-bold text-slate-600 dark:text-slate-300">-</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Per week</p>
-              </Show>
-            </div>
+                      Math.max(1, daysRemaining()! / 7)
+                  ),
+                  currency()
+                )}
+              </p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Per week</p>
+            </Show>
+          </div>
+        </div>
+      </div>
+
+      {/* Conditional Goal Info */}
+      <Show when={props.goal.parentGoalId}>
+        <div class="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+          <div class="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+            <span>⏳</span>
+            <span>This goal will activate after completing the parent goal</span>
           </div>
         </div>
       </Show>
@@ -363,11 +463,15 @@ export function GoalTimeline(props: GoalTimelineProps) {
  */
 interface GoalTimelineListProps {
   goals: Goal[];
+  currency?: Currency;
   onComponentUpdate?: (
     goalId: string,
     componentId: string,
     status: GoalComponent['status']
   ) => void;
+  onEdit?: (goal: Goal) => void;
+  onDelete?: (goalId: string) => void;
+  onToggleStatus?: (goal: Goal) => void;
 }
 
 export function GoalTimelineList(props: GoalTimelineListProps) {
@@ -416,7 +520,16 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4">
             <For each={goalsByStatus().active}>
-              {(goal) => <GoalTimeline goal={goal} onComponentUpdate={props.onComponentUpdate} />}
+              {(goal) => (
+                <GoalTimeline
+                  goal={goal}
+                  currency={props.currency}
+                  onComponentUpdate={props.onComponentUpdate}
+                  onEdit={props.onEdit}
+                  onDelete={props.onDelete}
+                  onToggleStatus={props.onToggleStatus}
+                />
+              )}
             </For>
           </div>
         </div>
@@ -430,7 +543,16 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4 opacity-75">
             <For each={goalsByStatus().waiting}>
-              {(goal) => <GoalTimeline goal={goal} onComponentUpdate={props.onComponentUpdate} />}
+              {(goal) => (
+                <GoalTimeline
+                  goal={goal}
+                  currency={props.currency}
+                  onComponentUpdate={props.onComponentUpdate}
+                  onEdit={props.onEdit}
+                  onDelete={props.onDelete}
+                  onToggleStatus={props.onToggleStatus}
+                />
+              )}
             </For>
           </div>
         </div>
@@ -444,7 +566,16 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4 opacity-60">
             <For each={goalsByStatus().completed}>
-              {(goal) => <GoalTimeline goal={goal} onComponentUpdate={props.onComponentUpdate} />}
+              {(goal) => (
+                <GoalTimeline
+                  goal={goal}
+                  currency={props.currency}
+                  onComponentUpdate={props.onComponentUpdate}
+                  onEdit={props.onEdit}
+                  onDelete={props.onDelete}
+                  onToggleStatus={props.onToggleStatus}
+                />
+              )}
             </For>
           </div>
         </div>

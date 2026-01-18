@@ -467,27 +467,6 @@ export function TradeTab(props: TradeTabProps) {
         </div>
       </div>
 
-      {/* Goal Progress - shows when there's a goal */}
-      <Show when={props.goalAmount && props.goalAmount > 0}>
-        <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-primary-700 dark:text-primary-300 font-medium">
-              Total Progress: {formatCurrency(totalSavings(), currency())} /{' '}
-              {formatCurrency(props.goalAmount || 0, currency())}
-            </span>
-            <span class="text-lg font-bold text-primary-900 dark:text-primary-100">
-              {savingsPercent()}%
-            </span>
-          </div>
-          <div class="h-3 bg-primary-200 dark:bg-primary-800 rounded-full overflow-hidden">
-            <div
-              class="h-full bg-primary-600 dark:bg-primary-400 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(savingsPercent(), 100)}%` }}
-            />
-          </div>
-        </div>
-      </Show>
-
       {/* Goal-based suggestions (Borrow/Trade) */}
       <Show when={suggestions().filter((s) => s.sourceType === 'goal').length > 0}>
         <div class="card bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-900/30 border-purple-200 dark:border-purple-800">
@@ -523,6 +502,20 @@ export function TradeTab(props: TradeTabProps) {
         </div>
       </Show>
 
+      {/* Tips - at the top for visibility */}
+      <div class="card bg-slate-50 dark:bg-slate-700">
+        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">💡 Tip</h4>
+        <p class="text-sm text-slate-600 dark:text-slate-400">
+          {activeType() === 'sell'
+            ? 'Selling unused items is a quick way to generate cash. List on marketplaces or ask friends!'
+            : activeType() === 'borrow'
+              ? 'Borrowing textbooks or equipment can help you save money. Ask your friends or the library!'
+              : activeType() === 'lend'
+                ? 'Lending unused items strengthens bonds and can lead to future exchanges.'
+                : 'Bartering is a great way to get what you need without spending. Offer your skills!'}
+        </p>
+      </div>
+
       {/* Type Tabs */}
       <div class="flex flex-wrap gap-2">
         <For each={TRADE_TYPES}>
@@ -552,7 +545,7 @@ export function TradeTab(props: TradeTabProps) {
           </h3>
           <button
             type="button"
-            class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+            class="btn-primary text-sm px-4 py-2"
             onClick={() => {
               setNewTrade({ ...newTrade(), type: activeType() as TradeItem['type'] });
               setShowAddForm(true);
@@ -723,20 +716,6 @@ export function TradeTab(props: TradeTabProps) {
             </p>
           </div>
         </Show>
-      </div>
-
-      {/* Tips */}
-      <div class="card bg-slate-50 dark:bg-slate-700">
-        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">💡 Tip</h4>
-        <p class="text-sm text-slate-600 dark:text-slate-400">
-          {activeType() === 'sell'
-            ? 'Selling unused items is a quick way to generate cash. List on marketplaces or ask friends!'
-            : activeType() === 'borrow'
-              ? 'Borrowing textbooks or equipment can help you save money. Ask your friends or the library!'
-              : activeType() === 'lend'
-                ? 'Lending unused items strengthens bonds and can lead to future exchanges.'
-                : 'Bartering is a great way to get what you need without spending. Offer your skills!'}
-        </p>
       </div>
 
       {/* Add/Edit Form Modal */}

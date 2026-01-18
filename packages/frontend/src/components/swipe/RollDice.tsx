@@ -17,12 +17,28 @@ export function RollDice(props: RollDiceProps) {
   return (
     <div class="flex flex-col items-center justify-center py-12">
       {/* Header */}
-      <div class="text-center mb-8">
+      <div class="text-center mb-6">
         <h2 class="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Swipe Scenarios</h2>
         <p class="text-slate-500 dark:text-slate-400 max-w-md">
           We'll suggest strategies based on your profile. Swipe right to accept, left to decline.
           The app learns your preferences!
         </p>
+      </div>
+
+      {/* Features - above the dice */}
+      <div class="grid grid-cols-3 gap-6 max-w-lg mb-8">
+        <div class="text-center">
+          <div class="text-2xl mb-1">🎯</div>
+          <p class="text-sm text-slate-600 dark:text-slate-400">Personalized</p>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl mb-1">🧠</div>
+          <p class="text-sm text-slate-600 dark:text-slate-400">Learns from you</p>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl mb-1">⚡</div>
+          <p class="text-sm text-slate-600 dark:text-slate-400">4 swipes max</p>
+        </div>
       </div>
 
       {/* Dice Button */}
@@ -92,22 +108,6 @@ export function RollDice(props: RollDiceProps) {
             ↓
           </span>
           <span>Meh</span>
-        </div>
-      </div>
-
-      {/* Features */}
-      <div class="mt-12 grid grid-cols-3 gap-6 max-w-lg">
-        <div class="text-center">
-          <div class="text-2xl mb-2">🎯</div>
-          <p class="text-sm text-slate-600 dark:text-slate-400">Personalized</p>
-        </div>
-        <div class="text-center">
-          <div class="text-2xl mb-2">🧠</div>
-          <p class="text-sm text-slate-600 dark:text-slate-400">Learns from you</p>
-        </div>
-        <div class="text-center">
-          <div class="text-2xl mb-2">⚡</div>
-          <p class="text-sm text-slate-600 dark:text-slate-400">4 swipes max</p>
         </div>
       </div>
     </div>

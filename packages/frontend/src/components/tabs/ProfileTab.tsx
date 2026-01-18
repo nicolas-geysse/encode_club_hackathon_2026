@@ -158,113 +158,42 @@ export function ProfileTab(props: ProfileTabProps) {
 
       {/* Profile Display */}
       <Show when={!loading() && profile() && !editing()}>
-        {/* Personal Info Card */}
-        <div class="card">
-          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-            <span>📋</span> Personal Information
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Name
-              </label>
-              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                {profile()?.name || 'Not set'}
-              </p>
-            </div>
-            <div>
-              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                City
-              </label>
-              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                {profile()?.city || 'Not set'}
-              </p>
-            </div>
-            <div>
-              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Diploma
-              </label>
-              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                {profile()?.diploma || 'Not set'}
-              </p>
-            </div>
-            <div>
-              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Field of Study
-              </label>
-              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                {profile()?.field || 'Not set'}
-              </p>
+        {/* Goal Card - at the top */}
+        <Show when={profile()?.goalName}>
+          <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 border-primary-200 dark:border-primary-700">
+            <h3 class="text-sm font-medium text-primary-700 dark:text-primary-300 mb-4 flex items-center gap-2">
+              <span>🎯</span> Current Goal
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
+                  Goal
+                </label>
+                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
+                  {profile()?.goalName}
+                </p>
+              </div>
+              <div>
+                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
+                  Amount
+                </label>
+                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
+                  {formatCurrency(profile()?.goalAmount || 0, currency())}
+                </p>
+              </div>
+              <div>
+                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
+                  Deadline
+                </label>
+                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
+                  {profile()?.goalDeadline
+                    ? formatDate(profile()!.goalDeadline!, 'MMMM D, YYYY')
+                    : 'Not set'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Skills Card */}
-        <div class="card">
-          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-            <span>💼</span> Skills
-          </h3>
-          <Show
-            when={(profile()?.skills || []).length > 0}
-            fallback={<p class="text-slate-500 dark:text-slate-400">No skills added yet</p>}
-          >
-            <div class="flex flex-wrap gap-2">
-              <For each={profile()?.skills || []}>
-                {(skill: string) => (
-                  <span class="px-3 py-1.5 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded-full text-sm font-medium">
-                    {skill}
-                  </span>
-                )}
-              </For>
-            </div>
-          </Show>
-        </div>
-
-        {/* Certifications Card */}
-        <div class="card">
-          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-            <span>📜</span> Certifications
-          </h3>
-          <Show
-            when={(profile()?.certifications || []).length > 0}
-            fallback={<p class="text-slate-500 dark:text-slate-400">No certifications added yet</p>}
-          >
-            <div class="flex flex-wrap gap-2">
-              <For each={profile()?.certifications || []}>
-                {(cert: string) => (
-                  <span class="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
-                    {cert}
-                  </span>
-                )}
-              </For>
-            </div>
-          </Show>
-        </div>
-
-        {/* Work Preferences Card */}
-        <div class="card">
-          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
-            <span>⏱️</span> Work Preferences
-          </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Max Hours/Week
-              </label>
-              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                {profile()?.maxWorkHoursWeekly || 15}h
-              </p>
-            </div>
-            <div>
-              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Min Hourly Rate
-              </label>
-              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
-                {formatCurrencyWithSuffix(profile()?.minHourlyRate || 12, currency(), '/h')}
-              </p>
-            </div>
-          </div>
-        </div>
+        </Show>
 
         {/* Budget Summary Card */}
         <div class="card">
@@ -306,42 +235,113 @@ export function ProfileTab(props: ProfileTabProps) {
           })()}
         </div>
 
-        {/* Goal Card */}
-        <Show when={profile()?.goalName}>
-          <div class="card bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-800/30 border-primary-200 dark:border-primary-700">
-            <h3 class="text-sm font-medium text-primary-700 dark:text-primary-300 mb-4 flex items-center gap-2">
-              <span>🎯</span> Current Goal
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
-                  Goal
-                </label>
-                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
-                  {profile()?.goalName}
-                </p>
-              </div>
-              <div>
-                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
-                  Amount
-                </label>
-                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
-                  {formatCurrency(profile()?.goalAmount || 0, currency())}
-                </p>
-              </div>
-              <div>
-                <label class="text-xs text-primary-600 dark:text-primary-400 uppercase tracking-wider">
-                  Deadline
-                </label>
-                <p class="text-lg font-bold text-primary-900 dark:text-primary-100">
-                  {profile()?.goalDeadline
-                    ? formatDate(profile()!.goalDeadline!, 'MMMM D, YYYY')
-                    : 'Not set'}
-                </p>
-              </div>
+        {/* Personal Info Card */}
+        <div class="card">
+          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <span>📋</span> Personal Information
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Name
+              </label>
+              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
+                {profile()?.name || 'Not set'}
+              </p>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                City
+              </label>
+              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
+                {profile()?.city || 'Not set'}
+              </p>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Diploma
+              </label>
+              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
+                {profile()?.diploma || 'Not set'}
+              </p>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Field of Study
+              </label>
+              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
+                {profile()?.field || 'Not set'}
+              </p>
             </div>
           </div>
-        </Show>
+        </div>
+
+        {/* Certifications Card */}
+        <div class="card">
+          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <span>📜</span> Certifications
+          </h3>
+          <Show
+            when={(profile()?.certifications || []).length > 0}
+            fallback={<p class="text-slate-500 dark:text-slate-400">No certifications added yet</p>}
+          >
+            <div class="flex flex-wrap gap-2">
+              <For each={profile()?.certifications || []}>
+                {(cert: string) => (
+                  <span class="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 rounded-full text-sm font-medium">
+                    {cert}
+                  </span>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
+
+        {/* Skills Card */}
+        <div class="card">
+          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <span>💼</span> Skills
+          </h3>
+          <Show
+            when={(profile()?.skills || []).length > 0}
+            fallback={<p class="text-slate-500 dark:text-slate-400">No skills added yet</p>}
+          >
+            <div class="flex flex-wrap gap-2">
+              <For each={profile()?.skills || []}>
+                {(skill: string) => (
+                  <span class="px-3 py-1.5 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded-full text-sm font-medium">
+                    {skill}
+                  </span>
+                )}
+              </For>
+            </div>
+          </Show>
+        </div>
+
+        {/* Work Preferences Card */}
+        <div class="card">
+          <h3 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+            <span>⏱️</span> Work Preferences
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Max Hours/Week
+              </label>
+              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
+                {profile()?.maxWorkHoursWeekly || 15}h
+              </p>
+            </div>
+            <div>
+              <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Min Hourly Rate
+              </label>
+              <p class="text-lg font-medium text-slate-900 dark:text-slate-100">
+                {formatCurrencyWithSuffix(profile()?.minHourlyRate || 12, currency(), '/h')}
+              </p>
+            </div>
+          </div>
+        </div>
       </Show>
 
       {/* Edit Form */}

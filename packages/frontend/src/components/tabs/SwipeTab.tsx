@@ -254,6 +254,7 @@ export function SwipeTab(props: SwipeTabProps) {
         <SwipeSession
           scenarios={scenarios()}
           initialPreferences={preferences()}
+          currency={currency()}
           onComplete={handleSwipeComplete}
         />
       </Show>

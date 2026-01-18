@@ -11,10 +11,12 @@
 import { createSignal, For, Show } from 'solid-js';
 import { SwipeCard, type SwipeDirection } from './SwipeCard';
 import type { Scenario, UserPreferences } from '../tabs/SwipeTab';
+import { getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 
 interface SwipeSessionProps {
   scenarios: Scenario[];
   initialPreferences: UserPreferences;
+  currency?: Currency;
   onComplete: (
     accepted: Scenario[],
     rejected: Scenario[],
@@ -94,6 +96,9 @@ function updatePreferences(
 }
 
 export function SwipeSession(props: SwipeSessionProps) {
+  const currency = () => props.currency || 'USD';
+  const currencySymbol = () => getCurrencySymbol(currency());
+
   const [currentIndex, setCurrentIndex] = createSignal(0);
   const [preferences, setPreferences] = createSignal<UserPreferences>(props.initialPreferences);
   const [decisions, setDecisions] = createSignal<SwipeDecision[]>([]);
@@ -329,6 +334,27 @@ export function SwipeSession(props: SwipeSessionProps) {
                   </div>
                 </div>
 
+                {/* Hourly Rate - First, with currency and blue color */}
+                <div class="text-center">
+                  <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">
+                    {currencySymbol()}/h
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={adjustments().customHourlyRate}
+                    onInput={(e) =>
+                      setAdjustments({
+                        ...adjustments(),
+                        customHourlyRate: Math.max(0, parseInt(e.currentTarget.value) || 0),
+                      })
+                    }
+                    class="w-full text-center text-sm font-bold text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/30 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
                 {/* Weekly Hours (conditional) */}
                 <Show when={hasHours}>
                   <div class="text-center">
@@ -351,25 +377,6 @@ export function SwipeSession(props: SwipeSessionProps) {
                     />
                   </div>
                 </Show>
-
-                {/* Hourly Rate */}
-                <div class="text-center">
-                  <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">$/h</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={adjustments().customHourlyRate}
-                    onInput={(e) =>
-                      setAdjustments({
-                        ...adjustments(),
-                        customHourlyRate: Math.max(0, parseInt(e.currentTarget.value) || 0),
-                      })
-                    }
-                    class="w-full text-center text-sm font-medium border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded px-1 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
               </div>
             </div>
           );

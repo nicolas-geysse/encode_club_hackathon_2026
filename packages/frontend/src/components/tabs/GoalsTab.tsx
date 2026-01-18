@@ -61,7 +61,6 @@ export function GoalsTab(props: GoalsTabProps) {
   const [profileId, setProfileId] = createSignal<string | null>(null);
   const [showNewGoalForm, setShowNewGoalForm] = createSignal(false);
   const [editingGoalId, setEditingGoalId] = createSignal<string | null>(null);
-  const [viewMode, setViewMode] = createSignal<'list' | 'timeline'>('list');
 
   // Form state
   const [goalName, setGoalName] = createSignal(props.initialData?.goalName || '');
@@ -327,6 +326,13 @@ export function GoalsTab(props: GoalsTabProps) {
 
   const handleToggleStatus = async (goal: Goal) => {
     const newStatus = goal.status === 'completed' ? 'active' : 'completed';
+    const confirmMessage =
+      newStatus === 'completed'
+        ? `Mark "${goal.name}" as completed?`
+        : `Reactivate "${goal.name}"?`;
+
+    if (!confirm(confirmMessage)) return;
+
     await goalService.updateGoal({
       id: goal.id,
       status: newStatus,
@@ -344,36 +350,6 @@ export function GoalsTab(props: GoalsTabProps) {
     // TODO: Implement API endpoint for component updates
     // For now, just refresh the goals
     await refreshGoals();
-  };
-
-  const getStatusIcon = (status: Goal['status']) => {
-    switch (status) {
-      case 'active':
-        return '🎯';
-      case 'waiting':
-        return '⏳';
-      case 'completed':
-        return '✅';
-      case 'paused':
-        return '⏸️';
-      default:
-        return '📋';
-    }
-  };
-
-  const getStatusColor = (status: Goal['status']) => {
-    switch (status) {
-      case 'active':
-        return 'text-primary-600 dark:text-primary-400';
-      case 'waiting':
-        return 'text-amber-600 dark:text-amber-400';
-      case 'completed':
-        return 'text-green-600 dark:text-green-400';
-      case 'paused':
-        return 'text-slate-500 dark:text-slate-400';
-      default:
-        return 'text-slate-600 dark:text-slate-400';
-    }
   };
 
   const getTypeIcon = (type: GoalComponent['type']) => {
@@ -458,30 +434,11 @@ export function GoalsTab(props: GoalsTabProps) {
             Set your financial goals and track progress
           </p>
         </div>
-        <div class="flex items-center gap-3">
-          {/* View mode toggle */}
-          <Show when={!showNewGoalForm() && goals().length > 0}>
-            <div class="flex rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden">
-              <button
-                type="button"
-                class={`px-3 py-1.5 text-sm ${viewMode() === 'list' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-              <button
-                type="button"
-                class={`px-3 py-1.5 text-sm ${viewMode() === 'timeline' ? 'bg-primary-500 text-white' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
-                onClick={() => setViewMode('timeline')}
-              >
-                Timeline
-              </button>
-            </div>
-            <button type="button" class="btn-primary" onClick={() => setShowNewGoalForm(true)}>
-              + New Goal
-            </button>
-          </Show>
-        </div>
+        <Show when={!showNewGoalForm() && goals().length > 0}>
+          <button type="button" class="btn-primary" onClick={() => setShowNewGoalForm(true)}>
+            + New Goal
+          </button>
+        </Show>
       </div>
 
       {/* Loading State */}
@@ -492,139 +449,16 @@ export function GoalsTab(props: GoalsTabProps) {
         </div>
       </Show>
 
-      {/* Timeline View */}
-      <Show
-        when={!loading() && goals().length > 0 && !showNewGoalForm() && viewMode() === 'timeline'}
-      >
-        <GoalTimelineList goals={goals()} onComponentUpdate={handleComponentUpdate} />
-      </Show>
-
-      {/* List View */}
-      <Show when={!loading() && goals().length > 0 && !showNewGoalForm() && viewMode() === 'list'}>
-        <div class="space-y-4">
-          <For each={goals()}>
-            {(goal) => (
-              <div class={`card ${goal.status === 'completed' ? 'opacity-70' : ''}`}>
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-3 mb-2">
-                      <span class="text-2xl">{getStatusIcon(goal.status)}</span>
-                      <div>
-                        <h3
-                          class={`font-bold ${goal.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}
-                        >
-                          {goal.name}
-                        </h3>
-                        <p class={`text-sm ${getStatusColor(goal.status)}`}>
-                          {goal.status.charAt(0).toUpperCase() + goal.status.slice(1)}
-                          <Show when={goal.parentGoalId}>
-                            <span class="text-amber-600 dark:text-amber-400 ml-2">
-                              (Conditional)
-                            </span>
-                          </Show>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div class="grid grid-cols-3 gap-4 mt-4">
-                      <div>
-                        <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          Amount
-                        </label>
-                        <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
-                          {formatCurrency(goal.amount, currency())}
-                        </p>
-                      </div>
-                      <div>
-                        <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          Deadline
-                        </label>
-                        <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
-                          {goal.deadline
-                            ? new Date(goal.deadline).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })
-                            : 'Not set'}
-                        </p>
-                      </div>
-                      <div>
-                        <label class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          Progress
-                        </label>
-                        <p class="text-lg font-bold text-primary-600 dark:text-primary-400">
-                          {goal.progress || 0}%
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Progress bar */}
-                    <div class="mt-4 h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                      <div
-                        class="h-full bg-primary-500 transition-all duration-300"
-                        style={{ width: `${goal.progress || 0}%` }}
-                      />
-                    </div>
-
-                    {/* Components preview */}
-                    <Show when={goal.components && goal.components.length > 0}>
-                      <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-600">
-                        <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                          Components (
-                          {goal.components?.filter((c) => c.status === 'completed').length}/
-                          {goal.components?.length})
-                        </p>
-                        <div class="flex flex-wrap gap-2">
-                          <For each={goal.components}>
-                            {(component: GoalComponent) => (
-                              <span
-                                class={`px-2 py-1 text-xs rounded-full flex items-center gap-1 ${
-                                  component.status === 'completed'
-                                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                                    : component.status === 'in_progress'
-                                      ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300'
-                                      : 'bg-slate-100 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
-                                }`}
-                              >
-                                <span>{getTypeIcon(component.type)}</span>
-                                {component.name}
-                              </span>
-                            )}
-                          </For>
-                        </div>
-                      </div>
-                    </Show>
-                  </div>
-
-                  {/* Actions */}
-                  <div class="flex flex-col gap-2 ml-4">
-                    <button
-                      type="button"
-                      class="text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400"
-                      onClick={() => handleEdit(goal)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      class="text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                      onClick={() => handleToggleStatus(goal)}
-                    >
-                      {goal.status === 'completed' ? 'Reactivate' : 'Complete'}
-                    </button>
-                    <button
-                      type="button"
-                      class="text-sm text-red-500 hover:text-red-700"
-                      onClick={() => handleDelete(goal.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </For>
-        </div>
+      {/* Goals Timeline */}
+      <Show when={!loading() && goals().length > 0 && !showNewGoalForm()}>
+        <GoalTimelineList
+          goals={goals()}
+          currency={currency()}
+          onComponentUpdate={handleComponentUpdate}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onToggleStatus={handleToggleStatus}
+        />
       </Show>
 
       {/* Empty State / New Goal Form */}
