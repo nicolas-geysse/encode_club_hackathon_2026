@@ -142,6 +142,19 @@ export async function POST(event: APIEvent) {
       );
     }
 
+    // Check for existing item with same name+profile (deduplication)
+    const existing = await query<IncomeItemRow>(
+      `SELECT * FROM income_items WHERE profile_id = ${escapeSQL(profileId)} AND name = ${escapeSQL(name)}`
+    );
+    if (existing.length > 0) {
+      // Return existing item instead of creating duplicate
+      logger.info('Item already exists, returning existing', { name, profileId });
+      return new Response(JSON.stringify(rowToItem(existing[0])), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const itemId = uuidv4();
 
     await execute(`
@@ -237,7 +250,7 @@ export async function PUT(event: APIEvent) {
   }
 }
 
-// DELETE: Delete income item(s) - supports single id or bulk by profileId
+// DELETE: Delete income item(s) - supports single id, bulk by profileId, or dedup
 export async function DELETE(event: APIEvent) {
   try {
     await ensureIncomeSchema();
@@ -245,6 +258,38 @@ export async function DELETE(event: APIEvent) {
     const url = new URL(event.request.url);
     const itemId = url.searchParams.get('id');
     const profileId = url.searchParams.get('profileId');
+    const dedup = url.searchParams.get('dedup') === 'true';
+
+    // Deduplication mode: remove duplicate items by name for a profile
+    if (dedup && profileId) {
+      const escapedProfileId = escapeSQL(profileId);
+
+      // Find and delete duplicates (keep the oldest item for each name)
+      const duplicatesQuery = `
+        DELETE FROM income_items
+        WHERE id IN (
+          SELECT id FROM (
+            SELECT id, ROW_NUMBER() OVER (PARTITION BY profile_id, name ORDER BY created_at ASC) as rn
+            FROM income_items
+            WHERE profile_id = ${escapedProfileId}
+          ) sub
+          WHERE rn > 1
+        )
+      `;
+      await execute(duplicatesQuery);
+
+      // Count remaining items
+      const remainingResult = await query<{ count: bigint }>(
+        `SELECT COUNT(*) as count FROM income_items WHERE profile_id = ${escapedProfileId}`
+      );
+      const remaining = Number(remainingResult[0]?.count || 0);
+
+      logger.info('Deduplicated income items', { profileId, remaining });
+      return new Response(JSON.stringify({ success: true, remaining, deduplicated: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     // Bulk delete by profileId (for re-onboarding)
     if (profileId && !itemId) {

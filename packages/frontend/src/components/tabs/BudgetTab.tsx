@@ -24,6 +24,7 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
+import { Slider } from '~/components/ui/Slider';
 import {
   Wallet,
   Home,
@@ -548,30 +549,26 @@ export function BudgetTab(props: BudgetTabProps) {
 
                   {/* Pause Slider */}
                   <Show when={maxPauseMonths() > 0}>
-                    <div class="space-y-2">
-                      <div class="flex items-center justify-between text-sm">
-                        <span class="text-muted-foreground">Pause for:</span>
-                        <span class="font-medium text-amber-600 dark:text-amber-400">
-                          {item.pausedMonths} month{item.pausedMonths !== 1 ? 's' : ''}
-                          {item.pausedMonths > 0 &&
-                            ` = -${formatCurrency(item.pausedMonths * item.currentCost, currency())}`}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
+                    <div class="pt-2 pb-1">
+                      <Slider
+                        min={0}
                         max={maxPauseMonths()}
-                        value={item.pausedMonths}
-                        onInput={(e) =>
-                          updatePausedMonths(item.id, parseInt(e.currentTarget.value))
-                        }
-                        class="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        step={1}
+                        value={[item.pausedMonths]}
+                        onChange={(vals: number[]) => updatePausedMonths(item.id, vals[0])}
                         disabled={isLoading()}
+                        label="Pause duration"
+                        valueDisplay={(val: number) => (
+                          <span
+                            class={cn(
+                              val > 0 ? 'text-amber-600 dark:text-amber-400 font-bold' : ''
+                            )}
+                          >
+                            {val} mo
+                            {val > 0 && ` (-${formatCurrency(val * item.currentCost, currency())})`}
+                          </span>
+                        )}
                       />
-                      <div class="flex justify-between text-xs text-muted-foreground">
-                        <span>0</span>
-                        <span>{maxPauseMonths()} mo</span>
-                      </div>
                     </div>
                   </Show>
 

@@ -195,6 +195,19 @@ export async function POST(event: APIEvent) {
       );
     }
 
+    // Check for existing item with same name+profile (deduplication)
+    const existing = await query<InventoryItemRow>(
+      `SELECT * FROM inventory_items WHERE profile_id = ${escapeSQL(profileId)} AND name = ${escapeSQL(name)}`
+    );
+    if (existing.length > 0) {
+      // Return existing item instead of creating duplicate
+      logger.info('Item already exists, returning existing', { name, profileId });
+      return new Response(JSON.stringify(rowToItem(existing[0])), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const itemId = uuidv4();
 
     await execute(`
