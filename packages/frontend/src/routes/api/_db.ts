@@ -58,27 +58,50 @@ function getGlobalState(): DuckDBState {
 }
 
 /**
- * Ensure data directory exists
+ * Ensure data directory exists and log contents for debugging
  */
 function ensureDataDir(): void {
   if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
     console.log(`[DuckDB] Created data directory: ${DB_DIR}`);
+  } else {
+    // Debug: list existing files
+    try {
+      const files = fs.readdirSync(DB_DIR);
+      console.log(`[DuckDB] Existing files in ${DB_DIR}:`, files.length > 0 ? files : '(empty)');
+      // Check for WAL files that might cause issues
+      const walFiles = files.filter((f) => f.includes('.wal'));
+      if (walFiles.length > 0) {
+        console.warn(`[DuckDB] Found WAL files: ${walFiles.join(', ')} - may cause lock issues`);
+      }
+    } catch (e) {
+      console.error(`[DuckDB] Cannot read directory ${DB_DIR}:`, e);
+    }
   }
 }
 
 /**
  * Open database with callback (required for DuckDB async init)
+ * Includes timeout to detect hanging operations
  */
 function openDatabase(): Promise<DuckDBDatabase> {
   ensureDataDir();
   console.log(`[DuckDB] Opening database: ${DB_PATH}`);
 
   return new Promise((resolve, reject) => {
+    // Timeout after 10 seconds - if callback never fires, something is wrong
+    const timeout = setTimeout(() => {
+      console.error('[DuckDB] TIMEOUT: Database open callback never fired after 10s');
+      console.error('[DuckDB] This usually means corrupted DB file or WAL lock');
+      console.error('[DuckDB] Try deleting the database file and restarting');
+      reject(new Error('Database open timeout - callback never fired'));
+    }, 10000);
+
     const db = new (duckdb.Database as new (
       path: string,
       callback: (err: Error | null) => void
     ) => DuckDBDatabase)(DB_PATH, (err) => {
+      clearTimeout(timeout);
       if (err) {
         console.error('[DuckDB] Failed to open database:', err.message);
         reject(err);
