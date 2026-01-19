@@ -1,11 +1,16 @@
 # Stride - Student Financial Health Navigator
 # Multi-stage build for optimized production image
+# Using Debian Slim instead of Alpine for DuckDB native module compatibility
 
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 # Install build dependencies for native modules (DuckDB)
-RUN apk add --no-cache python3 make g++ libc6-compat
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -27,10 +32,12 @@ COPY . .
 RUN pnpm build:frontend
 
 # Stage 2: Production
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
 
-# Install runtime dependencies for DuckDB
-RUN apk add --no-cache libc6-compat libstdc++
+# Install runtime dependencies (curl for healthcheck)
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -54,14 +61,14 @@ RUN mkdir -p /app/data
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV DUCKDB_PATH=/app/data/stride.db
+ENV DUCKDB_PATH=/app/data/stride.duckdb
 
 # Expose the port
 EXPOSE 3000
 
-# Health check
+# Health check using curl (more reliable than wget on Debian)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+  CMD curl -f http://localhost:3000/ || exit 1
 
 # Run the server
 CMD ["node", "packages/frontend/.output/server/index.mjs"]
