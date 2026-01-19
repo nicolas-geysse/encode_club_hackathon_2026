@@ -353,3 +353,71 @@ try {
 1. **Feature M**: Cumulative Savings (BudgetTab) - *High Value*
 2. **Feature N**: Borrowed Panel Totals (TradeTab) - *Consistency*
 
+---
+
+## Sprint 7 Implementation Status: ✅ COMPLETE
+
+### TD-1: Migrate `console.error` to `toast.error` - DONE
+
+**Date**: 2026-01-19
+
+**Files Modified**:
+
+| File | Occurrences | Changes |
+|------|-------------|---------|
+| `GoalsTab.tsx` | 3 | Import toast; replace L173, L398, L404 |
+| `ProfileSelector.tsx` | 5 | Import toast; replace L78, L142, L161, L189, L239 |
+| `ProfileTab.tsx` | 1 | Import toast; replace L87 |
+| `EnergyTracker.tsx` | 1 | Import toast; replace L75 |
+
+**Replacements Made**:
+- `GoalsTab.tsx:173` → `toast.error('Load failed', 'Could not load goals.')`
+- `GoalsTab.tsx:398` → `toast.error('Update failed', error.message || 'Could not update component.')`
+- `GoalsTab.tsx:404` → `toast.error('Update failed', 'Could not update component.')`
+- `ProfileSelector.tsx:78` → `toast.error('Load error', 'Could not load profiles.')`
+- `ProfileSelector.tsx:142` → `toast.error('Export failed', 'Could not export profile.')`
+- `ProfileSelector.tsx:161` → `toast.error('Import failed', error.message || ...)`
+- `ProfileSelector.tsx:189` → `toast.error('Delete failed', error.message || ...)`
+- `ProfileSelector.tsx:239` → `toast.error('Reset failed', error.message || ...)`
+- `ProfileTab.tsx:87` → `toast.error('Save failed', 'Could not save profile.')`
+- `EnergyTracker.tsx:75` → `toast.error('Log failed', 'Could not save energy.')`
+
+**Pattern Used**:
+```typescript
+import { toast } from '~/lib/notificationStore';
+// ...
+try {
+  // ...
+} catch {  // No unused variable (TS 4.0+ feature)
+  toast.error('Title', 'User-friendly message.');
+}
+```
+
+**Skipped** (as planned):
+- `SimulationControls.tsx` - Non-user-facing, silent errors acceptable
+- `ChatInput.tsx`, `VoiceInput.tsx` - Hardware/STT errors, already handled with `setError()`
+
+**Verification**:
+- [x] `pnpm lint` passes (0 errors, 0 warnings)
+- [x] `pnpm typecheck` passes
+- [x] Toast notifications appear in NotificationBell on errors
+
+---
+
+## Next Sprint Candidates
+
+### TD-2: Unit Tests for `onboardingPersistence.ts` (HIGH)
+- Create `lib/__tests__/onboardingPersistence.test.ts`
+- Test `persistAllOnboardingData` success/partial/fail scenarios
+
+### TD-3: City/Currency Detection (LOW)
+- Extract lines 979-1057 from `OnboardingChat.tsx`
+- Create `lib/locationDetection.ts`
+
+### TD-4: Smart Merge Helper (LOW)
+- Extract `smartMergeArrays` pattern used 6 times
+
+### Features
+1. **Feature M**: Cumulative Savings (BudgetTab)
+2. **Feature N**: Borrowed Panel Totals (TradeTab)
+

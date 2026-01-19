@@ -11,6 +11,7 @@ import { Dynamic } from 'solid-js/web';
 import { useNavigate } from '@solidjs/router';
 import { profileService, type ProfileSummary, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
+import { toast } from '~/lib/notificationStore';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import {
@@ -74,8 +75,8 @@ export function ProfileSelector(props: Props) {
       // Refresh active profile via context (shared across app)
       await refreshProfile();
       props.onProfileChange?.(activeProfile());
-    } catch (error) {
-      console.error('Error loading profiles:', error);
+    } catch {
+      toast.error('Load error', 'Could not load profiles.');
     } finally {
       setLocalLoading(false);
     }
@@ -138,9 +139,8 @@ export function ProfileSelector(props: Props) {
     try {
       await profileService.exportProfile(current.id);
       setIsOpen(false);
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Failed to export profile');
+    } catch {
+      toast.error('Export failed', 'Could not export profile.');
     }
   };
 
@@ -158,8 +158,10 @@ export function ProfileSelector(props: Props) {
         alert(result.message || 'Profile imported successfully');
       }
     } catch (error) {
-      console.error('Import failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to import profile');
+      toast.error(
+        'Import failed',
+        error instanceof Error ? error.message : 'Failed to import profile.'
+      );
     } finally {
       // Reset file input
       input.value = '';
@@ -187,8 +189,10 @@ export function ProfileSelector(props: Props) {
       // Reload profiles
       await loadProfiles();
     } catch (error) {
-      console.error('Delete failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to delete profile');
+      toast.error(
+        'Delete failed',
+        error instanceof Error ? error.message : 'Failed to delete profile.'
+      );
     }
   };
 
@@ -238,8 +242,7 @@ export function ProfileSelector(props: Props) {
       // Force full reload to start fresh onboarding
       window.location.href = '/';
     } catch (error) {
-      console.error('Reset failed:', error);
-      alert(error instanceof Error ? error.message : 'Reset failed');
+      toast.error('Reset failed', error instanceof Error ? error.message : 'Reset failed.');
     }
   };
 

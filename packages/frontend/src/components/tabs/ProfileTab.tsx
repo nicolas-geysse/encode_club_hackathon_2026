@@ -11,6 +11,7 @@
 import { createSignal, Show, For, createEffect } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
+import { toast } from '~/lib/notificationStore';
 import { calculateTotalExpenses } from '~/lib/expenseUtils';
 import {
   formatDate,
@@ -83,8 +84,8 @@ export function ProfileTab(props: ProfileTabProps) {
 
       setEditing(false);
       props.onProfileChange?.(updates);
-    } catch (error) {
-      console.error('[ProfileTab] Failed to save profile:', error);
+    } catch {
+      toast.error('Save failed', 'Could not save profile.');
     } finally {
       setSaving(false);
     }

@@ -6,6 +6,7 @@
  */
 
 import { createSignal, Show, For } from 'solid-js';
+import { toast } from '~/lib/notificationStore';
 
 interface EnergyTrackerProps {
   onSubmit?: (data: {
@@ -71,8 +72,8 @@ export function EnergyTracker(props: EnergyTrackerProps) {
           compositeScore: compositeScore(),
         });
       }
-    } catch (error) {
-      console.error('Failed to log energy:', error);
+    } catch {
+      toast.error('Log failed', 'Could not save energy.');
     } finally {
       setLoading(false);
     }

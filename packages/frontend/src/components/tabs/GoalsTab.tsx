@@ -9,6 +9,7 @@
 import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
 import { goalService, type Goal, type GoalComponent } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
+import { toast } from '~/lib/notificationStore';
 import { GoalTimelineList } from '~/components/GoalTimeline';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -169,8 +170,8 @@ export function GoalsTab(props: GoalsTabProps) {
         defaultDeadline.setDate(defaultDeadline.getDate() + 56);
         setGoalDeadline(defaultDeadline.toISOString().split('T')[0]);
       }
-    } catch (error) {
-      console.error('[GoalsTab] Failed to load goals:', error);
+    } catch {
+      toast.error('Load failed', 'Could not load goals.');
     } finally {
       setLoading(false);
     }
@@ -394,14 +395,14 @@ export function GoalsTab(props: GoalsTabProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        console.error('[GoalsTab] Failed to update component:', error.message);
+        toast.error('Update failed', error.message || 'Could not update component.');
         return;
       }
 
       // Refresh goals to get updated progress
       await refreshGoals();
-    } catch (error) {
-      console.error('[GoalsTab] Error updating component:', error);
+    } catch {
+      toast.error('Update failed', 'Could not update component.');
     }
   };
 
