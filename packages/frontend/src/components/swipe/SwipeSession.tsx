@@ -14,10 +14,9 @@ import type { Scenario, UserPreferences } from '../tabs/SwipeTab';
 import { getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
-import { Progress } from '~/components/ui/Progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { Card } from '~/components/ui/Card';
-import { RotateCcw, X, ThumbsDown, Heart, Star, Bot } from 'lucide-solid';
+import { X, ThumbsDown, Heart, Star, Bot } from 'lucide-solid';
 
 interface SwipeSessionProps {
   scenarios: Scenario[];
@@ -119,34 +118,6 @@ export function SwipeSession(props: SwipeSessionProps) {
   };
   const [adjustments, setAdjustments] = createSignal<CardAdjustments>(getDefaultAdjustments());
 
-  // Undo last swipe
-  const handleUndo = () => {
-    const history = swipeHistory();
-    if (history.length === 0) return;
-
-    const lastEntry = history[history.length - 1];
-
-    // Restore preferences
-    setPreferences(lastEntry.previousPreferences);
-    setCurrentIndex(lastEntry.index);
-
-    // Remove from accepted/rejected
-    if (lastEntry.wasAccepted) {
-      setAccepted(accepted().filter((s) => s.id !== lastEntry.scenario.id));
-    } else if (lastEntry.direction === 'left') {
-      setRejected(rejected().filter((s) => s.id !== lastEntry.scenario.id));
-    }
-
-    // Remove from decisions
-    setDecisions(decisions().slice(0, -1));
-
-    // Remove from history
-    setSwipeHistory(history.slice(0, -1));
-
-    // Restore the adjustments that were set for this card
-    setAdjustments(lastEntry.previousAdjustments);
-  };
-
   const handleSwipe = (direction: SwipeDirection, timeSpent: number) => {
     setTriggerSwipe(null); // Reset trigger to prevent double firing on next card
     const scenario = props.scenarios[currentIndex()];
@@ -216,9 +187,6 @@ export function SwipeSession(props: SwipeSessionProps) {
       }
     }
   };
-
-  const progress = () => (currentIndex() / props.scenarios.length) * 100;
-  const canUndo = () => swipeHistory().length > 0;
 
   return (
     <div class="flex flex-col md:flex-row items-center md:items-end justify-center py-4 w-full max-w-7xl mx-auto gap-6">

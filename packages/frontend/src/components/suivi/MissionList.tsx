@@ -6,7 +6,6 @@ import { Tabs, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { LogProgressDialog } from './LogProgressDialog';
 import { CheckCircle2, Clock, Wallet, Target, Trophy, Inbox, Zap, Hand } from 'lucide-solid';
-import { cn } from '~/lib/cn';
 
 interface MissionListProps {
   missions: Mission[];

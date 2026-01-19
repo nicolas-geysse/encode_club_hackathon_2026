@@ -8,6 +8,7 @@
 
 import { createSignal, Show, For, onMount } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
+import { useNavigate } from '@solidjs/router';
 import { profileService, type ProfileSummary, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
 import { Button } from '~/components/ui/Button';
@@ -29,7 +30,7 @@ import {
   Check,
   Download,
   Upload,
-  MoreVertical,
+  UserPlus,
 } from 'lucide-solid';
 
 interface Props {
@@ -37,6 +38,7 @@ interface Props {
 }
 
 export function ProfileSelector(props: Props) {
+  const navigate = useNavigate();
   // Get shared profile state from context
   const { profile: activeProfile, loading: contextLoading, refreshProfile } = useProfile();
 
@@ -86,13 +88,9 @@ export function ProfileSelector(props: Props) {
 
     const success = await profileService.switchProfile(profileId);
     if (success) {
-      // Refresh via context - updates activeProfile across whole app
-      await refreshProfile();
-      props.onProfileChange?.(activeProfile());
-
-      // Update profiles list
-      const allProfiles = await profileService.listProfiles();
-      setProfiles(allProfiles);
+      // Force full page reload to reset all component state
+      // This ensures followupData, achievements, and other cached data are cleared
+      window.location.reload();
     }
     setIsOpen(false);
   };
@@ -111,13 +109,8 @@ export function ProfileSelector(props: Props) {
     });
 
     if (newProfile) {
-      // Refresh via context - updates activeProfile across whole app
-      await refreshProfile();
-      props.onProfileChange?.(activeProfile());
-
-      // Reload profiles list
-      const allProfiles = await profileService.listProfiles();
-      setProfiles(allProfiles);
+      // Force full page reload to reset all component state for new profile
+      window.location.reload();
     }
 
     setShowNewGoalModal(false);
@@ -189,6 +182,20 @@ export function ProfileSelector(props: Props) {
       console.error('Delete failed:', error);
       alert(error instanceof Error ? error.message : 'Failed to delete profile');
     }
+  };
+
+  const handleNewFreshProfile = () => {
+    // Clear localStorage to trigger fresh onboarding
+    localStorage.removeItem('studentProfile');
+    localStorage.removeItem('planData');
+    localStorage.removeItem('activeProfileId');
+    localStorage.removeItem('followupData');
+    localStorage.removeItem('achievements');
+    // Set flag to force fresh onboarding (skip API profile loading)
+    localStorage.setItem('forceNewProfile', 'true');
+    setIsOpen(false);
+    // Navigate to onboarding - new profile will auto-generate UUID on first save
+    navigate('/');
   };
 
   return (
@@ -279,6 +286,15 @@ export function ProfileSelector(props: Props) {
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={handleNewFreshProfile}
+                class="w-full justify-start gap-2 mb-1"
+              >
+                <UserPlus class="h-4 w-4" />
+                New profile
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setIsOpen(false);
                   setShowNewGoalModal(true);
@@ -331,7 +347,7 @@ export function ProfileSelector(props: Props) {
                 <Input
                   type="text"
                   value={newGoalForm().name}
-                  onInput={(e: any) =>
+                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                     setNewGoalForm({ ...newGoalForm(), name: e.currentTarget.value })
                   }
                   placeholder="Ex: Driver's license"
@@ -345,7 +361,7 @@ export function ProfileSelector(props: Props) {
                 <Input
                   type="number"
                   value={newGoalForm().amount}
-                  onInput={(e: any) =>
+                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                     setNewGoalForm({
                       ...newGoalForm(),
                       amount: parseInt(e.currentTarget.value) || 0,
@@ -363,7 +379,7 @@ export function ProfileSelector(props: Props) {
                 <Input
                   type="date"
                   value={newGoalForm().deadline}
-                  onInput={(e: any) =>
+                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                     setNewGoalForm({ ...newGoalForm(), deadline: e.currentTarget.value })
                   }
                 />

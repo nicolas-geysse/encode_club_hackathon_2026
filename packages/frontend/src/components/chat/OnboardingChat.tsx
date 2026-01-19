@@ -19,6 +19,7 @@ import { skillService } from '~/lib/skillService';
 import { lifestyleService } from '~/lib/lifestyleService';
 import { inventoryService } from '~/lib/inventoryService';
 import { incomeService } from '~/lib/incomeService';
+import { tradeService } from '~/lib/tradeService';
 import { useProfile } from '~/lib/profileContext';
 
 interface Message {
@@ -46,6 +47,14 @@ interface Subscription {
   currentCost: number;
 }
 
+interface TradeOpportunity {
+  type: 'borrow' | 'lend' | 'trade' | 'sell' | 'cut';
+  description: string;
+  withPerson?: string;
+  forWhat?: string;
+  estimatedValue?: number;
+}
+
 interface ProfileData {
   name: string;
   diploma: string;
@@ -69,6 +78,7 @@ interface ProfileData {
   academicEvents?: AcademicEvent[];
   inventoryItems?: InventoryItem[];
   subscriptions?: Subscription[];
+  tradeOpportunities?: TradeOpportunity[];
 }
 
 type OnboardingStep =
@@ -196,6 +206,7 @@ export function OnboardingChat() {
     refreshInventory,
     refreshLifestyle,
     refreshIncome,
+    refreshTrades,
   } = useProfile();
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loading, setLoading] = createSignal(false);
@@ -313,15 +324,25 @@ export function OnboardingChat() {
     const newProfile = contextProfile();
     const currentId = profileId();
     const currentMode = chatMode();
+    const complete = isComplete();
 
     // Only switch profiles if:
     // 1. Context profile exists and has a different ID than current
     // 2. AND we're not in the middle of onboarding (user explicitly switched in header)
+    // 3. AND we haven't just completed onboarding (to avoid resetting after save)
     // This prevents race conditions where context loads after onMount starts fresh onboarding
     if (newProfile && newProfile.id && newProfile.id !== currentId) {
       // If we're in onboarding mode with no profile ID yet, don't switch
       // (user just started fresh, context might have stale data)
       if (currentMode === 'onboarding' && !currentId) {
+        return;
+      }
+      // If we just completed onboarding and saved, the context refresh should not reset chat
+      // The profile IDs will match after setProfileId is called, but there's a brief window
+      // where the effect fires before the local state updates
+      if (complete && currentMode === 'conversation') {
+        // Already in conversation mode with complete profile - just update the ID silently
+        setProfileId(newProfile.id);
         return;
       }
       handleProfileSwitch(newProfile);
@@ -343,8 +364,27 @@ export function OnboardingChat() {
   };
 
   // Check for existing profile on mount
-  // Priority: 1. API (DuckDB), 2. localStorage fallback
+  // Priority: 1. Check forceNewProfile flag, 2. API (DuckDB), 3. localStorage fallback
   onMount(async () => {
+    // Check if user requested a completely fresh start
+    const forceNew = localStorage.getItem('forceNewProfile');
+    if (forceNew === 'true') {
+      // Clear the flag immediately
+      localStorage.removeItem('forceNewProfile');
+      // Start fresh onboarding - don't load any existing profile
+      setChatMode('onboarding');
+      setStep('greeting');
+      setIsComplete(false);
+      setMessages([
+        {
+          id: 'greeting',
+          role: 'assistant',
+          content: GREETING_MESSAGE,
+        },
+      ]);
+      return;
+    }
+
     try {
       // First, try to load from API (DuckDB)
       const apiProfile = await profileService.loadActiveProfile();
@@ -610,10 +650,29 @@ export function OnboardingChat() {
   };
 
   // Reset state for NEW profile (completely fresh)
-  const resetForNewProfile = () => {
+  const resetForNewProfile = async () => {
+    // Get current profile ID before clearing
+    const currentProfileId = profileId();
+
+    // If we have a current profile, clean up its data in the database
+    if (currentProfileId) {
+      try {
+        await fetch('/api/profiles/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profileId: currentProfileId }),
+        });
+      } catch (err) {
+        logger.warn('Failed to reset profile data in DB', { error: err });
+        // Continue anyway - localStorage will be cleared
+      }
+    }
+
     // IMPORTANT: Clear localStorage FIRST to prevent stale data from being loaded
     // This fixes the "profile bleeding" bug where old data appeared in new sessions
     localStorage.removeItem('studentProfile');
+    localStorage.removeItem('followupData');
+    localStorage.removeItem('achievements');
 
     // Reset profile to defaults
     setProfile({
@@ -1071,6 +1130,7 @@ export function OnboardingChat() {
           goalAmount: finalProfile.goalAmount,
           goalDeadline: finalProfile.goalDeadline,
           planData, // Include planData for all tabs
+          followupData: {}, // Explicitly initialize to prevent localStorage fallback
         };
 
         // Save to API first
@@ -1164,16 +1224,22 @@ export function OnboardingChat() {
                   other: 'Other expenses',
                 };
 
+                // Only filter out generic subscriptions if user added explicit ones
+                // This prevents losing the 5% estimate when user hasn't specified subs
+                const hasExplicitSubscriptions =
+                  finalProfile.subscriptions && finalProfile.subscriptions.length > 0;
+
                 await lifestyleService.bulkCreateItems(
                   savedProfileId,
                   finalProfile.expenses
-                    .filter((exp) => exp.category !== 'subscriptions') // Subscriptions handled separately below
+                    .filter((exp) => !hasExplicitSubscriptions || exp.category !== 'subscriptions')
                     .map((exp) => ({
                       name: categoryNames[exp.category] || exp.category,
                       category: (exp.category === 'rent' ? 'housing' : exp.category) as
                         | 'housing'
                         | 'food'
                         | 'transport'
+                        | 'subscriptions'
                         | 'other',
                       currentCost: exp.amount,
                     }))
@@ -1213,16 +1279,46 @@ export function OnboardingChat() {
                 logger.error('Failed to persist income', { error: incomeError });
               }
             }
+
+            // Create trades in trades table
+            if (finalProfile.tradeOpportunities && finalProfile.tradeOpportunities.length > 0) {
+              try {
+                await tradeService.bulkCreateTrades(
+                  savedProfileId,
+                  finalProfile.tradeOpportunities.map((trade) => ({
+                    type: trade.type === 'cut' ? 'sell' : trade.type, // 'cut' maps to 'sell'
+                    name: trade.description,
+                    partner: trade.withPerson || 'Unknown',
+                    value: trade.estimatedValue ?? 0,
+                    description: trade.forWhat,
+                    status: 'pending' as const,
+                  }))
+                );
+                logger.info('Trades persisted', {
+                  profileId: savedProfileId,
+                  count: finalProfile.tradeOpportunities.length,
+                });
+              } catch (tradeError) {
+                logger.error('Failed to persist trades', { error: tradeError });
+              }
+            }
           }
+
+          // Mark onboarding as complete BEFORE refreshing context
+          // This prevents the createEffect from resetting the chat when it detects profile change
+          setChatMode('conversation');
+          setStep('complete');
+          setIsComplete(true);
 
           // Refresh shared profile context so header updates with new name
           await refreshProfile();
-          // Also refresh skills, inventory, lifestyle, income to ensure data is loaded before navigating
+          // Also refresh skills, inventory, lifestyle, income, trades to ensure data is loaded before navigating
           await Promise.all([
             refreshSkills(),
             refreshInventory(),
             refreshLifestyle(),
             refreshIncome(),
+            refreshTrades(),
           ]);
         } catch (error) {
           logger.error('Failed to save profile to API', { error });
@@ -1230,7 +1326,6 @@ export function OnboardingChat() {
 
         // Keep localStorage as fallback
         localStorage.setItem('studentProfile', JSON.stringify(finalProfile));
-        setIsComplete(true);
       }
 
       // Add assistant message with source indicator
@@ -1415,6 +1510,8 @@ export function OnboardingChat() {
                   localStorage.removeItem('studentProfile');
                   localStorage.removeItem('planData');
                   localStorage.removeItem('activeProfileId');
+                  localStorage.removeItem('followupData');
+                  localStorage.removeItem('achievements');
 
                   const oldProfileId = profileId();
                   if (oldProfileId) {

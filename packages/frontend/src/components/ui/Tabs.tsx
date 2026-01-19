@@ -1,4 +1,4 @@
-import { type Component, type ParentComponent, splitProps } from 'solid-js';
+import { type ParentComponent, splitProps } from 'solid-js';
 import { Tabs as KobalteTabs } from '@kobalte/core';
 import { cn } from '~/lib/cn';
 

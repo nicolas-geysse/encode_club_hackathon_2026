@@ -562,6 +562,13 @@ export async function DELETE(event: APIEvent) {
       // Lifestyle table might not exist yet, ignore
     }
 
+    // Delete trades for this profile
+    try {
+      await execute(`DELETE FROM trades WHERE profile_id = ${escapedProfileId}`);
+    } catch {
+      // Trades table might not exist yet, ignore
+    }
+
     // Delete the profile
     await execute(`DELETE FROM profiles WHERE id = ${escapedProfileId}`);
 

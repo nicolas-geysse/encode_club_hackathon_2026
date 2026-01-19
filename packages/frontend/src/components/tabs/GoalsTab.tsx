@@ -16,20 +16,15 @@ import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
 import {
-  MoreVertical,
   Pencil,
-  Trash2,
   CheckCircle2,
   AlertCircle,
   Plus,
   Clock,
   Target,
-  User,
   X,
   GraduationCap,
-  Calendar,
   Package,
-  ChevronDown,
 } from 'lucide-solid';
 
 interface AcademicEvent {
@@ -546,7 +541,9 @@ export function GoalsTab(props: GoalsTabProps) {
                     type="text"
                     placeholder="Ex: Summer vacation"
                     value={goalName()}
-                    onInput={(e: any) => setGoalName(e.currentTarget.value)}
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                      setGoalName(e.currentTarget.value)
+                    }
                   />
                 </div>
 
@@ -560,7 +557,9 @@ export function GoalsTab(props: GoalsTabProps) {
                       min="50"
                       max="10000"
                       value={goalAmount()}
-                      onInput={(e: any) => setGoalAmount(parseInt(e.currentTarget.value) || 0)}
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                        setGoalAmount(parseInt(e.currentTarget.value) || 0)
+                      }
                     />
                   </div>
 
@@ -571,7 +570,9 @@ export function GoalsTab(props: GoalsTabProps) {
                     <Input
                       type="date"
                       value={goalDeadline() || ''}
-                      onInput={(e: any) => setGoalDeadline(e.currentTarget.value)}
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                        setGoalDeadline(e.currentTarget.value)
+                      }
                       min={new Date().toISOString().split('T')[0]}
                       class="dark:[color-scheme:dark]"
                     />
@@ -646,13 +647,13 @@ export function GoalsTab(props: GoalsTabProps) {
                     type="text"
                     placeholder="Component name"
                     value={newComponent().name}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewComponent({ ...newComponent(), name: e.currentTarget.value })
                     }
                   />
                   <Select
                     value={newComponent().type}
-                    onChange={(e: any) =>
+                    onChange={(e: Event & { currentTarget: HTMLSelectElement }) =>
                       setNewComponent({
                         ...newComponent(),
                         type: e.currentTarget.value as GoalComponent['type'],
@@ -673,7 +674,7 @@ export function GoalsTab(props: GoalsTabProps) {
                       placeholder="Hours"
                       min="0"
                       value={newComponent().estimatedHours || ''}
-                      onInput={(e: any) =>
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                         setNewComponent({
                           ...newComponent(),
                           estimatedHours: parseInt(e.currentTarget.value) || 0,
@@ -690,7 +691,7 @@ export function GoalsTab(props: GoalsTabProps) {
                     placeholder={`Cost (${currencySymbol()})`}
                     min="0"
                     value={newComponent().estimatedCost || ''}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewComponent({
                         ...newComponent(),
                         estimatedCost: parseInt(e.currentTarget.value) || 0,
@@ -709,9 +710,9 @@ export function GoalsTab(props: GoalsTabProps) {
                         class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         multiple
                         value={newComponent().dependsOn}
-                        onChange={(e: any) => {
+                        onChange={(e: Event & { currentTarget: HTMLSelectElement }) => {
                           const selected = Array.from(e.currentTarget.selectedOptions).map(
-                            (o: any) => o.value
+                            (o: HTMLOptionElement) => o.value
                           );
                           setNewComponent({ ...newComponent(), dependsOn: selected });
                         }}
@@ -753,7 +754,7 @@ export function GoalsTab(props: GoalsTabProps) {
                       </label>
                       <Select
                         value={parentGoalId() || ''}
-                        onChange={(e: any) => {
+                        onChange={(e: Event & { currentTarget: HTMLSelectElement }) => {
                           setParentGoalId(e.currentTarget.value || null);
                           if (e.currentTarget.value) {
                             setConditionType('after_completion');
@@ -840,7 +841,7 @@ export function GoalsTab(props: GoalsTabProps) {
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Select
                   value={newEvent().type}
-                  onChange={(e: any) =>
+                  onChange={(e: Event & { currentTarget: HTMLSelectElement }) =>
                     setNewEvent({
                       ...newEvent(),
                       type: e.currentTarget.value as AcademicEvent['type'],
@@ -859,7 +860,9 @@ export function GoalsTab(props: GoalsTabProps) {
                   type="text"
                   placeholder="Event name"
                   value={newEvent().name}
-                  onInput={(e: any) => setNewEvent({ ...newEvent(), name: e.currentTarget.value })}
+                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                    setNewEvent({ ...newEvent(), name: e.currentTarget.value })
+                  }
                 />
 
                 {/* Dates Section - Spans 2 columns to allow side-by-side date pickers with checkbox */}
@@ -871,7 +874,7 @@ export function GoalsTab(props: GoalsTabProps) {
                     <Input
                       type="date"
                       value={newEvent().startDate}
-                      onInput={(e: any) =>
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                         setNewEvent({
                           ...newEvent(),
                           startDate: e.currentTarget.value,
@@ -912,7 +915,7 @@ export function GoalsTab(props: GoalsTabProps) {
                       type="date"
                       value={newEvent().endDate}
                       disabled={isSameDay()}
-                      onInput={(e: any) =>
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                         setNewEvent({ ...newEvent(), endDate: e.currentTarget.value })
                       }
                       class={`dark:[color-scheme:dark] ${isSameDay() ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -981,7 +984,7 @@ export function GoalsTab(props: GoalsTabProps) {
               <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Select
                   value={newCommitment().type}
-                  onChange={(e: any) =>
+                  onChange={(e: Event & { currentTarget: HTMLSelectElement }) =>
                     setNewCommitment({
                       ...newCommitment(),
                       type: e.currentTarget.value as Commitment['type'],
@@ -1002,7 +1005,7 @@ export function GoalsTab(props: GoalsTabProps) {
                   type="text"
                   placeholder="Activity name"
                   value={newCommitment().name}
-                  onInput={(e: any) =>
+                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                     setNewCommitment({ ...newCommitment(), name: e.currentTarget.value })
                   }
                 />
@@ -1014,7 +1017,7 @@ export function GoalsTab(props: GoalsTabProps) {
                     max="168"
                     placeholder="Hours/week"
                     value={newCommitment().hoursPerWeek || ''}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewCommitment({
                         ...newCommitment(),
                         hoursPerWeek: parseInt(e.currentTarget.value) || 0,

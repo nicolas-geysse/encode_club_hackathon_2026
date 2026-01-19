@@ -119,6 +119,38 @@ export interface CreateIncomeItemInput {
   amount: number;
 }
 
+// === TRADE ===
+
+export type TradeType = 'borrow' | 'lend' | 'trade' | 'sell';
+export type TradeStatus = 'pending' | 'active' | 'completed';
+
+export interface TradeItem {
+  id: string;
+  profileId: string;
+  type: TradeType;
+  name: string;
+  description?: string;
+  partner: string;
+  value: number;
+  status: TradeStatus;
+  dueDate?: string;
+  inventoryItemId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateTradeInput {
+  profileId: string;
+  type?: TradeType;
+  name: string;
+  description?: string;
+  partner: string;
+  value?: number;
+  status?: TradeStatus;
+  dueDate?: string;
+  inventoryItemId?: string;
+}
+
 // === LEGACY SHIMS (for backward compatibility with plan.tsx props) ===
 
 /** Skill without profileId/timestamps - for plan.tsx props */

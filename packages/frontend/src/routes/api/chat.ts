@@ -16,6 +16,9 @@ import {
   type TraceContext,
 } from '../../lib/opik';
 import { processWithGroqExtractor, type ProfileData } from '../../lib/onboardingExtractor';
+import { createLogger } from '../../lib/logger';
+
+const logger = createLogger('ChatAPI');
 
 // Feature flag for Groq extractor (set to false to use legacy Groq-only approach without JSON mode)
 const USE_GROQ_EXTRACTOR = process.env.USE_GROQ_EXTRACTOR !== 'false';
@@ -1062,7 +1065,7 @@ function extractDataWithRegex(
   const hasMinHourlyRate = data.minHourlyRate || context?.minHourlyRate;
 
   // Debug logging for expense extraction
-  console.log('[extractDataWithRegex] Context:', {
+  logger.debug('[extractDataWithRegex] Context:', {
     income: context?.income,
     expenses: context?.expenses,
     hasIncome,
@@ -1075,7 +1078,7 @@ function extractDataWithRegex(
     for (const num of numbers) {
       // Income: 500-10000 range, only if not already set
       if (num >= 500 && num <= 10000 && !hasIncome && !data.income) {
-        console.log('[extractDataWithRegex] Setting income:', num);
+        logger.debug('[extractDataWithRegex] Setting income', { value: num });
         data.income = num;
       }
       // Expenses: 100-5000 range, only if income is already known (from context or current message)
@@ -1086,7 +1089,7 @@ function extractDataWithRegex(
         !hasExpenses &&
         !data.expenses
       ) {
-        console.log('[extractDataWithRegex] Setting expenses:', num);
+        logger.debug('[extractDataWithRegex] Setting expenses', { value: num });
         data.expenses = num;
       }
       // Max work hours: 5-40 range

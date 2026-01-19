@@ -17,6 +17,7 @@ import { SwipeTab } from '~/components/tabs/SwipeTab';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
+import { tradeService } from '~/lib/tradeService';
 import { useProfile } from '~/lib/profileContext';
 import type {
   LegacySkill,
@@ -88,6 +89,7 @@ interface TradeItem {
   value: number;
   status: TradeStatus;
   dueDate?: string;
+  inventoryItemId?: string;
 }
 
 interface SelectedScenario {
@@ -148,11 +150,13 @@ const ICON_MAP = {
 
 export default function PlanPage() {
   const navigate = useNavigate();
-  // Get inventory and lifestyle from profile context (DB-backed data)
+  // Get inventory, lifestyle, and trades from profile context (DB-backed data)
   const {
     inventory: contextInventory,
     lifestyle: contextLifestyle,
+    trades: contextTrades,
     refreshInventory,
+    refreshTrades,
   } = useProfile();
 
   const [activeTab, setActiveTab] = createSignal<string>('profile');
@@ -284,10 +288,34 @@ export default function PlanPage() {
     }
   };
 
-  const handleTradesChange = (trades: TradeItem[]) => {
+  const handleTradesChange = async (trades: TradeItem[]) => {
     setPlanData({ ...planData(), trades });
     if (trades.length > 0) {
       markTabComplete('trade');
+    }
+
+    // Persist trades to DB (clear and recreate)
+    const profile = activeProfile();
+    if (profile?.id) {
+      try {
+        await tradeService.bulkCreateTrades(
+          profile.id,
+          trades.map((t) => ({
+            type: t.type,
+            name: t.name,
+            description: t.description,
+            partner: t.partner,
+            value: t.value,
+            status: t.status,
+            dueDate: t.dueDate,
+            inventoryItemId: t.inventoryItemId,
+          })),
+          true // clearFirst = true
+        );
+        await refreshTrades();
+      } catch (err) {
+        console.error('Failed to persist trades', err);
+      }
     }
   };
 
@@ -449,7 +477,17 @@ export default function PlanPage() {
 
               <TabsContent value="trade" class="mt-0">
                 <TradeTab
-                  initialTrades={planData().trades}
+                  initialTrades={contextTrades().map((t) => ({
+                    id: t.id,
+                    type: t.type,
+                    name: t.name,
+                    description: t.description,
+                    partner: t.partner,
+                    value: t.value,
+                    status: t.status,
+                    dueDate: t.dueDate,
+                    inventoryItemId: t.inventoryItemId,
+                  }))}
                   onTradesChange={handleTradesChange}
                   goalName={planData().setup?.goalName}
                   goalAmount={planData().setup?.goalAmount}

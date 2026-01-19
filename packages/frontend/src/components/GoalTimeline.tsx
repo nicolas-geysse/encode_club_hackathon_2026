@@ -10,7 +10,7 @@ import { type Goal, type GoalComponent, goalService } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '~/components/ui/Tooltip';
-import { Pencil, Check, Trash2, CheckCircle2, RotateCcw } from 'lucide-solid';
+import { Pencil, Check, Trash2, RotateCcw } from 'lucide-solid';
 
 interface GoalTimelineProps {
   goal: Goal;

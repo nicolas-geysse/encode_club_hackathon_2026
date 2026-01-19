@@ -5,11 +5,11 @@
  */
 
 import { Show } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import {
-  Check,
   Clock,
   DollarSign,
   Package,
@@ -70,7 +70,7 @@ export function MissionCard(props: MissionCardProps) {
     }
   };
 
-  const Icon = getCategoryIcon(props.mission.category);
+  const Icon = () => getCategoryIcon(props.mission.category);
 
   return (
     <Card
@@ -85,7 +85,7 @@ export function MissionCard(props: MissionCardProps) {
         <div class="flex items-start gap-4">
           {/* Category Icon */}
           <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-            <Icon class="h-5 w-5" />
+            <Dynamic component={Icon()} class="h-5 w-5" />
           </div>
 
           {/* Content */}

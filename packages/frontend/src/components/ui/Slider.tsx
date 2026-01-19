@@ -1,5 +1,5 @@
 import { Slider as KobalteSlider } from '@kobalte/core/slider';
-import { splitProps, type Component, type JSX, Show } from 'solid-js';
+import { splitProps, type Component, type JSX } from 'solid-js';
 import { cn } from '~/lib/cn';
 
 export interface SliderProps {

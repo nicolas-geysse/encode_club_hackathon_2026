@@ -242,11 +242,11 @@ export function ChatInput(props: ChatInputProps) {
 
         {/* Text input */}
         <Textarea
-          ref={(el: any) => (textareaRef = el)}
+          ref={(el: HTMLTextAreaElement) => (textareaRef = el)}
           class="flex-1 bg-transparent border-none shadow-none resize-none min-h-[44px] max-h-32 py-3 px-2 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none text-base"
           placeholder={props.placeholder || 'Type a message...'}
           value={text()}
-          onInput={(e: any) => {
+          onInput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
             setText(e.currentTarget.value);
             // Auto-grow
             e.currentTarget.style.height = 'auto';

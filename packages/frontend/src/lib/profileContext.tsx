@@ -76,6 +76,22 @@ export interface IncomeItem {
   createdAt?: string;
 }
 
+/** Trade item type from API */
+export interface TradeItem {
+  id: string;
+  profileId: string;
+  type: 'borrow' | 'lend' | 'trade' | 'sell';
+  name: string;
+  description?: string;
+  partner: string;
+  value: number;
+  status: 'pending' | 'active' | 'completed';
+  dueDate?: string;
+  inventoryItemId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface ProfileContextValue {
   /** Current active profile (reactive) */
   profile: () => FullProfile | null;
@@ -89,6 +105,8 @@ interface ProfileContextValue {
   lifestyle: () => LifestyleItem[];
   /** Income items for the active profile (reactive) */
   income: () => IncomeItem[];
+  /** Trade items for the active profile (reactive) */
+  trades: () => TradeItem[];
   /** Whether profile is loading */
   loading: () => boolean;
   /** Refresh profile from API - call after updates */
@@ -103,7 +121,9 @@ interface ProfileContextValue {
   refreshLifestyle: () => Promise<void>;
   /** Refresh income from API - call after income updates */
   refreshIncome: () => Promise<void>;
-  /** Refresh all data (profile, goals, skills, inventory, lifestyle, income) */
+  /** Refresh trades from API - call after trade updates */
+  refreshTrades: () => Promise<void>;
+  /** Refresh all data (profile, goals, skills, inventory, lifestyle, income, trades) */
   refreshAll: () => Promise<void>;
 }
 
@@ -116,6 +136,7 @@ export const ProfileProvider: ParentComponent = (props) => {
   const [inventory, setInventory] = createSignal<InventoryItem[]>([]);
   const [lifestyle, setLifestyle] = createSignal<LifestyleItem[]>([]);
   const [income, setIncome] = createSignal<IncomeItem[]>([]);
+  const [trades, setTrades] = createSignal<TradeItem[]>([]);
   const [loading, setLoading] = createSignal(true);
 
   const refreshProfile = async () => {
@@ -227,6 +248,26 @@ export const ProfileProvider: ParentComponent = (props) => {
     }
   };
 
+  const refreshTrades = async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      try {
+        const response = await fetch(`/api/trades?profileId=${currentProfile.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTrades(Array.isArray(data) ? data : []);
+        } else {
+          setTrades([]);
+        }
+      } catch (error) {
+        logger.error('Failed to load trades', { error });
+        setTrades([]);
+      }
+    } else {
+      setTrades([]);
+    }
+  };
+
   const refreshAll = async () => {
     await refreshProfile();
     // After profile refreshes, the effect will trigger other refreshes
@@ -243,6 +284,7 @@ export const ProfileProvider: ParentComponent = (props) => {
         refreshInventory(),
         refreshLifestyle(),
         refreshIncome(),
+        refreshTrades(),
       ]).catch((err) => {
         logger.error('Failed to refresh data', { error: err });
       });
@@ -252,6 +294,7 @@ export const ProfileProvider: ParentComponent = (props) => {
       setInventory([]);
       setLifestyle([]);
       setIncome([]);
+      setTrades([]);
     }
   });
 
@@ -269,6 +312,7 @@ export const ProfileProvider: ParentComponent = (props) => {
         inventory,
         lifestyle,
         income,
+        trades,
         loading,
         refreshProfile,
         refreshGoals,
@@ -276,6 +320,7 @@ export const ProfileProvider: ParentComponent = (props) => {
         refreshInventory,
         refreshLifestyle,
         refreshIncome,
+        refreshTrades,
         refreshAll,
       }}
     >

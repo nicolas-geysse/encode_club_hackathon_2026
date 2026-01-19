@@ -14,7 +14,6 @@ import { type LegacySkill, skillToLegacy } from '~/types/entities';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
-import { Select } from '~/components/ui/Select';
 import {
   Briefcase,
   Lightbulb,
@@ -23,10 +22,6 @@ import {
   Trash2,
   Plus,
   X,
-  TrendingUp,
-  Clock,
-  Hand,
-  Brain,
   BrainCircuit,
   Users,
   Bed,
@@ -143,7 +138,7 @@ function getClosestRestStepIndex(hours: number): number {
 interface IconRatingProps {
   value: number;
   max: number;
-  icon: any; // Lucide icon component
+  icon: typeof Briefcase;
   onChange: (value: number) => void;
   labels?: string[];
   activeColor?: string;
@@ -612,7 +607,7 @@ export function SkillsTab(props: SkillsTabProps) {
                     type="text"
                     placeholder="Ex: Python, Excel, Coaching..."
                     value={newSkill().name}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewSkill({ ...newSkill(), name: e.currentTarget.value })
                     }
                   />
@@ -628,7 +623,7 @@ export function SkillsTab(props: SkillsTabProps) {
                     min="5"
                     max="100"
                     value={newSkill().hourlyRate}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewSkill({
                         ...newSkill(),
                         hourlyRate: parseInt(e.currentTarget.value) || 15,

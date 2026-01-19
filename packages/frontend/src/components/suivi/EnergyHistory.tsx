@@ -8,16 +8,7 @@
 import { For, Show, createMemo } from 'solid-js';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import {
-  Zap,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Smile,
-  Meh,
-  Frown,
-} from 'lucide-solid';
+import { Zap, AlertTriangle } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
 interface EnergyEntry {
@@ -90,14 +81,6 @@ export function EnergyHistory(props: EnergyHistoryProps) {
     if (props.history.length === 0) return 50;
     return props.history[props.history.length - 1].level;
   });
-
-  const getEnergyEmoji = (level: number) => {
-    if (level >= 80) return '😄';
-    if (level >= 60) return '😊';
-    if (level >= 40) return '😐';
-    if (level >= 20) return '😔';
-    return '😴';
-  };
 
   const getEnergyColor = (level: number) => {
     if (level >= 70) return 'bg-green-500';

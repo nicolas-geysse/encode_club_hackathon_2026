@@ -1,4 +1,4 @@
-import { createSignal, onMount, createEffect, on, Show } from 'solid-js';
+import { createSignal, onMount, createEffect, on } from 'solid-js';
 import { Card, CardContent } from '~/components/ui/Card';
 import { cn } from '~/lib/cn';
 import {
@@ -158,7 +158,7 @@ export function SwipeCard(props: SwipeCardProps) {
   };
 
   const getCategoryIcon = (category: string) => {
-    const icons: Record<string, any> = {
+    const icons: Record<string, typeof Briefcase> = {
       freelance: Briefcase,
       tutoring: GraduationCap,
       selling: ShoppingBag,

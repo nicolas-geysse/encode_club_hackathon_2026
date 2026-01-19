@@ -1,7 +1,7 @@
 import { type Component, For } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { cn } from '~/lib/cn';
-import { LayoutDashboard, Map, CreditCard, GraduationCap, Settings } from 'lucide-solid';
+import { LayoutDashboard, Map, GraduationCap } from 'lucide-solid';
 import { Logo } from '~/components/Logo';
 
 interface SidebarProps {

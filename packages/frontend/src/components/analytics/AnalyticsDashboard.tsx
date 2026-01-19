@@ -8,7 +8,7 @@
 import { createSignal, onMount, Show, For } from 'solid-js';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-solid';
+import { BarChart3, TrendingUp, TrendingDown, Wallet } from 'lucide-solid';
 
 interface AnalyticsData {
   summary: {

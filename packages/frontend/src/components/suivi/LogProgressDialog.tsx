@@ -1,7 +1,7 @@
 import { createSignal, Show, createEffect } from 'solid-js';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
-import { Clock, DollarSign, ArrowRight, Calculator } from 'lucide-solid';
+import { Clock, DollarSign, ArrowRight } from 'lucide-solid';
 
 interface LogProgressDialogProps {
   isOpen: boolean;

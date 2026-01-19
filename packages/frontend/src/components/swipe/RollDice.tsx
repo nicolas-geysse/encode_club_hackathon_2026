@@ -15,7 +15,6 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-solid';
-import { Button } from '~/components/ui/Button';
 
 interface RollDiceProps {
   onRoll: () => void;

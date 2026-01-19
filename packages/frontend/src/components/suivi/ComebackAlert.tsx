@@ -10,8 +10,7 @@ import { celebrateComeback } from '~/lib/confetti';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { Progress } from '~/components/ui/Progress';
-import { Rocket, Sparkles, Trophy, CheckCircle } from 'lucide-solid';
+import { Rocket, Sparkles, Trophy } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
 interface ComebackWindow {

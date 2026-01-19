@@ -22,7 +22,6 @@ import {
   Pencil,
   X,
   Check,
-  AlertCircle,
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
@@ -356,9 +355,6 @@ export function TradeTab(props: TradeTabProps) {
       .filter((t) => t.type === 'sell' && t.status === 'completed')
       .reduce((sum, t) => sum + t.value, 0);
 
-  // Total savings from borrowing (money not spent) + sales
-  const totalSavings = () => borrowedValue() + soldValue();
-
   // Potential value from pending sells + available inventory not yet listed
   const potentialSaleValue = () => {
     const pendingSells = trades()
@@ -370,12 +366,6 @@ export function TradeTab(props: TradeTabProps) {
       .reduce((sum, item) => sum + item.estimatedValue, 0);
 
     return pendingSells + availableInventory;
-  };
-
-  // Savings percentage of goal
-  const savingsPercent = () => {
-    if (!props.goalAmount || props.goalAmount <= 0) return 0;
-    return Math.round((totalSavings() / props.goalAmount) * 100);
   };
 
   // Get suggestions based on goal (inventory items shown directly in Sell list)
@@ -813,7 +803,7 @@ export function TradeTab(props: TradeTabProps) {
                     type="text"
                     placeholder="Ex: Laptop, Math textbook..."
                     value={newTrade().name}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewTrade({ ...newTrade(), name: e.currentTarget.value })
                     }
                   />
@@ -831,7 +821,7 @@ export function TradeTab(props: TradeTabProps) {
                     type="text"
                     placeholder="Person's name"
                     value={newTrade().partner}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewTrade({ ...newTrade(), partner: e.currentTarget.value })
                     }
                   />
@@ -846,7 +836,7 @@ export function TradeTab(props: TradeTabProps) {
                       type="number"
                       min="0"
                       value={newTrade().value}
-                      onInput={(e: any) =>
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                         setNewTrade({ ...newTrade(), value: parseInt(e.currentTarget.value) || 0 })
                       }
                     />
@@ -858,7 +848,7 @@ export function TradeTab(props: TradeTabProps) {
                     <Input
                       type="date"
                       value={newTrade().dueDate}
-                      onInput={(e: any) =>
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                         setNewTrade({ ...newTrade(), dueDate: e.currentTarget.value })
                       }
                     />
@@ -873,7 +863,7 @@ export function TradeTab(props: TradeTabProps) {
                     type="text"
                     placeholder="Ex: Return before vacation"
                     value={newTrade().description}
-                    onInput={(e: any) =>
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
                       setNewTrade({ ...newTrade(), description: e.currentTarget.value })
                     }
                   />

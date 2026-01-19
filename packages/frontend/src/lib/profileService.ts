@@ -104,7 +104,7 @@ function loadFromLocalStorage(): FullProfile | null {
     // Map localStorage format to FullProfile format
     // Normalize expenses: handle corrupted data where expenses might be a number
     return {
-      id: local.id || 'local-profile',
+      id: local.id || crypto.randomUUID(),
       name: local.name || 'My Profile',
       currency: local.currency || 'USD',
       profileType: 'main',

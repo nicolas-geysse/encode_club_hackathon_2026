@@ -24,7 +24,6 @@ import { type LegacyLifestyleItem, itemToLegacy, legacyToItem } from '~/types/en
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
-import { Select } from '~/components/ui/Select';
 import { MonthPicker } from '~/components/ui/MonthPicker';
 import {
   Wallet,
@@ -40,7 +39,6 @@ import {
   Trash2,
   Plus,
   X,
-  AlertCircle,
   PiggyBank,
 } from 'lucide-solid';
 
@@ -57,7 +55,7 @@ interface BudgetTabProps {
 interface CategoryInfo {
   id: string;
   label: string;
-  icon: any;
+  icon: typeof Wallet;
   color: string;
   type: 'income' | 'expense';
 }
@@ -687,7 +685,9 @@ export function BudgetTab(props: BudgetTabProps) {
                         : 'Ex: Netflix, Transit, Groceries...'
                     }
                     value={newItem().name}
-                    onInput={(e: any) => setNewItem({ ...newItem(), name: e.currentTarget.value })}
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                      setNewItem({ ...newItem(), name: e.currentTarget.value })
+                    }
                   />
                 </div>
 
@@ -699,7 +699,7 @@ export function BudgetTab(props: BudgetTabProps) {
                     type="number"
                     min="0"
                     value={isIncomeCategory() ? newItem().amount : newItem().currentCost}
-                    onInput={(e: any) => {
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) => {
                       const val = parseInt(e.currentTarget.value) || 0;
                       if (isIncomeCategory()) {
                         setNewItem({ ...newItem(), amount: val });

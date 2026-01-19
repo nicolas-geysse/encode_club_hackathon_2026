@@ -12,7 +12,7 @@ import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Progress } from '~/components/ui/Progress';
-import { ClipboardList, RotateCcw, Check, Dices, Info } from 'lucide-solid';
+import { ClipboardList, RotateCcw, Check, Dices } from 'lucide-solid';
 
 export interface Scenario {
   id: string;

@@ -7,7 +7,7 @@
 
 import { createSignal, For, Show } from 'solid-js';
 import { Button } from '~/components/ui/Button';
-import { Bell, Check, AlertTriangle, Info, BellOff, Trash2 } from 'lucide-solid';
+import { Bell, Check, AlertTriangle, Info, BellOff } from 'lucide-solid';
 
 export interface Notification {
   id: string;
