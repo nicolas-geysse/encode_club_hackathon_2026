@@ -188,7 +188,9 @@ export function GoalTimeline(props: GoalTimelineProps) {
               ? '✅'
               : props.goal.status === 'waiting'
                 ? '⏳'
-                : '🎯'}
+                : props.goal.status === 'paused'
+                  ? '📦'
+                  : '🎯'}
           </span>
           <div>
             <h3
@@ -224,19 +226,24 @@ export function GoalTimeline(props: GoalTimelineProps) {
               <button
                 type="button"
                 class={`h-8 w-8 flex items-center justify-center rounded-md transition-colors ${
-                  props.goal.status === 'completed'
+                  props.goal.status === 'completed' || props.goal.status === 'paused'
                     ? 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
                     : 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20'
                 }`}
                 onClick={() => setShowCompleteConfirm(true)}
               >
-                <Show when={props.goal.status === 'completed'} fallback={<Check class="h-4 w-4" />}>
+                <Show
+                  when={props.goal.status === 'completed' || props.goal.status === 'paused'}
+                  fallback={<Check class="h-4 w-4" />}
+                >
                   <RotateCcw class="h-4 w-4" />
                 </Show>
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              {props.goal.status === 'completed' ? 'Reactivate Goal' : 'Mark as Completed'}
+              {props.goal.status === 'completed' || props.goal.status === 'paused'
+                ? 'Reactivate Goal'
+                : 'Mark as Completed'}
             </TooltipContent>
           </Tooltip>
 
@@ -501,14 +508,30 @@ export function GoalTimeline(props: GoalTimelineProps) {
 
       <ConfirmDialog
         isOpen={showCompleteConfirm()}
-        title={props.goal.status === 'completed' ? 'Reactivate Goal' : 'Complete Goal'}
+        title={
+          props.goal.status === 'completed' || props.goal.status === 'paused'
+            ? 'Reactivate Goal'
+            : 'Complete Goal'
+        }
         message={
           props.goal.status === 'completed'
             ? `Are you sure you want to reactivate "${props.goal.name}"?`
-            : `Are you sure you want to mark "${props.goal.name}" as completed?`
+            : props.goal.status === 'paused'
+              ? `Reactivating "${props.goal.name}" will archive your current active goal. Continue?`
+              : `Are you sure you want to mark "${props.goal.name}" as completed?`
         }
-        confirmLabel={props.goal.status === 'completed' ? 'Reactivate' : 'Complete'}
-        variant={props.goal.status === 'completed' ? 'default' : 'success'}
+        confirmLabel={
+          props.goal.status === 'completed' || props.goal.status === 'paused'
+            ? 'Reactivate'
+            : 'Complete'
+        }
+        variant={
+          props.goal.status === 'paused'
+            ? 'warning'
+            : props.goal.status === 'completed'
+              ? 'default'
+              : 'success'
+        }
         onCancel={() => setShowCompleteConfirm(false)}
         onConfirm={() => {
           props.onToggleStatus?.(props.goal);
@@ -627,6 +650,29 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4 opacity-60">
             <For each={goalsByStatus().completed}>
+              {(goal) => (
+                <GoalTimeline
+                  goal={goal}
+                  currency={props.currency}
+                  onComponentUpdate={props.onComponentUpdate}
+                  onEdit={props.onEdit}
+                  onDelete={props.onDelete}
+                  onToggleStatus={props.onToggleStatus}
+                />
+              )}
+            </For>
+          </div>
+        </div>
+      </Show>
+
+      {/* Sprint 9.5: Archived (Paused) Goals */}
+      <Show when={goalsByStatus().paused.length > 0}>
+        <div>
+          <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+            Archived ({goalsByStatus().paused.length})
+          </h3>
+          <div class="space-y-4 opacity-50">
+            <For each={goalsByStatus().paused}>
               {(goal) => (
                 <GoalTimeline
                   goal={goal}

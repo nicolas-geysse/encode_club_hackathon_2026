@@ -414,10 +414,45 @@ try {
 - Extract lines 979-1057 from `OnboardingChat.tsx`
 - Create `lib/locationDetection.ts`
 
-### TD-4: Smart Merge Helper (LOW)
-- Extract `smartMergeArrays` pattern used 6 times
 
-### Features
-1. **Feature M**: Cumulative Savings (BudgetTab)
-2. **Feature N**: Borrowed Panel Totals (TradeTab)
+---
+
+# Senior Dev Verification Report (Deep Dive)
+
+**Date**: 2026-01-19
+**Verified By**: Antigravity Node
+
+## 1. Architecture Refactoring (Sprint 6)
+**Status**: ✅ **SUCCESS**
+
+- **Persistence Module**: `lib/onboardingPersistence.ts` is correctly implemented. It handles data persistence in parallel (`Promise.allSettled`) which is a huge performance win over sequential awaits. The types are well defined.
+- **Maintenance**: `OnboardingChat.tsx` has been significantly de-cluttered. The separation of "Chat Logic" (UI/Intent) and "Data Persistence" (Backend IO) is much healthier.
+- **Risk**: The `mergeArrayField` helper (formerly `smartMergeArrays`) logic was kept inside `OnboardingChat.tsx` (lines 114-153). *Recommendation*: Move this to a utility file (`lib/arrayUtils.ts`) in Sprint 7 (TD-4) to make `OnboardingChat.tsx` even leaner.
+
+## 2. User Experience (Toast System)
+**Status**: ✅ **SUCCESS**
+
+- **Implementation**: The global `notificationStore` is clean and uses SolidJS signals effectively.
+- **Integration**: I verified that critical errors (Database offline, Sync failure) now trigger visual feedback (Toasts) via `toast.warning/error`.
+- **Consistency**: The migration of `console.error` to `toast.error` in Sprint 7 (TD-1) today has closed the loop on error visibility. The app now feels much more "Premium" and less "Developer Prototype".
+
+## 3. Features
+**Status**: ✅ **SUCCESS**
+
+- **Goal Components**: The API `routes/api/goal-components.ts` is a full CRUD implementation. I verified that updating a component's status correctly recalculates the parent goal's progress percentage. This is a critical logic piece that was missing.
+- **Scenario Deletion**: The UI exists in `SwipeTab.tsx`. The delete action correctly updates local state and recalculates totals.
+
+## 4. Sprint 7 Recommendations (Pertinence Assessment)
+
+The proposed Sprint 7 plan is **highly pertinent** but needs strict prioritization.
+
+| Priority | Item | Rationale |
+|----------|------|-----------|
+| **CRITICAL** | **TD-2: Unit Tests** | We just extracted `onboardingPersistence`. It is complex logic (parallel writes, partial failures). **We MUST test this now** while the context is fresh, before we build more on top of it. |
+| **HIGH** | **Feature M: Cumulative Savings** | The "Budget" tab is the core value prop ("How do I reach my goal?"). Currently, it just lists expenses. Showing "Savings until deadline" connects the dots for the user. |
+| **MEDIUM** | **Feature N: Borrowed Totals** | Good for consistency, but less critical than M. |
+| **LOW** | **TD-3 & TD-4** | extracting `detectCity` or `smartMerge` is nice for code golf, but doesn't deliver user value or prevent critical bugs. Do only if spare time. |
+
+**Verdict**: Proceed with Sprint 7. **Focus heavily on TD-2 (Tests) and Feature M (Value).**
+
 

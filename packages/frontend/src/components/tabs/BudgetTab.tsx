@@ -161,6 +161,20 @@ export function BudgetTab(props: BudgetTabProps) {
   // Number of paused items
   const pausedItemsCount = () => items().filter((i) => i.pausedMonths > 0).length;
 
+  // Feature M: Cumulative savings projection from net margin
+  const cumulativeSavingsFromMargin = () => {
+    const margin = netMargin();
+    const months = maxPauseMonths();
+    return margin > 0 && months > 0 ? margin * months : 0;
+  };
+
+  // Feature M: Goal progress from net margin projection
+  const marginGoalProgress = () => {
+    const goal = goalAmount();
+    if (!goal || goal <= 0) return null;
+    return (cumulativeSavingsFromMargin() / goal) * 100;
+  };
+
   const updatePausedMonths = async (id: string, months: number) => {
     const currentProfile = profile();
     if (!currentProfile?.id) {
@@ -456,7 +470,50 @@ export function BudgetTab(props: BudgetTabProps) {
         </Card>
       </div>
 
-      {/* Feature M: Cumulative Savings Until Deadline */}
+      {/* Feature M: Cumulative Savings From Net Margin */}
+      <Show when={cumulativeSavingsFromMargin() > 0}>
+        <Card class="border-emerald-500/20 bg-emerald-500/5">
+          <CardContent class="p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <TrendingUp class="h-5 w-5 text-emerald-600" />
+                <span class="text-sm text-emerald-700 dark:text-emerald-300">
+                  <strong>Projected Savings</strong>
+                </span>
+              </div>
+              <div class="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                {formatCurrency(cumulativeSavingsFromMargin(), currency(), { showSign: true })}
+              </div>
+            </div>
+
+            {/* Calculation breakdown */}
+            <div class="text-xs text-emerald-600/80 dark:text-emerald-400/80">
+              {formatCurrency(netMargin(), currency())} × {maxPauseMonths()} months until deadline
+            </div>
+
+            {/* Progress toward goal */}
+            <Show when={marginGoalProgress() !== null}>
+              <div class="pt-2 border-t border-emerald-500/20">
+                <div class="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 mb-1">
+                  <span>Progress toward goal</span>
+                  <span class="font-medium">
+                    {Math.round(marginGoalProgress()!)}% of{' '}
+                    {formatCurrency(goalAmount(), currency())}
+                  </span>
+                </div>
+                <div class="w-full h-2 bg-emerald-200 dark:bg-emerald-900/50 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-emerald-600 dark:bg-emerald-500 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, marginGoalProgress()!)}%` }}
+                  />
+                </div>
+              </div>
+            </Show>
+          </CardContent>
+        </Card>
+      </Show>
+
+      {/* Pause Savings Panel */}
       <Show when={totalPauseSavings() > 0}>
         <Card class="bg-green-500/10 border-green-500/20">
           <CardContent class="p-4 space-y-3">

@@ -11,6 +11,7 @@ import { goalService, type Goal, type GoalComponent } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
 import { toast } from '~/lib/notificationStore';
 import { GoalTimelineList } from '~/components/GoalTimeline';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
@@ -26,6 +27,7 @@ import {
   X,
   GraduationCap,
   Package,
+  Trash2,
 } from 'lucide-solid';
 
 interface AcademicEvent {
@@ -120,6 +122,19 @@ export function GoalsTab(props: GoalsTabProps) {
     hoursPerWeek: 2,
   });
 
+  // Feature J: Delete confirmation state for events and commitments
+  const [deleteEventConfirm, setDeleteEventConfirm] = createSignal<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [deleteCommitmentConfirm, setDeleteCommitmentConfirm] = createSignal<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // Sprint 9.5: Single active goal confirmation state
+  const [replaceGoalConfirm, setReplaceGoalConfirm] = createSignal<Goal | null>(null);
+
   // Available parent goals for conditional goals
   const availableParentGoals = createMemo(() => {
     const currentId = editingGoalId();
@@ -130,20 +145,25 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // BUG O FIX: Sync form fields when initialData changes (race condition fix)
   // This handles the case where plan.tsx loads goal data async AFTER GoalsTab renders
+  // Bug E Fix: Only sync if current value is empty to prevent overwriting user edits
   createEffect(() => {
-    if (props.initialData?.goalDeadline) {
-      setGoalDeadline(props.initialData.goalDeadline);
+    const deadline = props.initialData?.goalDeadline;
+    if (deadline && !goalDeadline()) {
+      setGoalDeadline(deadline);
     }
-    if (props.initialData?.goalName) {
-      setGoalName(props.initialData.goalName);
+    const name = props.initialData?.goalName;
+    if (name && !goalName()) {
+      setGoalName(name);
     }
-    if (props.initialData?.goalAmount) {
-      setGoalAmount(props.initialData.goalAmount);
+    const amount = props.initialData?.goalAmount;
+    if (amount && goalAmount() === 500) {
+      // Only update if still at default value
+      setGoalAmount(amount);
     }
-    if (props.initialData?.academicEvents) {
+    if (props.initialData?.academicEvents && academicEvents().length === 0) {
       setAcademicEvents(props.initialData.academicEvents);
     }
-    if (props.initialData?.commitments) {
+    if (props.initialData?.commitments && commitments().length === 0) {
       setCommitments(props.initialData.commitments);
     }
   });
@@ -174,6 +194,20 @@ export function GoalsTab(props: GoalsTabProps) {
       toast.error('Load failed', 'Could not load goals.');
     } finally {
       setLoading(false);
+    }
+  });
+
+  // Feature K: Auto-complete goals when progress reaches 100%
+  createEffect(() => {
+    const currentGoals = goals();
+    for (const goal of currentGoals) {
+      if (goal.progress >= 100 && goal.status === 'active') {
+        // Auto-mark as completed and show celebration
+        goalService.updateGoal({ id: goal.id, status: 'completed' }).then(() => {
+          refreshGoals();
+          toast.success('Goal achieved!', `"${goal.name}" has been completed!`);
+        });
+      }
     }
   });
 
@@ -228,6 +262,18 @@ export function GoalsTab(props: GoalsTabProps) {
     setAcademicEvents(academicEvents().filter((e) => e.id !== id));
   };
 
+  // Bug F Fix: Add edit functionality for academic events
+  const editAcademicEvent = (event: AcademicEvent) => {
+    setNewEvent({
+      type: event.type,
+      name: event.name,
+      startDate: event.startDate,
+      endDate: event.endDate,
+    });
+    setIsSameDay(event.startDate === event.endDate);
+    removeAcademicEvent(event.id);
+  };
+
   const addCommitment = () => {
     const commitment = newCommitment();
     if (!commitment.name || !commitment.hoursPerWeek) return;
@@ -256,9 +302,25 @@ export function GoalsTab(props: GoalsTabProps) {
     setShowNewGoalForm(false);
   };
 
-  const handleSave = async () => {
-    if (!goalName() || goalAmount() <= 0 || !goalDeadline() || !profileId()) return;
+  // Sprint 9.5: Archive all active goals (used before creating new one)
+  const archiveActiveGoals = async () => {
+    const activeGoals = goals().filter((g) => g.status === 'active');
+    for (const oldGoal of activeGoals) {
+      await goalService.updateGoal({
+        id: oldGoal.id,
+        status: 'paused', // Archived, not deleted
+      });
+    }
+  };
 
+  // Sprint 9.5: Handle replace goal confirmation (separated to avoid Solid reactivity warnings)
+  const handleReplaceGoalConfirm = () => {
+    setReplaceGoalConfirm(null);
+    archiveActiveGoals().then(() => performSave());
+  };
+
+  // Sprint 9.5: Actual save logic (called after confirmation if needed)
+  const performSave = async () => {
     const planData = {
       academicEvents: academicEvents(),
       commitments: commitments(),
@@ -317,6 +379,24 @@ export function GoalsTab(props: GoalsTabProps) {
     });
   };
 
+  const handleSave = async () => {
+    if (!goalName() || goalAmount() <= 0 || !goalDeadline() || !profileId()) return;
+
+    // Sprint 9.5: Check for existing active goals before creating (not when editing)
+    if (!editingGoalId()) {
+      const activeGoals = goals().filter((g) => g.status === 'active');
+
+      if (activeGoals.length > 0) {
+        // Show confirmation dialog - actual save happens in onConfirm
+        setReplaceGoalConfirm(activeGoals[0]);
+        return;
+      }
+    }
+
+    // No active goals to replace, proceed directly
+    await performSave();
+  };
+
   const handleEdit = (goal: Goal) => {
     setEditingGoalId(goal.id);
     setGoalName(goal.name);
@@ -363,13 +443,20 @@ export function GoalsTab(props: GoalsTabProps) {
   };
 
   const handleToggleStatus = async (goal: Goal) => {
-    const newStatus = goal.status === 'completed' ? 'active' : 'completed';
-    const confirmMessage =
-      newStatus === 'completed'
-        ? `Mark "${goal.name}" as completed?`
-        : `Reactivate "${goal.name}"?`;
+    // Sprint 9.5: Handle toggle for all statuses (completed, paused, active)
+    let newStatus: 'active' | 'completed' | 'paused';
 
-    if (!confirm(confirmMessage)) return;
+    if (goal.status === 'active') {
+      newStatus = 'completed';
+    } else {
+      // Both 'completed' and 'paused' goals can be reactivated
+      newStatus = 'active';
+    }
+
+    // Sprint 9.5: If reactivating (making active), archive any current active goals first
+    if (newStatus === 'active') {
+      await archiveActiveGoals();
+    }
 
     await goalService.updateGoal({
       id: goal.id,
@@ -862,14 +949,28 @@ export function GoalsTab(props: GoalsTabProps) {
                             </p>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                          onClick={() => removeAcademicEvent(event.id)}
-                        >
-                          <X class="h-4 w-4" />
-                        </Button>
+                        <div class="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            class="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 w-8"
+                            onClick={() => editAcademicEvent(event)}
+                            title="Edit event"
+                          >
+                            <Pencil class="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                            onClick={() =>
+                              setDeleteEventConfirm({ id: event.id, name: event.name })
+                            }
+                            title="Delete event"
+                          >
+                            <Trash2 class="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </For>
@@ -1009,9 +1110,15 @@ export function GoalsTab(props: GoalsTabProps) {
                           variant="ghost"
                           size="icon"
                           class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                          onClick={() => removeCommitment(commitment.id)}
+                          onClick={() =>
+                            setDeleteCommitmentConfirm({
+                              id: commitment.id,
+                              name: commitment.name,
+                            })
+                          }
+                          title="Delete commitment"
                         >
-                          <X class="h-4 w-4" />
+                          <Trash2 class="h-4 w-4" />
                         </Button>
                       </div>
                     )}
@@ -1096,6 +1203,43 @@ export function GoalsTab(props: GoalsTabProps) {
           </div>
         </div>
       </Show>
+
+      {/* Feature J: Delete confirmation dialogs */}
+      <ConfirmDialog
+        isOpen={!!deleteEventConfirm()}
+        title="Delete event?"
+        message={`Delete "${deleteEventConfirm()?.name}"?`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          removeAcademicEvent(deleteEventConfirm()!.id);
+          setDeleteEventConfirm(null);
+        }}
+        onCancel={() => setDeleteEventConfirm(null)}
+      />
+      <ConfirmDialog
+        isOpen={!!deleteCommitmentConfirm()}
+        title="Delete commitment?"
+        message={`Delete "${deleteCommitmentConfirm()?.name}"?`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={() => {
+          removeCommitment(deleteCommitmentConfirm()!.id);
+          setDeleteCommitmentConfirm(null);
+        }}
+        onCancel={() => setDeleteCommitmentConfirm(null)}
+      />
+
+      {/* Sprint 9.5: Replace goal confirmation */}
+      <ConfirmDialog
+        isOpen={!!replaceGoalConfirm()}
+        title="Replace current goal?"
+        message={`You already have an active goal: "${replaceGoalConfirm()?.name}". Creating a new goal will archive it. Continue?`}
+        confirmLabel="Replace"
+        variant="warning"
+        onConfirm={handleReplaceGoalConfirm}
+        onCancel={() => setReplaceGoalConfirm(null)}
+      />
     </div>
   );
 }

@@ -1297,13 +1297,17 @@ function extractWithRegex(message: string, step: string, _existing: ProfileData)
       } else if (msg.length >= 2) {
         const trades: TradeOpportunity[] = [];
 
-        // Parse "borrow X from Y"
-        const borrowMatches = msg.matchAll(/borrow\s+(.+?)\s+from\s+(\w+)/gi);
+        // Parse "borrow X from Y (saving Z€)"
+        // Bug G Fix: Enhanced regex to capture optional monetary value in parentheses
+        const borrowMatches = msg.matchAll(
+          /borrow\s+(.+?)\s+from\s+(\w+)(?:\s*\(?[^)]*?(\d+)[€$£]?[^)]*?\))?/gi
+        );
         for (const match of borrowMatches) {
           trades.push({
             type: 'borrow',
             description: match[1].trim(),
             withPerson: match[2].trim(),
+            estimatedValue: match[3] ? parseInt(match[3], 10) : undefined,
           });
         }
 

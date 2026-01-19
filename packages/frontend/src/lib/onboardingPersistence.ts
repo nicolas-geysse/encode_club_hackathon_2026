@@ -90,12 +90,25 @@ export const DEFAULT_PROFILE = {
 
 /**
  * Persist goal data to the goals table.
- * Deletes existing goals first to prevent duplicates.
+ * Sprint 9.5: Archives (status='paused') existing active goals instead of deleting.
+ * This preserves goal history while enforcing single active goal policy.
  */
 export async function persistGoal(profileId: string, goalData: GoalData): Promise<boolean> {
   try {
-    // Delete existing goals to prevent duplicates
-    await fetch(`/api/goals?profileId=${profileId}`, { method: 'DELETE' });
+    // Sprint 9.5: Archive existing active goals instead of deleting all
+    // This preserves history and allows users to reactivate old goals
+    const existingGoalsResponse = await fetch(`/api/goals?profileId=${profileId}&status=active`);
+    if (existingGoalsResponse.ok) {
+      const existingGoals = await existingGoalsResponse.json();
+      // Archive each active goal
+      for (const goal of existingGoals) {
+        await fetch('/api/goals', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: goal.id, status: 'paused' }),
+        });
+      }
+    }
 
     // Build planData with academicEvents if available
     const goalPlanData: Record<string, unknown> = {};

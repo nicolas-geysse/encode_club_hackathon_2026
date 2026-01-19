@@ -4,7 +4,7 @@
  * Borrowing and trading: track loans and exchanges with friends.
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, createEffect, For, Show, untrack } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
@@ -22,6 +22,8 @@ import {
   Pencil,
   X,
   Check,
+  Undo2,
+  Heart,
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
@@ -232,6 +234,44 @@ export function TradeTab(props: TradeTabProps) {
     status: 'pending',
   });
 
+  // Sync local trades with props.initialTrades when they change (e.g., after DB refresh)
+  // This handles the case where bulkCreateTrades generates new IDs
+  createEffect(() => {
+    const initialTrades = props.initialTrades || [];
+    // Use untrack to read local trades without creating a circular dependency
+    const localTrades = untrack(() => trades());
+
+    // Only sync if there are trades from props and they differ from local state
+    // We compare by checking if the IDs have changed (indicating a DB refresh)
+    const currentIds = new Set(localTrades.map((t) => t.id));
+    const propsIds = new Set(initialTrades.map((t) => t.id));
+
+    // If the IDs are completely different, sync from props
+    const hasOverlap = [...currentIds].some((id) => propsIds.has(id));
+    if (initialTrades.length > 0 && !hasOverlap && currentIds.size > 0) {
+      // IDs don't match - this means DB refreshed with new IDs
+      // Map the status from local trades to the new trades by matching on name+partner+type
+      const updatedTrades = initialTrades.map((propTrade) => {
+        // Find matching local trade by name, partner, and type
+        const matchingLocal = localTrades.find(
+          (t) =>
+            t.name === propTrade.name &&
+            t.partner === propTrade.partner &&
+            t.type === propTrade.type
+        );
+        // If we found a match and it has a different status, use the local status
+        if (matchingLocal && matchingLocal.status !== propTrade.status) {
+          return { ...propTrade, status: matchingLocal.status };
+        }
+        return propTrade;
+      });
+      setTrades(updatedTrades);
+    } else if (initialTrades.length > 0 && localTrades.length === 0) {
+      // Initial load - just set from props
+      setTrades(initialTrades);
+    }
+  });
+
   const addTrade = () => {
     const trade = newTrade();
     if (!trade.name || !trade.partner) return;
@@ -340,9 +380,10 @@ export function TradeTab(props: TradeTabProps) {
   };
 
   // Feature N: Borrowed value calculations with pending
+  // Bug C Fix: Include completed borrows as they represent savings achieved
   const borrowedValue = () =>
     trades()
-      .filter((t) => t.type === 'borrow' && t.status === 'active')
+      .filter((t) => t.type === 'borrow' && (t.status === 'active' || t.status === 'completed'))
       .reduce((sum, t) => sum + t.value, 0);
 
   // Feature N: Pending borrows (items the user is planning to borrow)
@@ -354,10 +395,10 @@ export function TradeTab(props: TradeTabProps) {
   // Feature N: Total potential savings from borrowing (active + pending)
   const totalBorrowPotential = () => borrowedValue() + pendingBorrowValue();
 
-  const lentValue = () =>
-    trades()
-      .filter((t) => t.type === 'lend' && t.status === 'active')
-      .reduce((sum, t) => sum + t.value, 0);
+  // Feature I: Karma score for lend/trade actions (circular economy contribution)
+  const karmaScore = () =>
+    trades().filter((t) => (t.type === 'lend' || t.type === 'trade') && t.status !== 'pending')
+      .length;
 
   // Total from completed sales
   const soldValue = () =>
@@ -512,16 +553,17 @@ export function TradeTab(props: TradeTabProps) {
           </CardContent>
         </Card>
 
-        <Card class="border-orange-500/20 bg-orange-500/5">
+        {/* Feature I: Replace € value with Karma for Lend/Trade */}
+        <Card class="border-purple-500/20 bg-purple-500/5">
           <CardContent class="p-6">
-            <div class="text-sm text-orange-600 dark:text-orange-400 font-medium flex items-center gap-2">
-              <Upload class="h-4 w-4" /> Lent
+            <div class="text-sm text-purple-600 dark:text-purple-400 font-medium flex items-center gap-2">
+              <Heart class="h-4 w-4" /> Karma
             </div>
-            <div class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-2">
-              {formatCurrency(lentValue(), currency())}
+            <div class="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-2">
+              {karmaScore()} <span class="text-sm font-normal">actions</span>
             </div>
-            <div class="text-xs text-orange-500 dark:text-orange-400 mt-1">
-              {trades().filter((t) => t.type === 'lend' && t.status === 'active').length} active
+            <div class="text-xs text-purple-500 dark:text-purple-400 mt-1">
+              Sharing economy contributions
             </div>
           </CardContent>
         </Card>
@@ -673,6 +715,19 @@ export function TradeTab(props: TradeTabProps) {
                   <Show when={trade.status === 'pending'}>
                     <Button variant="outline" size="sm" onClick={() => cancelSale(trade.id)}>
                       Cancel
+                    </Button>
+                  </Show>
+                  {/* Revert button for active trades - go back to pending */}
+                  <Show when={trade.status === 'active'}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      class="text-amber-600 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                      onClick={() => updateStatus(trade.id, 'pending')}
+                      title="Revert to pending"
+                    >
+                      <Undo2 class="h-4 w-4 mr-1" />
+                      Revert
                     </Button>
                   </Show>
                   {/* Confirm/Done buttons for non-completed trades */}

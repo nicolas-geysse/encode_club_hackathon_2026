@@ -17,7 +17,7 @@ import { simulationService } from '~/lib/simulationService';
 import { goalService, type Goal } from '~/lib/goalService';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { ClipboardList, MessageSquare, Target } from 'lucide-solid';
+import { ClipboardList, MessageSquare, Target, Trophy } from 'lucide-solid';
 import {
   weeksBetween,
   addWeeks,
@@ -80,6 +80,9 @@ export default function SuiviPage() {
 
   // Sprint 3 Bug B fix: Track current goal for progress sync
   const [currentGoal, setCurrentGoal] = createSignal<Goal | null>(null);
+
+  // Sprint 9.5: Track completed goals for "all goals completed" message
+  const [completedGoalsCount, setCompletedGoalsCount] = createSignal(0);
 
   // Get currency from profile
   const currency = (): Currency => (activeProfile()?.currency as Currency) || 'USD';
@@ -204,17 +207,26 @@ export default function SuiviPage() {
             }
           }
 
-          if (existingFollowup) {
+          // Bug A Fix: Check if we need to generate missions even when existingFollowup exists
+          // This handles the case where followup data exists but missions array is empty
+          const needsMissionGeneration =
+            !existingFollowup ||
+            !existingFollowup.missions ||
+            existingFollowup.missions.length === 0;
+
+          if (existingFollowup && !needsMissionGeneration) {
             setFollowup(normalizeFollowup(existingFollowup));
           } else {
             // Generate initial energy history (demo data) using dayjs
-            const energyHistory: EnergyEntry[] = [];
-            for (let i = 1; i <= Math.min(4, totalWeeks); i++) {
-              energyHistory.push({
-                week: i,
-                level: 50 + Math.floor(Math.random() * 40),
-                date: toISO(addWeeks(startDate, i - 1)),
-              });
+            const energyHistory: EnergyEntry[] = existingFollowup?.energyHistory || [];
+            if (energyHistory.length === 0) {
+              for (let i = 1; i <= Math.min(4, totalWeeks); i++) {
+                energyHistory.push({
+                  week: i,
+                  level: 50 + Math.floor(Math.random() * 40),
+                  date: toISO(addWeeks(startDate, i - 1)),
+                });
+              }
             }
 
             // Create missions from selectedScenarios (swipe results) first
@@ -333,14 +345,19 @@ export default function SuiviPage() {
             }
 
             setFollowup({
-              currentAmount: 0,
+              currentAmount: existingFollowup?.currentAmount ?? 0,
               weeklyTarget,
-              currentWeek: 1,
+              currentWeek: existingFollowup?.currentWeek ?? 1,
               totalWeeks,
               energyHistory,
               missions,
             });
           }
+        } else {
+          // Sprint 9.5: No active goal - check if there are completed goals
+          const allGoals = await goalService.listGoals(profile.id, { status: 'all' });
+          const completedGoals = allGoals.filter((g) => g.status === 'completed');
+          setCompletedGoalsCount(completedGoals.length);
         }
         // Sprint 2.3 Fix: Removed fallback to profile.goalName/goalAmount
         // The goals table is now the single source of truth for goal data
@@ -497,9 +514,35 @@ export default function SuiviPage() {
     </Card>
   );
 
+  // Sprint 9.5: All goals completed view
+  const AllGoalsCompletedView = () => (
+    <Card class="max-w-md mx-auto text-center border-green-500/20 bg-green-500/5">
+      <CardContent class="py-12 flex flex-col items-center">
+        <div class="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
+          <Trophy class="h-8 w-8 text-green-500" />
+        </div>
+        <h2 class="text-xl font-bold text-foreground mb-2">All goals completed!</h2>
+        <p class="text-muted-foreground mb-6">
+          You've completed {completedGoalsCount()} goal{completedGoalsCount() > 1 ? 's' : ''}.
+          Create a new goal in "My Goals" to continue your journey.
+        </p>
+        <Button as="a" href="/plan?tab=goals">
+          Create New Goal
+        </Button>
+      </CardContent>
+    </Card>
+  );
+
+  // Sprint 9.5: Determine which fallback to show
+  const FallbackView = () => (
+    <Show when={completedGoalsCount() > 0} fallback={<NoPlanView />}>
+      <AllGoalsCompletedView />
+    </Show>
+  );
+
   return (
     <Show when={!isLoading()} fallback={<PageLoader />}>
-      <Show when={hasData()} fallback={<NoPlanView />}>
+      <Show when={hasData()} fallback={<FallbackView />}>
         <div class="space-y-6">
           {/* Quick Action - Top of page */}
           <Card class="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">

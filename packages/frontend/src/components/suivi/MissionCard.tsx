@@ -127,13 +127,24 @@ export function MissionCard(props: MissionCardProps) {
             </Show>
 
             {/* Stats */}
+            {/* Bug H Fix: Hide hours for one-time missions (selling, lifestyle, trade) */}
             <div class="flex items-center gap-4 text-sm">
-              <div class="flex items-center gap-1 text-muted-foreground">
-                <Clock class="h-3.5 w-3.5" />
-                <span>
-                  {props.mission.hoursCompleted}/{props.mission.weeklyHours}h
-                </span>
-              </div>
+              <Show
+                when={!['selling', 'lifestyle', 'trade'].includes(props.mission.category)}
+                fallback={
+                  <div class="flex items-center gap-1 text-muted-foreground">
+                    <Clock class="h-3.5 w-3.5" />
+                    <span>{props.mission.status === 'completed' ? '✓ Done' : 'Pending'}</span>
+                  </div>
+                }
+              >
+                <div class="flex items-center gap-1 text-muted-foreground">
+                  <Clock class="h-3.5 w-3.5" />
+                  <span>
+                    {props.mission.hoursCompleted}/{props.mission.weeklyHours}h
+                  </span>
+                </div>
+              </Show>
               <div class="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
                 <DollarSign class="h-3.5 w-3.5" />
                 <span>

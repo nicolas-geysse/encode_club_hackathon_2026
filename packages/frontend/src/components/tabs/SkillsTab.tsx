@@ -217,6 +217,9 @@ export function SkillsTab(props: SkillsTabProps) {
     'initial'
   );
 
+  // Bug B Fix: Track when initial load is complete to prevent showing templates prematurely
+  const [initialLoadComplete, setInitialLoadComplete] = createSignal(false);
+
   // Use context skills (from DB) as source of truth when profile exists
   // Only fall back to initialSkills when no profile (backward compat)
   // BUG Q FIX: Track skills load state to distinguish "loading" from "no skills"
@@ -274,6 +277,8 @@ export function SkillsTab(props: SkillsTabProps) {
     if (currentProfile?.id) {
       await refreshSkills();
     }
+    // Bug B Fix: Mark initial load as complete after refreshSkills
+    setInitialLoadComplete(true);
   });
 
   const skills = () => localSkills();
@@ -494,8 +499,10 @@ export function SkillsTab(props: SkillsTabProps) {
 
       {/* Quick Add Templates - Sprint 2 Bug #5 fix: Hide when no templates available */}
       {/* BUG Q FIX: Only show templates after skills have loaded (not during initial load) */}
+      {/* Bug B Fix: Also require initialLoadComplete to prevent race condition */}
       <Show
         when={
+          initialLoadComplete() &&
           skillsLoadState() === 'loaded' &&
           SKILL_TEMPLATES.filter(
             (t) => !skills().some((s) => s.name.toLowerCase() === t.name?.toLowerCase())

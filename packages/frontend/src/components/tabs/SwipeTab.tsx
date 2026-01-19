@@ -7,6 +7,7 @@
 import { createSignal, Show, For } from 'solid-js';
 import { RollDice } from '../swipe/RollDice';
 import { SwipeSession } from '../swipe/SwipeSession';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { celebrateBig } from '~/lib/confetti';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -238,9 +239,16 @@ export function SwipeTab(props: SwipeTabProps) {
     setSelectedScenarios([]);
   };
 
+  // Feature J: Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = createSignal<{
+    id: string;
+    title: string;
+  } | null>(null);
+
   // Handle scenario deletion from review phase
   const handleScenarioDelete = (scenarioId: string) => {
     setSelectedScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
+    setDeleteConfirm(null);
   };
 
   return (
@@ -288,35 +296,23 @@ export function SwipeTab(props: SwipeTabProps) {
                   <span class="text-muted-foreground flex items-center gap-2">
                     💪 Effort tolerance
                   </span>
-                  <Progress
-                    value={Math.round((1 - (preferences().effortSensitivity ?? 0.5)) * 100)}
-                    class="h-2"
-                  />
+                  <Progress value={1 - (preferences().effortSensitivity ?? 0.5)} class="h-2" />
                 </div>
                 <div class="space-y-2">
                   <span class="text-muted-foreground flex items-center gap-2">💰 Pay priority</span>
-                  <Progress
-                    value={Math.round((preferences().hourlyRatePriority ?? 0.5) * 100)}
-                    class="h-2"
-                  />
+                  <Progress value={preferences().hourlyRatePriority ?? 0.5} class="h-2" />
                 </div>
                 <div class="space-y-2">
                   <span class="text-muted-foreground flex items-center gap-2">
                     📅 Schedule flexibility
                   </span>
-                  <Progress
-                    value={Math.round((preferences().timeFlexibility ?? 0.5) * 100)}
-                    class="h-2"
-                  />
+                  <Progress value={preferences().timeFlexibility ?? 0.5} class="h-2" />
                 </div>
                 <div class="space-y-2">
                   <span class="text-muted-foreground flex items-center gap-2">
                     🛡️ Income stability
                   </span>
-                  <Progress
-                    value={Math.round((preferences().incomeStability ?? 0.5) * 100)}
-                    class="h-2"
-                  />
+                  <Progress value={preferences().incomeStability ?? 0.5} class="h-2" />
                 </div>
               </div>
             </CardContent>
@@ -343,7 +339,9 @@ export function SwipeTab(props: SwipeTabProps) {
                         <Check class="h-5 w-5 text-green-600 dark:text-green-400" />
                         <button
                           type="button"
-                          onClick={() => handleScenarioDelete(scenario.id)}
+                          onClick={() =>
+                            setDeleteConfirm({ id: scenario.id, title: scenario.title })
+                          }
                           class="p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                           title="Remove scenario"
                         >
@@ -383,6 +381,17 @@ export function SwipeTab(props: SwipeTabProps) {
           </div>
         </div>
       </Show>
+
+      {/* Feature J: Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm()}
+        title="Remove scenario?"
+        message={`Remove "${deleteConfirm()?.title}" from your plan?`}
+        confirmLabel="Remove"
+        variant="danger"
+        onConfirm={() => handleScenarioDelete(deleteConfirm()!.id)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 }
