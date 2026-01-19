@@ -15,12 +15,9 @@ import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('OnboardingChat');
 import { goalService } from '~/lib/goalService';
-import { skillService } from '~/lib/skillService';
-import { lifestyleService } from '~/lib/lifestyleService';
-import { inventoryService } from '~/lib/inventoryService';
-import { incomeService } from '~/lib/incomeService';
-import { tradeService } from '~/lib/tradeService';
 import { useProfile } from '~/lib/profileContext';
+import { persistAllOnboardingData, verifyProfileInDb } from '~/lib/onboardingPersistence';
+import { toast } from '~/lib/notificationStore';
 
 interface Message {
   id: string;
@@ -55,6 +52,14 @@ interface TradeOpportunity {
   estimatedValue?: number;
 }
 
+// BUG J FIX: Add swipePreferences type
+interface SwipePreferences {
+  effort_sensitivity: number;
+  hourly_rate_priority: number;
+  time_flexibility: number;
+  income_stability: number;
+}
+
 interface ProfileData {
   name: string;
   diploma: string;
@@ -79,6 +84,7 @@ interface ProfileData {
   inventoryItems?: InventoryItem[];
   subscriptions?: Subscription[];
   tradeOpportunities?: TradeOpportunity[];
+  swipePreferences?: SwipePreferences; // BUG J FIX: Add swipe preferences to profile
 }
 
 type OnboardingStep =
@@ -224,6 +230,14 @@ export function OnboardingChat() {
     academicEvents: [],
     inventoryItems: [],
     subscriptions: [],
+    tradeOpportunities: [],
+    // BUG J FIX: Initialize swipePreferences with neutral defaults (0.5 = balanced)
+    swipePreferences: {
+      effort_sensitivity: 0.5,
+      hourly_rate_priority: 0.5,
+      time_flexibility: 0.5,
+      income_stability: 0.5,
+    },
   });
   const [isComplete, setIsComplete] = createSignal(false);
   const [threadId, setThreadId] = createSignal<string>(generateThreadId());
@@ -687,6 +701,14 @@ export function OnboardingChat() {
       academicEvents: [],
       inventoryItems: [],
       subscriptions: [],
+      tradeOpportunities: [],
+      // BUG J FIX: Include swipePreferences in reset
+      swipePreferences: {
+        effort_sensitivity: 0.5,
+        hourly_rate_priority: 0.5,
+        time_flexibility: 0.5,
+        income_stability: 0.5,
+      },
     });
     // Clear profile ID - will create NEW profile on completion
     setProfileId(undefined);
@@ -717,6 +739,14 @@ export function OnboardingChat() {
       academicEvents: [],
       inventoryItems: [],
       subscriptions: [],
+      tradeOpportunities: [],
+      // BUG J FIX: Include swipePreferences in reset
+      swipePreferences: {
+        effort_sensitivity: 0.5,
+        hourly_rate_priority: 0.5,
+        time_flexibility: 0.5,
+        income_stability: 0.5,
+      },
     });
 
     // KEEP profile ID - will UPDATE existing profile on completion
@@ -855,13 +885,19 @@ export function OnboardingChat() {
       }
     }
 
-    // Smart merge for academic events - collected at 'goal' step
+    // Smart merge for academic events - collected at 'academic_events' step
+    // BUG P FIX: Changed step parameter from 'goal' to 'academic_events'
     if (data.academicEvents !== undefined && Array.isArray(data.academicEvents)) {
+      // BUG K FIX: Normalize dates - ensure endDate defaults to startDate if missing
+      const normalizedEvents = (data.academicEvents as AcademicEvent[]).map((event) => ({
+        ...event,
+        endDate: event.endDate || event.startDate, // Default endDate to startDate
+      }));
       const merged = smartMergeArrays(
         currentProfile.academicEvents,
-        data.academicEvents as AcademicEvent[],
+        normalizedEvents,
         currentStep,
-        'goal'
+        'academic_events'
       );
       if (merged !== undefined) updates.academicEvents = merged;
     }
@@ -886,6 +922,64 @@ export function OnboardingChat() {
         'inventory'
       );
       if (merged !== undefined) updates.subscriptions = merged;
+    }
+
+    // BUG H FIX: Handle trade opportunities (borrow/lend/trade/sell)
+    // This was missing, causing Trade tab Borrow section to be empty
+    if (data.tradeOpportunities !== undefined && Array.isArray(data.tradeOpportunities)) {
+      const merged = smartMergeArrays(
+        currentProfile.tradeOpportunities,
+        data.tradeOpportunities as TradeOpportunity[],
+        currentStep,
+        'trade'
+      );
+      if (merged !== undefined) updates.tradeOpportunities = merged;
+    }
+
+    // Also handle borrowItems if extracted separately (some LLM responses use this)
+    // BUG R FIX: Include estimatedValue for borrow items (e.g., "borrow camping gear worth $150")
+    if (data.borrowItems !== undefined && Array.isArray(data.borrowItems)) {
+      const borrowTrades: TradeOpportunity[] = (
+        data.borrowItems as Array<{
+          name?: string;
+          item?: string;
+          from?: string;
+          value?: number;
+          estimatedValue?: number;
+          worth?: number;
+        }>
+      ).map((item) => ({
+        type: 'borrow' as const,
+        description: typeof item === 'string' ? item : item.name || item.item || 'Item',
+        withPerson: typeof item === 'string' ? 'Friend' : item.from || 'Friend',
+        // BUG R FIX: Extract value from various possible field names
+        estimatedValue:
+          typeof item === 'string' ? undefined : item.value || item.estimatedValue || item.worth,
+      }));
+      updates.tradeOpportunities = [
+        ...(updates.tradeOpportunities || currentProfile.tradeOpportunities || []),
+        ...borrowTrades,
+      ];
+    }
+
+    // Handle sellItems if extracted separately
+    if (data.sellItems !== undefined && Array.isArray(data.sellItems)) {
+      const sellTrades: TradeOpportunity[] = (
+        data.sellItems as Array<{
+          name?: string;
+          item?: string;
+          value?: number;
+          estimatedValue?: number;
+        }>
+      ).map((item) => ({
+        type: 'sell' as const,
+        description: typeof item === 'string' ? item : item.name || item.item || 'Item',
+        estimatedValue: typeof item === 'string' ? undefined : item.value || item.estimatedValue,
+      }));
+      updates.tradeOpportunities = [
+        ...(updates.tradeOpportunities || currentProfile.tradeOpportunities || []),
+        ...sellTrades,
+      ];
     }
 
     // Determine city size AND currency based on city/region
@@ -1131,6 +1225,13 @@ export function OnboardingChat() {
           goalDeadline: finalProfile.goalDeadline,
           planData, // Include planData for all tabs
           followupData: {}, // Explicitly initialize to prevent localStorage fallback
+          // BUG J FIX: Include swipePreferences with defaults
+          swipePreferences: finalProfile.swipePreferences || {
+            effort_sensitivity: 0.5,
+            hourly_rate_priority: 0.5,
+            time_flexibility: 0.5,
+            income_stability: 0.5,
+          },
         };
 
         // Save to API first
@@ -1145,162 +1246,55 @@ export function OnboardingChat() {
             setProfileId(savedProfileId);
           }
 
-          // Create goal in dedicated goals table if we have goal data
-          if (savedProfileId && finalProfile.goalName && finalProfile.goalAmount) {
-            try {
-              // DELETE existing goals to prevent duplicates (same logic as "Restart onboarding")
-              await fetch(`/api/goals?profileId=${savedProfileId}`, { method: 'DELETE' });
+          // BUG F & G FIX: Verify profile actually exists in DB before creating goals/skills
+          // saveProfile can return success:true even if only localStorage saved (API failed)
+          const profileExistsInDb = savedProfileId
+            ? await verifyProfileInDb(savedProfileId)
+            : false;
 
-              // Then create the new goal
-              await fetch('/api/goals', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  profileId: savedProfileId,
-                  name: finalProfile.goalName,
-                  amount: finalProfile.goalAmount,
-                  deadline: finalProfile.goalDeadline || null,
-                  priority: 1,
-                  status: 'active',
-                }),
-              });
-            } catch (goalError) {
-              logger.error('Failed to create goal in table', { error: goalError });
-              // Non-fatal: profile still saved with embedded goal data
-            }
+          if (!profileExistsInDb) {
+            logger.warn(
+              'Profile not saved to DB, skipping goals/skills persistence. Data is only in localStorage.'
+            );
+            // Show toast notification instead of chat message
+            toast.warning(
+              'Offline mode',
+              'Your profile was saved locally. Goals and skills will sync when the connection is restored.'
+            );
           }
 
-          // Persist extracted data to dedicated tables for tab population
+          // Persist all onboarding data to dedicated tables using the extracted persistence module
           // This ensures SkillsTab, BudgetTab, InventoryTab show the onboarding data
-          if (savedProfileId) {
-            // Bulk create skills in skills table
-            if (finalProfile.skills && finalProfile.skills.length > 0) {
-              try {
-                await skillService.bulkCreateSkills(
-                  savedProfileId,
-                  finalProfile.skills.map((name) => ({
-                    name,
-                    level: 'intermediate' as const,
-                    hourlyRate: finalProfile.minHourlyRate || 15,
-                  }))
-                );
-              } catch (skillsError) {
-                logger.error('Failed to persist skills', { error: skillsError });
-              }
-            }
+          if (profileExistsInDb && savedProfileId) {
+            const persistResult = await persistAllOnboardingData(savedProfileId, {
+              goal:
+                finalProfile.goalName && finalProfile.goalAmount
+                  ? {
+                      name: finalProfile.goalName,
+                      amount: finalProfile.goalAmount,
+                      deadline: finalProfile.goalDeadline,
+                      academicEvents: finalProfile.academicEvents,
+                    }
+                  : undefined,
+              skills: finalProfile.skills,
+              inventoryItems: finalProfile.inventoryItems,
+              expenses: finalProfile.expenses,
+              subscriptions: finalProfile.subscriptions,
+              incomes: finalProfile.incomes,
+              tradeOpportunities: finalProfile.tradeOpportunities,
+              minHourlyRate: finalProfile.minHourlyRate,
+            });
 
-            // Bulk create inventory items in inventory_items table
-            if (finalProfile.inventoryItems && finalProfile.inventoryItems.length > 0) {
-              try {
-                await inventoryService.bulkCreateItems(
-                  savedProfileId,
-                  finalProfile.inventoryItems.map((item) => ({
-                    name: item.name,
-                    category:
-                      (item.category as
-                        | 'electronics'
-                        | 'clothing'
-                        | 'books'
-                        | 'furniture'
-                        | 'sports'
-                        | 'other') || 'other',
-                    estimatedValue: item.estimatedValue || 50,
-                  }))
-                );
-              } catch (inventoryError) {
-                logger.error('Failed to persist inventory', { error: inventoryError });
-              }
-            }
-
-            // Bulk create lifestyle items from expense breakdown (housing, food, transport, etc)
-            if (finalProfile.expenses && finalProfile.expenses.length > 0) {
-              try {
-                const categoryNames: Record<string, string> = {
-                  rent: 'Rent',
-                  housing: 'Rent',
-                  food: 'Food & Groceries',
-                  transport: 'Transport',
-                  subscriptions: 'Subscriptions',
-                  other: 'Other expenses',
-                };
-
-                // Only filter out generic subscriptions if user added explicit ones
-                // This prevents losing the 5% estimate when user hasn't specified subs
-                const hasExplicitSubscriptions =
-                  finalProfile.subscriptions && finalProfile.subscriptions.length > 0;
-
-                await lifestyleService.bulkCreateItems(
-                  savedProfileId,
-                  finalProfile.expenses
-                    .filter((exp) => !hasExplicitSubscriptions || exp.category !== 'subscriptions')
-                    .map((exp) => ({
-                      name: categoryNames[exp.category] || exp.category,
-                      category: (exp.category === 'rent' ? 'housing' : exp.category) as
-                        | 'housing'
-                        | 'food'
-                        | 'transport'
-                        | 'subscriptions'
-                        | 'other',
-                      currentCost: exp.amount,
-                    }))
-                );
-              } catch (expenseError) {
-                logger.error('Failed to persist expense breakdown', { error: expenseError });
-              }
-            }
-
-            // Bulk create lifestyle items (subscriptions) in lifestyle_items table
-            if (finalProfile.subscriptions && finalProfile.subscriptions.length > 0) {
-              try {
-                await lifestyleService.bulkCreateItems(
-                  savedProfileId,
-                  finalProfile.subscriptions.map((sub) => ({
-                    name: sub.name,
-                    category: 'subscriptions' as const,
-                    currentCost: sub.currentCost ?? 10, // Default $10/month for subscriptions
-                  }))
-                );
-              } catch (lifestyleError) {
-                logger.error('Failed to persist lifestyle', { error: lifestyleError });
-              }
-            }
-
-            // Create income items in income_items table
-            if (finalProfile.incomes && finalProfile.incomes.length > 0) {
-              try {
-                await incomeService.bulkCreateItems(
-                  savedProfileId,
-                  finalProfile.incomes.map((inc) => ({
-                    name: inc.source === 'total' ? 'Monthly income' : inc.source,
-                    amount: inc.amount,
-                  }))
-                );
-              } catch (incomeError) {
-                logger.error('Failed to persist income', { error: incomeError });
-              }
-            }
-
-            // Create trades in trades table
-            if (finalProfile.tradeOpportunities && finalProfile.tradeOpportunities.length > 0) {
-              try {
-                await tradeService.bulkCreateTrades(
-                  savedProfileId,
-                  finalProfile.tradeOpportunities.map((trade) => ({
-                    type: trade.type === 'cut' ? 'sell' : trade.type, // 'cut' maps to 'sell'
-                    name: trade.description,
-                    partner: trade.withPerson || 'Unknown',
-                    value: trade.estimatedValue ?? 0,
-                    description: trade.forWhat,
-                    status: 'pending' as const,
-                  }))
-                );
-                logger.info('Trades persisted', {
-                  profileId: savedProfileId,
-                  count: finalProfile.tradeOpportunities.length,
-                });
-              } catch (tradeError) {
-                logger.error('Failed to persist trades', { error: tradeError });
-              }
+            // Show toast for partial failures instead of chat message
+            if (!persistResult.success) {
+              logger.warn('Some data could not be saved to dedicated tables', {
+                failures: persistResult.failures,
+                profileId: savedProfileId,
+              });
+              toast.warning(
+                'Partial sync',
+                `Some details (${persistResult.failures.join(', ')}) couldn't be synced. You can add them manually in the Plan page.`
+              );
             }
           }
 
@@ -1320,8 +1314,15 @@ export function OnboardingChat() {
             refreshIncome(),
             refreshTrades(),
           ]);
+
+          // Show success toast for onboarding completion
+          toast.success(
+            'Profile complete!',
+            'Your profile has been saved. Ready to start your plan!'
+          );
         } catch (error) {
           logger.error('Failed to save profile to API', { error });
+          toast.error('Save failed', 'Could not save profile. Your data is stored locally.');
         }
 
         // Keep localStorage as fallback
@@ -1340,7 +1341,8 @@ export function OnboardingChat() {
       // Source available on badge in UI (no console logging needed)
     } catch (error) {
       logger.error('Chat error', { error });
-      // Add error message
+      // Show toast for visibility + add chat message
+      toast.error('Connection issue', 'Something went wrong. Please try again.');
       const errorMsg: Message = {
         id: `error-${Date.now()}`,
         role: 'assistant',
@@ -1506,6 +1508,14 @@ export function OnboardingChat() {
                     academicEvents: [],
                     inventoryItems: [],
                     subscriptions: [],
+                    tradeOpportunities: [],
+                    // BUG J FIX: Include swipePreferences in restart
+                    swipePreferences: {
+                      effort_sensitivity: 0.5,
+                      hourly_rate_priority: 0.5,
+                      time_flexibility: 0.5,
+                      income_stability: 0.5,
+                    },
                   });
                   localStorage.removeItem('studentProfile');
                   localStorage.removeItem('planData');

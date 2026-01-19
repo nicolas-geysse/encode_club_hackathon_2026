@@ -1,7 +1,8 @@
 import { createSignal, Show, createEffect } from 'solid-js';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
-import { Clock, DollarSign, ArrowRight } from 'lucide-solid';
+import { Clock, ArrowRight } from 'lucide-solid';
+import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 
 interface LogProgressDialogProps {
   isOpen: boolean;
@@ -12,9 +13,12 @@ interface LogProgressDialogProps {
   currentEarnings: number;
   targetHours?: number;
   targetEarnings?: number;
+  currency?: Currency;
 }
 
 export function LogProgressDialog(props: LogProgressDialogProps) {
+  const currencySymbol = () => getCurrencySymbol(props.currency);
+
   const [addedHours, setAddedHours] = createSignal('');
   const [totalHours, setTotalHours] = createSignal('');
   const [addedEarnings, setAddedEarnings] = createSignal('');
@@ -103,10 +107,14 @@ export function LogProgressDialog(props: LogProgressDialogProps) {
                 <div class="space-y-2">
                   <label class="text-sm font-medium leading-none">
                     Earnings collected{' '}
-                    {props.targetEarnings ? `(Target: $${props.targetEarnings})` : ''}
+                    {props.targetEarnings
+                      ? `(Target: ${formatCurrency(props.targetEarnings, props.currency)})`
+                      : ''}
                   </label>
                   <div class="relative">
-                    <DollarSign class="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <span class="absolute left-3 top-2.5 text-sm text-muted-foreground">
+                      {currencySymbol()}
+                    </span>
                     <Input
                       type="number"
                       min="0"
@@ -164,8 +172,11 @@ export function LogProgressDialog(props: LogProgressDialogProps) {
               {/* Earnings Row */}
               <div class="space-y-1">
                 <label class="text-xs text-muted-foreground flex items-center gap-1">
-                  <DollarSign class="h-3 w-3" /> Current: ${props.currentEarnings}
-                  {props.targetEarnings ? ` / ${props.targetEarnings}` : ''}
+                  <span class="text-xs">{currencySymbol()}</span> Current:{' '}
+                  {formatCurrency(props.currentEarnings, props.currency)}
+                  {props.targetEarnings
+                    ? ` / ${formatCurrency(props.targetEarnings, props.currency)}`
+                    : ''}
                 </label>
                 <div class="flex items-center gap-2">
                   <div class="relative flex-1">

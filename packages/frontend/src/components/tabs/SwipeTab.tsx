@@ -12,7 +12,7 @@ import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Progress } from '~/components/ui/Progress';
-import { ClipboardList, RotateCcw, Check, Dices } from 'lucide-solid';
+import { ClipboardList, RotateCcw, Check, Dices, Trash2 } from 'lucide-solid';
 
 export interface Scenario {
   id: string;
@@ -238,6 +238,11 @@ export function SwipeTab(props: SwipeTabProps) {
     setSelectedScenarios([]);
   };
 
+  // Handle scenario deletion from review phase
+  const handleScenarioDelete = (scenarioId: string) => {
+    setSelectedScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
+  };
+
   return (
     <div class="p-6">
       {/* Idle Phase - Roll the Dice */}
@@ -274,7 +279,7 @@ export function SwipeTab(props: SwipeTabProps) {
             </p>
           </div>
 
-          {/* Preference Summary */}
+          {/* Preference Summary - Sprint 2 Bug #7 fix: Safe value extraction with fallbacks */}
           <Card>
             <CardContent class="p-6">
               <h3 class="font-medium text-foreground mb-4">Your profile</h3>
@@ -283,23 +288,35 @@ export function SwipeTab(props: SwipeTabProps) {
                   <span class="text-muted-foreground flex items-center gap-2">
                     💪 Effort tolerance
                   </span>
-                  <Progress value={(1 - preferences().effortSensitivity) * 100} class="h-2" />
+                  <Progress
+                    value={Math.round((1 - (preferences().effortSensitivity ?? 0.5)) * 100)}
+                    class="h-2"
+                  />
                 </div>
                 <div class="space-y-2">
                   <span class="text-muted-foreground flex items-center gap-2">💰 Pay priority</span>
-                  <Progress value={preferences().hourlyRatePriority * 100} class="h-2" />
+                  <Progress
+                    value={Math.round((preferences().hourlyRatePriority ?? 0.5) * 100)}
+                    class="h-2"
+                  />
                 </div>
                 <div class="space-y-2">
                   <span class="text-muted-foreground flex items-center gap-2">
                     📅 Schedule flexibility
                   </span>
-                  <Progress value={preferences().timeFlexibility * 100} class="h-2" />
+                  <Progress
+                    value={Math.round((preferences().timeFlexibility ?? 0.5) * 100)}
+                    class="h-2"
+                  />
                 </div>
                 <div class="space-y-2">
                   <span class="text-muted-foreground flex items-center gap-2">
                     🛡️ Income stability
                   </span>
-                  <Progress value={preferences().incomeStability * 100} class="h-2" />
+                  <Progress
+                    value={Math.round((preferences().incomeStability ?? 0.5) * 100)}
+                    class="h-2"
+                  />
                 </div>
               </div>
             </CardContent>
@@ -314,15 +331,25 @@ export function SwipeTab(props: SwipeTabProps) {
               <div class="space-y-2">
                 <For each={selectedScenarios()}>
                   {(scenario) => (
-                    <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
-                      <div>
+                    <div class="group flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border hover:border-border/80 transition-colors">
+                      <div class="flex-1 min-w-0">
                         <p class="font-medium text-foreground">{scenario.title}</p>
                         <p class="text-sm text-muted-foreground">
                           {scenario.weeklyHours}h/wk •{' '}
                           {formatCurrency(scenario.weeklyEarnings, currency())}/wk
                         </p>
                       </div>
-                      <Check class="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <div class="flex items-center gap-2">
+                        <Check class="h-5 w-5 text-green-600 dark:text-green-400" />
+                        <button
+                          type="button"
+                          onClick={() => handleScenarioDelete(scenario.id)}
+                          class="p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                          title="Remove scenario"
+                        >
+                          <Trash2 class="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </For>

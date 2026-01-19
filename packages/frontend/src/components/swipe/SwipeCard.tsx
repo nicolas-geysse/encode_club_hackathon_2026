@@ -14,6 +14,7 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-solid';
+import { formatCurrency, formatCurrencyWithSuffix, type Currency } from '~/lib/dateUtils';
 
 export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
 
@@ -27,6 +28,7 @@ export interface SwipeCardProps {
   flexibilityScore: number;
   hourlyRate: number;
   category: string;
+  currency?: Currency;
   onSwipe: (direction: SwipeDirection, timeSpent: number, adjustments?: CardAdjustments) => void;
   isActive?: boolean;
   triggerSwipe?: SwipeDirection | null;
@@ -193,7 +195,7 @@ export function SwipeCard(props: SwipeCardProps) {
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      <Card class="h-full w-full overflow-hidden border-border/50 shadow-xl bg-[#121215]">
+      <Card class="h-full w-full overflow-hidden border-border/50 shadow-xl bg-card">
         {/* Swipe Indicator Overlays */}
         <div
           class={cn(
@@ -262,7 +264,7 @@ export function SwipeCard(props: SwipeCardProps) {
                 </div>
                 <div>
                   <div class="text-3xl font-extrabold text-foreground tracking-tight">
-                    ${props.weeklyEarnings}
+                    {formatCurrency(props.weeklyEarnings, props.currency)}
                   </div>
                   <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Per week
@@ -275,7 +277,9 @@ export function SwipeCard(props: SwipeCardProps) {
                   <Clock class="h-4 w-4 text-muted-foreground" />
                   {props.weeklyHours}h
                 </div>
-                <div class="text-xs text-muted-foreground">${props.hourlyRate}/h rate</div>
+                <div class="text-xs text-muted-foreground">
+                  {formatCurrencyWithSuffix(props.hourlyRate, props.currency, '/h')} rate
+                </div>
               </div>
             </div>
           </div>

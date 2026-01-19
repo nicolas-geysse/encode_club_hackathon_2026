@@ -195,10 +195,10 @@ export function SwipeSession(props: SwipeSessionProps) {
       {/* Left Column: AI Context & Adjustments */}
       <div class="w-full md:w-72 space-y-4 flex flex-col shrink-0 order-2 md:order-1">
         {/* AI Context Block */}
-        <div class="flex flex-col gap-2 p-3 bg-muted/20 rounded-xl border border-white/5 backdrop-blur-sm w-full">
+        <div class="flex flex-col gap-2 p-3 bg-muted/20 rounded-xl border border-border/50 backdrop-blur-sm w-full">
           <div class="flex items-center gap-2 mb-1">
             <div class="p-1 bg-purple-500/10 rounded-md">
-              <Bot class="h-3.5 w-3.5 text-purple-400" />
+              <Bot class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
             </div>
             <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               AI Context
@@ -386,6 +386,7 @@ export function SwipeSession(props: SwipeSessionProps) {
                         : scenario.hourlyRate
                     }
                     category={scenario.category}
+                    currency={currency()}
                     onSwipe={handleSwipe}
                     isActive={index() === currentIndex()}
                     triggerSwipe={triggerSwipe()}
@@ -415,7 +416,7 @@ export function SwipeSession(props: SwipeSessionProps) {
               <Button
                 variant="outline"
                 size="icon"
-                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"
+                class="h-14 w-14 rounded-full border-border bg-background dark:bg-[#121215] text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-all shadow-sm"
                 onClick={() => setTriggerSwipe('left')}
               >
                 <X class="h-6 w-6" />
@@ -430,7 +431,7 @@ export function SwipeSession(props: SwipeSessionProps) {
               <Button
                 variant="outline"
                 size="icon"
-                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-orange-500 hover:bg-orange-500/10 hover:border-orange-500/20 transition-all shadow-sm"
+                class="h-14 w-14 rounded-full border-border bg-background dark:bg-[#121215] text-orange-500 hover:bg-orange-500/10 hover:border-orange-500/20 transition-all shadow-sm"
                 onClick={() => setTriggerSwipe('down')}
               >
                 <ThumbsDown class="h-6 w-6" />
@@ -445,7 +446,7 @@ export function SwipeSession(props: SwipeSessionProps) {
               <Button
                 variant="outline"
                 size="icon"
-                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-blue-500 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
+                class="h-14 w-14 rounded-full border-border bg-background dark:bg-[#121215] text-blue-500 hover:bg-blue-500/10 hover:border-blue-500/20 transition-all shadow-sm"
                 onClick={() => setTriggerSwipe('up')}
               >
                 <Star class="h-6 w-6" />
@@ -460,7 +461,7 @@ export function SwipeSession(props: SwipeSessionProps) {
               <Button
                 variant="outline"
                 size="icon"
-                class="h-14 w-14 rounded-full border-white/5 bg-[#121215] text-green-500 hover:bg-green-500/10 hover:border-green-500/20 transition-all shadow-sm"
+                class="h-14 w-14 rounded-full border-border bg-background dark:bg-[#121215] text-green-500 hover:bg-green-500/10 hover:border-green-500/20 transition-all shadow-sm"
                 onClick={() => setTriggerSwipe('right')}
               >
                 <Heart class="h-6 w-6" />

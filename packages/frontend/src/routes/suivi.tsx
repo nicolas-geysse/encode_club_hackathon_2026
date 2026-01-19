@@ -14,6 +14,7 @@ import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
+import { goalService, type Goal } from '~/lib/goalService';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { ClipboardList, MessageSquare, Target } from 'lucide-solid';
@@ -77,6 +78,9 @@ export default function SuiviPage() {
     missions: [],
   });
 
+  // Sprint 3 Bug B fix: Track current goal for progress sync
+  const [currentGoal, setCurrentGoal] = createSignal<Goal | null>(null);
+
   // Get currency from profile
   const currency = (): Currency => (activeProfile()?.currency as Currency) || 'USD';
 
@@ -107,62 +111,60 @@ export default function SuiviPage() {
       if (profile) {
         setActiveProfile(profile);
 
-        // Get plan data from profile, but also check localStorage for fresher data
-        // (localStorage is saved synchronously, DuckDB save is async and may lag)
-        const storedPlanData = localStorage.getItem('planData');
-        const localPlanData = storedPlanData ? JSON.parse(storedPlanData) : null;
+        // Sprint 2.3 Fix: Load goal from goals table (single source of truth)
+        // NO localStorage fallback to prevent cross-profile contamination
+        const primaryGoal = await goalService.getPrimaryGoal(profile.id);
 
-        // Prefer localStorage selectedScenarios if available (fresher after swipe navigation)
-        const planData = {
-          ...(profile.planData || {}),
-          ...(localPlanData || {}),
-          // Explicitly prefer localStorage selectedScenarios if present
-          selectedScenarios:
-            localPlanData?.selectedScenarios ||
-            (profile.planData as Record<string, unknown>)?.selectedScenarios,
-        } as
-          | {
-              setup?: SetupData;
-              skills?: Array<{ name: string; hourlyRate: number }>;
-              inventory?: Array<{ name: string; estimatedValue: number; sold: boolean }>;
-              selectedScenarios?: Array<{
-                id: string;
-                title: string;
-                description: string;
-                category: string;
-                weeklyHours: number;
-                weeklyEarnings: number;
-                effortLevel: number;
-                flexibilityScore: number;
-                hourlyRate: number;
-              }>;
-              trades?: Array<{
-                id: string;
-                type: string;
-                name: string;
-                partner: string;
-                value: number;
-                status: string;
-                dueDate?: string;
-              }>;
-            }
-          | undefined;
+        // Get planData from profile ONLY (no localStorage to prevent contamination)
+        const planData = (profile.planData || {}) as {
+          skills?: Array<{ name: string; hourlyRate: number }>;
+          inventory?: Array<{ name: string; estimatedValue: number; sold: boolean }>;
+          selectedScenarios?: Array<{
+            id: string;
+            title: string;
+            description: string;
+            category: string;
+            weeklyHours: number;
+            weeklyEarnings: number;
+            effortLevel: number;
+            flexibilityScore: number;
+            hourlyRate: number;
+          }>;
+          trades?: Array<{
+            id: string;
+            type: string;
+            name: string;
+            partner: string;
+            value: number;
+            status: string;
+            dueDate?: string;
+          }>;
+        };
 
-        if (planData?.setup) {
-          setSetup(planData.setup);
+        // Use goal from goals table as primary source of truth
+        if (primaryGoal) {
+          // Sprint 3 Bug B fix: Store goal reference for progress sync
+          setCurrentGoal(primaryGoal);
+
+          setSetup({
+            goalName: primaryGoal.name,
+            goalAmount: primaryGoal.amount,
+            goalDeadline: primaryGoal.deadline || defaultDeadline90Days(),
+          });
           setHasData(true);
 
           // Calculate weeks and targets using simulated date (dayjs)
+          // Sprint 2.3 Fix: Use primaryGoal data, not planData.setup
           const startDate = simDate;
-          const totalWeeks = weeksBetween(startDate, planData.setup.goalDeadline);
-          const weeklyTarget = Math.ceil(planData.setup.goalAmount / totalWeeks);
+          const goalDeadline = primaryGoal.deadline || defaultDeadline90Days();
+          const totalWeeks = weeksBetween(startDate, goalDeadline);
+          const weeklyTarget = Math.ceil(primaryGoal.amount / Math.max(1, totalWeeks));
 
-          // Load followup data from profile or localStorage
-          const storedFollowup = profile.followupData || localStorage.getItem('followupData');
-          let existingFollowup = storedFollowup
-            ? typeof storedFollowup === 'string'
-              ? JSON.parse(storedFollowup)
-              : storedFollowup
+          // Load followup data from profile ONLY (no localStorage fallback to prevent cross-profile contamination)
+          let existingFollowup = profile.followupData
+            ? typeof profile.followupData === 'string'
+              ? JSON.parse(profile.followupData)
+              : profile.followupData
             : null;
 
           // ALWAYS check selectedScenarios and merge new missions (fixes cache issue after swipe)
@@ -339,48 +341,40 @@ export default function SuiviPage() {
               missions,
             });
           }
-        } else if (profile.goalName && profile.goalAmount) {
-          // Use goal from profile directly
-          setSetup({
-            goalName: profile.goalName,
-            goalAmount: profile.goalAmount,
-            goalDeadline: profile.goalDeadline || defaultDeadline90Days(),
-          });
-          setHasData(true);
         }
+        // Sprint 2.3 Fix: Removed fallback to profile.goalName/goalAmount
+        // The goals table is now the single source of truth for goal data
+        // If no goal exists in the goals table, user needs to create one via Goals tab
       } else {
-        // Fallback to localStorage for backwards compatibility
-        const storedPlan = localStorage.getItem('planData');
-        if (storedPlan) {
-          const planData = JSON.parse(storedPlan);
-          if (planData.setup) {
-            setSetup(planData.setup);
-            setHasData(true);
-
-            const storedFollowup = localStorage.getItem('followupData');
-            if (storedFollowup) {
-              setFollowup(normalizeFollowup(JSON.parse(storedFollowup)));
-            }
-          }
-        }
+        // No profile found - user needs to complete onboarding first
+        // (No localStorage fallback to prevent cross-profile contamination)
       }
     } finally {
       setIsLoading(false);
     }
   });
 
-  // Save followup data to both localStorage and DuckDB (debounced)
+  // Save followup data to DuckDB only (no localStorage to prevent cross-profile contamination)
   const updateFollowup = async (updates: Partial<FollowupData>) => {
     const updated = { ...followup(), ...updates };
     setFollowup(updated);
 
-    // Save to localStorage for backwards compatibility
-    localStorage.setItem('followupData', JSON.stringify(updated));
-
-    // Save to DuckDB via profileService
+    // Save to DuckDB via profileService (single source of truth)
     const profile = activeProfile();
     if (profile) {
       await profileService.saveProfile({ ...profile, followupData: updated }, { setActive: false });
+
+      // Sprint 3 Bug B fix: Sync progress to goals table
+      // This ensures Goals tab shows correct progress (not always 0%)
+      const goal = currentGoal();
+      const goalAmount = setup()?.goalAmount;
+      if (goal && goalAmount && goalAmount > 0) {
+        const progressPercent = Math.min(
+          100,
+          Math.round((updated.currentAmount / goalAmount) * 100)
+        );
+        await goalService.updateGoalProgress(goal.id, progressPercent);
+      }
     }
   };
 

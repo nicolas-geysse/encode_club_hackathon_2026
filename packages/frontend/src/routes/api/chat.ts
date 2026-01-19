@@ -78,6 +78,7 @@ function getCurrencySymbol(currency?: string): string {
 // Onboarding step types (extended for full tab population)
 type OnboardingStep =
   | 'greeting'
+  | 'region' // Added: ask for name after greeting (which asks for location/currency)
   | 'name'
   | 'studies'
   | 'skills'
@@ -88,6 +89,7 @@ type OnboardingStep =
   | 'goal' // Savings goal
   | 'academic_events' // Exams, vacations
   | 'inventory' // Items to sell
+  | 'trade' // Trade opportunities (borrow, lend, swap)
   | 'lifestyle' // Subscriptions
   | 'complete';
 
@@ -132,6 +134,12 @@ Respond ONLY with valid JSON, no text before or after.`,
 // Step-specific prompts
 const STEP_PROMPTS: Record<OnboardingStep, string> = {
   greeting: '',
+  region: `The user is based in a region that uses {currency} currency.
+Generate a warm, welcoming response of 2-3 sentences that:
+1. Acknowledges their location (Europe/US/UK based on currency)
+2. Asks for their first name
+
+Be friendly and casual. Example: "Great! Now, what's your name? I'd love to know who I'm helping today!"`,
   name: `The user just gave their first name "{name}".
 Generate a warm response of 2-3 sentences that:
 1. Welcomes the user by their first name
@@ -198,6 +206,16 @@ Generate a response of 2-3 sentences that:
   inventory: `The user has items to potentially sell: {inventoryItems}.
 Generate a response of 2-3 sentences that:
 1. Acknowledges the items
+2. Asks about trade opportunities - can they borrow items instead of buying, lend to earn, or swap with friends?
+
+Example: "Nice! Now, do you have any trade opportunities? For example:
+- Borrow a friend's bike instead of buying one
+- Lend your camera for some cash
+- Swap textbooks with classmates"`,
+
+  trade: `The user mentioned trade opportunities: {tradeOpportunities}.
+Generate a response of 2-3 sentences that:
+1. Acknowledges their trade ideas (if any) or that they don't have any
 2. Asks about their current subscriptions and recurring expenses (streaming, gym, phone plan, etc.)`,
 
   lifestyle: `The user has these subscriptions: {subscriptions}.
@@ -228,8 +246,12 @@ Fields to look for:
 - goalAmount: how much they want to save (number)
 - goalDeadline: when, like "March 2026" or "in 3 months" (string)
 - academicEvents: events like exams, vacations (string description or array)
-- inventoryItems: items they could sell (string description or array)
-- subscriptions: subscriptions they have (string description or array)
+- inventoryItems: items they could sell like "old laptop", "textbooks", "clothes" (array of {name, category?, estimatedValue?})
+- subscriptions: services they pay for like "Netflix", "Spotify", "gym" (array of {name, currentCost?})
+- tradeOpportunities: borrow/lend/swap opportunities like "borrow bike from friend", "lend camera" (array of {type: "borrow"|"lend"|"trade"|"swap", description, withPerson?, estimatedValue?})
+
+IMPORTANT: Even single words like "Netflix" or "gym" should be extracted as subscriptions.
+Even simple phrases like "I could borrow my friend's bike" should be extracted as tradeOpportunities.
 
 Only include fields that are clearly mentioned. If unsure, skip the field.
 
@@ -650,6 +672,7 @@ function getNextStep(
 ): OnboardingStep {
   const flow: OnboardingStep[] = [
     'greeting',
+    'region', // After greeting (location/currency), ask for name
     'name',
     'studies',
     'skills',
@@ -660,13 +683,15 @@ function getNextStep(
     'goal',
     'academic_events',
     'inventory',
+    'trade', // Trade opportunities (borrow, lend, swap)
     'lifestyle',
     'complete',
   ];
 
   // Define what data is required for each step to advance
   const requiredFields: Record<OnboardingStep, string[]> = {
-    greeting: ['name'],
+    greeting: ['currency'], // Greeting asks "where are you based?" → extracts currency
+    region: ['name'], // Region step asks for name
     name: ['diploma', 'field'],
     studies: ['skills'],
     skills: ['certifications'], // Can be empty array for "none"
@@ -676,7 +701,8 @@ function getNextStep(
     work_preferences: ['goalName', 'goalAmount', 'goalDeadline'],
     goal: [], // academic_events is optional, always advance
     academic_events: [], // inventory is optional, always advance
-    inventory: [], // subscriptions is optional, always advance
+    inventory: [], // trade is optional, always advance
+    trade: [], // subscriptions is optional, always advance
     lifestyle: [],
     complete: [],
   };
@@ -723,7 +749,9 @@ async function generateClarificationMessage(
 ): Promise<string> {
   // Direct clarification messages for each step
   const clarifications: Record<OnboardingStep, string> = {
-    greeting: "I didn't catch your name. What should I call you?",
+    greeting:
+      "I didn't catch where you're based. Are you in the US, Europe, or UK? This helps me show amounts in the right currency.",
+    region: "What's your name? I'd love to know who I'm helping today!",
     name: "I'd love to know about your studies! What's your education level and field?\n\nExamples:\n- Bachelor 2nd year Computer Science\n- Master 1 Business\n- PhD Physics\n- Vocational BTS Marketing",
     studies:
       "I'd love to know your skills! What are you good at? (coding languages, languages, design, sports, tutoring...)",
@@ -740,6 +768,8 @@ async function generateClarificationMessage(
     academic_events:
       "Do you have any items you could sell for extra cash? (textbooks, electronics, clothes...) Or say 'nothing' to skip.",
     inventory:
+      "Any trade opportunities? (Borrow a friend's bike, lend your camera, swap textbooks...) Or say 'none' to skip.",
+    trade:
       "What subscriptions do you currently pay for? (Netflix, Spotify, gym, phone...) Or say 'none' to continue.",
     lifestyle: 'Let me know if you want to add anything else, or we can wrap up!',
     complete: '',
@@ -774,6 +804,7 @@ function extractDataWithRegex(
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   const lower = message.toLowerCase();
+
   const original = message;
 
   // Name - look for capitalized words or after "I'm", "my name is", "call me"
@@ -835,6 +866,26 @@ function extractDataWithRegex(
         break;
       }
     }
+  }
+
+  // Currency detection based on region/location (for greeting step)
+  // US/America → USD, Europe/EU/France/Germany/etc → EUR, UK/Britain/England → GBP
+  if (
+    lower.match(
+      /\b(us|usa|united states|america|american|states|california|new york|texas|florida)\b/i
+    )
+  ) {
+    data.currency = 'USD';
+  } else if (
+    lower.match(/\b(uk|united kingdom|britain|british|england|english|scotland|wales|london)\b/i)
+  ) {
+    data.currency = 'GBP';
+  } else if (
+    lower.match(
+      /\b(europe|european|eu|france|french|germany|german|spain|spanish|italy|italian|netherlands|dutch|belgium|austria|portugal|ireland|paris|berlin|madrid|amsterdam)\b/i
+    )
+  ) {
+    data.currency = 'EUR';
   }
 
   // Diploma / Study level
@@ -1113,10 +1164,236 @@ function extractDataWithRegex(
     }
   }
 
+  // ==========================================================================
+  // SUBSCRIPTIONS - Common streaming services, utilities, memberships
+  // ==========================================================================
+  const subscriptionPatterns: [RegExp, { name: string; currentCost?: number }][] = [
+    // Streaming services
+    [/\b(netflix)\b/i, { name: 'Netflix', currentCost: 15 }],
+    [/\b(spotify)\b/i, { name: 'Spotify', currentCost: 10 }],
+    [/\b(amazon prime|prime video|prime)\b/i, { name: 'Amazon Prime', currentCost: 15 }],
+    [/\b(disney\+?|disney plus)\b/i, { name: 'Disney+', currentCost: 10 }],
+    [/\b(hbo max|hbo)\b/i, { name: 'HBO Max', currentCost: 15 }],
+    [/\b(hulu)\b/i, { name: 'Hulu', currentCost: 12 }],
+    [/\b(apple music|apple tv)\b/i, { name: 'Apple Services', currentCost: 10 }],
+    [/\b(youtube premium|youtube music)\b/i, { name: 'YouTube Premium', currentCost: 12 }],
+    [/\b(twitch)\b/i, { name: 'Twitch', currentCost: 5 }],
+    [/\b(crunchyroll|funimation)\b/i, { name: 'Anime Streaming', currentCost: 8 }],
+    // Fitness
+    [/\b(gym|fitness|planet fitness|basic fit)\b/i, { name: 'Gym membership', currentCost: 30 }],
+    [/\b(peloton)\b/i, { name: 'Peloton', currentCost: 40 }],
+    // Productivity/Cloud
+    [/\b(dropbox)\b/i, { name: 'Dropbox', currentCost: 10 }],
+    [/\b(icloud)\b/i, { name: 'iCloud', currentCost: 3 }],
+    [/\b(google one|google drive)\b/i, { name: 'Google One', currentCost: 3 }],
+    [/\b(notion)\b/i, { name: 'Notion', currentCost: 8 }],
+    [/\b(adobe|creative cloud)\b/i, { name: 'Adobe Creative Cloud', currentCost: 55 }],
+    // Gaming
+    [/\b(xbox game pass|game pass)\b/i, { name: 'Xbox Game Pass', currentCost: 15 }],
+    [/\b(playstation plus|ps plus|psn)\b/i, { name: 'PlayStation Plus', currentCost: 10 }],
+    [/\b(nintendo online|switch online)\b/i, { name: 'Nintendo Online', currentCost: 4 }],
+    // Phone/Internet
+    [/\b(phone plan|mobile plan|cell plan)\b/i, { name: 'Phone plan', currentCost: 50 }],
+    [/\b(internet|wifi|broadband)\b/i, { name: 'Internet', currentCost: 50 }],
+    // Food delivery
+    [/\b(uber eats)\b/i, { name: 'Uber Eats', currentCost: 10 }],
+    [/\b(doordash)\b/i, { name: 'DoorDash', currentCost: 10 }],
+    [/\b(deliveroo)\b/i, { name: 'Deliveroo', currentCost: 10 }],
+  ];
+
+  const subscriptionsList: { name: string; currentCost: number }[] = [];
+  for (const [pattern, sub] of subscriptionPatterns) {
+    if (pattern.test(lower)) {
+      subscriptionsList.push({ name: sub.name, currentCost: sub.currentCost || 10 });
+    }
+  }
+  if (subscriptionsList.length > 0) {
+    data.subscriptions = subscriptionsList;
+  }
+
+  // ==========================================================================
+  // TRADE OPPORTUNITIES - Borrow, lend, swap, trade patterns
+  // ==========================================================================
+  const tradeOpportunities: {
+    type: 'borrow' | 'lend' | 'trade' | 'swap';
+    description: string;
+    withPerson?: string;
+  }[] = [];
+
+  // Pattern: "borrow X from Y" or "borrow my friend's X"
+  // Sprint 2 Bug #3 fix: Simplified patterns to catch more cases like "borrow camping gear from alex"
+  const borrowPatterns = [
+    // Simple direct pattern: "borrow [item] from [person]"
+    /borrow\s+([a-z][a-z\s]{2,30}?)\s+from\s+([a-z]+)/gi,
+    // Pattern without person: "borrow [item]" at end of sentence
+    /borrow\s+(?:a |my |the )?([a-z][a-z\s]{2,25})(?:\.|,|!|$)/gi,
+    // Friend's item: "my friend's X"
+    /(?:my |use )?(friend|roommate|brother|sister|parent)'?s?\s+([a-z][a-z\s]{2,20})/gi,
+  ];
+
+  for (const pattern of borrowPatterns) {
+    pattern.lastIndex = 0; // Reset regex state
+    let match;
+    while ((match = pattern.exec(lower)) !== null) {
+      const captureIndex = match[2] && pattern.source.includes('from') ? 1 : match[1] ? 1 : 2;
+      const personIndex = pattern.source.includes('from') ? 2 : undefined;
+      const item = (match[captureIndex] || '').trim().replace(/\s+/g, ' ');
+
+      // Skip common words and too-short items
+      if (item.length > 2 && !['the', 'a', 'an', 'some', 'it', 'this', 'that'].includes(item)) {
+        const person = personIndex ? match[personIndex]?.trim() : undefined;
+        tradeOpportunities.push({
+          type: 'borrow',
+          description: `Borrow ${item}`,
+          withPerson: person,
+        });
+        break; // Avoid duplicate matches from multiple patterns
+      }
+    }
+  }
+
+  // Pattern: "lend my X" or "lend out my X"
+  const lendPatterns = [
+    /(?:can |could |i'll |i will |i might )?lend\s+(?:out )?\s*(?:my )?([a-z\s]+?)(?:\s+(?:to|for)\s+([a-z]+))?(?:\.|,|$)/gi,
+    /rent\s+(?:out )?\s*(?:my )?([a-z\s]+)/gi,
+  ];
+
+  for (const pattern of lendPatterns) {
+    let match;
+    while ((match = pattern.exec(lower)) !== null) {
+      if (match[1] && match[1].length > 2) {
+        const item = match[1].trim().replace(/\s+/g, ' ');
+        if (!['the', 'a', 'an', 'some', 'it'].includes(item)) {
+          tradeOpportunities.push({
+            type: 'lend',
+            description: `Lend ${item}`,
+            withPerson: match[2] || undefined,
+          });
+        }
+      }
+    }
+  }
+
+  // Pattern: "swap X with Y" or "trade X for Y"
+  const swapPatterns = [
+    /(?:swap|trade|exchange)\s+(?:my )?([a-z\s]+?)(?:\s+(?:with|for)\s+([a-z\s]+))?(?:\.|,|$)/gi,
+  ];
+
+  for (const pattern of swapPatterns) {
+    let match;
+    while ((match = pattern.exec(lower)) !== null) {
+      if (match[1] && match[1].length > 2) {
+        const item = match[1].trim().replace(/\s+/g, ' ');
+        if (!['the', 'a', 'an', 'some', 'it'].includes(item)) {
+          tradeOpportunities.push({
+            type: 'swap',
+            description: `Swap ${item}`,
+          });
+        }
+      }
+    }
+  }
+
+  if (tradeOpportunities.length > 0) {
+    data.tradeOpportunities = tradeOpportunities;
+  }
+
+  // ==========================================================================
+  // INVENTORY ITEMS - Things to sell
+  // ==========================================================================
+  const inventoryPatterns: [RegExp, { name: string; category: string; estimatedValue?: number }][] =
+    [
+      // Electronics
+      [
+        /\b(old laptop|laptop|macbook|computer|pc)\b/i,
+        { name: 'Old laptop', category: 'electronics', estimatedValue: 200 },
+      ],
+      [
+        /\b(old phone|iphone|smartphone|android)\b/i,
+        { name: 'Old phone', category: 'electronics', estimatedValue: 150 },
+      ],
+      [/\b(tablet|ipad)\b/i, { name: 'Tablet', category: 'electronics', estimatedValue: 150 }],
+      [
+        /\b(headphones|airpods|earbuds)\b/i,
+        { name: 'Headphones', category: 'electronics', estimatedValue: 50 },
+      ],
+      [/\b(camera|dslr)\b/i, { name: 'Camera', category: 'electronics', estimatedValue: 300 }],
+      [/\b(monitor|screen)\b/i, { name: 'Monitor', category: 'electronics', estimatedValue: 100 }],
+      [
+        /\b(gaming console|playstation|xbox|nintendo switch)\b/i,
+        { name: 'Gaming console', category: 'electronics', estimatedValue: 200 },
+      ],
+      // Books
+      [
+        /\b(textbooks?|books?|coursebooks?)\b/i,
+        { name: 'Textbooks', category: 'books', estimatedValue: 50 },
+      ],
+      // Clothing
+      [
+        /\b(clothes|clothing|shirts?|jeans|jackets?|shoes)\b/i,
+        { name: 'Clothes', category: 'clothing', estimatedValue: 50 },
+      ],
+      [
+        /\b(designer|brand|luxury)\s+(?:clothes|items?|bags?)\b/i,
+        { name: 'Designer items', category: 'clothing', estimatedValue: 200 },
+      ],
+      // Sports
+      [/\b(bike|bicycle)\b/i, { name: 'Bicycle', category: 'sports', estimatedValue: 150 }],
+      [
+        /\b(skateboard|skates|rollerblades)\b/i,
+        { name: 'Skateboard/Skates', category: 'sports', estimatedValue: 50 },
+      ],
+      [
+        /\b(gym equipment|weights|dumbbells)\b/i,
+        { name: 'Gym equipment', category: 'sports', estimatedValue: 100 },
+      ],
+      // Furniture
+      [
+        /\b(furniture|desk|chair|lamp|shelf)\b/i,
+        { name: 'Furniture', category: 'furniture', estimatedValue: 75 },
+      ],
+      // Other
+      [
+        /\b(musical instrument|guitar|piano|keyboard)\b/i,
+        { name: 'Musical instrument', category: 'other', estimatedValue: 200 },
+      ],
+    ];
+
+  const inventoryList: { name: string; category: string; estimatedValue: number }[] = [];
+  for (const [pattern, item] of inventoryPatterns) {
+    if (pattern.test(lower)) {
+      inventoryList.push({
+        name: item.name,
+        category: item.category,
+        estimatedValue: item.estimatedValue || 50,
+      });
+    }
+  }
+  if (inventoryList.length > 0) {
+    data.inventoryItems = inventoryList;
+  }
+
+  // ==========================================================================
   // Simple yes/no detection for inventory/subscriptions
+  // ==========================================================================
   if (lower.match(/\b(yes|yeah|yep|sure|of course|i do|i have)\b/i)) {
     // Check context to see what question was asked
     // This is a simple acknowledgment, LLM will need to get details
+  }
+
+  // Handle "none" / "nothing" / "no" responses for optional steps
+  if (lower.match(/\b(none|nothing|no|nope|i don't|don't have|not really)\b/i)) {
+    // Mark as explicitly empty for optional fields
+    const currentStep = context?.step as string;
+    if (currentStep === 'inventory' && !data.inventoryItems) {
+      data.inventoryItems = [];
+    }
+    if (currentStep === 'trade' && !data.tradeOpportunities) {
+      data.tradeOpportunities = [];
+    }
+    if (currentStep === 'lifestyle' && !data.subscriptions) {
+      data.subscriptions = [];
+    }
   }
 
   return data;
@@ -1142,6 +1419,8 @@ function getFallbackResponse(
 // Fallback responses for each step
 function getFallbackStepResponse(step: OnboardingStep, context: Record<string, unknown>): string {
   switch (step) {
+    case 'region':
+      return `Got it! Now, what's your name? I'd love to know who I'm helping today!`;
     case 'name':
       return `Great ${context.name || ''}! Nice to meet you.\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`;
     case 'studies':
@@ -1161,7 +1440,9 @@ function getFallbackStepResponse(step: OnboardingStep, context: Record<string, u
     case 'academic_events':
       return `Thanks for sharing that!\n\nDo you have any items you could sell? (old textbooks, electronics, clothes, etc.)`;
     case 'inventory':
-      return `Good to know!\n\nWhat subscriptions or recurring expenses do you have? (streaming, gym, phone plan, etc.)`;
+      return `Good to know!\n\nAny trade opportunities? (Borrow a friend's bike, lend your camera, swap textbooks with classmates...)`;
+    case 'trade':
+      return `Got it!\n\nWhat subscriptions or recurring expenses do you have? (streaming, gym, phone plan, etc.)`;
     case 'lifestyle':
       return generateCompletionMessage(context);
     default:
@@ -1261,7 +1542,8 @@ async function runResponseEvaluation(
  * Used to resume onboarding from where the user left off
  */
 function findFirstIncompleteStep(ctx: Record<string, unknown>): OnboardingStep {
-  if (!ctx.name) return 'greeting';
+  if (!ctx.currency) return 'greeting'; // First, get location/currency
+  if (!ctx.name) return 'region'; // Then, get name
   if (!ctx.diploma && !ctx.field) return 'name';
   if (!ctx.skills || (Array.isArray(ctx.skills) && ctx.skills.length === 0)) return 'studies';
   if (!ctx.city) return 'skills';
@@ -1277,7 +1559,9 @@ function findFirstIncompleteStep(ctx: Record<string, unknown>): OnboardingStep {
  */
 function getStepQuestion(step: OnboardingStep, ctx: Record<string, unknown>): string {
   const questions: Record<OnboardingStep, string> = {
-    greeting: "What's your name?",
+    greeting:
+      'Where are you based? (US, Europe, or UK) This helps me show amounts in the right currency.',
+    region: "What's your name? I'd love to know who I'm helping today!",
     name: `Nice to meet you${ctx.name ? `, ${ctx.name}` : ''}! What are you studying? (e.g., "Junior CS", "Senior Law")`,
     studies: 'What are your skills? (coding, languages, design, sports...)',
     skills:
@@ -1290,7 +1574,9 @@ function getStepQuestion(step: OnboardingStep, ctx: Record<string, unknown>): st
     goal: 'Any important academic events coming up? (exams, vacations, busy periods)',
     academic_events:
       'Do you have any items you could sell? (old textbooks, electronics, clothes...)',
-    inventory: 'What subscriptions do you have? (streaming, gym, phone plan...)',
+    inventory:
+      "Any trade opportunities? (Borrow a friend's bike, lend your camera, swap textbooks...)",
+    trade: 'What subscriptions do you have? (streaming, gym, phone plan...)',
     lifestyle: "Perfect! We're almost done. Any last details?",
     complete: '',
   };

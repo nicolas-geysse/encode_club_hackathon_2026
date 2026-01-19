@@ -76,11 +76,16 @@ export function BudgetTab(props: BudgetTabProps) {
 
   const {
     profile,
+    goals,
     lifestyle: contextLifestyle,
     income: contextIncome,
     refreshLifestyle,
     refreshIncome,
   } = useProfile();
+
+  // Feature M: Get primary goal amount for savings progress calculation
+  const primaryGoal = () => goals().find((g) => g.status === 'active' && !g.parentGoalId);
+  const goalAmount = () => primaryGoal()?.amount || 0;
   const [localItems, setLocalItems] = createSignal<LifestyleItem[]>([]);
   const [localIncomeItems, setLocalIncomeItems] = createSignal<IncomeItem[]>([]);
   const [activeCategory, setActiveCategory] = createSignal<string>('income');
@@ -451,15 +456,61 @@ export function BudgetTab(props: BudgetTabProps) {
         </Card>
       </div>
 
-      {/* Pause Savings Info */}
+      {/* Feature M: Cumulative Savings Until Deadline */}
       <Show when={totalPauseSavings() > 0}>
         <Card class="bg-green-500/10 border-green-500/20">
-          <CardContent class="p-4 flex items-center gap-3">
-            <PiggyBank class="h-5 w-5 text-green-600" />
-            <span class="text-sm text-green-700 dark:text-green-300">
-              You'll save <strong>{formatCurrency(totalPauseSavings(), currency())}</strong> by
-              pausing expenses!
-            </span>
+          <CardContent class="p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <PiggyBank class="h-5 w-5 text-green-600" />
+                <span class="text-sm text-green-700 dark:text-green-300">
+                  <strong>Savings until deadline</strong>
+                </span>
+              </div>
+              <div class="text-lg font-bold text-green-700 dark:text-green-300">
+                {formatCurrency(totalPauseSavings(), currency(), { showSign: true })}
+              </div>
+            </div>
+
+            {/* Show breakdown by paused items */}
+            <Show when={pausedItemsCount() > 0}>
+              <div class="text-xs text-green-600/80 dark:text-green-400/80 space-y-1">
+                <For each={items().filter((i) => i.pausedMonths > 0)}>
+                  {(item) => (
+                    <div class="flex justify-between">
+                      <span>
+                        {item.name}: {formatCurrency(item.currentCost, currency())}/mo ×{' '}
+                        {item.pausedMonths} mo
+                      </span>
+                      <span class="font-medium">
+                        {formatCurrency(item.currentCost * item.pausedMonths, currency())}
+                      </span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </Show>
+
+            {/* Show progress toward goal */}
+            <Show when={goalAmount() > 0}>
+              <div class="pt-2 border-t border-green-500/20">
+                <div class="flex items-center justify-between text-xs text-green-600 dark:text-green-400 mb-1">
+                  <span>Contribution to goal</span>
+                  <span class="font-medium">
+                    {Math.round((totalPauseSavings() / goalAmount()) * 100)}% of{' '}
+                    {formatCurrency(goalAmount(), currency())}
+                  </span>
+                </div>
+                <div class="w-full h-2 bg-green-200 dark:bg-green-900/50 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-green-600 dark:bg-green-500 rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, (totalPauseSavings() / goalAmount()) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </Show>
           </CardContent>
         </Card>
       </Show>
@@ -511,13 +562,9 @@ export function BudgetTab(props: BudgetTabProps) {
           <Button
             size="sm"
             onClick={() => {
-              const active = activeCategory();
-              if (active !== 'income') {
-                setNewItem({
-                  ...newItem(),
-                  category: active as LifestyleItem['category'],
-                });
-              }
+              // Sprint 2 Bug #6 fix: Reset form state when opening Add form
+              // This ensures the category matches the active tab (income vs expense)
+              resetNewItem();
               setShowAddForm(true);
             }}
           >

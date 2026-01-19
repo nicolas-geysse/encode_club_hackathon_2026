@@ -19,6 +19,14 @@ export interface IncomeSource {
 // Re-export Expense from canonical source
 export type { Expense };
 
+// BUG J FIX: Add swipe preferences type
+export interface SwipePreferences {
+  effort_sensitivity: number;
+  hourly_rate_priority: number;
+  time_flexibility: number;
+  income_stability: number;
+}
+
 export interface FullProfile {
   id: string;
   name: string;
@@ -49,6 +57,7 @@ export interface FullProfile {
   followupData?: Record<string, unknown>;
   achievements?: string[];
   isActive: boolean;
+  swipePreferences?: SwipePreferences; // BUG J FIX: Add swipe preferences
 }
 
 export interface ProfileSummary {
@@ -67,19 +76,23 @@ const SAVE_DEBOUNCE_MS = 500;
 
 /**
  * Load the active profile from DuckDB
- * Falls back to localStorage if API fails
+ * Returns null if API fails - NO localStorage fallback to prevent profile contamination
+ * (Sprint 2 Bug #8 fix: localStorage fallback caused cross-profile data leakage)
  */
 export async function loadActiveProfile(): Promise<FullProfile | null> {
   try {
     const response = await fetch('/api/profiles?active=true');
     if (!response.ok) {
-      logger.warn('API returned error, trying localStorage fallback');
-      return loadFromLocalStorage();
+      logger.error('API returned error loading active profile', {
+        status: response.status,
+      });
+      return null;
     }
     const profile = await response.json();
-    // API might return null if no profiles exist
+    // API might return null if no profiles exist - this is expected for new users
     if (!profile) {
-      return loadFromLocalStorage();
+      logger.debug('No active profile found in database');
+      return null;
     }
     // Normalize expenses: handle corrupted data where expenses might be a number
     if (profile.expenses !== undefined) {
@@ -87,40 +100,7 @@ export async function loadActiveProfile(): Promise<FullProfile | null> {
     }
     return profile;
   } catch (error) {
-    logger.warn('API unreachable, using localStorage fallback', { error });
-    return loadFromLocalStorage();
-  }
-}
-
-/**
- * Load profile from localStorage (fallback)
- */
-function loadFromLocalStorage(): FullProfile | null {
-  try {
-    const stored = localStorage.getItem('studentProfile');
-    if (!stored) return null;
-
-    const local = JSON.parse(stored);
-    // Map localStorage format to FullProfile format
-    // Normalize expenses: handle corrupted data where expenses might be a number
-    return {
-      id: local.id || crypto.randomUUID(),
-      name: local.name || 'My Profile',
-      currency: local.currency || 'USD',
-      profileType: 'main',
-      isActive: true,
-      diploma: local.diploma,
-      skills: local.skills,
-      city: local.city,
-      citySize: local.citySize,
-      incomeSources: local.incomes || local.incomeSources,
-      expenses: normalizeExpenses(local.expenses),
-      maxWorkHoursWeekly: local.maxWorkHours,
-      minHourlyRate: local.minHourlyRate,
-      hasLoan: local.hasLoan,
-      loanAmount: local.loanAmount,
-    };
-  } catch {
+    logger.error('Failed to load active profile from API', { error });
     return null;
   }
 }
@@ -180,7 +160,7 @@ export async function listProfiles(): Promise<ProfileSummary[]> {
 export async function saveProfile(
   profile: Partial<FullProfile> & { name: string },
   options: { immediate?: boolean; setActive?: boolean } = {}
-): Promise<{ success: boolean; profileId?: string }> {
+): Promise<{ success: boolean; profileId?: string; apiSaved: boolean }> {
   const { immediate = false, setActive = true } = options;
 
   // Clear existing timer
@@ -223,15 +203,15 @@ export async function saveProfile(
 
       if (!response.ok) {
         logger.warn('API save failed, but localStorage backup succeeded');
-        return { success: true, profileId: profile.id }; // Still success due to localStorage
+        return { success: true, profileId: profile.id, apiSaved: false }; // apiSaved: false
       }
 
       const result = await response.json();
       logger.info('Profile saved to API');
-      return { success: true, profileId: result.profileId };
+      return { success: true, profileId: result.profileId, apiSaved: true }; // apiSaved: true
     } catch (error) {
       logger.warn('API unreachable, profile saved to localStorage only', { error });
-      return { success: true, profileId: profile.id }; // Still success due to localStorage
+      return { success: true, profileId: profile.id, apiSaved: false }; // apiSaved: false
     }
   };
 
@@ -250,6 +230,7 @@ export async function saveProfile(
 
 /**
  * Switch to a different profile
+ * Clears localStorage to prevent profile contamination (Sprint 2 Bug #8 fix)
  */
 export async function switchProfile(profileId: string): Promise<boolean> {
   try {
@@ -262,6 +243,18 @@ export async function switchProfile(profileId: string): Promise<boolean> {
     if (!response.ok) {
       logger.error('Failed to switch profile');
       return false;
+    }
+
+    // Clear localStorage to prevent stale data contamination
+    // The new profile will be loaded fresh from API
+    try {
+      localStorage.removeItem('studentProfile');
+      localStorage.removeItem('planData');
+      localStorage.removeItem('followupData');
+      localStorage.removeItem('achievements');
+      logger.debug('Cleared localStorage on profile switch');
+    } catch (storageError) {
+      logger.warn('Failed to clear localStorage on profile switch', { error: storageError });
     }
 
     return true;

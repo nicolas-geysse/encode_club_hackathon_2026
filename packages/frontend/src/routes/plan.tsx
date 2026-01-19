@@ -219,15 +219,8 @@ export default function PlanPage() {
           }
         }
       } else {
-        // Fallback to localStorage for backwards compatibility
-        const storedProfile = localStorage.getItem('studentProfile');
-        if (storedProfile) {
-          setHasProfile(true);
-          const storedPlan = localStorage.getItem('planData');
-          if (storedPlan) {
-            setPlanData(JSON.parse(storedPlan));
-          }
-        }
+        // No profile found - user needs to complete onboarding first
+        // (No localStorage fallback to prevent cross-profile contamination)
       }
     } finally {
       setIsLoading(false);
@@ -239,7 +232,7 @@ export default function PlanPage() {
     const profile = activeProfile();
     const data = planData();
     if (hasProfile() && profile && !isSaving()) {
-      // Debounced save to DuckDB (cast planData for storage)
+      // Debounced save to DuckDB only (no localStorage to prevent cross-profile contamination)
       profileService.saveProfile(
         {
           ...profile,
@@ -247,9 +240,6 @@ export default function PlanPage() {
         },
         { setActive: false }
       );
-
-      // Also save to localStorage for backwards compatibility
-      localStorage.setItem('planData', JSON.stringify(data));
     }
   });
 

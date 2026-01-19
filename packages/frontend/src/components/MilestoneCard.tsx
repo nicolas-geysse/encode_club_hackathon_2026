@@ -5,6 +5,7 @@
  */
 
 import { Show, For } from 'solid-js';
+import { formatCurrency, type Currency } from '~/lib/dateUtils';
 
 interface MilestoneCardProps {
   weekNumber: number;
@@ -14,6 +15,7 @@ interface MilestoneCardProps {
   status: 'pending' | 'in_progress' | 'completed' | 'missed';
   actions: string[];
   isCurrentWeek?: boolean;
+  currency?: Currency;
 }
 
 export function MilestoneCard(props: MilestoneCardProps) {
@@ -65,8 +67,10 @@ export function MilestoneCard(props: MilestoneCardProps) {
           </Show>
         </div>
         <div class="text-right">
-          <div class="font-bold">${props.targetAmount}</div>
-          <div class="text-xs opacity-75">Target: ${props.cumulativeTarget} cumulative</div>
+          <div class="font-bold">{formatCurrency(props.targetAmount, props.currency)}</div>
+          <div class="text-xs opacity-75">
+            Target: {formatCurrency(props.cumulativeTarget, props.currency)} cumulative
+          </div>
         </div>
       </div>
 
@@ -75,7 +79,8 @@ export function MilestoneCard(props: MilestoneCardProps) {
           <div class="flex justify-between text-sm mb-1">
             <span>Progress</span>
             <span>
-              ${props.earnedAmount || 0} / ${props.targetAmount}
+              {formatCurrency(props.earnedAmount || 0, props.currency)} /{' '}
+              {formatCurrency(props.targetAmount, props.currency)}
             </span>
           </div>
           <div class="w-full bg-white/50 rounded-full h-2">

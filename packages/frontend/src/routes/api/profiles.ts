@@ -245,6 +245,14 @@ export async function GET(event: APIEvent) {
     const activeOnly = url.searchParams.get('active') === 'true';
     const listAll = url.searchParams.get('list') === 'true';
 
+    // Helper for no-store headers
+    const headers = {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+    };
+
     if (listAll) {
       // List all profiles
       const rows = await query<ProfileRow>(
@@ -252,7 +260,7 @@ export async function GET(event: APIEvent) {
       );
       return new Response(JSON.stringify(rows.map(rowToProfile)), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
     }
 
@@ -263,12 +271,12 @@ export async function GET(event: APIEvent) {
       if (rows.length === 0) {
         return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
           status: 404,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
         });
       }
       return new Response(JSON.stringify(rowToProfile(rows[0])), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
     }
 
@@ -276,25 +284,16 @@ export async function GET(event: APIEvent) {
       // Load active profile
       const rows = await query<ProfileRow>(`SELECT * FROM profiles WHERE is_active = TRUE LIMIT 1`);
       if (rows.length === 0) {
-        // Try to get any profile and make it active
-        const anyRows = await query<ProfileRow>(`SELECT * FROM profiles LIMIT 1`);
-        if (anyRows.length > 0) {
-          const escapedId = escapeSQL(anyRows[0].id);
-          await execute(`UPDATE profiles SET is_active = TRUE WHERE id = ${escapedId}`);
-          anyRows[0].is_active = true;
-          return new Response(JSON.stringify(rowToProfile(anyRows[0])), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
+        // No active profile - return null
+        // Fix Bug D: STRICT return null, never auto-activate random user
         return new Response(JSON.stringify(null), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers,
         });
       }
       return new Response(JSON.stringify(rowToProfile(rows[0])), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers,
       });
     }
 
@@ -304,7 +303,7 @@ export async function GET(event: APIEvent) {
     );
     return new Response(JSON.stringify(rows.map(rowToProfile)), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
     });
   } catch (error) {
     logger.error('GET error', { error });
@@ -313,7 +312,13 @@ export async function GET(event: APIEvent) {
         error: true,
         message: error instanceof Error ? error.message : 'Database connection failed',
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
     );
   }
 }
@@ -325,9 +330,13 @@ export async function POST(event: APIEvent) {
 
     const body = await event.request.json();
     const profileId = body.id || uuidv4();
-    const setActive = body.setActive !== false;
+    // setActive: true = activate this profile (deactivate others)
+    // setActive: false = don't touch is_active for UPDATE, start inactive for INSERT
+    // setActive: undefined = default to activating the profile
+    const setActive = body.setActive !== false; // true or undefined = activate
+    const preserveActiveState = body.setActive === false; // Explicit false = don't change is_active on UPDATE
 
-    // Deactivate all if setting as active
+    // Only deactivate others if explicitly activating this profile
     if (setActive) {
       await execute(`UPDATE profiles SET is_active = FALSE`);
     }
@@ -359,6 +368,11 @@ export async function POST(event: APIEvent) {
 
     if (existing.length > 0) {
       // Update existing
+      // Only include is_active in UPDATE if we're explicitly changing it (not preserving)
+      const isActiveClause = preserveActiveState
+        ? ''
+        : `,
+          is_active = ${setActive ? 'TRUE' : 'FALSE'}`;
       await execute(`
         UPDATE profiles SET
           name = ${escapeSQL(body.name)},
@@ -386,8 +400,7 @@ export async function POST(event: APIEvent) {
           goal_deadline = ${body.goalDeadline ? escapeSQL(body.goalDeadline) : 'NULL'},
           plan_data = ${body.planData ? escapeSQL(JSON.stringify(body.planData)) : 'NULL'},
           followup_data = ${body.followupData ? escapeSQL(JSON.stringify(body.followupData)) : 'NULL'},
-          achievements = ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'},
-          is_active = ${setActive}
+          achievements = ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'}${isActiveClause}
         WHERE id = ${escapedProfileId}
       `);
     } else {
@@ -426,14 +439,17 @@ export async function POST(event: APIEvent) {
           ${body.planData ? escapeSQL(JSON.stringify(body.planData)) : 'NULL'},
           ${body.followupData ? escapeSQL(JSON.stringify(body.followupData)) : 'NULL'},
           ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'},
-          ${setActive}
+          ${setActive ? 'TRUE' : 'FALSE'}
         )
       `);
     }
 
     return new Response(JSON.stringify({ success: true, profileId, isActive: setActive }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
     });
   } catch (error) {
     logger.error('POST error', { error });
@@ -442,7 +458,13 @@ export async function POST(event: APIEvent) {
         error: true,
         message: error instanceof Error ? error.message : 'Database operation failed',
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
     );
   }
 }
@@ -458,7 +480,10 @@ export async function PUT(event: APIEvent) {
     if (!profileId) {
       return new Response(JSON.stringify({ error: true, message: 'profileId required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
       });
     }
 
@@ -470,17 +495,29 @@ export async function PUT(event: APIEvent) {
     if (existing.length === 0) {
       return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
       });
     }
 
-    // Deactivate all, activate target
-    await execute(`UPDATE profiles SET is_active = FALSE`);
-    await execute(`UPDATE profiles SET is_active = TRUE WHERE id = ${escapedProfileId}`);
+    // Fix Bug D: Atomic Switch
+    // Single query using CASE WHEN to ensure exactly one profile is active at all times
+    await execute(`
+      UPDATE profiles 
+      SET is_active = CASE 
+        WHEN id = ${escapedProfileId} THEN TRUE 
+        ELSE FALSE 
+      END
+    `);
 
     return new Response(JSON.stringify({ success: true, profileId, name: existing[0].name }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
     });
   } catch (error) {
     logger.error('PUT error', { error });
@@ -489,7 +526,13 @@ export async function PUT(event: APIEvent) {
         error: true,
         message: error instanceof Error ? error.message : 'Database operation failed',
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
     );
   }
 }
@@ -505,7 +548,7 @@ export async function DELETE(event: APIEvent) {
     if (!profileId) {
       return new Response(JSON.stringify({ error: true, message: 'id required' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
 
@@ -516,7 +559,10 @@ export async function DELETE(event: APIEvent) {
     if (count[0].count <= 1) {
       return new Response(
         JSON.stringify({ error: true, message: 'Cannot delete the last profile' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        }
       );
     }
 
@@ -527,7 +573,7 @@ export async function DELETE(event: APIEvent) {
     if (profile.length === 0) {
       return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
       });
     }
 
@@ -584,7 +630,7 @@ export async function DELETE(event: APIEvent) {
 
     return new Response(JSON.stringify({ success: true, deleted: profile[0].name }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     });
   } catch (error) {
     logger.error('DELETE error', { error });
@@ -593,7 +639,7 @@ export async function DELETE(event: APIEvent) {
         error: true,
         message: error instanceof Error ? error.message : 'Database operation failed',
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
     );
   }
 }

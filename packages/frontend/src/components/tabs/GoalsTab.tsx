@@ -6,7 +6,7 @@
  * Uses goalService for DuckDB persistence.
  */
 
-import { createSignal, createMemo, Show, For, onMount } from 'solid-js';
+import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
 import { goalService, type Goal, type GoalComponent } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
 import { GoalTimelineList } from '~/components/GoalTimeline';
@@ -127,6 +127,26 @@ export function GoalsTab(props: GoalsTabProps) {
     );
   });
 
+  // BUG O FIX: Sync form fields when initialData changes (race condition fix)
+  // This handles the case where plan.tsx loads goal data async AFTER GoalsTab renders
+  createEffect(() => {
+    if (props.initialData?.goalDeadline) {
+      setGoalDeadline(props.initialData.goalDeadline);
+    }
+    if (props.initialData?.goalName) {
+      setGoalName(props.initialData.goalName);
+    }
+    if (props.initialData?.goalAmount) {
+      setGoalAmount(props.initialData.goalAmount);
+    }
+    if (props.initialData?.academicEvents) {
+      setAcademicEvents(props.initialData.academicEvents);
+    }
+    if (props.initialData?.commitments) {
+      setCommitments(props.initialData.commitments);
+    }
+  });
+
   // Load goals on mount
   onMount(async () => {
     try {
@@ -142,8 +162,9 @@ export function GoalsTab(props: GoalsTabProps) {
         }
       }
 
-      // Set default deadline if not set
-      if (!goalDeadline()) {
+      // BUG O FIX: Only set default deadline if no initialData provided AND no existing deadline
+      // This prevents overwriting deadline loaded from props.initialData
+      if (!goalDeadline() && !props.initialData?.goalDeadline) {
         const defaultDeadline = new Date();
         defaultDeadline.setDate(defaultDeadline.getDate() + 56);
         setGoalDeadline(defaultDeadline.toISOString().split('T')[0]);
@@ -359,13 +380,29 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // Handle component status update from timeline
   const handleComponentUpdate = async (
-    _goalId: string,
-    _componentId: string,
-    _status: GoalComponent['status']
+    goalId: string,
+    componentId: string,
+    status: GoalComponent['status']
   ) => {
-    // TODO: Implement API endpoint for component updates
-    // For now, just refresh the goals
-    await refreshGoals();
+    try {
+      // Call the goal-components API to update the status
+      const response = await fetch('/api/goal-components', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: componentId, status }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('[GoalsTab] Failed to update component:', error.message);
+        return;
+      }
+
+      // Refresh goals to get updated progress
+      await refreshGoals();
+    } catch (error) {
+      console.error('[GoalsTab] Error updating component:', error);
+    }
   };
 
   const getTypeIcon = (type: GoalComponent['type']) => {
@@ -1044,7 +1081,11 @@ export function GoalsTab(props: GoalsTabProps) {
 
           {/* Action Buttons */}
           <div class="flex gap-4">
-            <Button variant="outline" class="flex-1" onClick={resetForm}>
+            <Button
+              variant="outline"
+              class="flex-1 bg-[#F4F4F5] hover:bg-[#E4E4E7] dark:bg-[#27272A] dark:hover:bg-[#3F3F46] border-border"
+              onClick={resetForm}
+            >
               Cancel
             </Button>
             <Button class="flex-1" onClick={handleSave} disabled={!goalName() || goalAmount() <= 0}>

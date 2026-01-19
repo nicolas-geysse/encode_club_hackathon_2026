@@ -139,6 +139,9 @@ export const ProfileProvider: ParentComponent = (props) => {
   const [trades, setTrades] = createSignal<TradeItem[]>([]);
   const [loading, setLoading] = createSignal(true);
 
+  // BUG L FIX: Track previous profile ID to detect profile switches
+  let previousProfileId: string | null = null;
+
   const refreshProfile = async () => {
     setLoading(true);
     try {
@@ -274,8 +277,29 @@ export const ProfileProvider: ParentComponent = (props) => {
   };
 
   // Refresh all data when profile changes
+  // BUG L FIX: Clear data IMMEDIATELY when profile ID changes to prevent showing stale data
   createEffect(() => {
     const p = profile();
+    const currentProfileId = p?.id || null;
+
+    // Detect profile switch - clear data immediately before fetch
+    if (currentProfileId !== previousProfileId) {
+      logger.info('Profile switched', {
+        from: previousProfileId,
+        to: currentProfileId,
+      });
+
+      // Clear all data immediately to prevent showing old profile's data
+      setGoals([]);
+      setSkills([]);
+      setInventory([]);
+      setLifestyle([]);
+      setIncome([]);
+      setTrades([]);
+
+      previousProfileId = currentProfileId;
+    }
+
     if (p?.id) {
       // Refresh all related data in parallel
       Promise.all([
@@ -288,13 +312,6 @@ export const ProfileProvider: ParentComponent = (props) => {
       ]).catch((err) => {
         logger.error('Failed to refresh data', { error: err });
       });
-    } else {
-      setGoals([]);
-      setSkills([]);
-      setInventory([]);
-      setLifestyle([]);
-      setIncome([]);
-      setTrades([]);
     }
   });
 

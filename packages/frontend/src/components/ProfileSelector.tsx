@@ -31,6 +31,7 @@ import {
   Download,
   Upload,
   UserPlus,
+  RotateCcw,
 } from 'lucide-solid';
 
 interface Props {
@@ -88,8 +89,11 @@ export function ProfileSelector(props: Props) {
 
     const success = await profileService.switchProfile(profileId);
     if (success) {
+      // Clear profile-specific localStorage items to prevent cross-profile contamination
+      localStorage.removeItem('followupData');
+      localStorage.removeItem('planData');
+      localStorage.removeItem('achievements');
       // Force full page reload to reset all component state
-      // This ensures followupData, achievements, and other cached data are cleared
       window.location.reload();
     }
     setIsOpen(false);
@@ -109,6 +113,10 @@ export function ProfileSelector(props: Props) {
     });
 
     if (newProfile) {
+      // Clear profile-specific localStorage items to prevent cross-profile contamination
+      localStorage.removeItem('followupData');
+      localStorage.removeItem('planData');
+      localStorage.removeItem('achievements');
       // Force full page reload to reset all component state for new profile
       window.location.reload();
     }
@@ -196,6 +204,43 @@ export function ProfileSelector(props: Props) {
     setIsOpen(false);
     // Navigate to onboarding - new profile will auto-generate UUID on first save
     navigate('/');
+  };
+
+  const handleResetAll = async () => {
+    // Double confirmation for destructive action
+    if (
+      !confirm(
+        '⚠️ RESET ALL DATA?\n\nThis will delete ALL profiles, goals, and progress.\nThis action cannot be undone!'
+      )
+    ) {
+      return;
+    }
+    if (!confirm('Are you absolutely sure? Type OK to confirm.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/reset', { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Reset failed');
+      }
+
+      // Clear all localStorage
+      localStorage.removeItem('studentProfile');
+      localStorage.removeItem('planData');
+      localStorage.removeItem('activeProfileId');
+      localStorage.removeItem('followupData');
+      localStorage.removeItem('achievements');
+      localStorage.removeItem('forceNewProfile');
+
+      setIsOpen(false);
+      // Force full reload to start fresh onboarding
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Reset failed:', error);
+      alert(error instanceof Error ? error.message : 'Reset failed');
+    }
   };
 
   return (
@@ -322,6 +367,19 @@ export function ProfileSelector(props: Props) {
                 <input type="file" accept=".json" class="hidden" onChange={handleImport} />
               </label>
             </div>
+
+            {/* Danger zone */}
+            <div class="border-t border-destructive/30 mt-2 pt-2 px-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetAll}
+                class="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <RotateCcw class="h-4 w-4" />
+                Reset all data
+              </Button>
+            </div>
           </div>
         </div>
       </Show>
@@ -392,6 +450,7 @@ export function ProfileSelector(props: Props) {
                   setShowNewGoalModal(false);
                   setNewGoalForm({ name: '', amount: 500, deadline: '' });
                 }}
+                class="bg-[#F4F4F5] hover:bg-[#E4E4E7] dark:bg-[#27272A] dark:hover:bg-[#3F3F46] border-border"
               >
                 Cancel
               </Button>

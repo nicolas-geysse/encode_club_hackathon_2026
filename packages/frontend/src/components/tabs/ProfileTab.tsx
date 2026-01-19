@@ -472,7 +472,12 @@ export function ProfileTab(props: ProfileTabProps) {
 
           {/* Actions */}
           <div class="flex gap-3">
-            <Button variant="outline" class="flex-1" onClick={handleCancel} disabled={saving()}>
+            <Button
+              variant="outline"
+              class="flex-1 bg-[#F4F4F5] hover:bg-[#E4E4E7] dark:bg-[#27272A] dark:hover:bg-[#3F3F46] border-border"
+              onClick={handleCancel}
+              disabled={saving()}
+            >
               Cancel
             </Button>
             <Button class="flex-1" onClick={handleSave} disabled={saving()}>

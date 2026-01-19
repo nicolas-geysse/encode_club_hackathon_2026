@@ -3,9 +3,20 @@ import { MissionCard, type Mission } from './MissionCard';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { Button } from '~/components/ui/Button';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { LogProgressDialog } from './LogProgressDialog';
-import { CheckCircle2, Clock, Wallet, Target, Trophy, Inbox, Zap, Hand } from 'lucide-solid';
+import {
+  CheckCircle2,
+  Clock,
+  Wallet,
+  Target,
+  Trophy,
+  Inbox,
+  Zap,
+  Hand,
+  ArrowRight,
+} from 'lucide-solid';
 
 interface MissionListProps {
   missions: Mission[];
@@ -217,46 +228,57 @@ export function MissionList(props: MissionListProps) {
           )}
         </For>
 
-        {/* Empty State */}
+        {/* Empty State - BUG T FIX: Improved empty state with action button */}
         <Show when={filteredMissions().length === 0}>
-          <div class="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-            <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Show
-                when={filter() === 'active'}
-                fallback={
+          <Card class="border-dashed">
+            <CardContent class="py-12">
+              <div class="flex flex-col items-center justify-center text-center text-muted-foreground">
+                <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
                   <Show
-                    when={filter() === 'completed'}
+                    when={filter() === 'active'}
                     fallback={
                       <Show
-                        when={filter() === 'skipped'}
-                        fallback={<Inbox class="h-8 w-8 opacity-50" />}
+                        when={filter() === 'completed'}
+                        fallback={
+                          <Show
+                            when={filter() === 'skipped'}
+                            fallback={<Inbox class="h-8 w-8 opacity-50" />}
+                          >
+                            <Hand class="h-8 w-8 opacity-50" />
+                          </Show>
+                        }
                       >
-                        <Hand class="h-8 w-8 opacity-50" />
+                        <Trophy class="h-8 w-8 opacity-50" />
                       </Show>
                     }
                   >
-                    <Trophy class="h-8 w-8 opacity-50" />
+                    <Target class="h-8 w-8 opacity-50" />
                   </Show>
-                }
-              >
-                <Target class="h-8 w-8 opacity-50" />
-              </Show>
-            </div>
-            <h3 class="text-lg font-medium text-foreground mb-1">
-              {filter() === 'active'
-                ? 'No active missions'
-                : filter() === 'completed'
-                  ? 'No completed missions'
-                  : filter() === 'skipped'
-                    ? 'No skipped missions'
-                    : 'No missions'}
-            </h3>
-            <p class="text-sm max-w-xs mx-auto">
-              {filter() === 'active'
-                ? 'Use Swipe Scenarios to create missions'
-                : 'Check other tabs or generate new missions'}
-            </p>
-          </div>
+                </div>
+                <h3 class="text-lg font-medium text-foreground mb-1">
+                  {filter() === 'active'
+                    ? 'No active missions'
+                    : filter() === 'completed'
+                      ? 'No completed missions yet'
+                      : filter() === 'skipped'
+                        ? 'No skipped missions'
+                        : 'No missions yet'}
+                </h3>
+                <p class="text-sm max-w-xs mx-auto mb-4">
+                  {filter() === 'active' || filter() === 'all'
+                    ? 'Use Swipe Scenarios in My Plan to discover and add missions'
+                    : 'Complete your active missions to see them here'}
+                </p>
+                <Show when={filter() === 'all' || filter() === 'active'}>
+                  <Button as="a" href="/plan?tab=swipe" variant="outline">
+                    <Target class="h-4 w-4 mr-2" />
+                    Go to Swipe
+                    <ArrowRight class="h-4 w-4 ml-2" />
+                  </Button>
+                </Show>
+              </div>
+            </CardContent>
+          </Card>
         </Show>
       </div>
 
@@ -322,6 +344,7 @@ export function MissionList(props: MissionListProps) {
         }
         targetHours={props.missions.find((m) => m.id === logState().missionId)?.weeklyHours}
         targetEarnings={props.missions.find((m) => m.id === logState().missionId)?.weeklyEarnings}
+        currency={props.currency}
       />
     </div>
   );

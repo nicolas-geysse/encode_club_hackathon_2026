@@ -339,10 +339,20 @@ export function TradeTab(props: TradeTabProps) {
     props.onTradesChange?.(updated);
   };
 
+  // Feature N: Borrowed value calculations with pending
   const borrowedValue = () =>
     trades()
       .filter((t) => t.type === 'borrow' && t.status === 'active')
       .reduce((sum, t) => sum + t.value, 0);
+
+  // Feature N: Pending borrows (items the user is planning to borrow)
+  const pendingBorrowValue = () =>
+    trades()
+      .filter((t) => t.type === 'borrow' && t.status === 'pending')
+      .reduce((sum, t) => sum + t.value, 0);
+
+  // Feature N: Total potential savings from borrowing (active + pending)
+  const totalBorrowPotential = () => borrowedValue() + pendingBorrowValue();
 
   const lentValue = () =>
     trades()
@@ -465,6 +475,7 @@ export function TradeTab(props: TradeTabProps) {
           </CardContent>
         </Card>
 
+        {/* Feature N: Enhanced Borrowed card with potential savings */}
         <Card class="border-blue-500/20 bg-blue-500/5">
           <CardContent class="p-6">
             <div class="text-sm text-blue-600 dark:text-blue-400 font-medium flex items-center gap-2">
@@ -473,9 +484,31 @@ export function TradeTab(props: TradeTabProps) {
             <div class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">
               {formatCurrency(borrowedValue(), currency())}
             </div>
-            <div class="text-xs text-blue-500 dark:text-blue-400 mt-1">
-              {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
+            <div class="flex items-center justify-between text-xs mt-1 text-blue-600/80 dark:text-blue-400/80">
+              <span>
+                {trades().filter((t) => t.type === 'borrow' && t.status === 'active').length} active
+                <Show
+                  when={
+                    trades().filter((t) => t.type === 'borrow' && t.status === 'pending').length > 0
+                  }
+                >
+                  , {trades().filter((t) => t.type === 'borrow' && t.status === 'pending').length}{' '}
+                  pending
+                </Show>
+              </span>
+              <Show when={totalBorrowPotential() > borrowedValue()}>
+                <span class="text-green-600 dark:text-green-400 ml-2">
+                  {formatCurrency(totalBorrowPotential(), currency(), { showSign: true })} saves
+                </span>
+              </Show>
             </div>
+            {/* Show mini breakdown when there are borrowed items */}
+            <Show when={borrowedValue() > 0 || pendingBorrowValue() > 0}>
+              <div class="mt-2 pt-2 border-t border-blue-500/20 text-xs text-blue-600/70 dark:text-blue-400/70">
+                <span class="font-medium">By borrowing, you save:</span>{' '}
+                {formatCurrency(totalBorrowPotential(), currency())} instead of buying
+              </div>
+            </Show>
           </CardContent>
         </Card>
 

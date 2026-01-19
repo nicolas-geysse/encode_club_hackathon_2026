@@ -1,15 +1,21 @@
 import { Router } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { Suspense, createSignal } from 'solid-js';
+import { Suspense, createSignal, onMount } from 'solid-js';
 import './app.css';
 import { ProfileSelector } from '~/components/ProfileSelector';
 import { SimulationControls, type SimulationState } from '~/components/SimulationControls';
-import { NotificationBell, type Notification } from '~/components/NotificationBell';
+import { NotificationBell } from '~/components/NotificationBell';
 import { ProgressMini } from '~/components/ProgressMini';
 import { ThemeProvider } from '~/lib/themeContext';
 import { ProfileProvider } from '~/lib/profileContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { AppLayout } from '~/components/layout/AppLayout';
+import {
+  notifications,
+  addNotification,
+  markAsRead,
+  clearAllNotifications,
+} from '~/lib/notificationStore';
 
 export default function App() {
   // Simulation state (managed by SimulationControls, shared with app)
@@ -20,16 +26,14 @@ export default function App() {
     isSimulating: false,
   });
   const [progressPercent, setProgressPercent] = createSignal(0);
-  const [notifications, setNotifications] = createSignal<Notification[]>([
-    {
-      id: '1',
-      type: 'info',
-      title: 'Welcome!',
-      message: 'Start by defining your goal in My Plan.',
-      timestamp: new Date(),
-      read: false,
-    },
-  ]);
+
+  // Add welcome notification on mount
+  onMount(() => {
+    // Only add welcome notification if no notifications exist yet
+    if (notifications().length === 0) {
+      addNotification('info', 'Welcome!', 'Start by defining your goal in My Plan.');
+    }
+  });
 
   // Handle simulation state changes (from SimulationControls)
   const handleSimulationChange = (state: SimulationState) => {
@@ -44,42 +48,26 @@ export default function App() {
       const prevWeek = Math.floor(prevState.offsetDays / 7);
       const newWeek = Math.floor(state.offsetDays / 7);
       if (newWeek > prevWeek) {
-        setNotifications([
-          {
-            id: `week_${state.offsetDays}_${Date.now()}`,
-            type: 'success',
-            title: `Week ${newWeek} completed!`,
-            message: `You simulated ${state.offsetDays} days. Check your progress!`,
-            timestamp: new Date(),
-            read: false,
-          },
-          ...notifications(),
-        ]);
+        addNotification(
+          'success',
+          `Week ${newWeek} completed!`,
+          `You simulated ${state.offsetDays} days. Check your progress!`
+        );
       }
 
       // Check-in reminder every 3 simulated days
       if (state.offsetDays % 3 === 0 && daysDiff > 0) {
-        setNotifications([
-          {
-            id: `checkin_${state.offsetDays}_${Date.now()}`,
-            type: 'info',
-            title: 'Check-in reminder',
-            message: 'Remember to update your progress!',
-            timestamp: new Date(),
-            read: false,
-          },
-          ...notifications(),
-        ]);
+        addNotification('info', 'Check-in reminder', 'Remember to update your progress!');
       }
     }
   };
 
   const handleMarkNotificationAsRead = (id: string) => {
-    setNotifications(notifications().map((n) => (n.id === id ? { ...n, read: true } : n)));
+    markAsRead(id);
   };
 
   const handleClearAllNotifications = () => {
-    setNotifications([]);
+    clearAllNotifications();
   };
 
   // Update progress based on profile changes

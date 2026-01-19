@@ -196,7 +196,7 @@ export function SkillsTab(props: SkillsTabProps) {
   const currency = () => props.currency || 'USD';
   const currencySymbol = () => getCurrencySymbol(currency());
 
-  const { profile, skills: contextSkills, refreshSkills } = useProfile();
+  const { profile, skills: contextSkills, refreshSkills, loading: profileLoading } = useProfile();
   const [localSkills, setLocalSkills] = createSignal<Skill[]>([]);
   const [showAddForm, setShowAddForm] = createSignal(false);
   const [isLoading, setIsLoading] = createSignal(false);
@@ -211,16 +211,32 @@ export function SkillsTab(props: SkillsTabProps) {
     restNeeded: 1,
   });
 
+  // BUG Q FIX: Track skills loading state to distinguish "loading" from "no skills"
+  // 'initial' = first load, 'loaded' = skills fetched successfully, 'error' = fetch failed
+  const [skillsLoadState, setSkillsLoadState] = createSignal<'initial' | 'loaded' | 'error'>(
+    'initial'
+  );
+
   // Use context skills (from DB) as source of truth when profile exists
   // Only fall back to initialSkills when no profile (backward compat)
+  // BUG Q FIX: Track skills load state to distinguish "loading" from "no skills"
   createEffect(() => {
     const ctxSkills = contextSkills();
     const currentProfile = profile();
+    const isProfileLoading = profileLoading();
+
+    // If profile is still loading, keep skills in initial/loading state
+    if (isProfileLoading) {
+      setSkillsLoadState('initial');
+      return;
+    }
 
     // If we have a profile ID, always trust the DB (context skills)
     // This prevents temp IDs from initialSkills causing 404 on delete
     if (currentProfile?.id) {
       setLocalSkills(ctxSkills);
+      // Mark as loaded once we have context skills (even if empty array)
+      setSkillsLoadState('loaded');
       return;
     }
 
@@ -245,6 +261,10 @@ export function SkillsTab(props: SkillsTabProps) {
         return processedSkill;
       });
       setLocalSkills(processed.sort((a, b) => (b.score || 0) - (a.score || 0)));
+      setSkillsLoadState('loaded');
+    } else {
+      // No profile and no initialSkills - mark as loaded (empty state)
+      setSkillsLoadState('loaded');
     }
   });
 
@@ -460,28 +480,54 @@ export function SkillsTab(props: SkillsTabProps) {
         </CardContent>
       </Card>
 
-      {/* Quick Add Templates */}
-      <Card>
-        <CardContent class="p-4">
-          <h3 class="text-sm font-medium text-foreground mb-3">Quick add</h3>
-          <div class="flex flex-wrap gap-2">
-            <For each={SKILL_TEMPLATES.filter((t) => !skills().some((s) => s.name === t.name))}>
-              {(template) => (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="rounded-full h-8"
-                  onClick={() => addSkill(template)}
-                  disabled={isLoading()}
-                >
-                  <Plus class="h-3 w-3 mr-1" />
-                  {template.name}
-                </Button>
-              )}
-            </For>
-          </div>
-        </CardContent>
-      </Card>
+      {/* BUG Q FIX: Show loading state while skills are being fetched */}
+      <Show when={skillsLoadState() === 'initial'}>
+        <Card>
+          <CardContent class="p-4">
+            <div class="flex items-center gap-2 text-muted-foreground">
+              <div class="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+              <span>Loading your skills...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </Show>
+
+      {/* Quick Add Templates - Sprint 2 Bug #5 fix: Hide when no templates available */}
+      {/* BUG Q FIX: Only show templates after skills have loaded (not during initial load) */}
+      <Show
+        when={
+          skillsLoadState() === 'loaded' &&
+          SKILL_TEMPLATES.filter(
+            (t) => !skills().some((s) => s.name.toLowerCase() === t.name?.toLowerCase())
+          ).length > 0
+        }
+      >
+        <Card>
+          <CardContent class="p-4">
+            <h3 class="text-sm font-medium text-foreground mb-3">Quick add</h3>
+            <div class="flex flex-wrap gap-2">
+              <For
+                each={SKILL_TEMPLATES.filter(
+                  (t) => !skills().some((s) => s.name.toLowerCase() === t.name?.toLowerCase())
+                )}
+              >
+                {(template) => (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="rounded-full h-8"
+                    onClick={() => addSkill(template)}
+                    disabled={isLoading()}
+                  >
+                    <Plus class="h-3 w-3 mr-1" />
+                    {template.name}
+                  </Button>
+                )}
+              </For>
+            </div>
+          </CardContent>
+        </Card>
+      </Show>
 
       {/* Skills List with Scores */}
       <Show when={skills().length > 0}>
