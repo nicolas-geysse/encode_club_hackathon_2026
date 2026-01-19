@@ -49,6 +49,19 @@ interface FollowupData {
   missions: Mission[];
 }
 
+/**
+ * Normalize followup data to ensure all required fields exist.
+ * Handles corrupted/incomplete data from localStorage or DB.
+ */
+const normalizeFollowup = (data: Partial<FollowupData> | null | undefined): FollowupData => ({
+  currentAmount: data?.currentAmount ?? 0,
+  weeklyTarget: data?.weeklyTarget ?? 0,
+  currentWeek: data?.currentWeek ?? 1,
+  totalWeeks: data?.totalWeeks ?? 8,
+  energyHistory: Array.isArray(data?.energyHistory) ? data.energyHistory : [],
+  missions: Array.isArray(data?.missions) ? data.missions : [],
+});
+
 export default function SuiviPage() {
   const [isLoading, setIsLoading] = createSignal(true);
   const [hasData, setHasData] = createSignal(false);
@@ -190,7 +203,7 @@ export default function SuiviPage() {
           }
 
           if (existingFollowup) {
-            setFollowup(existingFollowup);
+            setFollowup(normalizeFollowup(existingFollowup));
           } else {
             // Generate initial energy history (demo data) using dayjs
             const energyHistory: EnergyEntry[] = [];
@@ -346,7 +359,7 @@ export default function SuiviPage() {
 
             const storedFollowup = localStorage.getItem('followupData');
             if (storedFollowup) {
-              setFollowup(JSON.parse(storedFollowup));
+              setFollowup(normalizeFollowup(JSON.parse(storedFollowup)));
             }
           }
         }
@@ -529,7 +542,7 @@ export default function SuiviPage() {
           </Show>
 
           {/* Section 2: Financial Breakdown (right after goal) */}
-          <AnalyticsDashboard currency={currency()} />
+          <AnalyticsDashboard profileId={activeProfile()?.id} currency={currency()} />
 
           {/* Section 3: Missions */}
           <div>
