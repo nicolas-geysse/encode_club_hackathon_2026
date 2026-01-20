@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from './logger';
+import { eventBus } from './eventBus';
 
 // Re-export types from canonical source
 export type {
@@ -85,6 +86,7 @@ export async function createItem(input: CreateInventoryItemInput): Promise<Inven
 
     const item = await response.json();
     logger.info('Inventory item created', { itemId: item.id, name: item.name });
+    eventBus.emit('DATA_CHANGED');
     return item;
   } catch (error) {
     logger.error('Error creating inventory item', { error });
@@ -111,6 +113,7 @@ export async function updateItem(input: UpdateInventoryItemInput): Promise<Inven
 
     const item = await response.json();
     logger.info('Inventory item updated', { itemId: item.id });
+    eventBus.emit('DATA_CHANGED');
     return item;
   } catch (error) {
     logger.error('Error updating inventory item', { error });
@@ -134,6 +137,7 @@ export async function deleteItem(itemId: string): Promise<boolean> {
     }
 
     logger.info('Inventory item deleted', { itemId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error deleting inventory item', { error });
@@ -186,6 +190,7 @@ export async function clearItemsForProfile(profileId: string): Promise<boolean> 
     }
 
     logger.info('Cleared all inventory items for profile', { profileId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error clearing inventory items', { error });

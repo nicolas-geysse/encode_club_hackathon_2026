@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from './logger';
+import { eventBus } from './eventBus';
 
 // Re-export types from canonical source
 export type { LifestyleItem, CreateLifestyleItemInput, LifestyleCategory } from '../types/entities';
@@ -74,6 +75,7 @@ export async function createItem(input: CreateLifestyleItemInput): Promise<Lifes
 
     const item = await response.json();
     logger.info('Lifestyle item created', { itemId: item.id, name: item.name });
+    eventBus.emit('DATA_CHANGED');
     return item;
   } catch (error) {
     logger.error('Error creating lifestyle item', { error });
@@ -100,6 +102,7 @@ export async function updateItem(input: UpdateLifestyleItemInput): Promise<Lifes
 
     const item = await response.json();
     logger.info('Lifestyle item updated', { itemId: item.id });
+    eventBus.emit('DATA_CHANGED');
     return item;
   } catch (error) {
     logger.error('Error updating lifestyle item', { error });
@@ -123,6 +126,7 @@ export async function deleteItem(itemId: string): Promise<boolean> {
     }
 
     logger.info('Lifestyle item deleted', { itemId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error deleting lifestyle item', { error });
@@ -183,6 +187,7 @@ export async function clearItemsForProfile(profileId: string): Promise<boolean> 
     }
 
     logger.info('Cleared all lifestyle items for profile', { profileId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error clearing lifestyle items', { error });

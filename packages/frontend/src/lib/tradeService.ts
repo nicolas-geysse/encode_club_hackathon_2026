@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from './logger';
+import { eventBus } from './eventBus';
 
 // Re-export types from canonical source
 export type { TradeItem, CreateTradeInput, TradeType, TradeStatus } from '../types/entities';
@@ -72,6 +73,7 @@ export async function createTrade(input: CreateTradeInput): Promise<TradeItem | 
 
     const trade = await response.json();
     logger.info('Trade created', { tradeId: trade.id, name: trade.name });
+    eventBus.emit('DATA_CHANGED');
     return trade;
   } catch (error) {
     logger.error('Error creating trade', { error });
@@ -98,6 +100,7 @@ export async function updateTrade(input: UpdateTradeInput): Promise<TradeItem | 
 
     const trade = await response.json();
     logger.info('Trade updated', { tradeId: trade.id });
+    eventBus.emit('DATA_CHANGED');
     return trade;
   } catch (error) {
     logger.error('Error updating trade', { error });
@@ -121,6 +124,7 @@ export async function deleteTrade(tradeId: string): Promise<boolean> {
     }
 
     logger.info('Trade deleted', { tradeId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error deleting trade', { error });
@@ -154,6 +158,7 @@ export async function clearTradesForProfile(profileId: string): Promise<boolean>
     }
 
     logger.info('Cleared all trades for profile', { profileId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error clearing trades', { error });

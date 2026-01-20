@@ -17,6 +17,7 @@ import {
 import { profileService, type FullProfile } from './profileService';
 import { skillService, type Skill } from './skillService';
 import { createLogger } from './logger';
+import { eventBus } from './eventBus';
 
 const logger = createLogger('ProfileContext');
 
@@ -110,7 +111,7 @@ interface ProfileContextValue {
   /** Whether profile is loading */
   loading: () => boolean;
   /** Refresh profile from API - call after updates */
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (options?: { silent?: boolean }) => Promise<void>;
   /** Refresh goals from API - call after goal updates */
   refreshGoals: () => Promise<void>;
   /** Refresh skills from API - call after skill updates */
@@ -142,8 +143,8 @@ export const ProfileProvider: ParentComponent = (props) => {
   // BUG L FIX: Track previous profile ID to detect profile switches
   let previousProfileId: string | null = null;
 
-  const refreshProfile = async () => {
-    setLoading(true);
+  const refreshProfile = async (options: { silent?: boolean } = {}) => {
+    if (!options.silent) setLoading(true);
     try {
       const loaded = await profileService.loadActiveProfile();
       setProfile(loaded);
@@ -151,7 +152,7 @@ export const ProfileProvider: ParentComponent = (props) => {
       logger.error('Failed to load profile', { error });
       setProfile(null);
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
     }
   };
 
@@ -272,7 +273,8 @@ export const ProfileProvider: ParentComponent = (props) => {
   };
 
   const refreshAll = async () => {
-    await refreshProfile();
+    // Silent refresh to avoid flickering
+    await refreshProfile({ silent: true });
     // After profile refreshes, the effect will trigger other refreshes
   };
 
@@ -315,9 +317,39 @@ export const ProfileProvider: ParentComponent = (props) => {
     }
   });
 
-  // Initial load on mount
+  // Initial load on mount & Event Bus subscription
   onMount(() => {
     refreshProfile();
+
+    // Event Bus Subscriptions (Quickwin Realtime)
+    // Debounce refreshAll to prevent flickering from rapid-fire events
+    let refreshTimeout: ReturnType<typeof setTimeout>;
+    const debouncedRefreshAll = () => {
+      clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        refreshAll();
+      }, 150); // 150ms debounce
+    };
+
+    const unsubData = eventBus.on('DATA_CHANGED', () => {
+      debouncedRefreshAll();
+    });
+
+    const unsubProfile = eventBus.on('PROFILE_SWITCHED', () => {
+      // Force reload of active profile
+      refreshProfile();
+    });
+
+    const unsubSim = eventBus.on('SIMULATION_UPDATED', () => {
+      // Simulation changes might affect goal progress/deadlines
+      refreshAll();
+    });
+
+    return () => {
+      unsubData();
+      unsubProfile();
+      unsubSim();
+    };
   });
 
   return (

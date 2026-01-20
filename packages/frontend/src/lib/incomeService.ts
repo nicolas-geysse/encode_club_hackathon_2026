@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from './logger';
+import { eventBus } from './eventBus';
 
 // Re-export types from canonical source
 export type { IncomeItem, CreateIncomeItemInput } from '../types/entities';
@@ -61,6 +62,7 @@ export async function createItem(input: CreateIncomeItemInput): Promise<IncomeIt
 
     const item = await response.json();
     logger.info('Income item created', { itemId: item.id, name: item.name });
+    eventBus.emit('DATA_CHANGED');
     return item;
   } catch (error) {
     logger.error('Error creating income item', { error });
@@ -87,6 +89,7 @@ export async function updateItem(input: UpdateIncomeItemInput): Promise<IncomeIt
 
     const item = await response.json();
     logger.info('Income item updated', { itemId: item.id });
+    eventBus.emit('DATA_CHANGED');
     return item;
   } catch (error) {
     logger.error('Error updating income item', { error });
@@ -110,6 +113,7 @@ export async function deleteItem(itemId: string): Promise<boolean> {
     }
 
     logger.info('Income item deleted', { itemId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error deleting income item', { error });
@@ -140,6 +144,7 @@ export async function clearItemsForProfile(profileId: string): Promise<boolean> 
     }
 
     logger.info('Cleared all income items for profile', { profileId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error clearing income items', { error });

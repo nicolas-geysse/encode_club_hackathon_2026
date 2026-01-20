@@ -8,6 +8,7 @@
 import { createLogger } from './logger';
 import { normalizeExpenses } from './expenseUtils';
 import type { Expense } from '../types/entities';
+import { eventBus } from './eventBus';
 
 const logger = createLogger('ProfileService');
 
@@ -250,9 +251,11 @@ export async function saveProfile(
         // Already logged in triggerProfileEmbedding
       });
 
+      eventBus.emit('DATA_CHANGED');
       return { success: true, profileId: result.profileId, apiSaved: true }; // apiSaved: true
     } catch (error) {
       logger.warn('API unreachable, profile saved to localStorage only', { error });
+      eventBus.emit('DATA_CHANGED');
       return { success: true, profileId: profile.id, apiSaved: false }; // apiSaved: false
     }
   };
@@ -299,6 +302,7 @@ export async function switchProfile(profileId: string): Promise<boolean> {
       logger.warn('Failed to clear localStorage on profile switch', { error: storageError });
     }
 
+    eventBus.emit('PROFILE_SWITCHED');
     return true;
   } catch (error) {
     logger.error('Error switching profile', { error });
@@ -351,6 +355,7 @@ export async function duplicateProfileForGoal(
 
     const result = await saveProfile(newProfile, { immediate: true, setActive: true });
     if (result.success && result.profileId) {
+      eventBus.emit('DATA_CHANGED');
       return loadProfile(result.profileId);
     }
 
@@ -376,6 +381,7 @@ export async function deleteProfile(profileId: string): Promise<boolean> {
       return false;
     }
 
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error deleting profile', { error });
@@ -433,6 +439,7 @@ export async function syncLocalToDb(): Promise<boolean> {
     const result = await saveProfile(profile, { immediate: true, setActive: true });
     if (result.success) {
       logger.info('Successfully synced localStorage to DuckDB');
+      eventBus.emit('DATA_CHANGED');
       return true;
     }
 
@@ -510,6 +517,7 @@ export async function importProfile(
     }
 
     logger.info('Profile imported successfully', { profileId: result.profileId });
+    eventBus.emit('DATA_CHANGED');
     return result;
   } catch (error) {
     logger.error('Failed to import profile', { error });

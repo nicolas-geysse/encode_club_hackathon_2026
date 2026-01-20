@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from './logger';
+import { eventBus } from './eventBus';
 
 const logger = createLogger('GoalService');
 
@@ -144,6 +145,7 @@ export async function createGoal(input: CreateGoalInput): Promise<Goal | null> {
 
     const goal = await response.json();
     logger.info('Goal created', { goalId: goal.id, name: goal.name });
+    eventBus.emit('DATA_CHANGED');
     return goal;
   } catch (error) {
     logger.error('Error creating goal', { error });
@@ -170,6 +172,7 @@ export async function updateGoal(input: UpdateGoalInput): Promise<Goal | null> {
 
     const goal = await response.json();
     logger.info('Goal updated', { goalId: goal.id });
+    eventBus.emit('DATA_CHANGED');
     return goal;
   } catch (error) {
     logger.error('Error updating goal', { error });
@@ -193,6 +196,7 @@ export async function deleteGoal(goalId: string): Promise<boolean> {
     }
 
     logger.info('Goal deleted', { goalId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error deleting goal', { error });
@@ -264,7 +268,11 @@ export async function reorderGoals(goalIds: string[]): Promise<boolean> {
     const updates = goalIds.map((id, index) => updateGoal({ id, priority: index + 1 }));
 
     const results = await Promise.all(updates);
-    return results.every((result) => result !== null);
+    const success = results.every((result) => result !== null);
+    if (success) {
+      eventBus.emit('DATA_CHANGED');
+    }
+    return success;
   } catch (error) {
     logger.error('Error reordering goals', { error });
     return false;

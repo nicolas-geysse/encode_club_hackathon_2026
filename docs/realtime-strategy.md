@@ -97,25 +97,20 @@ Les signals SolidJS ne re-render que les composants qui utilisent les données m
 ```typescript
 const [goals, setGoals] = createSignal<Goal[]>([]);
 // Seuls les composants appelant goals() sont re-rendus
+// Seuls les composants appelant goals() sont re-rendus
 ```
+
+### 4. Anti-Scintillement (Anti-Flickering) 🚀
+Pour éviter les clignotements désagréables lors de mises à jour rapides (ex: onboarding) :
+
+1.  **Silent Refresh** : Les mises à jour via Event Bus se font avec `refreshProfile({ silent: true })`. Cela évite d'afficher le spinner de chargement (`loading=true`) si des données sont déjà présentes. L'interface reste stable pendant le rafraîchissement.
+2.  **Debouncing (150ms)** : Le listener `DATA_CHANGED` utilise un *debounce* de 150ms. Si 10 événements arrivent en rafale (ex: création de 10 trades), un seul appel API global est déclenché à la fin.
 
 ---
 
 ## Améliorations Possibles (Backlog)
 
-### 1. Debouncing des Refreshes
-**Problème**: Si plusieurs mutations arrivent rapidement, on fait N appels API.
-
-**Solution**:
-```typescript
-// Ajouter dans profileContext.tsx
-import { debounce } from './utils';
-
-const debouncedRefreshAll = debounce(refreshAll, 100);
-eventBus.on('DATA_CHANGED', debouncedRefreshAll);
-```
-
-### 2. Événements Granulaires
+### 1. Événements Granulaires
 **Problème**: `DATA_CHANGED` déclenche un `refreshAll()` même si seuls les goals ont changé.
 
 **Solution**:

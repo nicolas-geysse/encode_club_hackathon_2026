@@ -5,6 +5,8 @@
  * Allows advancing simulated time for testing goal progress.
  */
 
+import { eventBus } from './eventBus';
+
 export interface SimulationState {
   simulatedDate: string;
   realDate: string;

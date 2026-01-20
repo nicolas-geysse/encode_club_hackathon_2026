@@ -7,6 +7,7 @@
  */
 
 import { createLogger } from './logger';
+import { eventBus } from './eventBus';
 
 // Re-export types from canonical source
 export type { Skill, CreateSkillInput, SkillLevel } from '../types/entities';
@@ -66,6 +67,7 @@ export async function createSkill(input: CreateSkillInput): Promise<Skill | null
 
     const skill = await response.json();
     logger.info('Skill created', { skillId: skill.id, name: skill.name });
+    eventBus.emit('DATA_CHANGED');
     return skill;
   } catch (error) {
     logger.error('Error creating skill', { error });
@@ -92,6 +94,7 @@ export async function updateSkill(input: UpdateSkillInput): Promise<Skill | null
 
     const skill = await response.json();
     logger.info('Skill updated', { skillId: skill.id });
+    eventBus.emit('DATA_CHANGED');
     return skill;
   } catch (error) {
     logger.error('Error updating skill', { error });
@@ -115,6 +118,7 @@ export async function deleteSkill(skillId: string): Promise<boolean> {
     }
 
     logger.info('Skill deleted', { skillId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error deleting skill', { error });
@@ -138,6 +142,7 @@ export async function clearSkillsForProfile(profileId: string): Promise<boolean>
     }
 
     logger.info('Cleared all skills for profile', { profileId });
+    eventBus.emit('DATA_CHANGED');
     return true;
   } catch (error) {
     logger.error('Error clearing skills', { error });
