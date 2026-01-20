@@ -151,7 +151,9 @@ const ICON_MAP = {
 export default function PlanPage() {
   const navigate = useNavigate();
   // Get inventory, lifestyle, and trades from profile context (DB-backed data)
+  // Get inventory, lifestyle, and trades from profile context (DB-backed data)
   const {
+    profile: activeProfile, // Use global profile state
     inventory: contextInventory,
     lifestyle: contextLifestyle,
     trades: contextTrades,
@@ -161,9 +163,10 @@ export default function PlanPage() {
   } = useProfile();
 
   const [activeTab, setActiveTab] = createSignal<string>('profile');
-  const [isLoading, setIsLoading] = createSignal(true);
-  const [hasProfile, setHasProfile] = createSignal(false);
-  const [activeProfile, setActiveProfile] = createSignal<FullProfile | null>(null);
+  const [isLoading, setIsLoading] = createSignal(true); // Keep loading to show spinner while context loads
+  // Derived state for profile existence
+  const hasProfile = () => !!activeProfile();
+
   const [planData, setPlanData] = createSignal<PlanData>({
     skills: [],
     inventory: [],
@@ -175,57 +178,46 @@ export default function PlanPage() {
   const [isSaving] = createSignal(false);
   const [isSheetOpen, setIsSheetOpen] = createSignal(false);
 
-  // Check for profile on mount - now using profileService
-  onMount(async () => {
-    try {
-      // First, try to sync localStorage to DuckDB (migration)
-      await profileService.syncLocalToDb();
+  // Load plan data when activeProfile changes
+  createEffect(async () => {
+    const profile = activeProfile();
+    if (profile) {
+      // Load plan data from profile (cast from stored JSON)
+      if (profile.planData) {
+        const stored = profile.planData as unknown as PlanData;
+        setPlanData({
+          ...stored,
+          completedTabs: stored.completedTabs || [],
+          skills: stored.skills || [],
+          inventory: stored.inventory || [],
+          lifestyle: stored.lifestyle || [],
+          trades: stored.trades || [],
+          selectedScenarios: stored.selectedScenarios || [],
+        });
+      }
 
-      // Load active profile from DuckDB
-      const profile = await profileService.loadActiveProfile();
-      if (profile) {
-        setActiveProfile(profile);
-        setHasProfile(true);
-
-        // Load plan data from profile (cast from stored JSON)
-        if (profile.planData) {
-          const stored = profile.planData as unknown as PlanData;
+      // Load primary goal to populate setup.goalDeadline if not already set
+      const currentPlanData = planData();
+      if (!currentPlanData.setup?.goalDeadline) {
+        const primaryGoal = await goalService.getPrimaryGoal(profile.id);
+        if (primaryGoal?.deadline) {
           setPlanData({
-            ...stored,
-            completedTabs: stored.completedTabs || [],
-            skills: stored.skills || [],
-            inventory: stored.inventory || [],
-            lifestyle: stored.lifestyle || [],
-            trades: stored.trades || [],
-            selectedScenarios: stored.selectedScenarios || [],
+            ...currentPlanData,
+            setup: {
+              ...currentPlanData.setup,
+              goalName: primaryGoal.name,
+              goalAmount: primaryGoal.amount,
+              goalDeadline: primaryGoal.deadline,
+              academicEvents: currentPlanData.setup?.academicEvents || [],
+              commitments: currentPlanData.setup?.commitments || [],
+            },
           });
         }
-
-        // Load primary goal to populate setup.goalDeadline if not already set
-        const currentPlanData = planData();
-        if (!currentPlanData.setup?.goalDeadline) {
-          const primaryGoal = await goalService.getPrimaryGoal(profile.id);
-          if (primaryGoal?.deadline) {
-            setPlanData({
-              ...currentPlanData,
-              setup: {
-                ...currentPlanData.setup,
-                goalName: primaryGoal.name,
-                goalAmount: primaryGoal.amount,
-                goalDeadline: primaryGoal.deadline,
-                academicEvents: currentPlanData.setup?.academicEvents || [],
-                commitments: currentPlanData.setup?.commitments || [],
-              },
-            });
-          }
-        }
-      } else {
-        // No profile found - user needs to complete onboarding first
-        // (No localStorage fallback to prevent cross-profile contamination)
       }
-    } finally {
-      setIsLoading(false);
     }
+
+    // Stop loading once we've attempted to load data (even if profile is null)
+    setIsLoading(false);
   });
 
   // Save plan data whenever it changes - now using profileService with debounce

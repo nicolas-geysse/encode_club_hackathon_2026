@@ -11,6 +11,7 @@ import { Dynamic } from 'solid-js/web';
 import { useNavigate } from '@solidjs/router';
 import { profileService, type ProfileSummary, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
+import { eventBus } from '~/lib/eventBus';
 import { toast } from '~/lib/notificationStore';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
@@ -22,6 +23,7 @@ import {
   CardDescription,
   CardFooter,
 } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
   User,
   Target,
@@ -48,6 +50,8 @@ export function ProfileSelector(props: Props) {
   const [profiles, setProfiles] = createSignal<ProfileSummary[]>([]);
   const [localLoading, setLocalLoading] = createSignal(true);
   const [showNewGoalModal, setShowNewGoalModal] = createSignal(false);
+  const [showResetConfirm1, setShowResetConfirm1] = createSignal(false);
+  const [showResetConfirm2, setShowResetConfirm2] = createSignal(false);
   const [newGoalForm, setNewGoalForm] = createSignal({
     name: '',
     amount: 500,
@@ -210,18 +214,13 @@ export function ProfileSelector(props: Props) {
     navigate('/');
   };
 
-  const handleResetAll = async () => {
-    // Double confirmation for destructive action
-    if (
-      !confirm(
-        '⚠️ RESET ALL DATA?\n\nThis will delete ALL profiles, goals, and progress.\nThis action cannot be undone!'
-      )
-    ) {
-      return;
-    }
-    if (!confirm('Are you absolutely sure? Type OK to confirm.')) {
-      return;
-    }
+  const handleResetAll = () => {
+    setIsOpen(false);
+    setShowResetConfirm1(true);
+  };
+
+  const executeReset = async () => {
+    setShowResetConfirm2(false);
 
     try {
       const response = await fetch('/api/reset', { method: 'DELETE' });
@@ -230,7 +229,10 @@ export function ProfileSelector(props: Props) {
         throw new Error(data.message || 'Reset failed');
       }
 
-      // Clear all localStorage
+      // 1. Notify other components/tabs immediately
+      eventBus.emit('DATA_CHANGED');
+
+      // 2. Clear all localStorage
       localStorage.removeItem('studentProfile');
       localStorage.removeItem('planData');
       localStorage.removeItem('activeProfileId');
@@ -239,8 +241,14 @@ export function ProfileSelector(props: Props) {
       localStorage.removeItem('forceNewProfile');
 
       setIsOpen(false);
-      // Force full reload to start fresh onboarding
-      window.location.href = '/';
+
+      // 3. Reactive update: Refresh context to clear state immediately
+      await refreshProfile();
+
+      // 4. Smooth navigation to onboarding (instead of hard reload)
+      navigate('/');
+
+      toast.success('System Reset', 'All data has been wiped successfully.');
     } catch (error) {
       toast.error('Reset failed', error instanceof Error ? error.message : 'Reset failed.');
     }
@@ -467,6 +475,33 @@ export function ProfileSelector(props: Props) {
           </Card>
         </div>
       </Show>
+
+      {/* Reset Confirmation Step 1 */}
+      <ConfirmDialog
+        isOpen={showResetConfirm1()}
+        title="⚠️ Reset all data?"
+        message="This will delete ALL profiles, goals, and progress. This action cannot be undone. Are you sure you want to proceed?"
+        confirmLabel="Continue"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          setShowResetConfirm1(false);
+          setShowResetConfirm2(true);
+        }}
+        onCancel={() => setShowResetConfirm1(false)}
+      />
+
+      {/* Reset Confirmation Step 2 */}
+      <ConfirmDialog
+        isOpen={showResetConfirm2()}
+        title="Thinking twice..."
+        message="Are you absolutely sure? This will wipe everything and return you to the onboarding screen."
+        confirmLabel="Yes, Delete Everything"
+        cancelLabel="Stop, go back"
+        variant="danger"
+        onConfirm={executeReset}
+        onCancel={() => setShowResetConfirm2(false)}
+      />
     </div>
   );
 }

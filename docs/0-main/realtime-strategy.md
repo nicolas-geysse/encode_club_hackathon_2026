@@ -106,6 +106,21 @@ Pour éviter les clignotements désagréables lors de mises à jour rapides (ex:
 1.  **Silent Refresh** : Les mises à jour via Event Bus se font avec `refreshProfile({ silent: true })`. Cela évite d'afficher le spinner de chargement (`loading=true`) si des données sont déjà présentes. L'interface reste stable pendant le rafraîchissement.
 2.  **Debouncing (150ms)** : Le listener `DATA_CHANGED` utilise un *debounce* de 150ms. Si 10 événements arrivent en rafale (ex: création de 10 trades), un seul appel API global est déclenché à la fin.
 
+### 5. Patterns UX & Réactivité (Lessons Learned)
+Deux bonnes pratiques ont été intégrées lors de l'affinage :
+
+#### A. Soft Navigation pour le Reset
+Au lieu d'utiliser `window.location.reload()` pour réinitialiser l'application (ce qui est lent et visuellement agressif), nous utilisons désormais :
+1.  `eventBus.emit('DATA_CHANGED')` -> Notifie les autres onglets.
+2.  `refreshProfile()` -> Vide l'état local immédiatement (profile devient null).
+3.  `navigate('/')` -> Transition fluide via le routeur client.
+
+#### B. Modals via Portals
+Pour les boîtes de dialogue critiques (ex: Confirmation de suppression), nous utilisons `<Portal>` de SolidJS. Cela garantit que la modal est :
+- Rendu dans `document.body` (hors de l'arbre DOM du composant).
+- Toujours au-dessus de tout le reste (`z-index` global).
+- Centrée correctement par rapport à la vue (Viewport), et non par rapport au composant parent.
+
 ---
 
 ## Améliorations Possibles (Backlog)

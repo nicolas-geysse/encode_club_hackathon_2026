@@ -168,6 +168,7 @@ export function OnboardingChat() {
     refreshLifestyle,
     refreshIncome,
     refreshTrades,
+    refreshGoals,
   } = useProfile();
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loading, setLoading] = createSignal(false);
@@ -1388,7 +1389,9 @@ export function OnboardingChat() {
             refreshInventory(),
             refreshLifestyle(),
             refreshIncome(),
+            refreshIncome(),
             refreshTrades(),
+            refreshGoals(),
           ]);
 
           // Show success toast for onboarding completion

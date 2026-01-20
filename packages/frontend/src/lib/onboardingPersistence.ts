@@ -11,6 +11,7 @@ import { inventoryService } from '~/lib/inventoryService';
 import { incomeService } from '~/lib/incomeService';
 import { tradeService } from '~/lib/tradeService';
 import { createLogger } from '~/lib/logger';
+import { eventBus } from '~/lib/eventBus';
 
 const logger = createLogger('OnboardingPersistence');
 
@@ -415,6 +416,11 @@ export async function persistAllOnboardingData(
         failures.push(tasks[index].name);
       }
     });
+
+    // If at least one persistence task succeeded, notify the app via EventBus
+    if (failures.length < tasks.length) {
+      eventBus.emit('DATA_CHANGED');
+    }
   }
 
   return {
