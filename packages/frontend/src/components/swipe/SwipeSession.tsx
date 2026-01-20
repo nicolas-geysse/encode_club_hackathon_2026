@@ -46,7 +46,7 @@ interface SwipeHistoryEntry {
 }
 
 // Preference learning algorithm with 4-way support
-function updatePreferences(
+export function updatePreferences(
   currentPrefs: UserPreferences,
   scenario: Scenario,
   direction: SwipeDirection,

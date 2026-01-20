@@ -6,14 +6,15 @@
 
 import { createSignal, Show, For } from 'solid-js';
 import { RollDice } from '../swipe/RollDice';
-import { SwipeSession } from '../swipe/SwipeSession';
+import { SwipeSession, updatePreferences } from '../swipe/SwipeSession';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { celebrateBig } from '~/lib/confetti';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Progress } from '~/components/ui/Progress';
-import { ClipboardList, RotateCcw, Check, Dices, Trash2 } from 'lucide-solid';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
+import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot } from 'lucide-solid';
 
 export interface Scenario {
   id: string;
@@ -252,6 +253,13 @@ export function SwipeTab(props: SwipeTabProps) {
 
   // Handle scenario deletion from review phase
   const handleScenarioDelete = (scenarioId: string) => {
+    // Reactivity: Update AI profile (treat deletion as a rejection)
+    const scenario = selectedScenarios().find((s) => s.id === scenarioId);
+    if (scenario) {
+      const updatedPrefs = updatePreferences(preferences(), scenario, 'left');
+      setPreferences(updatedPrefs);
+    }
+
     setSelectedScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
     setDeleteConfirm(null);
   };
@@ -292,33 +300,95 @@ export function SwipeTab(props: SwipeTabProps) {
             </p>
           </div>
 
-          {/* Preference Summary - Sprint 2 Bug #7 fix: Safe value extraction with fallbacks */}
+          {/* Preference Summary - Vertical Bars Layout (AI Context) */}
           <Card>
             <CardContent class="p-6">
-              <h3 class="font-medium text-foreground mb-4">Your profile</h3>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
-                <div class="space-y-2">
-                  <span class="text-muted-foreground flex items-center gap-2">
-                    💪 Effort tolerance
-                  </span>
-                  <Progress value={1 - (preferences().effortSensitivity ?? 0.5)} class="h-2" />
+              <div class="flex items-center gap-2 mb-6">
+                <div class="p-1.5 bg-purple-500/10 rounded-lg">
+                  <Bot class="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <div class="space-y-2">
-                  <span class="text-muted-foreground flex items-center gap-2">💰 Pay priority</span>
-                  <Progress value={preferences().hourlyRatePriority ?? 0.5} class="h-2" />
-                </div>
-                <div class="space-y-2">
-                  <span class="text-muted-foreground flex items-center gap-2">
-                    📅 Schedule flexibility
-                  </span>
-                  <Progress value={preferences().timeFlexibility ?? 0.5} class="h-2" />
-                </div>
-                <div class="space-y-2">
-                  <span class="text-muted-foreground flex items-center gap-2">
-                    🛡️ Income stability
-                  </span>
-                  <Progress value={preferences().incomeStability ?? 0.5} class="h-2" />
-                </div>
+                <h3 class="font-bold text-foreground">AI Profile Analysis</h3>
+              </div>
+
+              {/* Pillars Container */}
+              <div class="flex items-end justify-around h-48 pt-4 px-2 sm:px-8 gap-4">
+                {/* Effort Pillar */}
+                <Tooltip>
+                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                      {Math.round((1 - (preferences().effortSensitivity ?? 0.5)) * 100)}%
+                    </div>
+                    <div class="w-3 sm:w-4 bg-blue-100 dark:bg-blue-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-blue-500/20 transition-colors">
+                      <div
+                        class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                        style={{
+                          height: `${(1 - (preferences().effortSensitivity ?? 0.5)) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-tight">
+                      Effort
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Higher effort tolerance</TooltipContent>
+                </Tooltip>
+
+                {/* Pay Pillar */}
+                <Tooltip>
+                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                      {Math.round((preferences().hourlyRatePriority ?? 0.5) * 100)}%
+                    </div>
+                    <div class="w-3 sm:w-4 bg-green-100 dark:bg-green-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-green-500/20 transition-colors">
+                      <div
+                        class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                        style={{ height: `${(preferences().hourlyRatePriority ?? 0.5) * 100}%` }}
+                      />
+                    </div>
+                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-green-500 transition-colors uppercase tracking-tight">
+                      Pay
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Importance of high pay</TooltipContent>
+                </Tooltip>
+
+                {/* Flex Pillar */}
+                <Tooltip>
+                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                      {Math.round((preferences().timeFlexibility ?? 0.5) * 100)}%
+                    </div>
+                    <div class="w-3 sm:w-4 bg-purple-100 dark:bg-purple-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-purple-500/20 transition-colors">
+                      <div
+                        class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                        style={{ height: `${(preferences().timeFlexibility ?? 0.5) * 100}%` }}
+                      />
+                    </div>
+                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-purple-500 transition-colors uppercase tracking-tight">
+                      Flex
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Need for flexibility</TooltipContent>
+                </Tooltip>
+
+                {/* Stability Pillar */}
+                <Tooltip>
+                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                      {Math.round((preferences().incomeStability ?? 0.5) * 100)}%
+                    </div>
+                    <div class="w-3 sm:w-4 bg-amber-100 dark:bg-amber-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-amber-500/20 transition-colors">
+                      <div
+                        class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                        style={{ height: `${(preferences().incomeStability ?? 0.5) * 100}%` }}
+                      />
+                    </div>
+                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-tight">
+                      Stable
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Income stability priority</TooltipContent>
+                </Tooltip>
               </div>
             </CardContent>
           </Card>

@@ -1,0 +1,74 @@
+/* HOLOGRAPHIC CARD EFFECT */
+/* Based on the concept: https://codepen.io/simeydotme/pen/abYWJdX */
+
+.holo-container {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+}
+
+.holo-card {
+    /* Variables driven by JS */
+    --pointer-x: 50%;
+    --pointer-y: 50%;
+    --card-scale: 1;
+
+    transform-style: preserve-3d;
+    transform:
+        perspective(1000px) rotateX(calc((var(--pointer-y) - 50) * -0.5deg))
+        /* Max tilt +/- 25deg if range is 0-100 */
+        rotateY(calc((var(--pointer-x) - 50) * 0.5deg)) scale(var(--card-scale));
+    transition: transform 0.1s linear;
+    will-change: transform;
+}
+
+/* GLARE */
+.holo-glare {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 2;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    /* Softens the effect */
+    background:
+        radial-gradient(farthest-corner circle at calc(var(--pointer-x) * 1%) calc(var(--pointer-y) * 1%),
+            rgba(255, 255, 255, 0.4) 10%,
+            rgba(255, 255, 255, 0.1) 40%,
+            transparent 90%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.holo-card:hover .holo-glare,
+.holo-card:active .holo-glare {
+    opacity: 1;
+}
+
+/* SHINE / REFLECTION (Optional, adds color shift) */
+.holo-shine {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 1;
+    pointer-events: none;
+    mix-blend-mode: color-dodge;
+    background-image: linear-gradient(115deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.1) 30%,
+            rgba(255, 0, 150, 0.1) 45%,
+            /* Subtle pink hint */
+            rgba(0, 255, 255, 0.1) 55%,
+            /* Subtle cyan hint */
+            rgba(255, 255, 255, 0.1) 70%,
+            transparent 100%);
+    background-size: 300% 300%;
+    background-position: calc(var(--pointer-x) * 1%) calc(var(--pointer-y) * 1%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+/* Only show shine on hover/active */
+.holo-card:hover .holo-shine,
+.holo-card:active .holo-shine {
+    opacity: 0.8;
+}
