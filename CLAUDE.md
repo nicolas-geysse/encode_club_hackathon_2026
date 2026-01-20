@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Development
 pnpm install              # Install all dependencies
-pnpm dev                  # Run frontend (http://localhost:3000)
+pnpm dev                  # Run frontend (http://localhost:3006)
 pnpm dev:mcp              # Run MCP server (stdio transport)
 
 # Building

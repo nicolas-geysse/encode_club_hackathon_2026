@@ -15,6 +15,59 @@ import { createLogger } from '../../lib/logger';
 
 const logger = createLogger('Goals');
 
+/**
+ * Get API base URL for server-side fetch
+ * Server-side fetch requires absolute URLs (no browser context)
+ */
+function getApiBaseUrl(): string {
+  // EMBEDDINGS_ENABLED feature flag (default: true)
+  if (process.env.EMBEDDINGS_ENABLED === 'false') {
+    return ''; // Will skip embedding
+  }
+  return process.env.INTERNAL_API_URL || `http://localhost:${process.env.PORT || 3006}`;
+}
+
+/**
+ * Trigger embedding for a goal (fire-and-forget)
+ * Non-blocking - errors are logged but don't affect CRUD operations
+ */
+async function triggerGoalEmbedding(goal: Goal): Promise<void> {
+  const baseUrl = getApiBaseUrl();
+  // Skip if embeddings are disabled
+  if (!baseUrl) {
+    logger.debug('Goal embedding skipped (EMBEDDINGS_ENABLED=false)');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/embed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'goal',
+        id: goal.id,
+        data: {
+          name: goal.name,
+          amount: goal.amount,
+          userId: goal.profileId, // Required by indexGoal
+          deadline: goal.deadline,
+          description: goal.planData?.description as string | undefined,
+          category: goal.planData?.category as string | undefined,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      logger.warn('Goal embedding request failed', { status: response.status });
+    } else {
+      logger.debug('Goal embedding triggered', { goalId: goal.id });
+    }
+  } catch (error) {
+    // Non-blocking - embedding is optional enhancement
+    logger.warn('Goal embedding failed', { error });
+  }
+}
+
 // Schema initialization flag (persists across requests in same process)
 let goalsSchemaInitialized = false;
 
@@ -340,6 +393,11 @@ export async function POST(event: APIEvent) {
 
     const goal = rowToGoal(goalRows[0], componentRows.map(rowToComponent));
 
+    // Trigger embedding after goal creation (fire-and-forget)
+    triggerGoalEmbedding(goal).catch(() => {
+      // Already logged in triggerGoalEmbedding
+    });
+
     return new Response(JSON.stringify(goal), {
       status: 201,
       headers: { 'Content-Type': 'application/json' },
@@ -437,6 +495,11 @@ export async function PUT(event: APIEvent) {
     );
 
     const goal = rowToGoal(goalRows[0], componentRows.map(rowToComponent));
+
+    // Trigger embedding after goal update (fire-and-forget)
+    triggerGoalEmbedding(goal).catch(() => {
+      // Already logged in triggerGoalEmbedding
+    });
 
     return new Response(JSON.stringify(goal), {
       status: 200,

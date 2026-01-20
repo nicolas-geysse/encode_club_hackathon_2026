@@ -1,6 +1,7 @@
 import { Show } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { cn } from '~/lib/cn';
+import { OpikTraceLinkInline } from '~/components/ui/OpikTraceLink';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -9,6 +10,8 @@ interface ChatMessageProps {
   name?: string;
   /** Source badge (e.g., 'mastra', 'groq', 'fallback') */
   badge?: string;
+  /** Opik trace URL for "Explain This" feature */
+  traceUrl?: string;
 }
 
 // Safe text parser - no innerHTML needed
@@ -54,7 +57,7 @@ export function ChatMessage(props: ChatMessageProps) {
     >
       <div
         class={cn(
-          'flex items-end gap-3 max-w-[85%] md:max-w-[75%]',
+          'flex items-start gap-3 max-w-[85%] md:max-w-[75%]',
           isAssistant() ? 'flex-row' : 'flex-row-reverse'
         )}
       >
@@ -90,7 +93,7 @@ export function ChatMessage(props: ChatMessageProps) {
               'rounded-2xl px-5 py-3.5 shadow-sm text-sm leading-relaxed',
               isAssistant()
                 ? 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-border/50 text-foreground rounded-tl-sm'
-                : 'bg-primary text-primary-foreground rounded-tr-sm'
+                : 'bg-secondary/50 backdrop-blur-md border border-white/10 text-foreground rounded-tr-sm'
             )}
           >
             <div class="whitespace-pre-wrap break-words">
@@ -99,6 +102,13 @@ export function ChatMessage(props: ChatMessageProps) {
               </Show>
             </div>
           </div>
+
+          {/* "Why this?" Opik trace link for assistant messages */}
+          <Show when={isAssistant() && props.traceUrl}>
+            <div class="px-1 mt-1">
+              <OpikTraceLinkInline traceUrl={props.traceUrl} label="Why this response?" />
+            </div>
+          </Show>
         </div>
       </div>
     </div>

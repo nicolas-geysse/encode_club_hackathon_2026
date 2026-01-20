@@ -13,7 +13,7 @@ import { GoalsTab } from '~/components/tabs/GoalsTab';
 import { SkillsTab } from '~/components/tabs/SkillsTab';
 import { BudgetTab } from '~/components/tabs/BudgetTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
-import { SwipeTab } from '~/components/tabs/SwipeTab';
+import { SwipeTab, type UserPreferences } from '~/components/tabs/SwipeTab';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
@@ -157,6 +157,7 @@ export default function PlanPage() {
     trades: contextTrades,
     refreshInventory,
     refreshTrades,
+    refreshProfile,
   } = useProfile();
 
   const [activeTab, setActiveTab] = createSignal<string>('profile');
@@ -309,8 +310,35 @@ export default function PlanPage() {
     }
   };
 
-  const handleSwipePreferencesChange = () => {
+  // BUG 2 FIX: Actually save swipe preferences to profile
+  const handleSwipePreferencesChange = async (prefs: UserPreferences) => {
     markTabComplete('swipe');
+
+    // Save preferences to profile via API
+    const profile = activeProfile();
+    if (profile?.id) {
+      try {
+        // Convert SwipeTab's UserPreferences to DB format
+        const swipePreferences = {
+          effort_sensitivity: prefs.effortSensitivity,
+          hourly_rate_priority: prefs.hourlyRatePriority,
+          time_flexibility: prefs.timeFlexibility,
+          income_stability: prefs.incomeStability,
+        };
+        await profileService.saveProfile(
+          {
+            id: profile.id,
+            name: profile.name,
+            swipePreferences,
+          },
+          { immediate: true, setActive: false }
+        );
+        // Refresh profile to update context
+        await refreshProfile();
+      } catch (err) {
+        console.error('Failed to save swipe preferences', err);
+      }
+    }
   };
 
   const handleScenariosSelected = (scenarios: SelectedScenario[]) => {
@@ -527,6 +555,21 @@ export default function PlanPage() {
                     value: t.value,
                   }))}
                   currency={activeProfile()?.currency}
+                  // BUG 3 FIX: Pass saved preferences from profile
+                  initialPreferences={
+                    activeProfile()?.swipePreferences
+                      ? {
+                          effortSensitivity:
+                            activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
+                          hourlyRatePriority:
+                            activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
+                          timeFlexibility:
+                            activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
+                          incomeStability:
+                            activeProfile()?.swipePreferences?.income_stability ?? 0.5,
+                        }
+                      : undefined
+                  }
                   onPreferencesChange={handleSwipePreferencesChange}
                   onScenariosSelected={handleScenariosSelected}
                 />

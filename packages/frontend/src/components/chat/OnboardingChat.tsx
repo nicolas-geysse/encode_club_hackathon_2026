@@ -9,6 +9,8 @@ import { createSignal, createEffect, For, Show, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { MCPUIRenderer, type ActionCallback } from './MCPUIRenderer';
+import type { ChatMessage as Message, UIResource } from '~/types/chat';
 import { Repeat } from 'lucide-solid';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { createLogger } from '~/lib/logger';
@@ -18,13 +20,12 @@ import { goalService } from '~/lib/goalService';
 import { useProfile } from '~/lib/profileContext';
 import { persistAllOnboardingData, verifyProfileInDb } from '~/lib/onboardingPersistence';
 import { toast } from '~/lib/notificationStore';
+import { GlassButton } from '~/components/ui/GlassButton';
+import { detectCityMetadata } from '~/lib/cityUtils';
+import { smartMergeArrays } from '~/lib/arrayMergeUtils';
+import { OnboardingProgress } from './OnboardingProgress';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  source?: 'mastra' | 'groq' | 'fallback';
-}
+// Message type imported from ~/types/chat
 
 interface AcademicEvent {
   name: string;
@@ -104,53 +105,7 @@ type OnboardingStep =
   | 'lifestyle'
   | 'complete';
 
-/**
- * Smart merge for arrays that handles:
- * - undefined incoming → keep existing
- * - empty array at the step that collects this field → "none" explicitly (clear)
- * - empty array at other steps → keep existing
- * - non-empty array → merge and deduplicate
- */
-function smartMergeArrays<T>(
-  existing: T[] | undefined,
-  incoming: T[] | undefined,
-  currentStep: OnboardingStep,
-  stepForField: OnboardingStep
-): T[] | undefined {
-  // If incoming is undefined, keep existing
-  if (incoming === undefined) return existing;
-
-  // If empty array AND we're at the step that collects this field → user said "none"
-  if (incoming.length === 0 && currentStep === stepForField) {
-    return [];
-  }
-
-  // If empty array but not at this step → keep existing (don't overwrite)
-  if (incoming.length === 0) return existing;
-
-  // Non-empty array: merge with existing and deduplicate
-  if (!existing || existing.length === 0) return incoming;
-
-  // For simple types (strings), use Set for deduplication
-  if (typeof incoming[0] === 'string') {
-    return [...new Set([...(existing as string[]), ...(incoming as string[])])] as T[];
-  }
-
-  // For objects, merge by checking name field
-  const merged = [...existing];
-  for (const item of incoming) {
-    const itemName = (item as { name?: string }).name;
-    if (itemName) {
-      const existsIdx = merged.findIndex((e) => (e as { name?: string }).name === itemName);
-      if (existsIdx === -1) {
-        merged.push(item);
-      }
-    } else {
-      merged.push(item);
-    }
-  }
-  return merged;
-}
+// smartMergeArrays is now imported from ~/lib/arrayMergeUtils
 
 /**
  * Chat modes:
@@ -249,6 +204,93 @@ export function OnboardingChat() {
   // Ref for auto-scrolling chat to bottom
   let messagesContainerRef: HTMLDivElement | null = null;
 
+  // BUG 9 FIX (UPGRADED): Persist chat history to DuckDB with localStorage fallback
+  const CHAT_STORAGE_KEY_PREFIX = 'stride_chat_history_';
+
+  // Load chat history from DuckDB when profileId becomes available
+  createEffect(() => {
+    const pid = profileId();
+    const tid = threadId();
+    if (pid && messages().length === 0) {
+      // Try DuckDB first
+      fetch(`/api/chat-history?profileId=${pid}&threadId=${tid}&limit=50`)
+        .then((res) => (res.ok ? res.json() : Promise.reject('API failed')))
+        .then((dbMessages: Message[]) => {
+          if (Array.isArray(dbMessages) && dbMessages.length > 0) {
+            setMessages(dbMessages);
+            // Check if onboarding is complete based on stored state
+            if (dbMessages.some((m: Message) => m.role === 'assistant')) {
+              const lastAssistantMsg = dbMessages
+                .filter((m: Message) => m.role === 'assistant')
+                .pop();
+              if (
+                lastAssistantMsg?.content?.includes('setup is complete') ||
+                lastAssistantMsg?.content?.includes('your dashboard')
+              ) {
+                setIsComplete(true);
+                setChatMode('conversation');
+              }
+            }
+          }
+        })
+        .catch(() => {
+          // Fallback to localStorage if DuckDB fails
+          const stored = localStorage.getItem(`${CHAT_STORAGE_KEY_PREFIX}${pid}`);
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setMessages(parsed);
+                if (parsed.some((m: Message) => m.role === 'assistant')) {
+                  const lastAssistantMsg = parsed
+                    .filter((m: Message) => m.role === 'assistant')
+                    .pop();
+                  if (
+                    lastAssistantMsg?.content?.includes('setup is complete') ||
+                    lastAssistantMsg?.content?.includes('your dashboard')
+                  ) {
+                    setIsComplete(true);
+                    setChatMode('conversation');
+                  }
+                }
+              }
+            } catch (e) {
+              logger.warn('Failed to parse stored chat history', { error: e });
+            }
+          }
+        });
+    }
+  });
+
+  // Save new messages to DuckDB (with localStorage backup)
+  const saveMessageToDb = async (msg: Message) => {
+    const pid = profileId();
+    const tid = threadId();
+    if (!pid) return;
+
+    try {
+      await fetch('/api/chat-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: msg.id,
+          profile_id: pid,
+          thread_id: tid,
+          role: msg.role,
+          content: msg.content,
+          source: msg.source,
+        }),
+      });
+    } catch (e) {
+      logger.warn('Failed to save message to DB, using localStorage fallback', { error: e });
+    }
+
+    // Always update localStorage as backup
+    const msgs = messages();
+    const toStore = msgs.slice(-50);
+    localStorage.setItem(`${CHAT_STORAGE_KEY_PREFIX}${pid}`, JSON.stringify(toStore));
+  };
+
   // Auto-scroll to bottom when messages change or loading state changes
   createEffect(() => {
     // Track dependencies
@@ -264,6 +306,49 @@ export function OnboardingChat() {
       }, 50);
     }
   });
+
+  /**
+   * Handle MCP-UI actions from interactive components
+   * Called when user interacts with forms, buttons, etc.
+   */
+  const handleUIAction: ActionCallback = (action: string, data: unknown) => {
+    logger.info('MCP-UI Action', { action, data });
+
+    switch (action) {
+      case 'form-submit': {
+        // Handle form submissions from MCP-UI forms
+        const formData = data as Record<string, unknown>;
+        if (formData.goalName && formData.goalAmount) {
+          // Goal form submission
+          setProfile((prev) => ({
+            ...prev,
+            goalName: String(formData.goalName),
+            goalAmount: Number(formData.goalAmount),
+            goalDeadline: formData.goalDeadline ? String(formData.goalDeadline) : prev.goalDeadline,
+          }));
+          toast.success('Goal Updated', 'Goal data saved from form');
+        }
+        break;
+      }
+
+      case 'confirm_budget':
+        // Budget confirmation action
+        toast.info('Budget', 'Budget settings confirmed');
+        break;
+
+      case 'navigate': {
+        // Navigation action
+        const target = data as { to?: string };
+        if (target.to) {
+          navigate(target.to);
+        }
+        break;
+      }
+
+      default:
+        logger.info('Unhandled UI action', { action });
+    }
+  };
 
   // Handle profile switch from context (when user switches profiles in header)
   const handleProfileSwitch = (newProfile: FullProfile) => {
@@ -522,6 +607,7 @@ export function OnboardingChat() {
     nextStep: OnboardingStep;
     intent?: DetectedIntent;
     traceId?: string;
+    traceUrl?: string; // Opik trace URL for "Explain This" feature
     source?: 'mastra' | 'groq' | 'fallback';
   }> => {
     try {
@@ -563,6 +649,7 @@ export function OnboardingChat() {
     nextStep: OnboardingStep;
     intent?: DetectedIntent;
     traceId?: string;
+    traceUrl?: string;
     source?: 'mastra' | 'groq' | 'fallback';
   } => {
     // Handle conversation mode
@@ -866,22 +953,40 @@ export function OnboardingChat() {
           return;
         }
 
-        // Create goal via goalService
-        goalService
-          .createGoal({
-            profileId: currentProfileId,
-            name: newGoal.name || 'New Goal',
-            amount: newGoal.amount || 100,
-            deadline: newGoal.deadline,
-            status: (newGoal.status as 'active' | 'waiting' | 'completed' | 'paused') || 'active',
-            priority: newGoal.priority || 1,
-          })
-          .then((_createdGoal) => {
-            // Goal created successfully
-          })
-          .catch((err) => {
+        // BUG 1 FIX: Enforce single active goal policy in conversation mode
+        // Archive existing active goals before creating a new one
+        (async () => {
+          try {
+            // Fetch existing active goals for this profile
+            const existingGoalsResponse = await fetch(
+              `/api/goals?profileId=${currentProfileId}&status=active`
+            );
+            if (existingGoalsResponse.ok) {
+              const existingGoals = await existingGoalsResponse.json();
+              // Archive each active goal (set status to 'paused')
+              for (const goal of existingGoals) {
+                await fetch('/api/goals', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: goal.id, status: 'paused' }),
+                });
+              }
+            }
+
+            // Now create the new goal
+            await goalService.createGoal({
+              profileId: currentProfileId,
+              name: newGoal.name || 'New Goal',
+              amount: newGoal.amount || 100,
+              deadline: newGoal.deadline,
+              status: (newGoal.status as 'active' | 'waiting' | 'completed' | 'paused') || 'active',
+              priority: newGoal.priority || 1,
+            });
+            // Goal created successfully - existing goals were archived
+          } catch (err) {
             logger.error('Failed to create goal', { error: err });
-          });
+          }
+        })();
       }
     }
 
@@ -984,83 +1089,12 @@ export function OnboardingChat() {
 
     // Determine city size AND currency based on city/region
     if (data.city) {
-      const cityLower = String(data.city).toLowerCase();
-
-      // Big cities by region
-      const ukCities = [
-        'london',
-        'manchester',
-        'birmingham',
-        'leeds',
-        'glasgow',
-        'edinburgh',
-        'liverpool',
-        'bristol',
-        'oxford',
-        'cambridge',
-      ];
-      const frenchCities = [
-        'paris',
-        'lyon',
-        'marseille',
-        'toulouse',
-        'bordeaux',
-        'lille',
-        'nantes',
-        'nice',
-        'strasbourg',
-        'montpellier',
-      ];
-      const usCities = [
-        'new york',
-        'los angeles',
-        'chicago',
-        'boston',
-        'san francisco',
-        'seattle',
-        'miami',
-        'denver',
-        'austin',
-        'washington',
-      ];
-      const euroCities = [
-        'berlin',
-        'munich',
-        'amsterdam',
-        'rotterdam',
-        'brussels',
-        'vienna',
-        'madrid',
-        'barcelona',
-        'rome',
-        'milan',
-        'dublin',
-      ];
-
-      const bigCities = [...ukCities, ...frenchCities, ...usCities, ...euroCities];
-      const smallCities = ['village', 'campagne', 'rural', 'town'];
-
-      // Set city size
-      if (bigCities.some((c) => cityLower.includes(c))) {
-        updates.citySize = 'large';
-      } else if (smallCities.some((c) => cityLower.includes(c))) {
-        updates.citySize = 'small';
-      } else {
-        updates.citySize = 'medium';
-      }
+      const { size, currency } = detectCityMetadata(String(data.city));
+      updates.citySize = size;
 
       // Auto-detect currency from city (if not already set)
-      if (!currentProfile.currency) {
-        if (ukCities.some((c) => cityLower.includes(c))) {
-          updates.currency = 'GBP';
-        } else if (
-          frenchCities.some((c) => cityLower.includes(c)) ||
-          euroCities.some((c) => cityLower.includes(c))
-        ) {
-          updates.currency = 'EUR';
-        } else if (usCities.some((c) => cityLower.includes(c))) {
-          updates.currency = 'USD';
-        }
+      if (!currentProfile.currency && currency) {
+        updates.currency = currency;
       }
     }
 
@@ -1075,6 +1109,48 @@ export function OnboardingChat() {
       content: text,
     };
     setMessages([...messages(), userMsg]);
+    saveMessageToDb(userMsg); // BUG 9 FIX: Persist to DuckDB
+
+    // STRICT VALIDATION: Region (Step 1)
+    // "Greeting" message asks "Where are you based? (US, UK, or Europe)"
+    if (step() === 'greeting') {
+      const lower = text.toLowerCase();
+      const validRegions = [
+        'us',
+        'usa',
+        'united states',
+        'america',
+        'uk',
+        'united kingdom',
+        'england',
+        'london',
+        'europe',
+        'eu',
+        'france',
+        'germany',
+        'spain',
+        'italy',
+        'netherlands',
+        'belgium',
+        'ireland',
+      ];
+      const isValid = validRegions.some((r) => lower.includes(r));
+
+      if (!isValid) {
+        setTimeout(() => {
+          const errorMsg: Message = {
+            id: `err-${Date.now()}`,
+            role: 'assistant',
+            content:
+              "I didn't catch that. 🌍\n\nPlease select **US**, **UK**, or **Europe** so I can set the right currency for you.",
+          };
+          setMessages((prev) => [...prev, errorMsg]);
+          saveMessageToDb(errorMsg);
+        }, 600);
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -1329,14 +1405,17 @@ export function OnboardingChat() {
         localStorage.setItem('studentProfile', JSON.stringify(finalProfile));
       }
 
-      // Add assistant message with source indicator
+      // Add assistant message with source indicator and trace URL
       const assistantMsg: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: result.response,
         source: result.source,
+        uiResource: (result as { uiResource?: UIResource }).uiResource, // MCP-UI interactive component if present
+        traceUrl: (result as { traceUrl?: string }).traceUrl, // Opik trace URL for "Explain This" feature
       };
       setMessages([...messages(), assistantMsg]);
+      saveMessageToDb(assistantMsg); // BUG 9 FIX: Persist to DuckDB
 
       // Source available on badge in UI (no console logging needed)
     } catch (error) {
@@ -1349,6 +1428,7 @@ export function OnboardingChat() {
         content: 'Oops, I had a small issue. Can you try again?',
       };
       setMessages([...messages(), errorMsg]);
+      saveMessageToDb(errorMsg); // BUG 9 FIX: Persist to DuckDB
     } finally {
       setLoading(false);
       // Auto-focus input for seamless conversation flow
@@ -1425,24 +1505,107 @@ export function OnboardingChat() {
             <p class="text-muted-foreground font-medium">Financial Coach</p>
           </div>
 
-          <div class="flex-1">
-            <Show when={!isComplete()}>
-              <div class="bg-card border border-border/50 rounded-2xl p-6 shadow-sm">
-                <div class="text-xs font-bold uppercase tracking-widest text-primary mb-2">
-                  Current Step
-                </div>
-                <h3 class="text-xl font-semibold mb-2 text-card-foreground">
-                  {getStepContext(step()).title}
-                </h3>
-                <p class="text-sm text-muted-foreground leading-relaxed">
-                  {getStepContext(step()).description}
-                </p>
-              </div>
+          <div
+            class="flex-1 overflow-y-auto min-h-0 w-full transition-all duration-1000"
+            classList={{
+              'opacity-0': ['greeting', 'region'].includes(step()) || isComplete(),
+              'opacity-100': !['greeting', 'region'].includes(step()) && !isComplete(),
+              'pointer-events-none': isComplete(),
+            }}
+          >
+            <Show when={!['greeting', 'region'].includes(step())}>
+              <OnboardingProgress currentStepId={step()} />
             </Show>
           </div>
 
-          <div class="text-xs text-muted-foreground text-center mt-auto">
-            Powered by Mastra & DuckDB
+          <div class="mt-auto p-6 w-full flex items-center justify-center gap-4">
+            {/* Restart Button - Always Visible */}
+            <GlassButton
+              class="icon-mode group transform-gpu"
+              title="Restart Onboarding"
+              onClick={async () => {
+                setProfile({
+                  skills: [],
+                  certifications: [],
+                  incomes: [],
+                  expenses: [],
+                  maxWorkHours: 15,
+                  minHourlyRate: 12,
+                  hasLoan: false,
+                  loanAmount: 0,
+                  academicEvents: [],
+                  inventoryItems: [],
+                  subscriptions: [],
+                  tradeOpportunities: [],
+                  swipePreferences: {
+                    effort_sensitivity: 0.5,
+                    hourly_rate_priority: 0.5,
+                    time_flexibility: 0.5,
+                    income_stability: 0.5,
+                  },
+                });
+                localStorage.removeItem('studentProfile');
+                localStorage.removeItem('planData');
+                localStorage.removeItem('activeProfileId');
+                localStorage.removeItem('followupData');
+                localStorage.removeItem('achievements');
+
+                const oldProfileId = profileId();
+                if (oldProfileId) {
+                  try {
+                    await Promise.all([
+                      fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                    ]);
+                    await Promise.all([
+                      refreshSkills(),
+                      refreshInventory(),
+                      refreshLifestyle(),
+                      refreshIncome(),
+                    ]);
+                  } catch (e) {
+                    logger.warn('Failed to clear old data', { error: e });
+                  }
+                }
+                setThreadId(generateThreadId());
+                setProfileId(undefined);
+                setIsComplete(false);
+                setChatMode('onboarding');
+                setStep('greeting');
+                setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+              }}
+            >
+              <Repeat class="h-6 w-6 text-muted-foreground group-hover:text-primary group-hover:rotate-180 transition-all duration-500" />
+            </GlassButton>
+
+            {/* Start My Plan - Fades In Next to it */}
+            <div
+              class={`transition-all duration-1000 transform overflow-hidden whitespace-nowrap ${
+                isComplete() ? 'w-auto opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'
+              }`}
+            >
+              <GlassButton onClick={goToPlan}>
+                Start My Plan
+                <svg
+                  class="animate-bounce-x ml-2"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </GlassButton>
+            </div>
           </div>
         </div>
 
@@ -1451,18 +1614,27 @@ export function OnboardingChat() {
           {/* Messages */}
           <div
             ref={(el) => (messagesContainerRef = el)}
-            class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth"
+            class="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth"
           >
-            <div class="w-full">
+            <div class="max-w-3xl space-y-6 pb-40">
               <For each={messages()}>
                 {(msg) => (
-                  <ChatMessage
-                    role={msg.role}
-                    content={msg.content}
-                    avatar="B"
-                    name={msg.role === 'assistant' ? 'Bruno' : undefined}
-                    badge={msg.source}
-                  />
+                  <>
+                    <ChatMessage
+                      role={msg.role}
+                      content={msg.content}
+                      avatar="B"
+                      name={msg.role === 'assistant' ? 'Bruno' : undefined}
+                      badge={msg.source}
+                      traceUrl={msg.traceUrl}
+                    />
+                    {/* MCP-UI interactive component (forms, tables, etc.) */}
+                    <Show when={msg.uiResource}>
+                      <div class="ml-12 mb-4">
+                        <MCPUIRenderer resource={msg.uiResource!} onAction={handleUIAction} />
+                      </div>
+                    </Show>
+                  </>
                 )}
               </For>
 
@@ -1489,76 +1661,11 @@ export function OnboardingChat() {
           {/* Action buttons (Restart / Start Plan) */}
           {/* Action buttons (Restart / Start Plan) */}
           {/* Action buttons (Restart / Start Plan) */}
-          <Show when={isComplete()}>
-            <div class="absolute top-4 right-4 z-10 flex gap-2">
-              <button
-                class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-primary-foreground border border-border hover:scale-105 active:scale-95 transition-all shadow-md animate-in fade-in zoom-in duration-300 animate-spin-periodic"
-                title="Restart Onboarding"
-                onClick={async () => {
-                  /* Reuse existing restart logic */
-                  setProfile({
-                    skills: [],
-                    certifications: [],
-                    incomes: [],
-                    expenses: [],
-                    maxWorkHours: 15,
-                    minHourlyRate: 12,
-                    hasLoan: false,
-                    loanAmount: 0,
-                    academicEvents: [],
-                    inventoryItems: [],
-                    subscriptions: [],
-                    tradeOpportunities: [],
-                    // BUG J FIX: Include swipePreferences in restart
-                    swipePreferences: {
-                      effort_sensitivity: 0.5,
-                      hourly_rate_priority: 0.5,
-                      time_flexibility: 0.5,
-                      income_stability: 0.5,
-                    },
-                  });
-                  localStorage.removeItem('studentProfile');
-                  localStorage.removeItem('planData');
-                  localStorage.removeItem('activeProfileId');
-                  localStorage.removeItem('followupData');
-                  localStorage.removeItem('achievements');
-
-                  const oldProfileId = profileId();
-                  if (oldProfileId) {
-                    try {
-                      await Promise.all([
-                        fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      ]);
-                      await Promise.all([
-                        refreshSkills(),
-                        refreshInventory(),
-                        refreshLifestyle(),
-                        refreshIncome(),
-                      ]);
-                    } catch (e) {
-                      logger.warn('Failed to clear old data', { error: e });
-                    }
-                  }
-                  setThreadId(generateThreadId());
-                  setProfileId(undefined);
-                  setIsComplete(false);
-                  setChatMode('onboarding');
-                  setStep('greeting');
-                  setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
-                }}
-              >
-                <Repeat class="h-5 w-5" />
-              </button>
-            </div>
-          </Show>
+          {/* Restart button removed from top right, moved to sidebar */}
 
           {/* Input Area */}
           <div class="p-4 md:p-6 bg-background/80 backdrop-blur-xl border-t border-border z-20">
-            <div class="w-full relative">
+            <div class="max-w-3xl w-full relative">
               <Show
                 when={isComplete()}
                 fallback={
@@ -1577,53 +1684,31 @@ export function OnboardingChat() {
                     placeholder="Ask Bruno anything..."
                     disabled={loading()}
                   />
-                  <button
-                    class="hidden md:flex items-center justify-center gap-2 px-6 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-full transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20 animate-in slide-in-from-right-4 duration-500 group"
-                    onClick={goToPlan}
-                  >
-                    Start My Plan
-                    <div class="bg-white/20 rounded-full p-1 ml-1 animate-bounce-x">
-                      <input type="button" class="hidden" />{' '}
-                      {/* Dummy to avoid typescript error on empty div if needed */}
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="3"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M5 12h14" />
-                        <path d="m12 5 7 7-7 7" />
-                      </svg>
-                    </div>
-                  </button>
+                  <div class="hidden md:flex items-center justify-center">
+                    {/* Desktop CTA moved to sidebar */}
+                  </div>
                 </div>
                 {/* Mobile CTA */}
-                <button
-                  class="md:hidden w-full mt-3 py-3 flex items-center justify-center gap-2 font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-xl transition-all shadow-lg animate-in slide-in-from-bottom-4 duration-500 group"
-                  onClick={goToPlan}
-                >
-                  Start My Plan
-                  <svg
-                    class="animate-bounce-x"
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M5 12h14" />
-                    <path d="m12 5 7 7-7 7" />
-                  </svg>
-                </button>
+                <div class="md:hidden mt-3 animate-in slide-in-from-bottom-4 duration-500 w-full flex justify-center">
+                  <GlassButton onClick={goToPlan}>
+                    Start My Plan
+                    <svg
+                      class="animate-bounce-x"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </GlassButton>
+                </div>
               </Show>
             </div>
           </div>

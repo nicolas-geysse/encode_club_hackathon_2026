@@ -13,8 +13,8 @@ export default defineConfig({
   },
   vite: {
     server: {
-      port: 3002,
-      strictPort: true, // Fail if 3002 is occupied
+      port: 3006,
+      strictPort: true, // Fail if 3006 is occupied
     },
     resolve: {
       alias: {

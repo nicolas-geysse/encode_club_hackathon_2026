@@ -15,6 +15,8 @@ import { Pencil, Check, Trash2, RotateCcw } from 'lucide-solid';
 interface GoalTimelineProps {
   goal: Goal;
   currency?: Currency;
+  // BUG 8 FIX: Accept simulated date for time simulation
+  simulatedDate?: Date;
   onComponentUpdate?: (
     goalId: string,
     componentId: string,
@@ -30,11 +32,14 @@ export function GoalTimeline(props: GoalTimelineProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = createSignal(false);
 
+  // BUG 8 FIX: Use simulated date if provided for time calculations
+  const currentDate = createMemo(() => props.simulatedDate || new Date());
+
   // Calculate days remaining
   const daysRemaining = createMemo(() => {
     if (!props.goal.deadline) return null;
     const deadline = new Date(props.goal.deadline);
-    const now = new Date();
+    const now = currentDate();
     const diffTime = deadline.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
@@ -130,12 +135,13 @@ export function GoalTimeline(props: GoalTimelineProps) {
   };
 
   // Calculate timeline progress percentage
+  // BUG 8 FIX: Use simulated date for timeline progress
   const timelineProgress = createMemo(() => {
     if (!props.goal.deadline || !props.goal.createdAt) return 0;
 
     const start = new Date(props.goal.createdAt).getTime();
     const end = new Date(props.goal.deadline).getTime();
-    const now = Date.now();
+    const now = currentDate().getTime();
 
     if (now >= end) return 100;
     if (now <= start) return 0;
@@ -548,6 +554,8 @@ export function GoalTimeline(props: GoalTimelineProps) {
 interface GoalTimelineListProps {
   goals: Goal[];
   currency?: Currency;
+  // BUG 8 FIX: Accept simulated date for time simulation
+  simulatedDate?: Date;
   onComponentUpdate?: (
     goalId: string,
     componentId: string,
@@ -608,6 +616,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                 <GoalTimeline
                   goal={goal}
                   currency={props.currency}
+                  simulatedDate={props.simulatedDate}
                   onComponentUpdate={props.onComponentUpdate}
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}
@@ -631,6 +640,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                 <GoalTimeline
                   goal={goal}
                   currency={props.currency}
+                  simulatedDate={props.simulatedDate}
                   onComponentUpdate={props.onComponentUpdate}
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}
@@ -654,6 +664,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                 <GoalTimeline
                   goal={goal}
                   currency={props.currency}
+                  simulatedDate={props.simulatedDate}
                   onComponentUpdate={props.onComponentUpdate}
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}
@@ -677,6 +688,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                 <GoalTimeline
                   goal={goal}
                   currency={props.currency}
+                  simulatedDate={props.simulatedDate}
                   onComponentUpdate={props.onComponentUpdate}
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}

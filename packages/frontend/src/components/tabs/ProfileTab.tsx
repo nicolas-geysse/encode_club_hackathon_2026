@@ -24,7 +24,16 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { cn } from '~/lib/cn';
-import { User, Target, ClipboardList, GraduationCap, Briefcase, Clock } from 'lucide-solid';
+import {
+  User,
+  Target,
+  ClipboardList,
+  GraduationCap,
+  Briefcase,
+  Clock,
+  X,
+  Plus,
+} from 'lucide-solid';
 
 // Alias for cleaner code
 type Profile = FullProfile;
@@ -53,6 +62,8 @@ export function ProfileTab(props: ProfileTabProps) {
   const [editing, setEditing] = createSignal(false);
   const [editedProfile, setEditedProfile] = createSignal<Partial<Profile>>({});
   const [saving, setSaving] = createSignal(false);
+  // BUG 5 FIX: State for new certification input
+  const [newCertification, setNewCertification] = createSignal('');
 
   // Derived profile getter for cleaner access
   const profile = () => contextProfile();
@@ -425,6 +436,85 @@ export function ProfileTab(props: ProfileTabProps) {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* BUG 5 FIX: Certifications (Editable) */}
+          <Card>
+            <CardContent class="p-6 space-y-4">
+              <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                <GraduationCap class="h-4 w-4" /> Certifications
+              </h3>
+
+              {/* Current certifications with remove buttons */}
+              <div class="flex flex-wrap gap-2 mb-4">
+                <For each={editedProfile().certifications || []}>
+                  {(cert: string, index) => (
+                    <span class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-sm font-medium border border-amber-200 dark:border-amber-800">
+                      {cert}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const certs = [...(editedProfile().certifications || [])];
+                          certs.splice(index(), 1);
+                          setEditedProfile({ ...editedProfile(), certifications: certs });
+                        }}
+                        class="ml-1 hover:bg-amber-200 dark:hover:bg-amber-800 rounded p-0.5 transition-colors"
+                        title="Remove certification"
+                      >
+                        <X class="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                </For>
+                <Show when={(editedProfile().certifications || []).length === 0}>
+                  <p class="text-muted-foreground italic text-sm">No certifications yet</p>
+                </Show>
+              </div>
+
+              {/* Add new certification input */}
+              <div class="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Add certification (e.g., BAFA, CPR, TEFL)"
+                  value={newCertification()}
+                  onInput={(e) => setNewCertification(e.currentTarget.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && newCertification().trim()) {
+                      e.preventDefault();
+                      const certs = [...(editedProfile().certifications || [])];
+                      const newCert = newCertification().trim();
+                      if (!certs.includes(newCert)) {
+                        certs.push(newCert);
+                        setEditedProfile({ ...editedProfile(), certifications: certs });
+                      }
+                      setNewCertification('');
+                    }
+                  }}
+                  class="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (newCertification().trim()) {
+                      const certs = [...(editedProfile().certifications || [])];
+                      const newCert = newCertification().trim();
+                      if (!certs.includes(newCert)) {
+                        certs.push(newCert);
+                        setEditedProfile({ ...editedProfile(), certifications: certs });
+                      }
+                      setNewCertification('');
+                    }
+                  }}
+                  disabled={!newCertification().trim()}
+                >
+                  <Plus class="h-4 w-4" />
+                </Button>
+              </div>
+              <p class="text-xs text-muted-foreground">
+                Press Enter or click + to add. Certifications can boost your hourly rate!
+              </p>
             </CardContent>
           </Card>
 

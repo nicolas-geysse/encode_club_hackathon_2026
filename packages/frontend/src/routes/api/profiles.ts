@@ -127,9 +127,17 @@ async function ensureProfilesSchema(): Promise<void> {
         plan_data JSON,
         followup_data JSON,
         achievements JSON,
+        swipe_preferences JSON,
         is_active BOOLEAN DEFAULT FALSE
       )
     `);
+
+    // Migration: Add swipe_preferences column if missing (for existing databases)
+    try {
+      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS swipe_preferences JSON`);
+    } catch {
+      // Column might already exist or syntax not supported, ignore
+    }
 
     // Migration: Add field column if missing (for existing databases)
     try {
@@ -198,6 +206,7 @@ interface ProfileRow {
   plan_data: string | null;
   followup_data: string | null;
   achievements: string | null;
+  swipe_preferences: string | null;
   is_active: boolean;
 }
 
@@ -231,6 +240,7 @@ function rowToProfile(row: ProfileRow) {
     planData: row.plan_data ? JSON.parse(row.plan_data) : undefined,
     followupData: row.followup_data ? JSON.parse(row.followup_data) : undefined,
     achievements: row.achievements ? JSON.parse(row.achievements) : undefined,
+    swipePreferences: row.swipe_preferences ? JSON.parse(row.swipe_preferences) : undefined,
     isActive: row.is_active,
   };
 }
@@ -400,7 +410,8 @@ export async function POST(event: APIEvent) {
           goal_deadline = ${body.goalDeadline ? escapeSQL(body.goalDeadline) : 'NULL'},
           plan_data = ${body.planData ? escapeSQL(JSON.stringify(body.planData)) : 'NULL'},
           followup_data = ${body.followupData ? escapeSQL(JSON.stringify(body.followupData)) : 'NULL'},
-          achievements = ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'}${isActiveClause}
+          achievements = ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'},
+          swipe_preferences = ${body.swipePreferences ? escapeSQL(JSON.stringify(body.swipePreferences)) : 'NULL'}${isActiveClause}
         WHERE id = ${escapedProfileId}
       `);
     } else {
@@ -411,7 +422,7 @@ export async function POST(event: APIEvent) {
           max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
           monthly_income, monthly_expenses, monthly_margin,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
-          plan_data, followup_data, achievements, is_active
+          plan_data, followup_data, achievements, swipe_preferences, is_active
         ) VALUES (
           ${escapedProfileId},
           ${escapeSQL(body.name)},
@@ -439,6 +450,7 @@ export async function POST(event: APIEvent) {
           ${body.planData ? escapeSQL(JSON.stringify(body.planData)) : 'NULL'},
           ${body.followupData ? escapeSQL(JSON.stringify(body.followupData)) : 'NULL'},
           ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'},
+          ${body.swipePreferences ? escapeSQL(JSON.stringify(body.swipePreferences)) : 'NULL'},
           ${setActive ? 'TRUE' : 'FALSE'}
         )
       `);

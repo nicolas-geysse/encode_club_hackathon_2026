@@ -11,6 +11,41 @@ import type { Expense } from '../types/entities';
 
 const logger = createLogger('ProfileService');
 
+/**
+ * Trigger embedding for a profile (fire-and-forget)
+ * Non-blocking - errors are logged but don't affect save operation
+ */
+async function triggerProfileEmbedding(profile: Partial<FullProfile>): Promise<void> {
+  if (!profile.id) return;
+
+  try {
+    const response = await fetch('/api/embed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'profile',
+        id: profile.id,
+        data: {
+          diploma: profile.diploma,
+          skills: profile.skills,
+          monthlyIncome: profile.monthlyIncome,
+          monthlyExpenses: profile.monthlyExpenses,
+          goals: profile.goalName ? [profile.goalName] : undefined,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      logger.warn('Profile embedding request failed', { status: response.status });
+    } else {
+      logger.debug('Profile embedding triggered', { profileId: profile.id });
+    }
+  } catch (error) {
+    // Non-blocking - embedding is optional enhancement
+    logger.warn('Profile embedding failed', { error });
+  }
+}
+
 export interface IncomeSource {
   source: string;
   amount: number;
@@ -208,6 +243,13 @@ export async function saveProfile(
 
       const result = await response.json();
       logger.info('Profile saved to API');
+
+      // Trigger embedding after successful API save (fire-and-forget)
+      const profileWithId = { ...profile, id: result.profileId || profile.id };
+      triggerProfileEmbedding(profileWithId).catch(() => {
+        // Already logged in triggerProfileEmbedding
+      });
+
       return { success: true, profileId: result.profileId, apiSaved: true }; // apiSaved: true
     } catch (error) {
       logger.warn('API unreachable, profile saved to localStorage only', { error });

@@ -41,6 +41,8 @@ interface SwipeTabProps {
   lifestyle?: { name: string; currentCost: number; pausedMonths?: number }[];
   trades?: { name: string; value: number }[];
   currency?: Currency;
+  // BUG 3 FIX: Add initialPreferences to load saved preferences from profile
+  initialPreferences?: UserPreferences;
   onPreferencesChange?: (prefs: UserPreferences) => void;
   onScenariosSelected?: (scenarios: Scenario[]) => void;
 }
@@ -183,12 +185,15 @@ export function SwipeTab(props: SwipeTabProps) {
   const [phase, setPhase] = createSignal<'idle' | 'rolling' | 'swiping' | 'complete'>('idle');
   const [scenarios, setScenarios] = createSignal<Scenario[]>([]);
   const [selectedScenarios, setSelectedScenarios] = createSignal<Scenario[]>([]);
-  const [preferences, setPreferences] = createSignal<UserPreferences>({
-    effortSensitivity: 0.5,
-    hourlyRatePriority: 0.5,
-    timeFlexibility: 0.5,
-    incomeStability: 0.5,
-  });
+  // BUG 3 FIX: Use initialPreferences from profile if available
+  const [preferences, setPreferences] = createSignal<UserPreferences>(
+    props.initialPreferences || {
+      effortSensitivity: 0.5,
+      hourlyRatePriority: 0.5,
+      timeFlexibility: 0.5,
+      incomeStability: 0.5,
+    }
+  );
 
   const handleRoll = () => {
     setPhase('rolling');

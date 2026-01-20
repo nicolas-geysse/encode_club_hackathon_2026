@@ -22,6 +22,7 @@
 const OPIK_API_KEY = process.env.OPIK_API_KEY;
 const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
 const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
+const OPIK_PROJECT_ID = process.env.OPIK_PROJECT_ID; // UUID for dashboard URLs
 const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -534,16 +535,23 @@ export function getCurrentTraceId(): string | null {
 
 /**
  * Get the trace URL for the dashboard
+ * Format: https://www.comet.com/opik/{workspace}/projects/{projectId}/traces?trace={traceId}
  */
 export function getTraceUrl(traceId?: string): string {
   const id = traceId || currentTraceId;
   const baseUrl = OPIK_BASE_URL || 'https://www.comet.com/opik';
   const workspace = OPIK_WORKSPACE || 'default';
 
-  if (!id) {
-    return `${baseUrl}/${workspace}/${OPIK_PROJECT}`;
+  // Need project ID (UUID) for proper dashboard URLs
+  if (!OPIK_PROJECT_ID) {
+    // Fallback: return project list URL if no project ID configured
+    return `${baseUrl}/${workspace}/projects`;
   }
-  return `${baseUrl}/${workspace}/${OPIK_PROJECT}/traces/${id}`;
+
+  if (!id) {
+    return `${baseUrl}/${workspace}/projects/${OPIK_PROJECT_ID}/traces`;
+  }
+  return `${baseUrl}/${workspace}/projects/${OPIK_PROJECT_ID}/traces?trace=${id}`;
 }
 
 /**

@@ -1,0 +1,114 @@
+/* ElectricCard.css */
+
+/* Local Variables for the component scope */
+.electric-card-root {
+    --electric-border-color: #dd8448;
+    /* Fallback */
+    --electric-border-color: oklch(0.72 0.15 50);
+    /* Approximate orange */
+
+    /* Using system colors/variables if available, otherwise defaults */
+    --ec-neutral-900: #1a1a1a;
+
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+}
+
+.electric-card-wrapper {
+    padding: 2px;
+    border-radius: 24px;
+    position: relative;
+    /* background: linear-gradient(-30deg, var(--electric-border-color), transparent, var(--electric-border-color)); */
+    /* Simplified background for the wrapper to blend better */
+    background: transparent;
+}
+
+/* SVG Container hidden but strictly for definitions */
+.electric-svg-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+/* Inner Container */
+.ec-inner-container {
+    position: relative;
+    border-radius: 24px;
+    /* Ensure content is strictly clipped to radius */
+    overflow: hidden;
+    background: var(--background, #000);
+    /* Use app background or black */
+}
+
+/* Border Layers */
+.ec-border-outer {
+    /* Using pseudo-element or separate div for the wobbly border */
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    pointer-events: none;
+}
+
+.ec-main-card-border {
+    position: absolute;
+    inset: -2px;
+    border-radius: 24px;
+    border: 2px solid var(--electric-border-color);
+    filter: url(#turbulent-displace);
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Glow Effects */
+.ec-glow-layer-1 {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--electric-border-color);
+    border-radius: 24px;
+    filter: blur(2px);
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.ec-glow-layer-2 {
+    position: absolute;
+    inset: 0;
+    border: 2px solid white;
+    border-radius: 24px;
+    filter: blur(4px);
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+/* Background Glow behind the card */
+.ec-background-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    filter: blur(32px);
+    transform: scale(1.05);
+    opacity: 0.2;
+    z-index: -1;
+    background: var(--electric-border-color);
+}
+
+/* Content Container */
+.ec-content {
+    position: relative;
+    z-index: 20;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.4);
+    /* Slight darkening */
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    height: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Dark mode adjustments */
+:global(.dark) .electric-card-root {
+    --electric-border-color: #dd8448;
+}

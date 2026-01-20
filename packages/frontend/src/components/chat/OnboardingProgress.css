@@ -1,0 +1,197 @@
+/* OnboardingProgress.css */
+
+.onboarding-outer {
+    height: 100%;
+    width: 100%;
+    /* Force fit container */
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.progress-timeline {
+    --gap: 20px;
+    --line-height: 20px;
+    --bullet-radius: 5px;
+    --line-thick: 2px;
+    --strip-color: #333;
+    --next-color: #666;
+    --current-color: #333;
+    --prev-color: #333;
+
+    display: flex;
+    height: 100%;
+    /* No horizontal padding to ensure full width usage for centering */
+    padding: 2rem 0;
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
+}
+
+/* Dark Mode Variables - matched to provided .progress.dark */
+:global(.dark) .progress-timeline {
+    --strip-color: #888;
+    /* lightgray */
+    --pending-color: #ccc;
+    /* Future: Lighter/Visible */
+    --current-color: white;
+    --prev-color: #666;
+    /* Past: Darker/Dimmed */
+    background: transparent;
+    /* Was #333 in example but we want to blend */
+    color: #ccc;
+}
+
+.progress-timeline>div {
+    display: flex;
+    flex-direction: column;
+    color: var(--prev-color);
+    flex: 1;
+    /* Take available space */
+    width: 50%;
+    /* Force equal width to center the axis */
+}
+
+/* LEFT COLUMN */
+.progress-timeline>div.left {
+    padding-right: var(--gap);
+    text-align: right;
+}
+
+/* Remove line definition for last item */
+.progress-timeline>div.left div:last-of-type:after {
+    display: none;
+}
+
+/* Line for left side */
+.progress-timeline>div.left div:after {
+    content: "";
+    background: rgba(51, 51, 51, 0.1);
+    border-radius: 2px;
+    position: absolute;
+    right: calc(var(--gap) * -1);
+    top: calc(var(--line-height) / 2);
+    height: 101%;
+    width: 1px;
+    transform: translateX(50%);
+}
+
+:global(.dark) .progress-timeline>div.left div:after {
+    background: var(--strip-color);
+    opacity: 0.3;
+}
+
+/* RIGHT COLUMN */
+.progress-timeline>div.right {
+    padding-left: var(--gap);
+}
+
+.progress-timeline>div.right div.prev:after {
+    transition: none;
+}
+
+/* Current State */
+.progress-timeline>div.right div.current {
+    color: var(--current-color);
+    font-weight: bold;
+}
+
+.progress-timeline>div.right div.current:before {
+    background: var(--current-color);
+    padding: calc(var(--bullet-radius) * 2);
+    transition: all 0.2s 0.15s cubic-bezier(0.175, 0.885, 0.32, 2);
+}
+
+.progress-timeline>div.right div.current:after {
+    height: 0%;
+    transition: height 0.2s ease-out;
+}
+
+/* Siblings after current (Pending/Next) */
+.progress-timeline>div.right div.current~div {
+    color: var(--next-color);
+}
+
+:global(.dark) .progress-timeline>div.right div.current~div {
+    color: var(--pending-color);
+}
+
+.progress-timeline>div.right div.current~div:before {
+    background: var(--next-color);
+    padding: calc(var(--bullet-radius) * 0.5);
+}
+
+:global(.dark) .progress-timeline>div.right div.current~div:before {
+    background: var(--pending-color);
+}
+
+.progress-timeline>div.right div.current~div:after {
+    height: 0%;
+    transition: none;
+}
+
+/* Default Dot (base state before specific overrides) */
+.progress-timeline>div.right div:before {
+    content: "";
+    background: var(--strip-color);
+    padding: var(--bullet-radius);
+    border-radius: 50%;
+    position: absolute;
+    left: calc(var(--gap) * -1);
+    top: calc(var(--line-height) / 2);
+    transform: translateX(-50%) translateY(-50%);
+    transition: padding 0.2s ease;
+}
+
+/* Default Line */
+.progress-timeline>div.right div:after {
+    content: "";
+    background: var(--strip-color);
+    border-radius: 2px;
+    position: absolute;
+    left: calc(var(--gap) * -1);
+    top: calc(var(--line-height) / 2);
+    height: 101%;
+    width: var(--line-thick);
+    transform: translateX(-50%);
+    transition: height 0.2s ease;
+}
+
+/* Shared Item Styles */
+.progress-timeline>div div {
+    flex: 1;
+    position: relative;
+    line-height: var(--line-height);
+    cursor: default;
+    min-height: 40px;
+    /* Slightly taller for breathing room */
+    display: flex;
+    align-items: center;
+    /* Vertically center content */
+    justify-content: flex-end;
+}
+
+.progress-timeline>div.right div {
+    justify-content: flex-start;
+}
+
+.progress-timeline>div div:last-of-type {
+    flex: 0;
+}
+
+/* Done State Specifics (Green) */
+.progress-timeline>div.right div.done.current {
+    color: #62af0b !important;
+}
+
+.progress-timeline>div.right div.done.current:before {
+    background: #62af0b !important;
+}
+
+:global(.dark) .progress-timeline>div.right div.done.current {
+    color: lightgreen !important;
+}
+
+:global(.dark) .progress-timeline>div.right div.done.current:before {
+    background: lightgreen !important;
+}

@@ -62,6 +62,9 @@ import { GOAL_TOOLS, handleGoalTool } from './goal.js';
 import { SWIPE_TOOLS, handleSwipeTool } from './swipe.js';
 import { PROFILE_TOOLS, handleProfileTool } from './profile.js';
 import { SIMULATION_TOOLS, handleSimulationTool } from './simulation.js';
+import { RAG_TOOLS, handleRAGTool } from './rag-tools.js';
+import { BROWSER_TOOLS, handleBrowserTool } from './browser.js';
+import { DUCKDB_MCP_TOOLS, handleDuckDBMCPTool } from './duckdb-mcp.js';
 
 // Types
 interface IncomeSource {
@@ -404,6 +407,15 @@ export const TOOLS = {
 
   // === Simulation Tools (NEW) ===
   ...SIMULATION_TOOLS,
+
+  // === RAG Tools (NEW) ===
+  ...RAG_TOOLS,
+
+  // === Browser Tools (NEW) ===
+  ...BROWSER_TOOLS,
+
+  // === DuckDB MCP Tools (NEW) ===
+  ...DUCKDB_MCP_TOOLS,
 };
 
 // Tool handlers
@@ -433,6 +445,21 @@ export async function handleTool(name: string, args: unknown): Promise<unknown> 
   // Check if it's a simulation tool
   if (name in SIMULATION_TOOLS) {
     return handleSimulationTool(name, typedArgs);
+  }
+
+  // Check if it's a RAG tool
+  if (name in RAG_TOOLS) {
+    return handleRAGTool(name, typedArgs);
+  }
+
+  // Check if it's a browser tool
+  if (name in BROWSER_TOOLS) {
+    return handleBrowserTool(name, typedArgs);
+  }
+
+  // Check if it's a DuckDB MCP tool
+  if (name in DUCKDB_MCP_TOOLS) {
+    return handleDuckDBMCPTool(name, typedArgs);
   }
 
   switch (name) {

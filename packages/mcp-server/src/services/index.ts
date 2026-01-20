@@ -36,3 +36,38 @@ export {
   DATABASE_PATH,
   DATABASE_DIR,
 } from './duckdb.js';
+
+// Vector Store (RAG)
+export {
+  initVectorStore,
+  embedProfile,
+  findSimilarProfiles,
+  storeAdvice,
+  findSimilarAdvice,
+  embedGoal,
+  findSimilarGoals,
+  updateAdviceOutcome,
+  closeVectorStore,
+  getVectorStoreInfo,
+  vectorstore,
+} from './vectorstore.js';
+
+// Embeddings
+export {
+  generateEmbedding,
+  generateEmbeddings,
+  embedStudentProfile,
+  isModelLoaded,
+  getModelInfo,
+  embeddings,
+} from './embeddings.js';
+
+// RAG (from tools)
+export {
+  getRAGContext,
+  formatRAGContextForPrompt,
+  indexStudentProfile,
+  indexAdvice,
+  indexGoal,
+} from '../tools/rag.js';
+export type { RAGContext, RAGQueryParams } from '../tools/rag.js';

@@ -12,13 +12,47 @@ import {
   trace,
   logFeedbackScores,
   getCurrentTraceId,
+  getTraceUrl,
   type TraceOptions,
   type TraceContext,
 } from '../../lib/opik';
 import { processWithGroqExtractor, type ProfileData } from '../../lib/onboardingExtractor';
 import { createLogger } from '../../lib/logger';
+import type { UIResource } from '../../types/chat';
+// Note: RAG context is fetched via HTTP call which returns pre-formatted context
 
 const logger = createLogger('ChatAPI');
+
+/**
+ * Fetch RAG context for a query (non-blocking, returns empty on failure)
+ * @see sprint-10-5.md Phase 2
+ */
+async function fetchRAGContext(queryText: string, profileId?: string): Promise<string> {
+  try {
+    // Try to get RAG context via internal API
+    const response = await fetch(
+      `${process.env.INTERNAL_API_URL || 'http://localhost:3000'}/api/rag`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queryText, profileId }),
+      }
+    );
+
+    if (!response.ok) {
+      return ''; // RAG not available
+    }
+
+    const data = (await response.json()) as { formattedContext?: string; available?: boolean };
+    if (data.available && data.formattedContext) {
+      return data.formattedContext;
+    }
+    return '';
+  } catch {
+    // RAG fetch failed - continue without it
+    return '';
+  }
+}
 
 // Feature flag for Groq extractor (set to false to use legacy Groq-only approach without JSON mode)
 const USE_GROQ_EXTRACTOR = process.env.USE_GROQ_EXTRACTOR !== 'false';
@@ -281,8 +315,137 @@ interface ChatResponse {
   intent?: DetectedIntent;
   /** Trace ID for this turn (useful for feedback) */
   traceId?: string;
+  /** Opik trace URL for "Explain This" feature */
+  traceUrl?: string;
   /** Source of the response: 'groq' (JSON mode), 'groq_legacy' (text mode), or 'fallback' (regex) */
   source?: 'groq' | 'groq_legacy' | 'fallback';
+  /** MCP-UI interactive component to render in chat */
+  uiResource?: UIResource;
+}
+
+/**
+ * Generate a UI resource for the response based on context
+ * Returns interactive MCP-UI components for specific scenarios
+ */
+function generateUIResourceForResponse(
+  extractedData: Record<string, unknown>,
+  currentStep: OnboardingStep,
+  _response: string
+): UIResource | undefined {
+  // Goal confirmation form - when goal data is extracted
+  if (currentStep === 'goal' && extractedData.goalName && extractedData.goalAmount) {
+    return {
+      type: 'form',
+      params: {
+        title: 'Confirm Your Goal',
+        fields: [
+          { name: 'goalName', label: 'Goal', type: 'text', value: extractedData.goalName },
+          { name: 'goalAmount', label: 'Amount', type: 'number', value: extractedData.goalAmount },
+          {
+            name: 'goalDeadline',
+            label: 'Deadline',
+            type: 'date',
+            value: extractedData.goalDeadline || '',
+          },
+        ],
+        submitLabel: 'Confirm Goal',
+      },
+    };
+  }
+
+  // Onboarding complete summary
+  if (currentStep === 'complete' || currentStep === 'lifestyle') {
+    const summaryData: Record<string, string> = {};
+    if (extractedData.name) summaryData['Name'] = String(extractedData.name);
+    if (extractedData.goalName) summaryData['Goal'] = String(extractedData.goalName);
+    if (extractedData.goalAmount) summaryData['Target'] = `$${extractedData.goalAmount}`;
+
+    // Only show summary if we have data
+    if (Object.keys(summaryData).length > 0) {
+      return {
+        type: 'composite',
+        components: [
+          {
+            type: 'metric',
+            params: {
+              title: 'Profile Ready',
+              value: Object.keys(summaryData).length,
+              unit: 'fields completed',
+            },
+          },
+          {
+            type: 'action',
+            params: {
+              type: 'button',
+              label: 'Go to My Plan',
+              variant: 'primary',
+              action: 'navigate',
+              params: { to: '/plan' },
+            },
+          },
+        ],
+      };
+    }
+  }
+
+  // Budget analysis - when income/expenses extracted
+  if (currentStep === 'budget' && extractedData.income && extractedData.expenses) {
+    const income = Number(extractedData.income);
+    const expenses = Number(extractedData.expenses);
+    const margin = income - expenses;
+
+    return {
+      type: 'grid',
+      params: {
+        columns: 2,
+        children: [
+          {
+            type: 'metric',
+            params: {
+              title: 'Monthly Income',
+              value: income,
+              unit: '$',
+            },
+          },
+          {
+            type: 'metric',
+            params: {
+              title: 'Monthly Expenses',
+              value: expenses,
+              unit: '$',
+            },
+          },
+          {
+            type: 'metric',
+            params: {
+              title: 'Monthly Margin',
+              value: margin,
+              unit: '$',
+              trend: { direction: margin >= 0 ? 'up' : 'down' },
+            },
+          },
+        ],
+      },
+    };
+  }
+
+  // Skills list - when skills extracted
+  if (
+    currentStep === 'skills' &&
+    Array.isArray(extractedData.skills) &&
+    extractedData.skills.length > 0
+  ) {
+    return {
+      type: 'table',
+      params: {
+        title: 'Your Skills',
+        columns: [{ key: 'skill', label: 'Skill' }],
+        rows: (extractedData.skills as string[]).map((skill) => ({ skill })),
+      },
+    };
+  }
+
+  return undefined;
 }
 
 // POST: Handle chat message
@@ -373,12 +536,17 @@ export async function POST(event: APIEvent) {
         }
 
         // Convert to ChatResponse format - use actual source from result
+        const extractedData = groqResult.extractedData as Record<string, unknown>;
+        const nextStep = groqResult.nextStep as OnboardingStep;
+        const uiResource = generateUIResourceForResponse(extractedData, step, groqResult.response);
+
         const result: ChatResponse = {
           response: groqResult.response,
-          extractedData: groqResult.extractedData as Record<string, unknown>,
-          nextStep: groqResult.nextStep as OnboardingStep,
+          extractedData,
+          nextStep,
           traceId: traceId || undefined,
           source: groqResult.source === 'groq' ? 'groq' : 'fallback',
+          uiResource,
         };
 
         console.error(`[Chat] Response source: ${groqResult.source}`);
@@ -398,10 +566,18 @@ export async function POST(event: APIEvent) {
       // Fallback: return simple response without LLM
       console.error('[Chat] Response from fallback (no LLM)');
       const fallbackResult = getFallbackResponse(message, step, context);
-      return new Response(JSON.stringify({ ...fallbackResult, source: 'fallback' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const fallbackUiResource = generateUIResourceForResponse(
+        fallbackResult.extractedData,
+        step,
+        fallbackResult.response
+      );
+      return new Response(
+        JSON.stringify({ ...fallbackResult, source: 'fallback', uiResource: fallbackUiResource }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Wrap entire chat flow with trace
@@ -482,12 +658,16 @@ export async function POST(event: APIEvent) {
           ]).catch(() => {});
         }
 
+        // Generate UI resource for legacy path
+        const legacyUiResource = generateUIResourceForResponse(extractedData, step, response);
+
         return {
           response,
           extractedData,
           nextStep,
           traceId: currentTraceId || undefined,
           source: 'groq_legacy',
+          uiResource: legacyUiResource,
         } as ChatResponse;
       },
       traceOptions // Use full trace options with threadId
@@ -1747,6 +1927,20 @@ function detectIntent(message: string, _context: Record<string, unknown>): Detec
     return { mode: 'profile-edit', action: 'update', _matchedPattern: 'edit_generic' };
   }
 
+  // IMPLICIT BUDGET UPDATE: Detect direct income/expense statements without "update/change"
+  // E.g., "new income 2000", "income 2000", "mon revenu est de 3000", "I earn 2500"
+  const budgetKeywords =
+    /\b(income|revenu|salaire|salary|earn|gagne|expense|dépense|loyer|rent|spend)\b/i;
+  const hasAmount = /[$€£]?\s*\d+/;
+  if (budgetKeywords.test(lower) && hasAmount.test(message)) {
+    return {
+      mode: 'profile-edit',
+      action: 'update',
+      field: 'budget',
+      _matchedPattern: 'implicit_budget_update',
+    };
+  }
+
   // New goal intents - try to extract goal details
   if (lower.match(/\b(new goal|add goal|save for|want to buy|saving for|save \$|save €)\b/i)) {
     // Try to extract amount: "$500", "500$", "500 dollars", "€500", etc.
@@ -1871,18 +2065,23 @@ async function handleConversationMode(
         { type: 'tool', input: { profileId } }
       );
 
-      // Log intent detection confidence as feedback score for evaluation
+      // Log intent detection feedback scores for evaluation and dashboard
       const isFallback = intent._matchedPattern === 'default_fallback' || !intent.action;
       const traceIdForFeedback = ctx.getTraceId();
       if (traceIdForFeedback) {
-        // Non-blocking: log feedback score for intent detection quality
+        // Non-blocking: log multiple feedback scores for intent detection quality
         logFeedbackScores(traceIdForFeedback, [
           {
             name: 'intent_detection_confidence',
             value: isFallback ? 0.2 : 1.0, // Low confidence for fallback, high for matched pattern
             reason: isFallback
-              ? `No specific pattern matched for: "${message.substring(0, 50)}..."`
-              : `Pattern matched: ${intent._matchedPattern}, action: ${intent.action}`,
+              ? `Fallback: "${message.substring(0, 50)}..."`
+              : `Pattern: ${intent._matchedPattern}, action: ${intent.action}`,
+          },
+          {
+            name: 'intent_is_fallback',
+            value: isFallback ? 0 : 1, // 0 = fallback (bad), 1 = detected (good)
+            reason: intent._matchedPattern || 'no_pattern',
           },
         ]).catch(() => {}); // Non-blocking
       }
@@ -1904,12 +2103,15 @@ async function handleConversationMode(
         case 'restart_new_profile': {
           // Signal frontend to reset ALL state and create a new profile
           response = `No problem! Let's start with a brand new profile. 🆕\n\n**What's your name?**`;
+          const newProfileTraceId = ctx.getTraceId();
           const result = {
             response,
             extractedData: { _restartNewProfile: true },
             nextStep: 'greeting' as OnboardingStep, // Start at greeting to collect name
             source: 'groq' as const,
             intent: { mode: 'onboarding' as ChatMode, action: 'restart_new_profile' },
+            traceId: newProfileTraceId || undefined,
+            traceUrl: newProfileTraceId ? getTraceUrl(newProfileTraceId) : undefined,
           };
           ctx.setOutput({ response: response.substring(0, 300), action: 'restart_new_profile' });
           return result;
@@ -1918,12 +2120,15 @@ async function handleConversationMode(
         case 'restart_update_profile': {
           // Signal frontend to restart onboarding but KEEP the same profile ID (update mode)
           response = `Sure! Let's update your profile information. 🔄\n\n**What's your name?** (currently: ${context.name || 'not set'})`;
+          const updateProfileTraceId = ctx.getTraceId();
           const result = {
             response,
             extractedData: { _restartUpdateProfile: true },
             nextStep: 'greeting' as OnboardingStep, // Start from greeting to ask name first
             source: 'groq' as const,
             intent: { mode: 'onboarding' as ChatMode, action: 'restart_update_profile' },
+            traceId: updateProfileTraceId || undefined,
+            traceUrl: updateProfileTraceId ? getTraceUrl(updateProfileTraceId) : undefined,
           };
           ctx.setOutput({ response: response.substring(0, 300), action: 'restart_update_profile' });
           return result;
@@ -1932,6 +2137,8 @@ async function handleConversationMode(
         case 'continue_onboarding': {
           // Find where user left off and resume from there
           const incompleteStep = findFirstIncompleteStep(context);
+          const continueTraceId = ctx.getTraceId();
+          const continueTraceUrl = continueTraceId ? getTraceUrl(continueTraceId) : undefined;
           if (incompleteStep === 'complete') {
             response = `Your profile is already complete! 🎉 You can:\n\n- **View your plan** - Go to "My Plan"\n- **Update something** - "Change my city to Paris"\n- **Set a new goal** - "I want to save for a laptop"`;
             const result = {
@@ -1940,6 +2147,8 @@ async function handleConversationMode(
               nextStep: 'complete' as OnboardingStep,
               source: 'groq' as const,
               intent: { mode: 'conversation' as ChatMode, action: 'continue_onboarding' },
+              traceId: continueTraceId || undefined,
+              traceUrl: continueTraceUrl,
             };
             ctx.setOutput({ response: response.substring(0, 300), action: 'continue_complete' });
             return result;
@@ -1952,6 +2161,8 @@ async function handleConversationMode(
             nextStep: incompleteStep,
             source: 'groq' as const,
             intent: { mode: 'onboarding' as ChatMode, action: 'continue_onboarding' },
+            traceId: continueTraceId || undefined,
+            traceUrl: continueTraceUrl,
           };
           ctx.setOutput({
             response: response.substring(0, 300),
@@ -1974,6 +2185,145 @@ async function handleConversationMode(
           if (intent.field === 'city' && intent.extractedValue) {
             extractedData.city = intent.extractedValue;
             response = `Done! I've updated your city to **${intent.extractedValue}**. 🏙️\n\nYou can see this change in the **Profile** tab.`;
+          } else if (intent.field === 'budget') {
+            // BUG 12 FIX (v2): Proximity-based extraction - associate amounts with nearest keywords
+            // Fixes: "Mon loyer est de 800€ et je gagne 3000€" now correctly extracts income=3000, expense=800
+            const lower = message.toLowerCase();
+
+            // Keywords with their positions in the string
+            const incomeKeywords = [
+              'income',
+              'earn',
+              'salary',
+              'get',
+              'receive',
+              'make',
+              'gagne',
+              'revenu',
+              'salaire',
+            ];
+            const expenseKeywords = [
+              'expense',
+              'spend',
+              'pay',
+              'cost',
+              'rent',
+              'loyer',
+              'dépense',
+              'paye',
+              'charges',
+            ];
+
+            // Find all keyword positions
+            type KeywordType = 'income' | 'expense';
+            const findKeywordPositions = (
+              keywords: string[],
+              type: KeywordType
+            ): { type: KeywordType; pos: number }[] => {
+              const positions: { type: KeywordType; pos: number }[] = [];
+              for (const kw of keywords) {
+                const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+                let match;
+                while ((match = regex.exec(lower)) !== null) {
+                  positions.push({ type, pos: match.index });
+                }
+              }
+              return positions;
+            };
+
+            const incomePositions = findKeywordPositions(incomeKeywords, 'income');
+            const expensePositions = findKeywordPositions(expenseKeywords, 'expense');
+            const allKeywords = [...incomePositions, ...expensePositions].sort(
+              (a, b) => a.pos - b.pos
+            );
+
+            // Find all amounts with their positions
+            const amountRegex = /[$€£]?\s*(\d[\d,.\s]*)/g;
+            const amountsWithPos: { value: number; pos: number }[] = [];
+            let amtMatch;
+            while ((amtMatch = amountRegex.exec(message)) !== null) {
+              const value = parseInt(amtMatch[1].replace(/[^\d]/g, ''), 10);
+              if (value > 0) {
+                amountsWithPos.push({ value, pos: amtMatch.index });
+              }
+            }
+
+            // Associate each amount with nearest keyword (proximity-based)
+            let detectedIncome: number | null = null;
+            let detectedExpense: number | null = null;
+
+            for (const amt of amountsWithPos) {
+              let nearestKeyword: { type: KeywordType; pos: number } | null = null;
+              let minDistance = Infinity;
+
+              for (const kw of allKeywords) {
+                const distance = Math.abs(amt.pos - kw.pos);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  nearestKeyword = kw;
+                }
+              }
+
+              if (nearestKeyword) {
+                if (nearestKeyword.type === 'income') {
+                  detectedIncome = amt.value;
+                } else {
+                  detectedExpense = amt.value;
+                }
+              }
+            }
+
+            // Fallback: if no keywords found but amounts exist, try to infer from single keyword presence
+            if (detectedIncome === null && detectedExpense === null && amountsWithPos.length > 0) {
+              const hasIncomeKw = incomePositions.length > 0;
+              const hasExpenseKw = expensePositions.length > 0;
+
+              if (hasIncomeKw && !hasExpenseKw) {
+                detectedIncome = amountsWithPos[0].value;
+              } else if (hasExpenseKw && !hasIncomeKw) {
+                detectedExpense = amountsWithPos[0].value;
+              } else {
+                // No keywords at all - default to income (most common update)
+                detectedIncome = amountsWithPos[0].value;
+              }
+            }
+
+            // Build response based on what was detected
+            if (detectedIncome !== null && detectedExpense !== null) {
+              extractedData.income = detectedIncome;
+              extractedData.expenses = detectedExpense;
+              response = `Done! I've updated your budget: income **${detectedIncome}**, expenses **${detectedExpense}**. 💰\n\nYou can see this change in the **Profile** tab.`;
+            } else if (detectedIncome !== null) {
+              extractedData.income = detectedIncome;
+              response = `Done! I've updated your monthly income to **${detectedIncome}**. 💰\n\nYou can see this change in the **Profile** tab.`;
+            } else if (detectedExpense !== null) {
+              extractedData.expenses = detectedExpense;
+              response = `Done! I've updated your monthly expenses to **${detectedExpense}**. 💸\n\nYou can see this change in the **Profile** tab.`;
+            } else {
+              response = `Sure, I can help you update your budget. What's your new monthly income (and expenses if you want)?`;
+            }
+          } else if (intent.field === 'work_preferences') {
+            // Extract work hours and hourly rate
+            const hoursMatch = message.match(/(\d+)\s*h(?:ours?)?/i);
+            const rateMatch = message.match(/[$€£]?\s*(\d+)\s*(?:\/h|per\s*h|hourly|€\/h|[$]\/h)/i);
+
+            if (hoursMatch) {
+              extractedData.maxWorkHours = parseInt(hoursMatch[1], 10);
+            }
+            if (rateMatch) {
+              extractedData.minHourlyRate = parseInt(rateMatch[1], 10);
+            }
+
+            if (extractedData.maxWorkHours || extractedData.minHourlyRate) {
+              const updates = [];
+              if (extractedData.maxWorkHours)
+                updates.push(`max hours: **${extractedData.maxWorkHours}h/week**`);
+              if (extractedData.minHourlyRate)
+                updates.push(`min rate: **${extractedData.minHourlyRate}/h**`);
+              response = `Done! I've updated your work preferences: ${updates.join(', ')}. ⏰\n\nYou can see this change in the **Profile** tab.`;
+            } else {
+              response = `Sure, I can help you update your work preferences. What's your max hours per week and/or minimum hourly rate?`;
+            }
           } else if (intent.field) {
             response = `Sure, I can help you update your ${intent.field.replace('_', ' ')}. What's the new value?`;
           } else {
@@ -2077,6 +2427,17 @@ async function handleConversationMode(
               const client = getGroqClient();
               if (client) {
                 try {
+                  // Fetch RAG context for personalized response (non-blocking)
+                  const ragContext = await fetchRAGContext(message, profileId);
+                  const ragSection = ragContext
+                    ? `\n${ragContext}\nUse this context from similar students to personalize your advice.\n`
+                    : '';
+
+                  span.setAttributes({
+                    'rag.available': ragContext.length > 0,
+                    'rag.context_length': ragContext.length,
+                  });
+
                   const completion = await client.chat.completions.create({
                     model: GROQ_MODEL,
                     messages: [
@@ -2085,6 +2446,7 @@ async function handleConversationMode(
                         content: `${SYSTEM_PROMPTS.onboarding}
 
 The user has already completed onboarding. Their profile: ${JSON.stringify(context)}.
+${ragSection}
 Help them with general questions about their finances, savings plan, or profile.
 Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed information.`,
                       },
@@ -2135,6 +2497,7 @@ Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed 
       }
 
       const traceId = getCurrentTraceId();
+      const traceUrl = traceId ? getTraceUrl(traceId) : undefined;
       ctx.setAttributes({
         'chat.response_length': response.length,
         'chat.extracted_fields': Object.keys(extractedData).length,
@@ -2147,6 +2510,7 @@ Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed 
         nextStep: 'complete' as OnboardingStep,
         intent,
         traceId: traceId || undefined,
+        traceUrl,
         source: 'groq' as const,
       };
     },
