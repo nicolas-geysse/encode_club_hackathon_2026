@@ -35,7 +35,9 @@ export async function POST({ request }: APIEvent) {
     // Fire-and-forget embedding in background
     // We return success immediately and let embedding happen async
     triggerEmbedding(type, id, data).catch((error) => {
-      console.warn(`[Embed API] Background embedding failed for ${type}/${id}:`, error);
+      logger.warn(`Background embedding failed for ${type}/${id}`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     });
 
     return new Response(JSON.stringify({ success: true, queued: true }), {
@@ -43,7 +45,9 @@ export async function POST({ request }: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Embed API] Error:', error);
+    logger.error('Embedding request failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return new Response(JSON.stringify({ error: 'Embedding request failed', success: false }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -104,10 +108,9 @@ async function triggerEmbedding(
     }
   } catch (error) {
     // Log but don't throw - embedding is non-critical
-    logger.warn(
-      `Embedding failed for ${type}/${id}:`,
-      error instanceof Error ? error.message : 'Unknown error'
-    );
+    logger.warn(`Embedding failed for ${type}/${id}`, {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     throw error; // Re-throw so caller can catch
   }
 }
