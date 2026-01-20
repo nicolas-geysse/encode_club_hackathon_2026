@@ -28,6 +28,9 @@ RUN pnpm install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Build mcp-server first (frontend imports from it)
+RUN pnpm build:mcp
+
 # Build the frontend
 RUN pnpm build:frontend
 
