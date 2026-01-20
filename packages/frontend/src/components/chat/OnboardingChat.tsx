@@ -23,7 +23,9 @@ import { toast } from '~/lib/notificationStore';
 import { GlassButton } from '~/components/ui/GlassButton';
 import { detectCityMetadata } from '~/lib/cityUtils';
 import { smartMergeArrays } from '~/lib/arrayMergeUtils';
+import { eventBus } from '~/lib/eventBus';
 import { OnboardingProgress } from './OnboardingProgress';
+import { ScrollArea } from '~/components/ui/ScrollArea';
 
 // Message type imported from ~/types/chat
 
@@ -320,14 +322,38 @@ export function OnboardingChat() {
         // Handle form submissions from MCP-UI forms
         const formData = data as Record<string, unknown>;
         if (formData.goalName && formData.goalAmount) {
-          // Goal form submission
+          // 1. Update local state
           setProfile((prev) => ({
             ...prev,
             goalName: String(formData.goalName),
             goalAmount: Number(formData.goalAmount),
             goalDeadline: formData.goalDeadline ? String(formData.goalDeadline) : prev.goalDeadline,
           }));
-          toast.success('Goal Updated', 'Goal data saved from form');
+
+          // 2. Create the goal via goalService
+          const currentProfileId = profileId();
+          if (currentProfileId) {
+            goalService
+              .createGoal({
+                profileId: currentProfileId,
+                name: String(formData.goalName),
+                amount: Number(formData.goalAmount),
+                deadline: formData.goalDeadline ? String(formData.goalDeadline) : undefined,
+                priority: 1,
+                status: 'active',
+              })
+              .then(() => {
+                toast.success('Goal Created', `"${formData.goalName}" added to your goals`);
+                // Refresh goals in context so they appear in Goals tab
+                refreshGoals();
+              })
+              .catch((err) => {
+                logger.error('Failed to create goal', { error: err });
+                toast.error('Failed to create goal', 'Please try again');
+              });
+          } else {
+            toast.error('No active profile', 'Please complete onboarding first');
+          }
         }
         break;
       }
@@ -1615,9 +1641,12 @@ export function OnboardingChat() {
         {/* Right Chat Area */}
         <div class="flex flex-col h-full min-h-0 relative bg-background/50">
           {/* Messages */}
-          <div
-            ref={(el) => (messagesContainerRef = el)}
-            class="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth"
+
+          {/* Messages */}
+          <ScrollArea
+            class="flex-1 min-h-0"
+            viewportClass="p-4 md:p-8"
+            viewportRef={(el) => (messagesContainerRef = el)}
           >
             <div class="max-w-3xl space-y-6 pb-40">
               <For each={messages()}>
@@ -1659,7 +1688,7 @@ export function OnboardingChat() {
               {/* Spacer for bottom scroll */}
               <div class="h-4" />
             </div>
-          </div>
+          </ScrollArea>
 
           {/* Action buttons (Restart / Start Plan) */}
           {/* Action buttons (Restart / Start Plan) */}

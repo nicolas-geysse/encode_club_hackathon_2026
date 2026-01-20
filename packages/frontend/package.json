@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ark-ui/solid": "5.30.0",
     "@kobalte/core": "^0.13.11",
     "@seed-ship/mcp-ui-solid": "^1.2.6",
     "@seed-ship/mcp-ui-spec": "^1.2.0",
