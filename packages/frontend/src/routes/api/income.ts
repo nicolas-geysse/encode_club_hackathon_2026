@@ -6,39 +6,51 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import { v4 as uuidv4 } from 'uuid';
-import { query, execute, executeSchema, escapeSQL } from './_db';
+import {
+  ensureSchema,
+  successResponse,
+  errorResponse,
+  parseQueryParams,
+  handleGetById,
+  handleGetByProfileId,
+  handleDeleteById,
+  handleBulkDeleteByProfileId,
+  handleDeduplication,
+  checkDuplicate,
+  checkExists,
+  buildUpdateFields,
+  query,
+  execute,
+  escapeSQL,
+  uuidv4,
+} from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger('Income');
 
 // Schema initialization flag
-let incomeSchemaInitialized = false;
+const schemaFlag = { initialized: false };
 
-// Initialize income schema if needed
+const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS income_items (
+    id VARCHAR PRIMARY KEY,
+    profile_id VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
+    amount DECIMAL NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
 async function ensureIncomeSchema(): Promise<void> {
-  if (incomeSchemaInitialized) return;
-
-  try {
-    await executeSchema(`
-      CREATE TABLE IF NOT EXISTS income_items (
-        id VARCHAR PRIMARY KEY,
-        profile_id VARCHAR NOT NULL,
-        name VARCHAR NOT NULL,
-        amount DECIMAL NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    incomeSchemaInitialized = true;
-    logger.info('Schema initialized');
-  } catch (error) {
-    logger.debug('Schema init note', { error });
-    incomeSchemaInitialized = true;
-  }
+  return ensureSchema({
+    flag: schemaFlag,
+    sql: SCHEMA_SQL,
+    logger,
+    tableName: 'income_items',
+  });
 }
 
-// Income item type from DB
+// DB Row type
 interface IncomeItemRow {
   id: string;
   profile_id: string;
@@ -47,7 +59,7 @@ interface IncomeItemRow {
   created_at: string;
 }
 
-// Public IncomeItem type
+// Public type
 export interface IncomeItem {
   id: string;
   profileId: string;
@@ -71,56 +83,34 @@ export async function GET(event: APIEvent) {
   try {
     await ensureIncomeSchema();
 
-    const url = new URL(event.request.url);
-    const itemId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
+    const params = parseQueryParams(event);
+    const itemId = params.get('id');
+    const profileId = params.get('profileId');
 
     if (itemId) {
-      const escapedItemId = escapeSQL(itemId);
-      const itemRows = await query<IncomeItemRow>(
-        `SELECT * FROM income_items WHERE id = ${escapedItemId}`
-      );
-
-      if (itemRows.length === 0) {
-        return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify(rowToItem(itemRows[0])), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const result = await handleGetById<IncomeItemRow, IncomeItem>(itemId, {
+        table: 'income_items',
+        mapper: rowToItem,
+        logger,
+        notFoundMessage: 'Item not found',
       });
+      if (result.response) return result.response;
+      return successResponse(result.data);
     }
 
     if (profileId) {
-      const escapedProfileId = escapeSQL(profileId);
-      const itemRows = await query<IncomeItemRow>(
-        `SELECT * FROM income_items WHERE profile_id = ${escapedProfileId} ORDER BY created_at DESC`
-      );
-
-      const items = itemRows.map(rowToItem);
-
-      return new Response(JSON.stringify(items), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const items = await handleGetByProfileId<IncomeItemRow, IncomeItem>(profileId, {
+        table: 'income_items',
+        mapper: rowToItem,
+        logger,
       });
+      return successResponse(items);
     }
 
-    return new Response(JSON.stringify({ error: true, message: 'profileId is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('profileId is required', 400);
   } catch (error) {
     logger.error('GET error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -133,26 +123,16 @@ export async function POST(event: APIEvent) {
     const { profileId, name, amount = 0 } = body;
 
     if (!profileId || !name) {
-      return new Response(
-        JSON.stringify({
-          error: true,
-          message: 'profileId and name are required',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('profileId and name are required', 400);
     }
 
-    // Check for existing item with same name+profile (deduplication)
-    const existing = await query<IncomeItemRow>(
-      `SELECT * FROM income_items WHERE profile_id = ${escapeSQL(profileId)} AND name = ${escapeSQL(name)}`
-    );
-    if (existing.length > 0) {
-      // Return existing item instead of creating duplicate
+    // Check for existing item (deduplication)
+    const existing = await checkDuplicate<IncomeItemRow>(profileId, name, {
+      table: 'income_items',
+    });
+    if (existing) {
       logger.info('Item already exists, returning existing', { name, profileId });
-      return new Response(JSON.stringify(rowToItem(existing[0])), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse(rowToItem(existing));
     }
 
     const itemId = uuidv4();
@@ -170,21 +150,11 @@ export async function POST(event: APIEvent) {
     const itemRows = await query<IncomeItemRow>(
       `SELECT * FROM income_items WHERE id = ${escapeSQL(itemId)}`
     );
-    const item = rowToItem(itemRows[0]);
 
-    return new Response(JSON.stringify(item), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(rowToItem(itemRows[0]), 201);
   } catch (error) {
     logger.error('POST error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -197,56 +167,36 @@ export async function PUT(event: APIEvent) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id is required', 400);
     }
 
-    const escapedId = escapeSQL(id);
-
-    // Check if item exists
-    const existing = await query<{ id: string }>(
-      `SELECT id FROM income_items WHERE id = ${escapedId}`
-    );
-    if (existing.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const exists = await checkExists(id, { table: 'income_items' });
+    if (!exists) {
+      return errorResponse('Item not found', 404);
     }
 
-    const updateFields: string[] = [];
-
-    if (updates.name !== undefined) {
-      updateFields.push(`name = ${escapeSQL(updates.name)}`);
-    }
-    if (updates.amount !== undefined) {
-      updateFields.push(`amount = ${updates.amount}`);
-    }
+    const updateFields = buildUpdateFields({
+      updates,
+      fieldMappings: [
+        { entityField: 'name', dbField: 'name' },
+        { entityField: 'amount', dbField: 'amount', isNumeric: true },
+      ],
+    });
 
     if (updateFields.length > 0) {
-      await execute(`UPDATE income_items SET ${updateFields.join(', ')} WHERE id = ${escapedId}`);
+      await execute(
+        `UPDATE income_items SET ${updateFields.join(', ')} WHERE id = ${escapeSQL(id)}`
+      );
     }
 
     const itemRows = await query<IncomeItemRow>(
-      `SELECT * FROM income_items WHERE id = ${escapedId}`
+      `SELECT * FROM income_items WHERE id = ${escapeSQL(id)}`
     );
-    const item = rowToItem(itemRows[0]);
 
-    return new Response(JSON.stringify(item), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(rowToItem(itemRows[0]));
   } catch (error) {
     logger.error('PUT error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -255,94 +205,43 @@ export async function DELETE(event: APIEvent) {
   try {
     await ensureIncomeSchema();
 
-    const url = new URL(event.request.url);
-    const itemId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
-    const dedup = url.searchParams.get('dedup') === 'true';
+    const params = parseQueryParams(event);
+    const itemId = params.get('id');
+    const profileId = params.get('profileId');
+    const dedup = params.get('dedup') === 'true';
 
-    // Deduplication mode: remove duplicate items by name for a profile
+    // Deduplication mode
     if (dedup && profileId) {
-      const escapedProfileId = escapeSQL(profileId);
-
-      // Find and delete duplicates (keep the oldest item for each name)
-      const duplicatesQuery = `
-        DELETE FROM income_items
-        WHERE id IN (
-          SELECT id FROM (
-            SELECT id, ROW_NUMBER() OVER (PARTITION BY profile_id, name ORDER BY created_at ASC) as rn
-            FROM income_items
-            WHERE profile_id = ${escapedProfileId}
-          ) sub
-          WHERE rn > 1
-        )
-      `;
-      await execute(duplicatesQuery);
-
-      // Count remaining items
-      const remainingResult = await query<{ count: bigint }>(
-        `SELECT COUNT(*) as count FROM income_items WHERE profile_id = ${escapedProfileId}`
-      );
-      const remaining = Number(remainingResult[0]?.count || 0);
-
-      logger.info('Deduplicated income items', { profileId, remaining });
-      return new Response(JSON.stringify({ success: true, remaining, deduplicated: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const { remaining } = await handleDeduplication(profileId, {
+        table: 'income_items',
+        logger,
       });
+      return successResponse({ success: true, remaining, deduplicated: true });
     }
 
-    // Bulk delete by profileId (for re-onboarding)
+    // Bulk delete by profileId
     if (profileId && !itemId) {
-      const escapedProfileId = escapeSQL(profileId);
-      const countResult = await query<{ count: bigint }>(
-        `SELECT COUNT(*) as count FROM income_items WHERE profile_id = ${escapedProfileId}`
-      );
-      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
-      const count = Number(countResult[0]?.count || 0);
-
-      await execute(`DELETE FROM income_items WHERE profile_id = ${escapedProfileId}`);
-
-      logger.info('Bulk deleted items for profile', { count, profileId });
-      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const { count } = await handleBulkDeleteByProfileId(profileId, {
+        table: 'income_items',
+        logger,
       });
+      return successResponse({ success: true, deletedCount: count });
     }
 
-    // Single item delete by id
+    // Single item delete
     if (!itemId) {
-      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id or profileId is required', 400);
     }
 
-    const escapedItemId = escapeSQL(itemId);
-
-    const item = await query<{ name: string }>(
-      `SELECT name FROM income_items WHERE id = ${escapedItemId}`
-    );
-    if (item.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    await execute(`DELETE FROM income_items WHERE id = ${escapedItemId}`);
-
-    return new Response(JSON.stringify({ success: true, deleted: item[0].name }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+    const result = await handleDeleteById(itemId, {
+      table: 'income_items',
+      notFoundMessage: 'Item not found',
     });
+
+    if (result.response) return result.response;
+    return successResponse({ success: true, deleted: result.deletedName });
   } catch (error) {
     logger.error('DELETE error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }

@@ -9,46 +9,54 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import { v4 as uuidv4 } from 'uuid';
-import { query, execute, executeSchema, escapeSQL } from './_db';
+import {
+  ensureSchema,
+  successResponse,
+  errorResponse,
+  parseQueryParams,
+  handleGetById,
+  handleGetByProfileId,
+  handleDeleteById,
+  handleBulkDeleteByProfileId,
+  checkDuplicate,
+  query,
+  execute,
+  escapeSQL,
+  uuidv4,
+} from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger('Skills');
 
-// Schema initialization flag (persists across requests in same process)
-let skillsSchemaInitialized = false;
+// Schema initialization flag
+const schemaFlag = { initialized: false };
 
-// Initialize skills schema if needed
+const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS skills (
+    id VARCHAR PRIMARY KEY,
+    profile_id VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
+    level VARCHAR DEFAULT 'intermediate',
+    hourly_rate DECIMAL DEFAULT 15,
+    market_demand INTEGER DEFAULT 3,
+    cognitive_effort INTEGER DEFAULT 3,
+    rest_needed DECIMAL DEFAULT 1,
+    score DECIMAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
 async function ensureSkillsSchema(): Promise<void> {
-  if (skillsSchemaInitialized) return;
-
-  try {
-    await executeSchema(`
-      CREATE TABLE IF NOT EXISTS skills (
-        id VARCHAR PRIMARY KEY,
-        profile_id VARCHAR NOT NULL,
-        name VARCHAR NOT NULL,
-        level VARCHAR DEFAULT 'intermediate',
-        hourly_rate DECIMAL DEFAULT 15,
-        market_demand INTEGER DEFAULT 3,
-        cognitive_effort INTEGER DEFAULT 3,
-        rest_needed DECIMAL DEFAULT 1,
-        score DECIMAL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    skillsSchemaInitialized = true;
-    logger.info('Schema initialized');
-  } catch (error) {
-    // Table might already exist, mark as initialized anyway
-    logger.debug('Schema init note', { error });
-    skillsSchemaInitialized = true;
-  }
+  return ensureSchema({
+    flag: schemaFlag,
+    sql: SCHEMA_SQL,
+    logger,
+    tableName: 'skills',
+  });
 }
 
-// Skill type from DB
+// DB Row type
 interface SkillRow {
   id: string;
   profile_id: string;
@@ -63,7 +71,7 @@ interface SkillRow {
   updated_at: string;
 }
 
-// Public Skill type
+// Public type
 export interface Skill {
   id: string;
   profileId: string;
@@ -135,56 +143,35 @@ export async function GET(event: APIEvent) {
   try {
     await ensureSkillsSchema();
 
-    const url = new URL(event.request.url);
-    const skillId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
+    const params = parseQueryParams(event);
+    const skillId = params.get('id');
+    const profileId = params.get('profileId');
 
     if (skillId) {
-      // Get specific skill
-      const escapedSkillId = escapeSQL(skillId);
-      const skillRows = await query<SkillRow>(`SELECT * FROM skills WHERE id = ${escapedSkillId}`);
-
-      if (skillRows.length === 0) {
-        return new Response(JSON.stringify({ error: true, message: 'Skill not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify(rowToSkill(skillRows[0])), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const result = await handleGetById<SkillRow, Skill>(skillId, {
+        table: 'skills',
+        mapper: rowToSkill,
+        logger,
+        notFoundMessage: 'Skill not found',
       });
+      if (result.response) return result.response;
+      return successResponse(result.data);
     }
 
     if (profileId) {
-      // List skills for profile, sorted by score descending
-      const escapedProfileId = escapeSQL(profileId);
-      const skillRows = await query<SkillRow>(
-        `SELECT * FROM skills WHERE profile_id = ${escapedProfileId} ORDER BY score DESC NULLS LAST, created_at DESC`
-      );
-
-      const skills = skillRows.map(rowToSkill);
-
-      return new Response(JSON.stringify(skills), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const skills = await handleGetByProfileId<SkillRow, Skill>(profileId, {
+        table: 'skills',
+        mapper: rowToSkill,
+        logger,
+        orderBy: 'score DESC NULLS LAST, created_at DESC',
       });
+      return successResponse(skills);
     }
 
-    return new Response(JSON.stringify({ error: true, message: 'profileId is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('profileId is required', 400);
   } catch (error) {
     logger.error('GET error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -205,29 +192,17 @@ export async function POST(event: APIEvent) {
     } = body;
 
     if (!profileId || !name) {
-      return new Response(
-        JSON.stringify({
-          error: true,
-          message: 'profileId and name are required',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('profileId and name are required', 400);
     }
 
-    // Check for existing skill with same name (case-insensitive) to prevent duplicates
-    const escapedProfileId = escapeSQL(profileId);
-    const escapedName = escapeSQL(name.toLowerCase());
-    const existing = await query<SkillRow>(
-      `SELECT * FROM skills WHERE profile_id = ${escapedProfileId} AND LOWER(name) = ${escapedName}`
-    );
-
-    if (existing.length > 0) {
-      // Skill already exists - return it instead of creating duplicate
+    // Check for existing skill (case-insensitive)
+    const existing = await checkDuplicate<SkillRow>(profileId, name, {
+      table: 'skills',
+      caseSensitive: false,
+    });
+    if (existing) {
       logger.debug('Skill already exists for profile, skipping duplicate', { name });
-      return new Response(JSON.stringify(rowToSkill(existing[0])), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse(rowToSkill(existing));
     }
 
     const skillId = uuidv4();
@@ -240,7 +215,6 @@ export async function POST(event: APIEvent) {
       restNeeded,
     });
 
-    // Insert skill
     await execute(`
       INSERT INTO skills (
         id, profile_id, name, level, hourly_rate, market_demand,
@@ -258,25 +232,14 @@ export async function POST(event: APIEvent) {
       )
     `);
 
-    // Fetch the created skill
     const skillRows = await query<SkillRow>(
       `SELECT * FROM skills WHERE id = ${escapeSQL(skillId)}`
     );
-    const skill = rowToSkill(skillRows[0]);
 
-    return new Response(JSON.stringify(skill), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(rowToSkill(skillRows[0]), 201);
   } catch (error) {
     logger.error('POST error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -289,27 +252,21 @@ export async function PUT(event: APIEvent) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id is required', 400);
     }
 
     const escapedId = escapeSQL(id);
 
-    // Check if skill exists
-    const existing = await query<SkillRow>(`SELECT * FROM skills WHERE id = ${escapedId}`);
-    if (existing.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Skill not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    // Get existing skill for score recalculation
+    const existingRows = await query<SkillRow>(`SELECT * FROM skills WHERE id = ${escapedId}`);
+    if (existingRows.length === 0) {
+      return errorResponse('Skill not found', 404);
     }
 
-    // Build update query
+    const currentSkill = existingRows[0];
     const updateFields: string[] = ['updated_at = CURRENT_TIMESTAMP'];
 
-    const currentSkill = existing[0];
+    // Collect updates for score calculation
     const newHourlyRate = updates.hourlyRate ?? currentSkill.hourly_rate;
     const newMarketDemand = updates.marketDemand ?? currentSkill.market_demand;
     const newCognitiveEffort = updates.cognitiveEffort ?? currentSkill.cognitive_effort;
@@ -334,7 +291,7 @@ export async function PUT(event: APIEvent) {
       updateFields.push(`rest_needed = ${updates.restNeeded}`);
     }
 
-    // Recalculate score if any scoring field changed
+    // Recalculate score
     const newScore = calculateArbitrageScore({
       hourlyRate: newHourlyRate,
       marketDemand: newMarketDemand,
@@ -345,23 +302,12 @@ export async function PUT(event: APIEvent) {
 
     await execute(`UPDATE skills SET ${updateFields.join(', ')} WHERE id = ${escapedId}`);
 
-    // Fetch updated skill
     const skillRows = await query<SkillRow>(`SELECT * FROM skills WHERE id = ${escapedId}`);
-    const skill = rowToSkill(skillRows[0]);
 
-    return new Response(JSON.stringify(skill), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(rowToSkill(skillRows[0]));
   } catch (error) {
     logger.error('PUT error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -370,64 +316,33 @@ export async function DELETE(event: APIEvent) {
   try {
     await ensureSkillsSchema();
 
-    const url = new URL(event.request.url);
-    const skillId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
+    const params = parseQueryParams(event);
+    const skillId = params.get('id');
+    const profileId = params.get('profileId');
 
-    // Bulk delete by profileId (for re-onboarding)
+    // Bulk delete by profileId
     if (profileId && !skillId) {
-      const escapedProfileId = escapeSQL(profileId);
-      const countResult = await query<{ count: bigint }>(
-        `SELECT COUNT(*) as count FROM skills WHERE profile_id = ${escapedProfileId}`
-      );
-      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
-      const count = Number(countResult[0]?.count || 0);
-
-      await execute(`DELETE FROM skills WHERE profile_id = ${escapedProfileId}`);
-
-      logger.info('Bulk deleted skills for profile', { count, profileId });
-      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const { count } = await handleBulkDeleteByProfileId(profileId, {
+        table: 'skills',
+        logger,
       });
+      return successResponse({ success: true, deletedCount: count });
     }
 
-    // Single skill delete by id
+    // Single skill delete
     if (!skillId) {
-      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id or profileId is required', 400);
     }
 
-    const escapedSkillId = escapeSQL(skillId);
-
-    // Get skill info before deletion
-    const skill = await query<{ name: string }>(
-      `SELECT name FROM skills WHERE id = ${escapedSkillId}`
-    );
-    if (skill.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Skill not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Delete the skill
-    await execute(`DELETE FROM skills WHERE id = ${escapedSkillId}`);
-
-    return new Response(JSON.stringify({ success: true, deleted: skill[0].name }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+    const result = await handleDeleteById(skillId, {
+      table: 'skills',
+      notFoundMessage: 'Skill not found',
     });
+
+    if (result.response) return result.response;
+    return successResponse({ success: true, deleted: result.deletedName });
   } catch (error) {
     logger.error('DELETE error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }

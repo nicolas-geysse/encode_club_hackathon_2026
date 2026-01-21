@@ -9,31 +9,86 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import { v4 as uuidv4 } from 'uuid';
-import { query, execute, executeSchema, escapeSQL } from './_db';
+import {
+  successResponse,
+  errorResponse,
+  parseQueryParams,
+  handleBulkDeleteByProfileId,
+  checkExists,
+  query,
+  execute,
+  escapeSQL,
+  uuidv4,
+} from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger('Goals');
 
+// Schema initialization flag
+const schemaFlag = { initialized: false };
+
+const GOALS_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS goals (
+    id VARCHAR PRIMARY KEY,
+    profile_id VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
+    amount DECIMAL NOT NULL,
+    deadline DATE,
+    priority INTEGER DEFAULT 1,
+    parent_goal_id VARCHAR,
+    condition_type VARCHAR DEFAULT 'none',
+    status VARCHAR DEFAULT 'active',
+    progress DECIMAL DEFAULT 0,
+    plan_data JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+const COMPONENTS_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS goal_components (
+    id VARCHAR PRIMARY KEY,
+    goal_id VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
+    type VARCHAR DEFAULT 'other',
+    estimated_hours DECIMAL,
+    estimated_cost DECIMAL,
+    status VARCHAR DEFAULT 'pending',
+    completed_at TIMESTAMP,
+    depends_on JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+async function ensureGoalsSchema(): Promise<void> {
+  if (schemaFlag.initialized) return;
+
+  try {
+    await execute(GOALS_SCHEMA);
+    await execute(COMPONENTS_SCHEMA);
+    schemaFlag.initialized = true;
+    logger.info('Schema initialized');
+  } catch (error) {
+    logger.info('Schema init note', { error });
+    schemaFlag.initialized = true;
+  }
+}
+
 /**
  * Get API base URL for server-side fetch
- * Server-side fetch requires absolute URLs (no browser context)
  */
 function getApiBaseUrl(): string {
-  // EMBEDDINGS_ENABLED feature flag (default: true)
   if (process.env.EMBEDDINGS_ENABLED === 'false') {
-    return ''; // Will skip embedding
+    return '';
   }
   return process.env.INTERNAL_API_URL || `http://localhost:${process.env.PORT || 3006}`;
 }
 
 /**
  * Trigger embedding for a goal (fire-and-forget)
- * Non-blocking - errors are logged but don't affect CRUD operations
  */
 async function triggerGoalEmbedding(goal: Goal): Promise<void> {
   const baseUrl = getApiBaseUrl();
-  // Skip if embeddings are disabled
   if (!baseUrl) {
     logger.debug('Goal embedding skipped (EMBEDDINGS_ENABLED=false)');
     return;
@@ -49,7 +104,7 @@ async function triggerGoalEmbedding(goal: Goal): Promise<void> {
         data: {
           name: goal.name,
           amount: goal.amount,
-          userId: goal.profileId, // Required by indexGoal
+          userId: goal.profileId,
           deadline: goal.deadline,
           description: goal.planData?.description as string | undefined,
           category: goal.planData?.category as string | undefined,
@@ -63,64 +118,11 @@ async function triggerGoalEmbedding(goal: Goal): Promise<void> {
       logger.debug('Goal embedding triggered', { goalId: goal.id });
     }
   } catch (error) {
-    // Non-blocking - embedding is optional enhancement
     logger.warn('Goal embedding failed', { error });
   }
 }
 
-// Schema initialization flag (persists across requests in same process)
-let goalsSchemaInitialized = false;
-
-// Initialize goals schema if needed
-async function ensureGoalsSchema(): Promise<void> {
-  if (goalsSchemaInitialized) return;
-
-  try {
-    // Create goals table
-    await executeSchema(`
-      CREATE TABLE IF NOT EXISTS goals (
-        id VARCHAR PRIMARY KEY,
-        profile_id VARCHAR NOT NULL,
-        name VARCHAR NOT NULL,
-        amount DECIMAL NOT NULL,
-        deadline DATE,
-        priority INTEGER DEFAULT 1,
-        parent_goal_id VARCHAR,
-        condition_type VARCHAR DEFAULT 'none',
-        status VARCHAR DEFAULT 'active',
-        progress DECIMAL DEFAULT 0,
-        plan_data JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create goal_components table
-    await executeSchema(`
-      CREATE TABLE IF NOT EXISTS goal_components (
-        id VARCHAR PRIMARY KEY,
-        goal_id VARCHAR NOT NULL,
-        name VARCHAR NOT NULL,
-        type VARCHAR DEFAULT 'other',
-        estimated_hours DECIMAL,
-        estimated_cost DECIMAL,
-        status VARCHAR DEFAULT 'pending',
-        completed_at TIMESTAMP,
-        depends_on JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    goalsSchemaInitialized = true;
-    logger.info('Schema initialized');
-  } catch (error) {
-    // Tables might already exist, mark as initialized anyway
-    logger.info('Schema init note', { error });
-    goalsSchemaInitialized = true;
-  }
-}
-
-// Goal type from DB
+// DB Row types
 interface GoalRow {
   id: string;
   profile_id: string;
@@ -137,7 +139,6 @@ interface GoalRow {
   updated_at: string;
 }
 
-// Goal component type from DB
 interface GoalComponentRow {
   id: string;
   goal_id: string;
@@ -151,7 +152,7 @@ interface GoalComponentRow {
   created_at: string;
 }
 
-// Public Goal type
+// Public types
 export interface Goal {
   id: string;
   profileId: string;
@@ -169,7 +170,6 @@ export interface Goal {
   updatedAt?: string;
 }
 
-// Public GoalComponent type
 export interface GoalComponent {
   id: string;
   goalId: string;
@@ -222,42 +222,30 @@ export async function GET(event: APIEvent) {
   try {
     await ensureGoalsSchema();
 
-    const url = new URL(event.request.url);
-    const goalId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
-    const status = url.searchParams.get('status'); // 'active', 'waiting', 'completed', 'all'
+    const params = parseQueryParams(event);
+    const goalId = params.get('id');
+    const profileId = params.get('profileId');
+    const status = params.get('status');
 
     if (goalId) {
-      // Get specific goal with components
       const escapedGoalId = escapeSQL(goalId);
       const goalRows = await query<GoalRow>(`SELECT * FROM goals WHERE id = ${escapedGoalId}`);
 
       if (goalRows.length === 0) {
-        return new Response(JSON.stringify({ error: true, message: 'Goal not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Goal not found', 404);
       }
 
-      // Get components for this goal
       const componentRows = await query<GoalComponentRow>(
         `SELECT * FROM goal_components WHERE goal_id = ${escapedGoalId} ORDER BY created_at ASC`
       );
 
       const components = componentRows.map(rowToComponent);
-      const goal = rowToGoal(goalRows[0], components);
-
-      return new Response(JSON.stringify(goal), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse(rowToGoal(goalRows[0], components));
     }
 
     if (profileId) {
-      // List goals for profile
       const escapedProfileId = escapeSQL(profileId);
       let whereClause = `profile_id = ${escapedProfileId}`;
-
       if (status && status !== 'all') {
         whereClause += ` AND status = ${escapeSQL(status)}`;
       }
@@ -284,28 +272,14 @@ export async function GET(event: APIEvent) {
         componentsByGoal.set(row.goal_id, existing);
       }
 
-      // Build goals with components
       const goals = goalRows.map((row) => rowToGoal(row, componentsByGoal.get(row.id)));
-
-      return new Response(JSON.stringify(goals), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse(goals);
     }
 
-    return new Response(JSON.stringify({ error: true, message: 'profileId is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('profileId is required', 400);
   } catch (error) {
     logger.error('GET error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -316,12 +290,11 @@ export async function POST(event: APIEvent) {
 
     const body = await event.request.json();
 
-    // Support legacy action-based API for backward compatibility
+    // Support legacy action-based API
     if (body.action) {
       return handleLegacyAction(body);
     }
 
-    // New REST-style API
     const {
       profileId,
       name,
@@ -336,18 +309,11 @@ export async function POST(event: APIEvent) {
     } = body;
 
     if (!profileId || !name || amount === undefined) {
-      return new Response(
-        JSON.stringify({
-          error: true,
-          message: 'profileId, name, and amount are required',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('profileId, name, and amount are required', 400);
     }
 
     const goalId = uuidv4();
 
-    // Insert goal
     await execute(`
       INSERT INTO goals (
         id, profile_id, name, amount, deadline, priority,
@@ -393,24 +359,13 @@ export async function POST(event: APIEvent) {
 
     const goal = rowToGoal(goalRows[0], componentRows.map(rowToComponent));
 
-    // Trigger embedding after goal creation (fire-and-forget)
-    triggerGoalEmbedding(goal).catch(() => {
-      // Already logged in triggerGoalEmbedding
-    });
+    // Trigger embedding (fire-and-forget)
+    triggerGoalEmbedding(goal).catch(() => {});
 
-    return new Response(JSON.stringify(goal), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(goal, 201);
   } catch (error) {
     logger.error('POST error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -423,24 +378,16 @@ export async function PUT(event: APIEvent) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id is required', 400);
     }
 
     const escapedId = escapeSQL(id);
 
-    // Check if goal exists
-    const existing = await query<{ id: string }>(`SELECT id FROM goals WHERE id = ${escapedId}`);
-    if (existing.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Goal not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const exists = await checkExists(id, { table: 'goals' });
+    if (!exists) {
+      return errorResponse('Goal not found', 404);
     }
 
-    // Build update query
     const updateFields: string[] = ['updated_at = CURRENT_TIMESTAMP'];
 
     if (updates.name !== undefined) {
@@ -477,7 +424,7 @@ export async function PUT(event: APIEvent) {
 
     await execute(`UPDATE goals SET ${updateFields.join(', ')} WHERE id = ${escapedId}`);
 
-    // If goal is completed, check if any waiting child goals should be activated
+    // Activate waiting child goals when parent is completed
     if (updates.status === 'completed') {
       await execute(`
         UPDATE goals
@@ -496,24 +443,13 @@ export async function PUT(event: APIEvent) {
 
     const goal = rowToGoal(goalRows[0], componentRows.map(rowToComponent));
 
-    // Trigger embedding after goal update (fire-and-forget)
-    triggerGoalEmbedding(goal).catch(() => {
-      // Already logged in triggerGoalEmbedding
-    });
+    // Trigger embedding (fire-and-forget)
+    triggerGoalEmbedding(goal).catch(() => {});
 
-    return new Response(JSON.stringify(goal), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(goal);
   } catch (error) {
     logger.error('PUT error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -522,15 +458,15 @@ export async function DELETE(event: APIEvent) {
   try {
     await ensureGoalsSchema();
 
-    const url = new URL(event.request.url);
-    const goalId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
+    const params = parseQueryParams(event);
+    const goalId = params.get('id');
+    const profileId = params.get('profileId');
 
-    // Bulk delete by profileId (for re-onboarding)
+    // Bulk delete by profileId
     if (profileId && !goalId) {
       const escapedProfileId = escapeSQL(profileId);
 
-      // First get all goal IDs for this profile to delete their components
+      // Get all goal IDs for this profile
       const goalIds = await query<{ id: string }>(
         `SELECT id FROM goals WHERE profile_id = ${escapedProfileId}`
       );
@@ -540,41 +476,26 @@ export async function DELETE(event: APIEvent) {
         await execute(`DELETE FROM goal_components WHERE goal_id = ${escapeSQL(id)}`);
       }
 
-      // Now delete all goals for this profile
-      const countResult = await query<{ count: bigint }>(
-        `SELECT COUNT(*) as count FROM goals WHERE profile_id = ${escapedProfileId}`
-      );
-      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
-      const count = Number(countResult[0]?.count || 0);
-
-      await execute(`DELETE FROM goals WHERE profile_id = ${escapedProfileId}`);
-
-      logger.info(`Bulk deleted ${count} goals`, { profileId });
-      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const { count } = await handleBulkDeleteByProfileId(profileId, {
+        table: 'goals',
+        logger,
       });
+
+      return successResponse({ success: true, deletedCount: count });
     }
 
-    // Single goal delete by id
+    // Single goal delete
     if (!goalId) {
-      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id or profileId is required', 400);
     }
 
     const escapedGoalId = escapeSQL(goalId);
 
-    // Get goal info before deletion
     const goal = await query<{ name: string }>(
       `SELECT name FROM goals WHERE id = ${escapedGoalId}`
     );
     if (goal.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Goal not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Goal not found', 404);
     }
 
     // Delete components first
@@ -583,22 +504,13 @@ export async function DELETE(event: APIEvent) {
     // Delete the goal
     await execute(`DELETE FROM goals WHERE id = ${escapedGoalId}`);
 
-    // Also delete any child goals that depended on this one
+    // Delete child goals
     await execute(`DELETE FROM goals WHERE parent_goal_id = ${escapedGoalId}`);
 
-    return new Response(JSON.stringify({ success: true, deleted: goal[0].name }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse({ success: true, deleted: goal[0].name });
   } catch (error) {
     logger.error('DELETE error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -654,7 +566,6 @@ interface LegacyAchievement {
   unlockedAt?: string;
 }
 
-// In-memory storage for legacy API (maintains backward compatibility)
 const legacyGoalsStore: Map<string, LegacyGoal> = new Map();
 
 function generateLegacyId(): string {
@@ -815,36 +726,21 @@ async function handleLegacyAction(body: any): Promise<Response> {
       };
 
       legacyGoalsStore.set(goal.id, goal);
-
-      return new Response(JSON.stringify(goal), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse(goal);
     }
 
     case 'list': {
       const goals = Array.from(legacyGoalsStore.values());
-      return new Response(JSON.stringify({ goals }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse({ goals });
     }
 
     case 'get': {
       const { goalId } = body;
       const goal = legacyGoalsStore.get(goalId);
-
       if (!goal) {
-        return new Response(JSON.stringify({ error: true, message: 'Goal not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Goal not found', 404);
       }
-
-      return new Response(JSON.stringify(goal), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse(goal);
     }
 
     case 'update_progress': {
@@ -852,10 +748,7 @@ async function handleLegacyAction(body: any): Promise<Response> {
       const goal = legacyGoalsStore.get(goalId);
 
       if (!goal || !goal.plan) {
-        return new Response(JSON.stringify({ error: true, message: 'Goal not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return errorResponse('Goal not found', 404);
       }
 
       const milestone = goal.plan.milestones.find((m) => m.weekNumber === weekNumber);
@@ -866,6 +759,7 @@ async function handleLegacyAction(body: any): Promise<Response> {
 
       const totalEarned = goal.plan.milestones.reduce((sum, m) => sum + (m.earnedAmount || 0), 0);
 
+      // Check achievements
       if (totalEarned >= 100) {
         const firstBlood = goal.plan.achievements.find((a) => a.id === 'first_100');
         if (firstBlood && !firstBlood.unlocked) {
@@ -893,23 +787,14 @@ async function handleLegacyAction(body: any): Promise<Response> {
 
       legacyGoalsStore.set(goal.id, goal);
 
-      return new Response(
-        JSON.stringify({
-          goal,
-          totalEarned,
-          progressPercent: Math.round((totalEarned / goal.goalAmount) * 100),
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return successResponse({
+        goal,
+        totalEarned,
+        progressPercent: Math.round((totalEarned / goal.goalAmount) * 100),
+      });
     }
 
     default:
-      return new Response(JSON.stringify({ error: true, message: 'Invalid action' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Invalid action', 400);
   }
 }

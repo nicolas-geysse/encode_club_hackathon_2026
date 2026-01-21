@@ -6,60 +6,62 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import { v4 as uuidv4 } from 'uuid';
-import { query, execute, executeSchema, escapeSQL } from './_db';
+import {
+  ensureSchema,
+  successResponse,
+  errorResponse,
+  parseQueryParams,
+  handleGetById,
+  handleGetByProfileId,
+  handleDeleteById,
+  handleBulkDeleteByProfileId,
+  handleDeduplication,
+  checkDuplicate,
+  checkExists,
+  buildUpdateFields,
+  query,
+  execute,
+  escapeSQL,
+  uuidv4,
+} from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger('Lifestyle');
 
 // Schema initialization flag
-let lifestyleSchemaInitialized = false;
+const schemaFlag = { initialized: false };
 
-// Initialize lifestyle schema if needed
+const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS lifestyle_items (
+    id VARCHAR PRIMARY KEY,
+    profile_id VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
+    category VARCHAR DEFAULT 'subscriptions',
+    current_cost DECIMAL NOT NULL,
+    optimized_cost DECIMAL,
+    suggestion VARCHAR,
+    essential BOOLEAN DEFAULT FALSE,
+    applied BOOLEAN DEFAULT FALSE,
+    paused_months INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+
+const MIGRATIONS = [
+  `ALTER TABLE lifestyle_items ADD COLUMN IF NOT EXISTS paused_months INTEGER DEFAULT 0`,
+];
+
 async function ensureLifestyleSchema(): Promise<void> {
-  if (lifestyleSchemaInitialized) {
-    logger.debug('Schema already initialized, skipping');
-    return;
-  }
-
-  logger.info('Initializing lifestyle_items schema...');
-
-  try {
-    await executeSchema(`
-      CREATE TABLE IF NOT EXISTS lifestyle_items (
-        id VARCHAR PRIMARY KEY,
-        profile_id VARCHAR NOT NULL,
-        name VARCHAR NOT NULL,
-        category VARCHAR DEFAULT 'subscriptions',
-        current_cost DECIMAL NOT NULL,
-        optimized_cost DECIMAL,
-        suggestion VARCHAR,
-        essential BOOLEAN DEFAULT FALSE,
-        applied BOOLEAN DEFAULT FALSE,
-        paused_months INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Migration: Add paused_months column if table already exists
-    try {
-      await execute(
-        `ALTER TABLE lifestyle_items ADD COLUMN IF NOT EXISTS paused_months INTEGER DEFAULT 0`
-      );
-    } catch {
-      // Column may already exist, ignore
-    }
-
-    lifestyleSchemaInitialized = true;
-    logger.info('Schema initialized successfully - lifestyle_items table ready');
-  } catch (error) {
-    logger.error('CRITICAL: Failed to initialize lifestyle_items schema', { error });
-    // Still mark as initialized to avoid retry loops, but log the error
-    lifestyleSchemaInitialized = true;
-  }
+  return ensureSchema({
+    flag: schemaFlag,
+    sql: SCHEMA_SQL,
+    migrations: MIGRATIONS,
+    logger,
+    tableName: 'lifestyle_items',
+  });
 }
 
-// Lifestyle item type from DB
+// DB Row type
 interface LifestyleItemRow {
   id: string;
   profile_id: string;
@@ -74,7 +76,7 @@ interface LifestyleItemRow {
   created_at: string;
 }
 
-// Public LifestyleItem type
+// Public type
 export interface LifestyleItem {
   id: string;
   profileId: string;
@@ -110,63 +112,38 @@ export async function GET(event: APIEvent) {
   try {
     await ensureLifestyleSchema();
 
-    const url = new URL(event.request.url);
-    const itemId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
-    const category = url.searchParams.get('category');
+    const params = parseQueryParams(event);
+    const itemId = params.get('id');
+    const profileId = params.get('profileId');
+    const category = params.get('category');
 
     if (itemId) {
-      const escapedItemId = escapeSQL(itemId);
-      const itemRows = await query<LifestyleItemRow>(
-        `SELECT * FROM lifestyle_items WHERE id = ${escapedItemId}`
-      );
-
-      if (itemRows.length === 0) {
-        return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-
-      return new Response(JSON.stringify(rowToItem(itemRows[0])), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const result = await handleGetById<LifestyleItemRow, LifestyleItem>(itemId, {
+        table: 'lifestyle_items',
+        mapper: rowToItem,
+        logger,
+        notFoundMessage: 'Item not found',
       });
+      if (result.response) return result.response;
+      return successResponse(result.data);
     }
 
     if (profileId) {
-      const escapedProfileId = escapeSQL(profileId);
-      let whereClause = `profile_id = ${escapedProfileId}`;
-
-      if (category) {
-        whereClause += ` AND category = ${escapeSQL(category)}`;
-      }
-
-      const itemRows = await query<LifestyleItemRow>(
-        `SELECT * FROM lifestyle_items WHERE ${whereClause} ORDER BY category, created_at DESC`
-      );
-
-      const items = itemRows.map(rowToItem);
-
-      return new Response(JSON.stringify(items), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const additionalWhere = category ? `category = ${escapeSQL(category)}` : '';
+      const items = await handleGetByProfileId<LifestyleItemRow, LifestyleItem>(profileId, {
+        table: 'lifestyle_items',
+        mapper: rowToItem,
+        logger,
+        orderBy: 'category, created_at DESC',
+        additionalWhere,
       });
+      return successResponse(items);
     }
 
-    return new Response(JSON.stringify({ error: true, message: 'profileId is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return errorResponse('profileId is required', 400);
   } catch (error) {
     logger.error('GET error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -180,33 +157,23 @@ export async function POST(event: APIEvent) {
       profileId,
       name,
       category = 'subscriptions',
-      currentCost = 10, // Default $10/month (final safety net)
+      currentCost = 10,
       optimizedCost,
       suggestion,
       essential = false,
     } = body;
 
     if (!profileId || !name || currentCost === undefined) {
-      return new Response(
-        JSON.stringify({
-          error: true,
-          message: 'profileId, name, and currentCost are required',
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return errorResponse('profileId, name, and currentCost are required', 400);
     }
 
-    // Check for existing item with same name+profile (deduplication)
-    const existing = await query<LifestyleItemRow>(
-      `SELECT * FROM lifestyle_items WHERE profile_id = ${escapeSQL(profileId)} AND name = ${escapeSQL(name)}`
-    );
-    if (existing.length > 0) {
-      // Return existing item instead of creating duplicate
+    // Check for existing item (deduplication)
+    const existing = await checkDuplicate<LifestyleItemRow>(profileId, name, {
+      table: 'lifestyle_items',
+    });
+    if (existing) {
       logger.info('Item already exists, returning existing', { name, profileId });
-      return new Response(JSON.stringify(rowToItem(existing[0])), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return successResponse(rowToItem(existing));
     }
 
     const itemId = uuidv4();
@@ -231,21 +198,11 @@ export async function POST(event: APIEvent) {
     const itemRows = await query<LifestyleItemRow>(
       `SELECT * FROM lifestyle_items WHERE id = ${escapeSQL(itemId)}`
     );
-    const item = rowToItem(itemRows[0]);
 
-    return new Response(JSON.stringify(item), {
-      status: 201,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(rowToItem(itemRows[0]), 201);
   } catch (error) {
     logger.error('POST error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -258,78 +215,42 @@ export async function PUT(event: APIEvent) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return new Response(JSON.stringify({ error: true, message: 'id is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id is required', 400);
     }
 
-    const escapedId = escapeSQL(id);
-
-    // Check if item exists
-    const existing = await query<{ id: string }>(
-      `SELECT id FROM lifestyle_items WHERE id = ${escapedId}`
-    );
-    if (existing.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    const exists = await checkExists(id, { table: 'lifestyle_items' });
+    if (!exists) {
+      return errorResponse('Item not found', 404);
     }
 
-    const updateFields: string[] = [];
-
-    if (updates.name !== undefined) {
-      updateFields.push(`name = ${escapeSQL(updates.name)}`);
-    }
-    if (updates.category !== undefined) {
-      updateFields.push(`category = ${escapeSQL(updates.category)}`);
-    }
-    if (updates.currentCost !== undefined) {
-      updateFields.push(`current_cost = ${updates.currentCost}`);
-    }
-    if (updates.optimizedCost !== undefined) {
-      updateFields.push(`optimized_cost = ${updates.optimizedCost}`);
-    }
-    if (updates.suggestion !== undefined) {
-      updateFields.push(
-        `suggestion = ${updates.suggestion ? escapeSQL(updates.suggestion) : 'NULL'}`
-      );
-    }
-    if (updates.essential !== undefined) {
-      updateFields.push(`essential = ${updates.essential}`);
-    }
-    if (updates.applied !== undefined) {
-      updateFields.push(`applied = ${updates.applied}`);
-    }
-    if (updates.pausedMonths !== undefined) {
-      updateFields.push(`paused_months = ${updates.pausedMonths}`);
-    }
+    const updateFields = buildUpdateFields({
+      updates,
+      fieldMappings: [
+        { entityField: 'name', dbField: 'name' },
+        { entityField: 'category', dbField: 'category' },
+        { entityField: 'currentCost', dbField: 'current_cost', isNumeric: true },
+        { entityField: 'optimizedCost', dbField: 'optimized_cost', isNumeric: true },
+        { entityField: 'suggestion', dbField: 'suggestion', nullable: true },
+        { entityField: 'essential', dbField: 'essential', isBoolean: true },
+        { entityField: 'applied', dbField: 'applied', isBoolean: true },
+        { entityField: 'pausedMonths', dbField: 'paused_months', isNumeric: true },
+      ],
+    });
 
     if (updateFields.length > 0) {
       await execute(
-        `UPDATE lifestyle_items SET ${updateFields.join(', ')} WHERE id = ${escapedId}`
+        `UPDATE lifestyle_items SET ${updateFields.join(', ')} WHERE id = ${escapeSQL(id)}`
       );
     }
 
     const itemRows = await query<LifestyleItemRow>(
-      `SELECT * FROM lifestyle_items WHERE id = ${escapedId}`
+      `SELECT * FROM lifestyle_items WHERE id = ${escapeSQL(id)}`
     );
-    const item = rowToItem(itemRows[0]);
 
-    return new Response(JSON.stringify(item), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return successResponse(rowToItem(itemRows[0]));
   } catch (error) {
     logger.error('PUT error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }
 
@@ -338,94 +259,43 @@ export async function DELETE(event: APIEvent) {
   try {
     await ensureLifestyleSchema();
 
-    const url = new URL(event.request.url);
-    const itemId = url.searchParams.get('id');
-    const profileId = url.searchParams.get('profileId');
-    const dedup = url.searchParams.get('dedup') === 'true';
+    const params = parseQueryParams(event);
+    const itemId = params.get('id');
+    const profileId = params.get('profileId');
+    const dedup = params.get('dedup') === 'true';
 
-    // Deduplication mode: remove duplicate items by name for a profile
+    // Deduplication mode
     if (dedup && profileId) {
-      const escapedProfileId = escapeSQL(profileId);
-
-      // Find and delete duplicates (keep the oldest item for each name)
-      const duplicatesQuery = `
-        DELETE FROM lifestyle_items
-        WHERE id IN (
-          SELECT id FROM (
-            SELECT id, ROW_NUMBER() OVER (PARTITION BY profile_id, name ORDER BY created_at ASC) as rn
-            FROM lifestyle_items
-            WHERE profile_id = ${escapedProfileId}
-          ) sub
-          WHERE rn > 1
-        )
-      `;
-      await execute(duplicatesQuery);
-
-      // Count remaining items
-      const remainingResult = await query<{ count: bigint }>(
-        `SELECT COUNT(*) as count FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`
-      );
-      const remaining = Number(remainingResult[0]?.count || 0);
-
-      logger.info('Deduplicated lifestyle items', { profileId, remaining });
-      return new Response(JSON.stringify({ success: true, remaining, deduplicated: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const { remaining } = await handleDeduplication(profileId, {
+        table: 'lifestyle_items',
+        logger,
       });
+      return successResponse({ success: true, remaining, deduplicated: true });
     }
 
-    // Bulk delete by profileId (for re-onboarding)
+    // Bulk delete by profileId
     if (profileId && !itemId) {
-      const escapedProfileId = escapeSQL(profileId);
-      const countResult = await query<{ count: bigint }>(
-        `SELECT COUNT(*) as count FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`
-      );
-      // Convert BigInt to Number (DuckDB returns BigInt for COUNT)
-      const count = Number(countResult[0]?.count || 0);
-
-      await execute(`DELETE FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`);
-
-      logger.info('Bulk deleted items for profile', { count, profileId });
-      return new Response(JSON.stringify({ success: true, deletedCount: count }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+      const { count } = await handleBulkDeleteByProfileId(profileId, {
+        table: 'lifestyle_items',
+        logger,
       });
+      return successResponse({ success: true, deletedCount: count });
     }
 
-    // Single item delete by id
+    // Single item delete
     if (!itemId) {
-      return new Response(JSON.stringify({ error: true, message: 'id or profileId is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return errorResponse('id or profileId is required', 400);
     }
 
-    const escapedItemId = escapeSQL(itemId);
-
-    const item = await query<{ name: string }>(
-      `SELECT name FROM lifestyle_items WHERE id = ${escapedItemId}`
-    );
-    if (item.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Item not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    await execute(`DELETE FROM lifestyle_items WHERE id = ${escapedItemId}`);
-
-    return new Response(JSON.stringify({ success: true, deleted: item[0].name }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+    const result = await handleDeleteById(itemId, {
+      table: 'lifestyle_items',
+      notFoundMessage: 'Item not found',
     });
+
+    if (result.response) return result.response;
+    return successResponse({ success: true, deleted: result.deletedName });
   } catch (error) {
     logger.error('DELETE error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database error',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(error instanceof Error ? error.message : 'Database error');
   }
 }

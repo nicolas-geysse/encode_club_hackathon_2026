@@ -6,46 +6,92 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import { v4 as uuidv4 } from 'uuid';
-import { query, execute, executeSchema, escapeSQL } from './_db';
+import {
+  successResponse,
+  errorResponse,
+  parseQueryParams,
+  query,
+  execute,
+  executeSchema,
+  escapeSQL,
+  uuidv4,
+} from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
 
 const logger = createLogger('Profiles');
 
-// Schema initialization flag (persists across requests in same process)
-let schemaInitialized = false;
+// Schema initialization flags
+const schemaFlag = { initialized: false };
 let goalsMigrationDone = false;
+
+const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS profiles (
+    id VARCHAR PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    diploma VARCHAR,
+    field VARCHAR,
+    currency VARCHAR DEFAULT 'USD',
+    skills VARCHAR[],
+    certifications VARCHAR[],
+    city VARCHAR,
+    city_size VARCHAR,
+    income_sources JSON,
+    expenses JSON,
+    max_work_hours_weekly INTEGER,
+    min_hourly_rate DECIMAL,
+    has_loan BOOLEAN DEFAULT FALSE,
+    loan_amount DECIMAL,
+    monthly_income DECIMAL,
+    monthly_expenses DECIMAL,
+    monthly_margin DECIMAL,
+    profile_type VARCHAR DEFAULT 'main',
+    parent_profile_id VARCHAR,
+    goal_name VARCHAR,
+    goal_amount DECIMAL,
+    goal_deadline DATE,
+    plan_data JSON,
+    followup_data JSON,
+    achievements JSON,
+    swipe_preferences JSON,
+    is_active BOOLEAN DEFAULT FALSE
+  )
+`;
+
+const MIGRATIONS = [
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS swipe_preferences JSON`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS field VARCHAR`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS currency VARCHAR DEFAULT 'USD'`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS certifications VARCHAR[]`,
+];
 
 /**
  * Convert various date formats to ISO date string (YYYY-MM-DD)
- * DuckDB expects this format for DATE columns
  */
 function toISODateString(dateValue: string | null | undefined): string | null {
   if (!dateValue) return null;
-
   try {
-    // Try to parse the date
     const date = new Date(dateValue);
     if (isNaN(date.getTime())) {
-      // If invalid, check if it's already in ISO format
       if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
         return dateValue.substring(0, 10);
       }
       return null;
     }
-    // Return in YYYY-MM-DD format
     return date.toISOString().substring(0, 10);
   } catch {
     return null;
   }
 }
 
-// Migrate embedded goals from profiles to goals table
+/**
+ * Migrate embedded goals from profiles to goals table
+ */
 async function migrateEmbeddedGoals(): Promise<void> {
   if (goalsMigrationDone) return;
 
   try {
-    // Find profiles with embedded goals that don't have a corresponding goal in the goals table
     const profiles = await query<ProfileRow>(`
       SELECT p.* FROM profiles p
       WHERE p.goal_name IS NOT NULL
@@ -59,7 +105,6 @@ async function migrateEmbeddedGoals(): Promise<void> {
     for (const p of profiles) {
       try {
         const goalId = crypto.randomUUID();
-        // Convert deadline to ISO format (YYYY-MM-DD) for DuckDB
         const isoDeadline = toISODateString(p.goal_deadline);
         await execute(`
           INSERT INTO goals (id, profile_id, name, amount, deadline, priority, status, created_at)
@@ -86,97 +131,41 @@ async function migrateEmbeddedGoals(): Promise<void> {
 
     goalsMigrationDone = true;
   } catch (err) {
-    // Goals table might not exist yet, will be created by goals.ts
     logger.info('Goal migration skipped (goals table may not exist yet)', { error: err });
     goalsMigrationDone = true;
   }
 }
 
-// Initialize profiles schema if needed
 async function ensureProfilesSchema(): Promise<void> {
-  if (schemaInitialized) return;
+  if (schemaFlag.initialized) return;
 
   try {
-    await executeSchema(`
-      CREATE TABLE IF NOT EXISTS profiles (
-        id VARCHAR PRIMARY KEY,
-        name VARCHAR NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        diploma VARCHAR,
-        field VARCHAR,
-        currency VARCHAR DEFAULT 'USD',
-        skills VARCHAR[],
-        certifications VARCHAR[],
-        city VARCHAR,
-        city_size VARCHAR,
-        income_sources JSON,
-        expenses JSON,
-        max_work_hours_weekly INTEGER,
-        min_hourly_rate DECIMAL,
-        has_loan BOOLEAN DEFAULT FALSE,
-        loan_amount DECIMAL,
-        monthly_income DECIMAL,
-        monthly_expenses DECIMAL,
-        monthly_margin DECIMAL,
-        profile_type VARCHAR DEFAULT 'main',
-        parent_profile_id VARCHAR,
-        goal_name VARCHAR,
-        goal_amount DECIMAL,
-        goal_deadline DATE,
-        plan_data JSON,
-        followup_data JSON,
-        achievements JSON,
-        swipe_preferences JSON,
-        is_active BOOLEAN DEFAULT FALSE
-      )
-    `);
+    await executeSchema(SCHEMA_SQL);
 
-    // Migration: Add swipe_preferences column if missing (for existing databases)
-    try {
-      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS swipe_preferences JSON`);
-    } catch {
-      // Column might already exist or syntax not supported, ignore
+    // Run migrations
+    for (const migration of MIGRATIONS) {
+      try {
+        await execute(migration);
+      } catch {
+        // Migration might fail if column already exists, ignore
+      }
     }
 
-    // Migration: Add field column if missing (for existing databases)
-    try {
-      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS field VARCHAR`);
-    } catch {
-      // Column might already exist or syntax not supported, ignore
-    }
-
-    // Migration: Add currency column if missing (for existing databases)
-    try {
-      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS currency VARCHAR DEFAULT 'USD'`);
-    } catch {
-      // Column might already exist or syntax not supported, ignore
-    }
-
-    // Migration: Add certifications column if missing (for existing databases)
-    try {
-      await execute(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS certifications VARCHAR[]`);
-    } catch {
-      // Column might already exist or syntax not supported, ignore
-    }
-
-    schemaInitialized = true;
+    schemaFlag.initialized = true;
     logger.info('Schema initialized');
 
     // Run goal migration after schema is ready
-    // Delay slightly to ensure goals table schema is also initialized
     setTimeout(() => {
       migrateEmbeddedGoals().catch((err) => {
         logger.warn('Goal migration error', { error: err });
       });
     }, 100);
   } catch {
-    // Table might already exist, mark as initialized anyway
-    schemaInitialized = true;
+    schemaFlag.initialized = true;
   }
 }
 
-// Profile type
+// DB Row type
 interface ProfileRow {
   id: string;
   name: string;
@@ -245,65 +234,56 @@ function rowToProfile(row: ProfileRow) {
   };
 }
 
+const NO_CACHE_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
 // GET: Load profile(s)
 export async function GET(event: APIEvent) {
   try {
     await ensureProfilesSchema();
 
-    const url = new URL(event.request.url);
-    const profileId = url.searchParams.get('id');
-    const activeOnly = url.searchParams.get('active') === 'true';
-    const listAll = url.searchParams.get('list') === 'true';
-
-    // Helper for no-store headers
-    const headers = {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-      Pragma: 'no-cache',
-      Expires: '0',
-    };
+    const params = parseQueryParams(event);
+    const profileId = params.get('id');
+    const activeOnly = params.get('active') === 'true';
+    const listAll = params.get('list') === 'true';
 
     if (listAll) {
-      // List all profiles
       const rows = await query<ProfileRow>(
         `SELECT * FROM profiles ORDER BY is_active DESC, created_at DESC`
       );
       return new Response(JSON.stringify(rows.map(rowToProfile)), {
         status: 200,
-        headers,
+        headers: NO_CACHE_HEADERS,
       });
     }
 
     if (profileId) {
-      // Load specific profile - use escapeSQL for safety
       const escapedId = escapeSQL(profileId);
       const rows = await query<ProfileRow>(`SELECT * FROM profiles WHERE id = ${escapedId}`);
       if (rows.length === 0) {
-        return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
-          status: 404,
-          headers,
-        });
+        return errorResponse('Profile not found', 404, true);
       }
       return new Response(JSON.stringify(rowToProfile(rows[0])), {
         status: 200,
-        headers,
+        headers: NO_CACHE_HEADERS,
       });
     }
 
     if (activeOnly) {
-      // Load active profile
       const rows = await query<ProfileRow>(`SELECT * FROM profiles WHERE is_active = TRUE LIMIT 1`);
       if (rows.length === 0) {
-        // No active profile - return null
-        // Fix Bug D: STRICT return null, never auto-activate random user
         return new Response(JSON.stringify(null), {
           status: 200,
-          headers,
+          headers: NO_CACHE_HEADERS,
         });
       }
       return new Response(JSON.stringify(rowToProfile(rows[0])), {
         status: 200,
-        headers,
+        headers: NO_CACHE_HEADERS,
       });
     }
 
@@ -313,22 +293,14 @@ export async function GET(event: APIEvent) {
     );
     return new Response(JSON.stringify(rows.map(rowToProfile)), {
       status: 200,
-      headers,
+      headers: NO_CACHE_HEADERS,
     });
   } catch (error) {
     logger.error('GET error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database connection failed',
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
-      }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Database connection failed',
+      500,
+      true
     );
   }
 }
@@ -340,18 +312,13 @@ export async function POST(event: APIEvent) {
 
     const body = await event.request.json();
     const profileId = body.id || uuidv4();
-    // setActive: true = activate this profile (deactivate others)
-    // setActive: false = don't touch is_active for UPDATE, start inactive for INSERT
-    // setActive: undefined = default to activating the profile
-    const setActive = body.setActive !== false; // true or undefined = activate
-    const preserveActiveState = body.setActive === false; // Explicit false = don't change is_active on UPDATE
+    const setActive = body.setActive !== false;
+    const preserveActiveState = body.setActive === false;
 
-    // Only deactivate others if explicitly activating this profile
     if (setActive) {
       await execute(`UPDATE profiles SET is_active = FALSE`);
     }
 
-    // Check if profile exists
     const escapedProfileId = escapeSQL(profileId);
     const existing = await query<{ id: string }>(
       `SELECT id FROM profiles WHERE id = ${escapedProfileId}`
@@ -364,21 +331,17 @@ export async function POST(event: APIEvent) {
       ? body.expenses.reduce((sum: number, e: { amount: number }) => sum + (e.amount || 0), 0)
       : 0;
 
-    // Format skills array for DuckDB
     const skillsSQL =
       body.skills && Array.isArray(body.skills) && body.skills.length > 0
         ? `ARRAY[${body.skills.map((s: string) => escapeSQL(s)).join(', ')}]`
         : 'NULL';
 
-    // Format certifications array for DuckDB
     const certificationsSQL =
       body.certifications && Array.isArray(body.certifications) && body.certifications.length > 0
         ? `ARRAY[${body.certifications.map((c: string) => escapeSQL(c)).join(', ')}]`
         : 'NULL';
 
     if (existing.length > 0) {
-      // Update existing
-      // Only include is_active in UPDATE if we're explicitly changing it (not preserving)
       const isActiveClause = preserveActiveState
         ? ''
         : `,
@@ -415,7 +378,6 @@ export async function POST(event: APIEvent) {
         WHERE id = ${escapedProfileId}
       `);
     } else {
-      // Insert new
       await execute(`
         INSERT INTO profiles (
           id, name, diploma, field, currency, skills, certifications, city, city_size, income_sources, expenses,
@@ -456,27 +418,13 @@ export async function POST(event: APIEvent) {
       `);
     }
 
-    return new Response(JSON.stringify({ success: true, profileId, isActive: setActive }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-      },
-    });
+    return successResponse({ success: true, profileId, isActive: setActive }, 200, true);
   } catch (error) {
     logger.error('POST error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database operation failed',
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
-      }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Database operation failed',
+      500,
+      true
     );
   }
 }
@@ -490,78 +438,47 @@ export async function PUT(event: APIEvent) {
     const { profileId } = body;
 
     if (!profileId) {
-      return new Response(JSON.stringify({ error: true, message: 'profileId required' }), {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
-      });
+      return errorResponse('profileId required', 400, true);
     }
 
-    // Check if profile exists
     const escapedProfileId = escapeSQL(profileId);
     const existing = await query<{ name: string }>(
       `SELECT name FROM profiles WHERE id = ${escapedProfileId}`
     );
     if (existing.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
-        status: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
-      });
+      return errorResponse('Profile not found', 404, true);
     }
 
-    // Fix Bug D: Atomic Switch
-    // Single query using CASE WHEN to ensure exactly one profile is active at all times
+    // Atomic switch
     await execute(`
-      UPDATE profiles 
-      SET is_active = CASE 
-        WHEN id = ${escapedProfileId} THEN TRUE 
-        ELSE FALSE 
+      UPDATE profiles
+      SET is_active = CASE
+        WHEN id = ${escapedProfileId} THEN TRUE
+        ELSE FALSE
       END
     `);
 
-    return new Response(JSON.stringify({ success: true, profileId, name: existing[0].name }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-      },
-    });
+    return successResponse({ success: true, profileId, name: existing[0].name }, 200, true);
   } catch (error) {
     logger.error('PUT error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database operation failed',
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
-      }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Database operation failed',
+      500,
+      true
     );
   }
 }
 
-// DELETE: Delete profile
+// DELETE: Delete profile with cascade
 export async function DELETE(event: APIEvent) {
   try {
     await ensureProfilesSchema();
 
-    const url = new URL(event.request.url);
-    const profileId = url.searchParams.get('id');
+    const params = parseQueryParams(event);
+    const profileId = params.get('id');
 
     if (!profileId) {
-      return new Response(JSON.stringify({ error: true, message: 'id required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-      });
+      return errorResponse('id required', 400, true);
     }
 
     const escapedProfileId = escapeSQL(profileId);
@@ -569,13 +486,7 @@ export async function DELETE(event: APIEvent) {
     // Check profile count
     const count = await query<{ count: number }>(`SELECT COUNT(*) as count FROM profiles`);
     if (count[0].count <= 1) {
-      return new Response(
-        JSON.stringify({ error: true, message: 'Cannot delete the last profile' }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-        }
-      );
+      return errorResponse('Cannot delete the last profile', 400, true);
     }
 
     // Get profile info
@@ -583,48 +494,19 @@ export async function DELETE(event: APIEvent) {
       `SELECT name, is_active FROM profiles WHERE id = ${escapedProfileId}`
     );
     if (profile.length === 0) {
-      return new Response(JSON.stringify({ error: true, message: 'Profile not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-      });
+      return errorResponse('Profile not found', 404, true);
     }
 
     const wasActive = profile[0].is_active;
 
-    // Cascade delete: remove all related data first
-    // Delete goals for this profile
-    try {
-      await execute(`DELETE FROM goals WHERE profile_id = ${escapedProfileId}`);
-    } catch {
-      // Goals table might not exist yet, ignore
-    }
-
-    // Delete skills for this profile
-    try {
-      await execute(`DELETE FROM skills WHERE profile_id = ${escapedProfileId}`);
-    } catch {
-      // Skills table might not exist yet, ignore
-    }
-
-    // Delete inventory items for this profile
-    try {
-      await execute(`DELETE FROM inventory_items WHERE profile_id = ${escapedProfileId}`);
-    } catch {
-      // Inventory table might not exist yet, ignore
-    }
-
-    // Delete lifestyle items for this profile
-    try {
-      await execute(`DELETE FROM lifestyle_items WHERE profile_id = ${escapedProfileId}`);
-    } catch {
-      // Lifestyle table might not exist yet, ignore
-    }
-
-    // Delete trades for this profile
-    try {
-      await execute(`DELETE FROM trades WHERE profile_id = ${escapedProfileId}`);
-    } catch {
-      // Trades table might not exist yet, ignore
+    // Cascade delete: remove all related data
+    const tables = ['goals', 'skills', 'inventory_items', 'lifestyle_items', 'trades'];
+    for (const table of tables) {
+      try {
+        await execute(`DELETE FROM ${table} WHERE profile_id = ${escapedProfileId}`);
+      } catch {
+        // Table might not exist yet, ignore
+      }
     }
 
     // Delete the profile
@@ -632,7 +514,6 @@ export async function DELETE(event: APIEvent) {
 
     // If was active, activate another profile
     if (wasActive) {
-      // First get the ID of another profile, then update it
       const otherProfile = await query<{ id: string }>(`SELECT id FROM profiles LIMIT 1`);
       if (otherProfile.length > 0) {
         const escapedOtherId = escapeSQL(otherProfile[0].id);
@@ -640,18 +521,13 @@ export async function DELETE(event: APIEvent) {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, deleted: profile[0].name }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-    });
+    return successResponse({ success: true, deleted: profile[0].name }, 200, true);
   } catch (error) {
     logger.error('DELETE error', { error });
-    return new Response(
-      JSON.stringify({
-        error: true,
-        message: error instanceof Error ? error.message : 'Database operation failed',
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Database operation failed',
+      500,
+      true
     );
   }
 }
