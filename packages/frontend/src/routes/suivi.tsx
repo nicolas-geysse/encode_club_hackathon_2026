@@ -13,6 +13,7 @@ import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
 import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary';
+import { VoiceBrunoBar } from '~/components/suivi/VoiceBrunoBar';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
@@ -20,7 +21,7 @@ import { goalService, type Goal } from '~/lib/goalService';
 import { eventBus } from '~/lib/eventBus';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { ClipboardList, MessageSquare, Target } from 'lucide-solid';
+import { ClipboardList, Target } from 'lucide-solid';
 import {
   weeksBetween,
   addWeeks,
@@ -598,23 +599,19 @@ export default function SuiviPage() {
     <Show when={!isLoading()} fallback={<PageLoader />}>
       <Show when={hasData()} fallback={<FallbackView />}>
         <div class="space-y-6">
-          {/* Quick Action - Top of page */}
-          <Card class="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-            <CardContent class="p-6 flex items-center justify-between">
-              <div class="flex items-center gap-4">
-                <div class="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                  <MessageSquare class="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 class="font-semibold text-foreground">Need help?</h4>
-                  <p class="text-sm text-muted-foreground">Bruno can help you optimize your plan</p>
-                </div>
-              </div>
-              <Button as="a" href="/">
-                Talk to Bruno
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Voice Bruno Bar - Replaces old "Need Help" button */}
+          <VoiceBrunoBar
+            profileId={activeProfile()?.id || ''}
+            missions={followup().missions}
+            currentEnergy={
+              followup().energyHistory.length > 0
+                ? followup().energyHistory[followup().energyHistory.length - 1].level
+                : 50
+            }
+            onMissionUpdate={handleMissionUpdate}
+            onEnergyUpdate={handleEnergyUpdate}
+            onDataChanged={() => loadData({ silent: true })}
+          />
 
           {/* Section 1: Goal Hero + Key Metrics */}
           <Show when={setup()}>
@@ -629,13 +626,29 @@ export default function SuiviPage() {
               totalWeeks={followup().totalWeeks}
               totalHours={totalHours()}
               currency={currency()}
+              currentSimulatedDate={currentDate().toISOString()}
             />
           </Show>
 
-          {/* Section 2: Financial Breakdown (right after goal) */}
+          {/* Section 2: Energy (MOVED UP - leading indicator) */}
+          <EnergyHistory history={followup().energyHistory} onEnergyUpdate={handleEnergyUpdate} />
+
+          {/* Full Comeback Alert (only when conditions met) - inline with Energy */}
+          <Show when={showComebackAlert()}>
+            <ComebackAlert
+              energyHistory={followup().energyHistory.map((e) => e.level)}
+              weeklyDeficit={(setup()?.goalAmount || 500) - followup().currentAmount}
+              capacities={[90, 80, 70]}
+              currency={currency()}
+              onAcceptPlan={handleComebackAccept}
+              onDeclinePlan={() => {}}
+            />
+          </Show>
+
+          {/* Section 3: Financial Breakdown (after energy for context) */}
           <AnalyticsDashboard profileId={activeProfile()?.id} currency={currency()} />
 
-          {/* Section 3: Missions */}
+          {/* Section 4: Missions */}
           <div>
             <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <Target class="h-5 w-5 text-primary" /> Missions
@@ -649,21 +662,6 @@ export default function SuiviPage() {
               onMissionDelete={handleMissionDelete}
             />
           </div>
-
-          {/* Section 4: Energy (compact) */}
-          <EnergyHistory history={followup().energyHistory} onEnergyUpdate={handleEnergyUpdate} />
-
-          {/* Full Comeback Alert (only when conditions met) */}
-          <Show when={showComebackAlert()}>
-            <ComebackAlert
-              energyHistory={followup().energyHistory.map((e) => e.level)}
-              weeklyDeficit={(setup()?.goalAmount || 500) - followup().currentAmount}
-              capacities={[90, 80, 70]}
-              currency={currency()}
-              onAcceptPlan={handleComebackAccept}
-              onDeclinePlan={() => {}}
-            />
-          </Show>
         </div>
       </Show>
     </Show>

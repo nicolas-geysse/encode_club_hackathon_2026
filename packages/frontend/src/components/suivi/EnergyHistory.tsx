@@ -8,7 +8,7 @@
 import { For, Show, createMemo } from 'solid-js';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { Zap, AlertTriangle } from 'lucide-solid';
+import { Zap, AlertTriangle, Info, TrendingDown, TrendingUp } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
 interface EnergyEntry {
@@ -67,6 +67,51 @@ export function EnergyHistory(props: EnergyHistoryProps) {
   const debt = createMemo(() => detectEnergyDebt(props.history, threshold()));
   const isComeback = createMemo(() => detectComeback(props.history, threshold()));
 
+  // Energy trend insight (comparing last 2 weeks) - prefixed with _ as it's for future use
+  const _energyTrend = createMemo(() => {
+    if (props.history.length < 2) return null;
+    const current = props.history[props.history.length - 1].level;
+    const previous = props.history[props.history.length - 2].level;
+    const diff = current - previous;
+    if (Math.abs(diff) < 5) return { trend: 'stable', diff };
+    return { trend: diff > 0 ? 'up' : 'down', diff };
+  });
+
+  // Quick insight message based on current state
+  const quickInsight = createMemo(() => {
+    const current = props.history.length > 0 ? props.history[props.history.length - 1].level : 50;
+
+    if (debt()) {
+      return {
+        type: 'warning' as const,
+        message: 'Energie basse prolongee: reduisez vos objectifs hebdomadaires',
+        icon: TrendingDown,
+      };
+    }
+    if (isComeback()) {
+      return {
+        type: 'success' as const,
+        message: 'Energie retrouvee! Bon moment pour rattraper le retard',
+        icon: TrendingUp,
+      };
+    }
+    if (current < threshold()) {
+      return {
+        type: 'caution' as const,
+        message: 'Energie faible: priorisez le repos et les taches essentielles',
+        icon: Info,
+      };
+    }
+    if (current >= 80) {
+      return {
+        type: 'success' as const,
+        message: 'Super forme! Profitez-en pour avancer sur vos missions',
+        icon: Zap,
+      };
+    }
+    return null;
+  });
+
   const averageEnergy = createMemo(() => {
     if (props.history.length === 0) return 0;
     return Math.round(props.history.reduce((sum, e) => sum + e.level, 0) / props.history.length);
@@ -118,9 +163,44 @@ export function EnergyHistory(props: EnergyHistoryProps) {
   return (
     <Card>
       <CardContent class="p-6">
-        <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Zap class="h-5 w-5 text-yellow-500 fill-yellow-500" /> Energy
-        </h3>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Zap class="h-5 w-5 text-yellow-500 fill-yellow-500" /> Energy
+          </h3>
+          {/* Tooltip explaining energy */}
+          <div class="group relative">
+            <Info class="h-4 w-4 text-muted-foreground cursor-help" />
+            <div class="absolute right-0 top-full mt-1 w-56 p-2 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg border border-border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
+              <p class="font-medium mb-1">Pourquoi suivre l'energie?</p>
+              <p class="text-muted-foreground">
+                L'energie affecte votre capacite hebdomadaire de travail. Une energie basse signifie
+                qu'il faut reduire vos objectifs pour eviter le burnout.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Insight Banner */}
+        <Show when={quickInsight()}>
+          {(insight) => {
+            const InsightIcon = insight().icon;
+            return (
+              <div
+                class={cn(
+                  'mb-4 p-3 rounded-lg flex items-center gap-2 text-sm',
+                  insight().type === 'warning'
+                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800'
+                    : insight().type === 'success'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
+                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+                )}
+              >
+                <InsightIcon class="h-4 w-4 flex-shrink-0" />
+                <span>{insight().message}</span>
+              </div>
+            );
+          }}
+        </Show>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column: Current Energy + Emoji Input */}

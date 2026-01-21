@@ -5,7 +5,7 @@
  * Patterns match profile edits, goal creation, onboarding continuation, etc.
  */
 
-import type { DetectedIntent, ChatMode } from '../types';
+import type { DetectedIntent } from '../types';
 
 /**
  * Detect user intent from message
@@ -241,6 +241,107 @@ export function detectIntent(message: string, _context: Record<string, unknown>)
   // ==========================================================================
   if (lower.match(/\b(my plan|my goal|current goal)\b/i)) {
     return { mode: 'conversation', action: 'view_plan', _matchedPattern: 'view_plan' };
+  }
+
+  // ==========================================================================
+  // SUIVI-SPECIFIC INTENTS (for voice commands on tracking page)
+  // ==========================================================================
+
+  // Mission completion: "J'ai termine/fini la mission X", "Mission X completed"
+  const missionCompleteMatch = lower.match(
+    /\b(j['']?ai\s+)?(termine|fini|complete|complété|finished?)\b.*\b(mission|tâche|task)?\s*(.+)?$/i
+  );
+  if (missionCompleteMatch) {
+    const missionTitle = missionCompleteMatch[4]?.trim() || undefined;
+    return {
+      mode: 'conversation',
+      action: 'complete_mission',
+      extractedMission: missionTitle,
+      _matchedPattern: 'suivi_complete_mission',
+    };
+  }
+
+  // Direct mission name completion: "termine le tutorat", "fini le freelance"
+  const directMissionComplete = lower.match(
+    /\b(termine|fini|complete|complété)\s+(le|la|l['']?)?\s*(\w+(?:\s+\w+)?)\b/i
+  );
+  if (directMissionComplete) {
+    return {
+      mode: 'conversation',
+      action: 'complete_mission',
+      extractedMission: directMissionComplete[3]?.trim(),
+      _matchedPattern: 'suivi_complete_mission_direct',
+    };
+  }
+
+  // Mission skip: "passer la mission X", "skip X"
+  const missionSkipMatch = lower.match(
+    /\b(passer?|skip|sauter?|ignorer?)\b.*\b(mission|tâche|task)?\s*(.+)?$/i
+  );
+  if (missionSkipMatch) {
+    const missionTitle = missionSkipMatch[3]?.trim() || undefined;
+    return {
+      mode: 'conversation',
+      action: 'skip_mission',
+      extractedMission: missionTitle,
+      _matchedPattern: 'suivi_skip_mission',
+    };
+  }
+
+  // Energy update - low: "je suis fatigue", "energie basse", "epuise"
+  if (lower.match(/\b(fatigue|epuise|crevé?|tired|exhausted|low\s*energy|energie\s*basse)\b/i)) {
+    return {
+      mode: 'conversation',
+      action: 'update_energy',
+      extractedEnergy: 30, // Low energy default
+      _matchedPattern: 'suivi_energy_low',
+    };
+  }
+
+  // Energy update - high: "super forme", "plein d'energie", "en forme"
+  if (
+    lower.match(/\b(super\s*forme|plein\s*d['']?energie|en\s*forme|energized|high\s*energy)\b/i)
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'update_energy',
+      extractedEnergy: 85, // High energy default
+      _matchedPattern: 'suivi_energy_high',
+    };
+  }
+
+  // Energy update - explicit value: "mon energie est a 70", "energie 50%"
+  const energyValueMatch = lower.match(/\b(energie|energy)\s*(est\s*[àa]|is|:)?\s*(\d+)\s*%?\b/i);
+  if (energyValueMatch) {
+    const level = parseInt(energyValueMatch[3], 10);
+    return {
+      mode: 'conversation',
+      action: 'update_energy',
+      extractedEnergy: Math.min(100, Math.max(0, level)),
+      _matchedPattern: 'suivi_energy_explicit',
+    };
+  }
+
+  // Focus recommendation: "sur quoi me concentrer", "what should I focus on"
+  if (lower.match(/\b(sur\s*quoi|what\s*should\s*i|quoi\s*faire|focus|concentrer|priorite)\b/i)) {
+    return {
+      mode: 'conversation',
+      action: 'recommend_focus',
+      _matchedPattern: 'suivi_recommend_focus',
+    };
+  }
+
+  // Progress summary: "comment ca avance", "ou j'en suis", "my progress"
+  if (
+    lower.match(
+      /\b(comment\s*(ça|ca)\s*avance|où\s*(j['']?)?en\s*suis|résumé|summary|recap|bilan)\b/i
+    )
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'progress_summary',
+      _matchedPattern: 'suivi_progress_summary',
+    };
   }
 
   // ==========================================================================

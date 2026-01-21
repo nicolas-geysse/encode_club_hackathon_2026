@@ -107,6 +107,10 @@ export interface DetectedIntent {
     amount?: number;
     deadline?: string;
   };
+  /** Mission title/partial match for suivi commands */
+  extractedMission?: string;
+  /** Energy level (0-100) for suivi commands */
+  extractedEnergy?: number;
   /** Internal: which pattern matched (for observability) */
   _matchedPattern?: string;
 }

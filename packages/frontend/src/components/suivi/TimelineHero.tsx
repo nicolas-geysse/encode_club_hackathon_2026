@@ -25,6 +25,8 @@ interface TimelineHeroProps {
   totalWeeks: number;
   totalHours?: number;
   currency?: Currency;
+  /** Current simulated date (ISO string) - if not provided, uses real date */
+  currentSimulatedDate?: string;
 }
 
 export function TimelineHero(props: TimelineHeroProps) {
@@ -38,7 +40,8 @@ export function TimelineHero(props: TimelineHeroProps) {
 
   const daysRemaining = () => {
     const end = new Date(props.endDate);
-    const now = new Date();
+    // Use simulated date if provided, otherwise fall back to real date
+    const now = props.currentSimulatedDate ? new Date(props.currentSimulatedDate) : new Date();
     const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(0, diff);
   };
