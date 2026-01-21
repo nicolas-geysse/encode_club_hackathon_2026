@@ -6,7 +6,7 @@
  */
 
 import { DuckDBVector } from '@mastra/duckdb';
-import { trace, createSpan } from './opik.js';
+import { trace, createSpan, maybeTrace, maybeCreateSpan } from './opik.js';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -90,7 +90,7 @@ export async function embedProfile(
   embedding: number[],
   metadata?: Record<string, unknown>
 ): Promise<void> {
-  return trace('vectorstore.embedProfile', async (span) => {
+  return maybeTrace('vectorstore.embedProfile', async (span) => {
     const store = await initVectorStore();
 
     await store.upsert({
@@ -122,7 +122,7 @@ export async function findSimilarProfiles(
     metadata: Record<string, unknown>;
   }>
 > {
-  return trace('vectorstore.findSimilarProfiles', async (span) => {
+  return maybeTrace('vectorstore.findSimilarProfiles', async (span) => {
     const store = await initVectorStore();
 
     const results = await store.query({
@@ -165,7 +165,7 @@ export async function storeAdvice(
     [key: string]: unknown;
   }
 ): Promise<void> {
-  return createSpan('vectorstore.storeAdvice', async (span) => {
+  return maybeCreateSpan('vectorstore.storeAdvice', async (span) => {
     const store = await initVectorStore();
 
     await store.upsert({
@@ -202,7 +202,7 @@ export async function findSimilarAdvice(
     metadata: Record<string, unknown>;
   }>
 > {
-  return createSpan('vectorstore.findSimilarAdvice', async (span) => {
+  return maybeCreateSpan('vectorstore.findSimilarAdvice', async (span) => {
     const store = await initVectorStore();
     const { topK = 5, minScore = 0.6, onlyHelpful = false, goalType } = options;
 
@@ -271,7 +271,7 @@ export async function embedGoal(
     [key: string]: unknown;
   }
 ): Promise<void> {
-  return createSpan('vectorstore.embedGoal', async (span) => {
+  return maybeCreateSpan('vectorstore.embedGoal', async (span) => {
     const store = await initVectorStore();
 
     await store.upsert({
@@ -307,7 +307,7 @@ export async function findSimilarGoals(
     metadata: Record<string, unknown>;
   }>
 > {
-  return createSpan('vectorstore.findSimilarGoals', async (span) => {
+  return maybeCreateSpan('vectorstore.findSimilarGoals', async (span) => {
     const store = await initVectorStore();
     const { topK = 5, minScore = 0.6, onlyCompleted = false, excludeUserId } = options;
 
@@ -362,7 +362,7 @@ export async function updateAdviceOutcome(
   adviceId: string,
   outcome: 'helpful' | 'neutral' | 'unhelpful'
 ): Promise<void> {
-  return createSpan('vectorstore.updateAdviceOutcome', async (span) => {
+  return maybeCreateSpan('vectorstore.updateAdviceOutcome', async (span) => {
     const store = await initVectorStore();
 
     await store.updateVector({

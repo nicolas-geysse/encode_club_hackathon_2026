@@ -305,25 +305,71 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
   const getInitialData = () => {
     const initial: Record<string, unknown> = {};
     for (const field of fields()) {
-      if (field.value !== undefined) {
-        initial[field.name] = field.value;
-      }
+      // Initialize with field.value or empty string for required fields
+      initial[field.name] = field.value !== undefined && field.value !== '' ? field.value : '';
     }
     return initial;
   };
 
   const [formData, setFormData] = createSignal<Record<string, unknown>>(getInitialData());
+  const [submitted, setSubmitted] = createSignal(false);
+  const [errors, setErrors] = createSignal<Record<string, string>>({});
+
+  // Validate form before submit
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    for (const field of fields()) {
+      const value = formData()[field.name];
+      if (field.required && (value === undefined || value === '' || value === null)) {
+        newErrors[field.name] = `${field.label} is required`;
+      }
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
-    logger.info('Form submit', { data: formData() });
+    setSubmitted(true);
+
+    if (!validateForm()) {
+      logger.warn('Form validation failed', { errors: errors() });
+      return;
+    }
+
+    // Convert number fields to actual numbers
+    const processedData: Record<string, unknown> = {};
+    for (const field of fields()) {
+      const value = formData()[field.name];
+      if (field.type === 'number' && value !== '' && value !== undefined) {
+        processedData[field.name] = Number(value);
+      } else {
+        processedData[field.name] = value;
+      }
+    }
+
+    logger.info('Form submit', { data: processedData });
     if (props.onAction) {
-      props.onAction('form-submit', formData());
+      props.onAction('form-submit', processedData);
     }
   };
 
   const handleChange = (name: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (errors()[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  // Get current value for a field (controlled input)
+  const getFieldValue = (fieldName: string): string => {
+    const value = formData()[fieldName];
+    return value !== undefined && value !== null ? String(value) : '';
   };
 
   return (
@@ -339,16 +385,22 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
           <div class="field">
             <label class="block text-sm text-muted-foreground mb-1">
               {field.label}
-              {field.required && <span class="text-red-500">*</span>}
+              {field.required && <span class="text-red-500 ml-0.5">*</span>}
             </label>
             <input
               type={field.type || 'text'}
               name={field.name}
               required={field.required}
-              value={field.value !== undefined ? String(field.value) : ''}
+              value={getFieldValue(field.name)}
               class="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              classList={{
+                'border-red-500 focus:ring-red-500': !!errors()[field.name],
+              }}
               onInput={(e) => handleChange(field.name, e.currentTarget.value)}
             />
+            <Show when={submitted() && errors()[field.name]}>
+              <p class="text-red-500 text-xs mt-1">{errors()[field.name]}</p>
+            </Show>
           </div>
         )}
       </For>

@@ -130,6 +130,24 @@ export async function getGoal(goalId: string): Promise<Goal | null> {
  * Create a new goal
  */
 export async function createGoal(input: CreateGoalInput): Promise<Goal | null> {
+  // Validation: profileId is required
+  logger.info('Creating goal', { profileId: input.profileId, name: input.name });
+
+  if (!input.profileId) {
+    logger.error('createGoal called without profileId!', { input });
+    return null;
+  }
+
+  if (!input.name) {
+    logger.error('createGoal called without name!', { input });
+    return null;
+  }
+
+  if (typeof input.amount !== 'number' || input.amount <= 0) {
+    logger.error('createGoal called with invalid amount!', { amount: input.amount });
+    return null;
+  }
+
   try {
     const response = await fetch('/api/goals', {
       method: 'POST',
@@ -139,16 +157,20 @@ export async function createGoal(input: CreateGoalInput): Promise<Goal | null> {
 
     if (!response.ok) {
       const error = await response.json();
-      logger.error('Failed to create goal', { error: error.message });
+      logger.error('Failed to create goal', { error: error.message, status: response.status });
       return null;
     }
 
     const goal = await response.json();
-    logger.info('Goal created', { goalId: goal.id, name: goal.name });
+    logger.info('Goal created successfully', {
+      goalId: goal.id,
+      name: goal.name,
+      profileId: input.profileId,
+    });
     eventBus.emit('DATA_CHANGED');
     return goal;
   } catch (error) {
-    logger.error('Error creating goal', { error });
+    logger.error('Error creating goal', { error, profileId: input.profileId });
     return null;
   }
 }

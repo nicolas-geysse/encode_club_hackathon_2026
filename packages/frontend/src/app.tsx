@@ -10,6 +10,7 @@ import { ThemeProvider } from '~/lib/themeContext';
 import { ProfileProvider } from '~/lib/profileContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { AppLayout } from '~/components/layout/AppLayout';
+import { ToastContainer } from '~/components/ui/Toast';
 import {
   notifications,
   addNotification,
@@ -135,6 +136,7 @@ export default function App() {
         >
           <FileRoutes />
         </Router>
+        <ToastContainer />
       </ProfileProvider>
     </ThemeProvider>
   );

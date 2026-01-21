@@ -20,6 +20,7 @@ import { goalService } from '~/lib/goalService';
 import { useProfile } from '~/lib/profileContext';
 import { persistAllOnboardingData, verifyProfileInDb } from '~/lib/onboardingPersistence';
 import { toast } from '~/lib/notificationStore';
+import { toastPopup } from '~/components/ui/Toast';
 import { GlassButton } from '~/components/ui/GlassButton';
 import { detectCityMetadata } from '~/lib/cityUtils';
 import { smartMergeArrays } from '~/lib/arrayMergeUtils';
@@ -331,28 +332,102 @@ export function OnboardingChat() {
           }));
 
           // 2. Create the goal via goalService
-          const currentProfileId = profileId();
+          // FIX: Utiliser contextProfile().id comme fallback si profileId() est undefined
+          const currentProfileId = profileId() || contextProfile()?.id;
+
           if (currentProfileId) {
-            goalService
-              .createGoal({
-                profileId: currentProfileId,
-                name: String(formData.goalName),
-                amount: Number(formData.goalAmount),
-                deadline: formData.goalDeadline ? String(formData.goalDeadline) : undefined,
-                priority: 1,
-                status: 'active',
-              })
-              .then(() => {
-                toast.success('Goal Created', `"${formData.goalName}" added to your goals`);
-                // Refresh goals in context so they appear in Goals tab
-                refreshGoals();
-              })
-              .catch((err) => {
+            logger.info('Creating goal via form-submit', {
+              profileId: currentProfileId,
+              goalName: formData.goalName,
+            });
+
+            // Single-goal policy: Archive existing active goals, then create new one
+            (async () => {
+              try {
+                // Archive existing active goals first
+                const existingGoalsResponse = await fetch(
+                  `/api/goals?profileId=${currentProfileId}&status=active`
+                );
+                if (existingGoalsResponse.ok) {
+                  const existingGoals = await existingGoalsResponse.json();
+                  for (const goal of existingGoals) {
+                    await fetch('/api/goals', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: goal.id, status: 'paused' }),
+                    });
+                    logger.info('Archived existing goal', { goalId: goal.id, name: goal.name });
+                  }
+                }
+              } catch (err) {
+                logger.warn('Failed to archive existing goals', { error: err });
+                // Continue anyway - better to create the new goal
+              }
+
+              // Now create the new goal
+              try {
+                const createdGoal = await goalService.createGoal({
+                  profileId: currentProfileId,
+                  name: String(formData.goalName),
+                  amount: Number(formData.goalAmount),
+                  deadline: formData.goalDeadline ? String(formData.goalDeadline) : undefined,
+                  priority: 1,
+                  status: 'active',
+                });
+                logger.info('createGoal returned', { createdGoal, hasGoal: !!createdGoal });
+                if (createdGoal) {
+                  logger.info('Goal created successfully, calling refreshGoals');
+                  // Visible toast popup
+                  toastPopup.success('Goal Created!', `"${formData.goalName}" added to your goals`);
+                  // Also add to notification bell
+                  toast.success('Goal Created', `"${formData.goalName}" added to your goals`);
+                  // FIX: Force refresh après un petit délai pour laisser la DB commiter
+                  setTimeout(() => {
+                    logger.info('Calling refreshGoals now');
+                    refreshGoals().then(() => {
+                      logger.info('refreshGoals completed');
+                    });
+                  }, 100);
+                } else {
+                  logger.warn('createGoal returned null/undefined');
+                  toastPopup.error('Failed to create goal', 'Please try again');
+                }
+              } catch (err) {
                 logger.error('Failed to create goal', { error: err });
-                toast.error('Failed to create goal', 'Please try again');
-              });
+                toastPopup.error('Failed to create goal', 'Please try again');
+              }
+            })();
           } else {
-            toast.error('No active profile', 'Please complete onboarding first');
+            // Fallback: essayer de charger le profil actif
+            logger.info('No profileId available, loading active profile as fallback');
+            profileService.loadActiveProfile().then((p) => {
+              if (p?.id) {
+                logger.info('Fallback: Creating goal with loaded profile', { profileId: p.id });
+                goalService
+                  .createGoal({
+                    profileId: p.id,
+                    name: String(formData.goalName),
+                    amount: Number(formData.goalAmount),
+                    deadline: formData.goalDeadline ? String(formData.goalDeadline) : undefined,
+                    priority: 1,
+                    status: 'active',
+                  })
+                  .then((createdGoal) => {
+                    if (createdGoal) {
+                      toastPopup.success(
+                        'Goal Created!',
+                        `"${formData.goalName}" added to your goals`
+                      );
+                      setTimeout(() => refreshGoals(), 100);
+                    } else {
+                      toastPopup.error('Failed to create goal', 'Please try again');
+                    }
+                  });
+              } else {
+                logger.error('No profile found in fallback');
+                toastPopup.error('No active profile', 'Please complete onboarding first');
+              }
+            });
           }
         }
         break;

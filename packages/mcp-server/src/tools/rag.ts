@@ -5,7 +5,7 @@
  * to generate more personalized and relevant recommendations.
  */
 
-import { trace } from '../services/opik.js';
+import { trace, maybeTrace } from '../services/opik.js';
 import { vectorstore } from '../services/vectorstore.js';
 import { embeddings } from '../services/embeddings.js';
 
@@ -79,7 +79,7 @@ export interface RAGQueryParams {
  * - Similar achieved goals
  */
 export async function getRAGContext(params: RAGQueryParams): Promise<RAGContext> {
-  return trace('rag.getContext', async (span) => {
+  return maybeTrace('rag.getContext', async (span) => {
     const {
       queryText,
       currentUserId,
@@ -265,7 +265,7 @@ export async function indexStudentProfile(
     goals?: Array<{ name: string; amount: number }>;
   }
 ): Promise<void> {
-  return trace('rag.indexProfile', async (span) => {
+  return maybeTrace('rag.indexProfile', async (span) => {
     const embedding = await embeddings.embedProfile(profile);
 
     // Skip indexing if embeddings are disabled
@@ -305,7 +305,7 @@ export async function indexAdvice(
     outcome?: 'helpful' | 'neutral' | 'unhelpful';
   }
 ): Promise<void> {
-  return trace('rag.indexAdvice', async (span) => {
+  return maybeTrace('rag.indexAdvice', async (span) => {
     const embedding = await embeddings.embedAdvice({
       text: advice.text,
       context: advice.context,
@@ -352,7 +352,7 @@ export async function indexGoal(
     status?: string;
   }
 ): Promise<void> {
-  return trace('rag.indexGoal', async (span) => {
+  return maybeTrace('rag.indexGoal', async (span) => {
     const embedding = await embeddings.embedGoal({
       name: goal.name,
       amount: goal.amount,
@@ -393,7 +393,7 @@ export async function updateAdviceFeedback(
   adviceId: string,
   outcome: 'helpful' | 'neutral' | 'unhelpful'
 ): Promise<void> {
-  return trace('rag.updateFeedback', async (span) => {
+  return maybeTrace('rag.updateFeedback', async (span) => {
     await vectorstore.updateAdviceOutcome(adviceId, outcome);
 
     span.setAttributes({

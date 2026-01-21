@@ -82,7 +82,7 @@ async function triggerEmbedding(
           monthlyExpenses: data.monthlyExpenses as number | undefined,
           goals: formattedGoals,
         });
-        logger.info(`Profile ${id} embedded successfully`);
+        logger.debug(`Profile ${id} embedded successfully`);
         break;
       }
 
@@ -99,7 +99,7 @@ async function triggerEmbedding(
           description: data.description as string | undefined,
           category: data.category as string | undefined,
         });
-        logger.info(`Goal ${id} embedded successfully`);
+        logger.debug(`Goal ${id} embedded successfully`);
         break;
       }
 

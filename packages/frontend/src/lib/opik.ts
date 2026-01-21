@@ -24,6 +24,8 @@ const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
 const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
 const OPIK_PROJECT_ID = process.env.OPIK_PROJECT_ID; // UUID for dashboard URLs
 const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
+// Allow explicit disabling via env var (default to true if key exists)
+const ENABLE_OPIK = process.env.ENABLE_OPIK !== 'false';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let opikClient: any = null;
@@ -98,6 +100,14 @@ export interface TraceContext extends Span {
  */
 async function getOpikClient() {
   if (opikClient) return opikClient;
+
+  if (!ENABLE_OPIK) {
+    // Only log once to avoid spamming
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[Opik] Tracing disabled by ENABLE_OPIK=false');
+    }
+    return null;
+  }
 
   if (!OPIK_API_KEY) {
     console.error('[Opik] OPIK_API_KEY not set, tracing disabled');

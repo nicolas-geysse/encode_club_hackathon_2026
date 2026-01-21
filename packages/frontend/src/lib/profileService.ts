@@ -16,7 +16,7 @@ const logger = createLogger('ProfileService');
  * Trigger embedding for a profile (fire-and-forget)
  * Non-blocking - errors are logged but don't affect save operation
  */
-async function triggerProfileEmbedding(profile: Partial<FullProfile>): Promise<void> {
+export async function triggerProfileEmbedding(profile: Partial<FullProfile>): Promise<void> {
   if (!profile.id) return;
 
   try {
@@ -247,9 +247,10 @@ export async function saveProfile(
 
       // Trigger embedding after successful API save (fire-and-forget)
       const profileWithId = { ...profile, id: result.profileId || profile.id };
-      triggerProfileEmbedding(profileWithId).catch(() => {
-        // Already logged in triggerProfileEmbedding
-      });
+      // BUG FIX: Disable auto-embedding to prevent DuckDB concurrency conflicts during rapid saves
+      // triggerProfileEmbedding(profileWithId).catch(() => {
+      //   // Already logged in triggerProfileEmbedding
+      // });
 
       eventBus.emit('DATA_CHANGED');
       return { success: true, profileId: result.profileId, apiSaved: true }; // apiSaved: true

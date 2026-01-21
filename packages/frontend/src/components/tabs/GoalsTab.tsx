@@ -6,10 +6,14 @@
  * Uses goalService for DuckDB persistence.
  */
 
-import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
+import { createSignal, createMemo, createEffect, Show, For, onMount, onCleanup } from 'solid-js';
 import { goalService, type Goal, type GoalComponent } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
 import { toast } from '~/lib/notificationStore';
+import { eventBus } from '~/lib/eventBus';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('GoalsTab');
 import { GoalTimelineList } from '~/components/GoalTimeline';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
@@ -168,7 +172,24 @@ export function GoalsTab(props: GoalsTabProps) {
     }
   });
 
-  // Load goals on mount
+  // Listen for DATA_CHANGED events BEFORE async operations
+  // This ensures we catch events even if they fire during initial load
+  onMount(() => {
+    logger.info('GoalsTab mounted, registering DATA_CHANGED listener');
+
+    const unsubscribe = eventBus.on('DATA_CHANGED', () => {
+      logger.info('DATA_CHANGED received, refreshing goals');
+      refreshGoals();
+    });
+
+    // Cleanup listener on unmount
+    onCleanup(() => {
+      logger.info('GoalsTab unmounting, removing DATA_CHANGED listener');
+      unsubscribe();
+    });
+  });
+
+  // Load goals on mount (separate effect to not block listener registration)
   onMount(async () => {
     try {
       const profile = await profileService.loadActiveProfile();
@@ -213,8 +234,14 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // Refresh goals
   const refreshGoals = async () => {
-    if (!profileId()) return;
-    const userGoals = await goalService.listGoals(profileId()!, { status: 'all' });
+    const pid = profileId();
+    if (!pid) {
+      logger.warn('refreshGoals: No profileId, skipping');
+      return;
+    }
+    logger.info('Refreshing goals', { profileId: pid });
+    const userGoals = await goalService.listGoals(pid, { status: 'all' });
+    logger.info('Goals refreshed', { count: userGoals.length });
     setGoals(userGoals);
   };
 
@@ -436,8 +463,7 @@ export function GoalsTab(props: GoalsTabProps) {
   };
 
   const handleDelete = async (goalId: string) => {
-    if (!confirm('Are you sure you want to delete this goal?')) return;
-
+    // Note: ConfirmDialog is already shown by GoalTimelineItem, no need for browser confirm()
     await goalService.deleteGoal(goalId);
     await refreshGoals();
   };

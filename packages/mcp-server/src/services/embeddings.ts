@@ -9,7 +9,7 @@
  * - Convert: model.export_onnx("./models/m2v-bge-m3-1024d.onnx")
  */
 
-import { trace, createSpan } from './opik.js';
+import { trace, createSpan, maybeTrace, maybeCreateSpan, ENABLE_REALTIME_OPIK } from './opik.js';
 
 // Lazy-load pipeline to avoid startup delay
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -78,7 +78,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     return [];
   }
 
-  return trace('embeddings.generate', async (span) => {
+  return maybeTrace('embeddings.generate', async (span) => {
     const extractor = await getExtractor();
 
     if (!extractor) {
@@ -126,7 +126,7 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
     return texts.map(() => []);
   }
 
-  return trace('embeddings.generateBatch', async (span) => {
+  return maybeTrace('embeddings.generateBatch', async (span) => {
     const extractor = await getExtractor();
 
     if (!extractor) {
@@ -178,7 +178,7 @@ export async function embedStudentProfile(profile: {
   monthlyExpenses?: number;
   goals?: Array<{ name: string; amount: number }>;
 }): Promise<number[]> {
-  return createSpan('embeddings.embedProfile', async (span) => {
+  return maybeCreateSpan('embeddings.embedProfile', async (span) => {
     // Create structured text representation
     const parts: string[] = [];
 
@@ -221,7 +221,7 @@ export async function embedGoal(goal: {
   description?: string;
   category?: string;
 }): Promise<number[]> {
-  return createSpan('embeddings.embedGoal', async (span) => {
+  return maybeCreateSpan('embeddings.embedGoal', async (span) => {
     const parts: string[] = [`Goal: ${goal.name}`, `Target amount: ${goal.amount}`];
 
     if (goal.deadline) parts.push(`Deadline: ${goal.deadline}`);
@@ -248,7 +248,7 @@ export async function embedAdvice(advice: {
   context?: string;
   goalType?: string;
 }): Promise<number[]> {
-  return createSpan('embeddings.embedAdvice', async (span) => {
+  return maybeCreateSpan('embeddings.embedAdvice', async (span) => {
     const parts: string[] = [];
 
     if (advice.context) parts.push(`Context: ${advice.context}`);

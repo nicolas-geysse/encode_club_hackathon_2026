@@ -20,7 +20,19 @@ const OPIK_API_KEY = process.env.OPIK_API_KEY;
 const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
 const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
 // For self-hosted only (Opik Cloud doesn't need this)
+// For self-hosted only (Opik Cloud doesn't need this)
 const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
+// Allow disabled state
+const ENABLE_OPIK = process.env.ENABLE_OPIK !== 'false';
+// Allow disabling mostly "spammy" realtime traces (e.g. background embeddings)
+// DEFAULT: FALSE (Opt-in) because it generates too many logs
+export const ENABLE_REALTIME_OPIK = process.env.ENABLE_REALTIME_OPIK === 'true';
+
+if (process.env.NODE_ENV === 'development') {
+  console.log(
+    `[Opik] Realtime tracing enabled: ${ENABLE_REALTIME_OPIK} (Env: ${process.env.ENABLE_REALTIME_OPIK})`
+  );
+}
 
 /**
  * Token usage information for LLM calls
@@ -51,6 +63,13 @@ export interface Span {
 async function ensureOpikClient(): Promise<boolean> {
   if (initialized) return !!opikClient;
   initialized = true;
+
+  if (!ENABLE_OPIK) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[Opik] Tracing disabled by ENABLE_OPIK=false');
+    }
+    return false;
+  }
 
   if (!OPIK_API_KEY) {
     console.error('[Opik] OPIK_API_KEY not set, tracing disabled');
@@ -378,11 +397,49 @@ export function getCurrentTraceHandle(): unknown {
   return currentTraceHandle;
 }
 
+// Helper to skip tracing if realtime logs are disabled
+export async function maybeTrace<T>(
+  name: string,
+  fn: (span: Span) => Promise<T>,
+  parentSpan?: Span
+): Promise<T> {
+  if (!ENABLE_REALTIME_OPIK) {
+    const mockSpan: Span = {
+      setAttributes: () => {},
+      addEvent: () => {},
+      setUsage: () => {},
+      end: () => {},
+    };
+    return fn(mockSpan);
+  }
+  return trace(name, fn, parentSpan);
+}
+
+// Helper to skip span creation if realtime logs are disabled
+export async function maybeCreateSpan<T>(
+  name: string,
+  fn: (span: Span) => Promise<T>,
+  options?: { input?: Record<string, unknown>; tags?: string[] }
+): Promise<T> {
+  if (!ENABLE_REALTIME_OPIK) {
+    const mockSpan: Span = {
+      setAttributes: () => {},
+      addEvent: () => {},
+      setUsage: () => {},
+      end: () => {},
+    };
+    return fn(mockSpan);
+  }
+  return createSpan(name, fn, options);
+}
+
 // Export service
 export const opik = {
   init: initOpik,
   trace,
   createSpan,
+  maybeTrace,
+  maybeCreateSpan,
   logFeedback,
   getTraceUrl,
   getCurrentTraceId,

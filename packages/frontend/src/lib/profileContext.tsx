@@ -158,22 +158,34 @@ export const ProfileProvider: ParentComponent = (props) => {
 
   const refreshGoals = async () => {
     const currentProfile = profile();
-    if (currentProfile?.id) {
-      try {
-        const response = await fetch(`/api/goals?profileId=${currentProfile.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          // API returns array directly for profileId queries
-          setGoals(Array.isArray(data) ? data : []);
-        } else {
-          setGoals([]);
-        }
-      } catch (error) {
-        logger.error('Failed to load goals', { error });
-        setGoals([]);
+    const pid = currentProfile?.id;
+
+    logger.info('refreshGoals called', { profileId: pid, hasProfile: !!currentProfile });
+
+    if (!pid) {
+      // NE PAS effacer les goals si pas de profile ID - garde les goals existants
+      logger.warn('refreshGoals: No profile ID, skipping refresh');
+      return;
+    }
+
+    try {
+      logger.info('Fetching goals from API', { profileId: pid });
+      const response = await fetch(`/api/goals?profileId=${pid}`);
+      if (response.ok) {
+        const data = await response.json();
+        logger.info('Goals fetched successfully', {
+          count: Array.isArray(data) ? data.length : 0,
+          data,
+        });
+        // API returns array directly for profileId queries
+        setGoals(Array.isArray(data) ? data : []);
+      } else {
+        logger.warn('Goals API returned non-OK status', { status: response.status });
       }
-    } else {
-      setGoals([]);
+      // NE PAS effacer sur erreur HTTP - garde les goals existants
+    } catch (error) {
+      logger.error('Failed to load goals', { error });
+      // NE PAS faire setGoals([]) ici - garde les goals existants
     }
   };
 

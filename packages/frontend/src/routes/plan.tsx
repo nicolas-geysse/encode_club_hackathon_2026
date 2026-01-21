@@ -5,7 +5,7 @@
  * Now uses profileService for DuckDB persistence instead of localStorage.
  */
 
-import { createSignal, createEffect, onMount, Show, For } from 'solid-js';
+import { createSignal, createEffect, onMount, Show, For, untrack } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { Dynamic } from 'solid-js/web';
 import { ProfileTab } from '~/components/tabs/ProfileTab';
@@ -221,10 +221,18 @@ export default function PlanPage() {
   });
 
   // Save plan data whenever it changes - now using profileService with debounce
+  // IMPORTANT: Use untrack() for activeProfile/hasProfile/isSaving to avoid infinite loop.
+  // We only want this effect to trigger when planData() changes, not when profile refreshes.
   createEffect(() => {
-    const profile = activeProfile();
-    const data = planData();
-    if (hasProfile() && profile && !isSaving()) {
+    const data = planData(); // Track only planData changes
+
+    // Read these without tracking to break the refresh cycle:
+    // saveProfile → DATA_CHANGED → refreshProfile → setProfile → effect re-trigger → loop!
+    const profile = untrack(() => activeProfile());
+    const hasProf = untrack(() => hasProfile());
+    const saving = untrack(() => isSaving());
+
+    if (hasProf && profile && !saving) {
       // Debounced save to DuckDB only (no localStorage to prevent cross-profile contamination)
       profileService.saveProfile(
         {
