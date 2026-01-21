@@ -5,7 +5,7 @@
  * Uses LLM API for intelligent responses and data extraction.
  */
 
-import { createSignal, createEffect, For, Show, onMount } from 'solid-js';
+import { createSignal, createEffect, For, Show, onMount, onCleanup } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
@@ -27,6 +27,8 @@ import { smartMergeArrays } from '~/lib/arrayMergeUtils';
 import { eventBus } from '~/lib/eventBus';
 import { OnboardingProgress } from './OnboardingProgress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
+import OnboardingFormStep from './OnboardingFormStep';
+import { hasStepForm } from '~/lib/chat/stepForms';
 
 // Message type imported from ~/types/chat
 
@@ -92,13 +94,12 @@ interface ProfileData {
 }
 
 type OnboardingStep =
-  | 'greeting'
-  | 'region' // Currency/region selection
+  | 'greeting' // Now asks for city first (enables background fetching early)
+  | 'currency_confirm' // Only shown if currency not auto-detected from city
   | 'name'
   | 'studies'
   | 'skills'
   | 'certifications'
-  | 'location'
   | 'budget'
   | 'work_preferences'
   | 'goal'
@@ -127,7 +128,7 @@ interface DetectedIntent {
   field?: string;
 }
 
-// Initial greeting message - now asks for region first for currency selection
+// Initial greeting message - asks for city first to enable early background data fetching
 const GREETING_MESSAGE = `Hey! I'm **Bruno**, your personal financial coach.
 
 This app will help you reach any savings goal - whether it's a vacation, a new laptop, or anything else you're dreaming of!
@@ -136,7 +137,7 @@ This app will help you reach any savings goal - whether it's a vacation, a new l
 - Set an objective, an amount, and a deadline
 - I'll help you find ways to achieve it (skills, selling items, cutting expenses)
 
-First, **where are you based?** (US, UK, or Europe - this sets your currency)`;
+First, **what city do you live in?** (e.g., Paris, London, New York)`;
 
 // Welcome back message for returning users (conversation mode)
 const getWelcomeBackMessage = (name: string) => `Hey **${name}**! What can I help you with?
@@ -323,7 +324,7 @@ export function OnboardingChat() {
         // Handle form submissions from MCP-UI forms
         const formData = data as Record<string, unknown>;
         if (formData.goalName && formData.goalAmount) {
-          // 1. Update local state
+          // 1. Update local state (always do this)
           setProfile((prev) => ({
             ...prev,
             goalName: String(formData.goalName),
@@ -331,8 +332,21 @@ export function OnboardingChat() {
             goalDeadline: formData.goalDeadline ? String(formData.goalDeadline) : prev.goalDeadline,
           }));
 
-          // 2. Create the goal via goalService
-          // FIX: Utiliser contextProfile().id comme fallback si profileId() est undefined
+          // 2. During onboarding, DON'T create goal via goalService yet
+          // The goal will be created at onboarding completion (persistAllOnboardingData)
+          // This prevents the "No profileId available" error
+          const currentMode = chatMode();
+          if (currentMode === 'onboarding') {
+            logger.info('Onboarding mode: Goal stored locally, will be persisted at completion', {
+              goalName: formData.goalName,
+              goalAmount: formData.goalAmount,
+            });
+            // Show a subtle confirmation that goal was captured
+            toastPopup.info('Goal captured!', 'It will be saved when you complete setup');
+            break; // Exit early - goal persists at completion
+          }
+
+          // 3. For conversation mode: Create the goal via goalService immediately
           const currentProfileId = profileId() || contextProfile()?.id;
 
           if (currentProfileId) {
@@ -696,6 +710,47 @@ export function OnboardingChat() {
     setStep('greeting'); // Start at 'greeting' step - we'll collect name first
   });
 
+  // Listen for explicit data reset (e.g., "Reset all data" from ProfileSelector)
+  // This ensures the chat resets when user explicitly resets all data
+  // NOTE: We use DATA_RESET event, NOT DATA_CHANGED (which fires for any data update)
+  createEffect(() => {
+    const unsubDataReset = eventBus.on('DATA_RESET', () => {
+      logger.info('DATA_RESET received - resetting onboarding chat');
+
+      // Reset to initial state
+      setMessages([{ id: 'greeting', role: 'assistant', content: GREETING_MESSAGE }]);
+      setProfile({
+        skills: [],
+        certifications: [],
+        incomes: [],
+        expenses: [],
+        maxWorkHours: 15,
+        minHourlyRate: 12,
+        hasLoan: false,
+        loanAmount: 0,
+        academicEvents: [],
+        inventoryItems: [],
+        subscriptions: [],
+        tradeOpportunities: [],
+        swipePreferences: {
+          effort_sensitivity: 0.5,
+          hourly_rate_priority: 0.5,
+          time_flexibility: 0.5,
+          income_stability: 0.5,
+        },
+      });
+      setStep('greeting');
+      setChatMode('onboarding');
+      setIsComplete(false);
+      setProfileId(undefined);
+      setThreadId(generateThreadId());
+    });
+
+    onCleanup(() => {
+      unsubDataReset();
+    });
+  });
+
   // Call LLM API for chat
   const callChatAPI = async (
     message: string,
@@ -799,15 +854,15 @@ export function OnboardingChat() {
       };
     }
 
-    // Onboarding mode flow
+    // Onboarding mode flow - city first for early background data fetching
+    // Note: currency_confirm is conditionally skipped if currency auto-detected
     const flow: OnboardingStep[] = [
-      'greeting',
-      'region', // Currency/region selection
+      'greeting', // Now asks for city
+      'currency_confirm', // Only if currency not auto-detected
       'name',
       'studies',
       'skills',
       'certifications',
-      'location',
       'budget',
       'work_preferences',
       'goal',
@@ -818,30 +873,40 @@ export function OnboardingChat() {
       'complete',
     ];
     const currentIndex = flow.indexOf(currentStep);
-    const nextStep = flow[Math.min(currentIndex + 1, flow.length - 1)] as OnboardingStep;
+    let nextStep = flow[Math.min(currentIndex + 1, flow.length - 1)] as OnboardingStep;
 
     // Basic extraction
     const extractedData: Record<string, unknown> = {};
     if (currentStep === 'name') {
       extractedData.name = message.trim().split(/\s+/)[0];
     }
+    // Extract city from greeting step and auto-detect currency
+    if (currentStep === 'greeting') {
+      extractedData.city = message.trim();
+      const metadata = detectCityMetadata(message);
+      extractedData.citySize = metadata.size;
+      if (metadata.currency) {
+        extractedData.currency = metadata.currency;
+        // Skip currency_confirm step if currency was auto-detected
+        nextStep = 'name';
+      }
+    }
 
     const fallbackResponses: Record<OnboardingStep, string> = {
       greeting: GREETING_MESSAGE,
-      region: `Got it! What's your name?`,
-      name: `Great ${extractedData.name || message.trim()}! Nice to meet you.\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`,
-      studies: `Cool!\n\nWhat are your skills? (coding, languages, design, sports...)`,
-      skills: `Nice skills!\n\nDo you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
-      certifications: `Got it!\n\nWhere do you live? What city?`,
-      location: `Got it.\n\nLet's talk budget: how much do you earn and spend per month roughly?`,
-      budget: `OK for the budget!\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`,
-      work_preferences: `Great work preferences!\n\nNow, what's your savings goal? What do you want to save for, how much, and by when?`,
-      goal: `Great goal!\n\nAny important academic events coming up? (exams, vacations, busy periods)`,
-      academic_events: `Thanks for sharing!\n\nDo you have any items you could sell? (textbooks, electronics, etc.)`,
-      inventory: `Good to know!\n\nAre there things you could borrow instead of buying, or skills you could trade with friends? (or say 'none')`,
-      trade: `Thanks!\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
-      lifestyle: `Perfect! I have everything I need.\n\nClick on "My Plan" to get started!`,
-      complete: '',
+      currency_confirm: `I couldn't detect your region automatically.\n\nAre you in **US** (USD), **UK** (GBP), or **Europe** (EUR)?`,
+      name: `Great! What's your name?`,
+      studies: `Nice to meet you, ${extractedData.name || message.trim()}!\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`,
+      skills: `Cool!\n\nWhat are your skills? (coding, languages, design, sports...)`,
+      certifications: `Nice skills!\n\nDo you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
+      budget: `Got it!\n\nLet's talk budget: how much do you earn and spend per month roughly?`,
+      work_preferences: `OK for the budget!\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`,
+      goal: `Great work preferences!\n\nNow, what's your savings goal? What do you want to save for, how much, and by when?`,
+      academic_events: `Great goal!\n\nAny important academic events coming up? (exams, vacations, busy periods)`,
+      inventory: `Thanks for sharing!\n\nDo you have any items you could sell? (textbooks, electronics, etc.)`,
+      trade: `Good to know!\n\nAre there things you could borrow instead of buying, or skills you could trade with friends? (or say 'none')`,
+      lifestyle: `Thanks!\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
+      complete: `Perfect! I have everything I need.\n\nClick on "My Plan" to get started!`,
     };
 
     return {
@@ -1213,29 +1278,10 @@ export function OnboardingChat() {
     setMessages([...messages(), userMsg]);
     saveMessageToDb(userMsg); // BUG 9 FIX: Persist to DuckDB
 
-    // STRICT VALIDATION: Region (Step 1)
-    // "Greeting" message asks "Where are you based? (US, UK, or Europe)"
-    if (step() === 'greeting') {
+    // VALIDATION: Currency confirmation (only shown if city wasn't auto-detected)
+    if (step() === 'currency_confirm') {
       const lower = text.toLowerCase();
-      const validRegions = [
-        'us',
-        'usa',
-        'united states',
-        'america',
-        'uk',
-        'united kingdom',
-        'england',
-        'london',
-        'europe',
-        'eu',
-        'france',
-        'germany',
-        'spain',
-        'italy',
-        'netherlands',
-        'belgium',
-        'ireland',
-      ];
+      const validRegions = ['us', 'usa', 'usd', 'uk', 'gbp', 'europe', 'eu', 'eur'];
       const isValid = validRegions.some((r) => lower.includes(r));
 
       if (!isValid) {
@@ -1244,7 +1290,7 @@ export function OnboardingChat() {
             id: `err-${Date.now()}`,
             role: 'assistant',
             content:
-              "I didn't catch that. 🌍\n\nPlease select **US**, **UK**, or **Europe** so I can set the right currency for you.",
+              "I didn't catch that.\n\nPlease select **US** (USD), **UK** (GBP), or **Europe** (EUR).",
           };
           setMessages((prev) => [...prev, errorMsg]);
           saveMessageToDb(errorMsg);
@@ -1544,8 +1590,85 @@ export function OnboardingChat() {
     navigate('/plan');
   };
 
-  // Helper for left sidebar context
-  const getStepContext = (s: OnboardingStep) => {
+  /**
+   * Handle form submission from OnboardingFormStep
+   * Converts form data to a natural language message and sends it through handleSend
+   */
+  const handleFormSubmit = (data: Record<string, unknown>) => {
+    const currentStep = step();
+
+    // Convert form data to a natural message based on step
+    let message = '';
+
+    switch (currentStep) {
+      case 'greeting':
+        message = data.city as string;
+        break;
+      case 'currency_confirm':
+        message = data.currency as string;
+        break;
+      case 'name':
+        message = data.name as string;
+        break;
+      case 'studies':
+        message = `${data.diploma || ''} in ${data.field || ''}`.trim();
+        break;
+      case 'skills':
+        message = Array.isArray(data.skills) ? (data.skills as string[]).join(', ') : 'none';
+        break;
+      case 'certifications':
+        message =
+          Array.isArray(data.certifications) && data.certifications.length > 0
+            ? (data.certifications as string[]).join(', ')
+            : 'none';
+        break;
+      case 'budget':
+        message = `income ${data.income || 0}, expenses ${data.expenses || 0}`;
+        break;
+      case 'work_preferences':
+        message = `${data.maxWorkHours || 15} hours per week, minimum ${data.minHourlyRate || 12}/h`;
+        break;
+      case 'goal':
+        message = `${data.goalName} - ${data.goalAmount} by ${data.goalDeadline}`;
+        break;
+      case 'academic_events':
+        message = (data.academicEvents as string) || 'none';
+        break;
+      case 'inventory':
+        message = (data.inventoryItems as string) || 'none';
+        break;
+      case 'trade':
+        message = (data.tradeOpportunities as string) || 'none';
+        break;
+      case 'lifestyle':
+        message = (data.subscriptions as string) || 'none';
+        break;
+      default:
+        message = JSON.stringify(data);
+    }
+
+    if (message) {
+      handleSend(message);
+    }
+  };
+
+  /**
+   * Get currency symbol for form display
+   */
+  const getCurrencySymbolForForm = (): string => {
+    const curr = profile().currency || 'USD';
+    switch (curr) {
+      case 'EUR':
+        return '€';
+      case 'GBP':
+        return '£';
+      default:
+        return '$';
+    }
+  };
+
+  // Helper for left sidebar context (reserved for future use)
+  const _getStepContext = (s: OnboardingStep) => {
     const contextMap: Record<string, { title: string; description: string }> = {
       greeting: {
         title: 'Welcome!',
@@ -1612,12 +1735,12 @@ export function OnboardingChat() {
           <div
             class="flex-1 overflow-y-auto min-h-0 w-full transition-all duration-1000"
             classList={{
-              'opacity-0': ['greeting', 'region'].includes(step()) || isComplete(),
-              'opacity-100': !['greeting', 'region'].includes(step()) && !isComplete(),
+              'opacity-0': ['greeting', 'currency_confirm'].includes(step()) || isComplete(),
+              'opacity-100': !['greeting', 'currency_confirm'].includes(step()) && !isComplete(),
               'pointer-events-none': isComplete(),
             }}
           >
-            <Show when={!['greeting', 'region'].includes(step())}>
+            <Show when={!['greeting', 'currency_confirm'].includes(step())}>
               <OnboardingProgress currentStepId={step()} />
             </Show>
           </div>
@@ -1760,6 +1883,23 @@ export function OnboardingChat() {
                   </div>
                 </div>
               </Show>
+
+              {/* Contextual form for current step */}
+              <Show
+                when={
+                  !loading() && !isComplete() && chatMode() === 'onboarding' && hasStepForm(step())
+                }
+              >
+                <div class="ml-12 mb-4 max-w-md">
+                  <OnboardingFormStep
+                    step={step()}
+                    initialValues={profile() as Record<string, unknown>}
+                    currencySymbol={getCurrencySymbolForForm()}
+                    onSubmit={handleFormSubmit}
+                  />
+                </div>
+              </Show>
+
               {/* Spacer for bottom scroll */}
               <div class="h-4" />
             </div>
