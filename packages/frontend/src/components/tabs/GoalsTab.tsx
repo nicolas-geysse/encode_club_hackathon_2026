@@ -8,6 +8,7 @@
  */
 
 import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
+import { useSearchParams } from '@solidjs/router';
 import { goalService } from '~/lib/goalService';
 import { useProfile, type Goal, type GoalComponent } from '~/lib/profileContext';
 import { createCrudTab } from '~/hooks/createCrudTab';
@@ -75,6 +76,9 @@ interface ComponentFormItem {
 }
 
 export function GoalsTab(props: GoalsTabProps) {
+  // URL params for deep linking (e.g., /plan?tab=goals&action=new)
+  const [searchParams] = useSearchParams();
+
   // Use ProfileContext for goals (single source of truth, handles DATA_CHANGED)
   const context = useProfile();
   const goals = () => context.goals();
@@ -204,6 +208,14 @@ export function GoalsTab(props: GoalsTabProps) {
       const defaultDeadline = new Date();
       defaultDeadline.setDate(defaultDeadline.getDate() + 56);
       setGoalDeadline(defaultDeadline.toISOString().split('T')[0]);
+    }
+
+    // Auto-open form if action=new is in URL (from "New Goal" button on suivi page)
+    const action = Array.isArray(searchParams.action)
+      ? searchParams.action[0]
+      : searchParams.action;
+    if (action === 'new') {
+      setShowNewGoalForm(true);
     }
   });
 

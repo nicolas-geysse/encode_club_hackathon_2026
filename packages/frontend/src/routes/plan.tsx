@@ -6,7 +6,7 @@
  */
 
 import { createSignal, createEffect, onMount, Show, For, untrack } from 'solid-js';
-import { useNavigate } from '@solidjs/router';
+import { useNavigate, useSearchParams } from '@solidjs/router';
 import { Dynamic } from 'solid-js/web';
 import { ProfileTab } from '~/components/tabs/ProfileTab';
 import { GoalsTab } from '~/components/tabs/GoalsTab';
@@ -150,6 +150,8 @@ const ICON_MAP = {
 
 export default function PlanPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   // Get inventory, lifestyle, and trades from profile context (DB-backed data)
   // Get inventory, lifestyle, and trades from profile context (DB-backed data)
   const {
@@ -162,7 +164,11 @@ export default function PlanPage() {
     refreshProfile,
   } = useProfile();
 
-  const [activeTab, setActiveTab] = createSignal<string>('profile');
+  // Initialize activeTab from URL param (e.g., /plan?tab=goals) or default to 'profile'
+  const validTabIds = TABS.map((t) => t.id) as readonly string[];
+  const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
+  const initialTab = tabParam && validTabIds.includes(tabParam) ? tabParam : 'profile';
+  const [activeTab, setActiveTab] = createSignal<string>(initialTab);
   const [isLoading, setIsLoading] = createSignal(true); // Keep loading to show spinner while context loads
   // Derived state for profile existence
   const hasProfile = () => !!activeProfile();
@@ -353,10 +359,32 @@ export default function PlanPage() {
     }
   };
 
-  const handleScenariosSelected = (scenarios: SelectedScenario[]) => {
-    // Save selected scenarios to planData
-    setPlanData({ ...planData(), selectedScenarios: scenarios });
-    // Navigate to suivi after completing swipe
+  const handleScenariosSelected = async (scenarios: SelectedScenario[]) => {
+    try {
+      // 1. Update local state
+      const newPlanData = { ...planData(), selectedScenarios: scenarios };
+      setPlanData(newPlanData);
+
+      // 2. Explicitly save to DuckDB immediately (awaiting completion)
+      // This ensures data is written before /suivi tries to read it
+      const profile = activeProfile();
+      if (profile) {
+        await profileService.saveProfile(
+          {
+            ...profile,
+            planData: newPlanData as unknown as Record<string, unknown>,
+          },
+          { immediate: true, setActive: false }
+        );
+      }
+    } catch (error) {
+      console.error('Failed to save scenarios before navigation', error);
+      // Fallback: continue navigation anyway, data might be saved by debounce effect later
+      // but strictly speaking we should probably notify user.
+      // For hackathon, proceeding is smoother.
+    }
+
+    // 3. Navigate only after save attempt
     navigate('/suivi');
   };
 

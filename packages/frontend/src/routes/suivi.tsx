@@ -6,11 +6,13 @@
  */
 
 import { createSignal, Show, onMount, onCleanup } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
 import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
 import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
+import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
@@ -18,7 +20,7 @@ import { goalService, type Goal } from '~/lib/goalService';
 import { eventBus } from '~/lib/eventBus';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { ClipboardList, MessageSquare, Target, Trophy } from 'lucide-solid';
+import { ClipboardList, MessageSquare, Target } from 'lucide-solid';
 import {
   weeksBetween,
   addWeeks,
@@ -65,6 +67,7 @@ const normalizeFollowup = (data: Partial<FollowupData> | null | undefined): Foll
 });
 
 export default function SuiviPage() {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = createSignal(true);
   const [hasData, setHasData] = createSignal(false);
   const [setup, setSetup] = createSignal<SetupData | null>(null);
@@ -574,23 +577,14 @@ export default function SuiviPage() {
     </Card>
   );
 
-  // Sprint 9.5: All goals completed view
+  // Sprint 9.5: All goals completed view - now uses CompletedGoalsSummary
   const AllGoalsCompletedView = () => (
-    <Card class="max-w-md mx-auto text-center border-green-500/20 bg-green-500/5">
-      <CardContent class="py-12 flex flex-col items-center">
-        <div class="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center mb-4">
-          <Trophy class="h-8 w-8 text-green-500" />
-        </div>
-        <h2 class="text-xl font-bold text-foreground mb-2">All goals completed!</h2>
-        <p class="text-muted-foreground mb-6">
-          You've completed {completedGoalsCount()} goal{completedGoalsCount() > 1 ? 's' : ''}.
-          Create a new goal in "My Goals" to continue your journey.
-        </p>
-        <Button as="a" href="/plan?tab=goals">
-          Create New Goal
-        </Button>
-      </CardContent>
-    </Card>
+    <CompletedGoalsSummary
+      profileId={activeProfile()?.id || ''}
+      currency={currency()}
+      followupData={followup()}
+      onCreateNewGoal={() => navigate('/plan?tab=goals&action=new')}
+    />
   );
 
   // Sprint 9.5: Determine which fallback to show
