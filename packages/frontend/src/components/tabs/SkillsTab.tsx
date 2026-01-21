@@ -3,11 +3,13 @@
  *
  * Skill Arbitrage: multi-criteria job matching and scoring.
  * Now uses skillService for DuckDB persistence.
+ * Uses createCrudTab hook for common CRUD state management.
  */
 
 import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
 import { useProfile } from '~/lib/profileContext';
 import { skillService, type Skill, type CreateSkillInput } from '~/lib/skillService';
+import { createCrudTab } from '~/hooks/createCrudTab';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { type LegacySkill, skillToLegacy } from '~/types/entities';
@@ -197,11 +199,29 @@ export function SkillsTab(props: SkillsTabProps) {
   const currencySymbol = () => getCurrencySymbol(currency());
 
   const { profile, skills: contextSkills, refreshSkills, loading: profileLoading } = useProfile();
-  const [localSkills, setLocalSkills] = createSignal<Skill[]>([]);
-  const [showAddForm, setShowAddForm] = createSignal(false);
-  const [isLoading, setIsLoading] = createSignal(false);
-  const [editingSkillId, setEditingSkillId] = createSignal<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = createSignal<{ id: string; name: string } | null>(null);
+
+  // Use createCrudTab hook for common CRUD state management
+  const crud = createCrudTab<Skill>({
+    getItemId: (skill) => skill.id,
+    getItemName: (skill) => skill.name,
+    onItemsChange: (skills) => props.onSkillsChange?.(skills.map(skillToLegacy)),
+  });
+
+  // Destructure for convenience (aliased to match original names for minimal changes)
+  const {
+    items: localSkills,
+    setItems: setLocalSkills,
+    showAddForm,
+    setShowAddForm,
+    isLoading,
+    setIsLoading,
+    editingId: editingSkillId,
+    setEditingId: setEditingSkillId,
+    deleteConfirm,
+    setDeleteConfirm,
+    resetForm: resetFormState,
+  } = crud;
+
   const [newSkill, setNewSkill] = createSignal<Partial<CreateSkillInput>>({
     name: '',
     level: 'intermediate',
@@ -366,11 +386,10 @@ export function SkillsTab(props: SkillsTabProps) {
       cognitiveEffort: 3,
       restNeeded: 1,
     });
-    setEditingSkillId(null);
+    resetFormState();
   };
 
   const handleEdit = (skill: Skill) => {
-    setEditingSkillId(skill.id);
     setNewSkill({
       name: skill.name,
       level: skill.level,
@@ -379,7 +398,7 @@ export function SkillsTab(props: SkillsTabProps) {
       cognitiveEffort: skill.cognitiveEffort,
       restNeeded: skill.restNeeded,
     });
-    setShowAddForm(true);
+    crud.startEdit(skill.id);
   };
 
   const updateSkill = async () => {
@@ -466,7 +485,7 @@ export function SkillsTab(props: SkillsTabProps) {
             The highest paying job isn't necessarily the best
           </p>
         </div>
-        <Button onClick={() => setShowAddForm(true)} disabled={isLoading()}>
+        <Button onClick={crud.openAddForm} disabled={isLoading()}>
           <Plus class="h-4 w-4 mr-2" /> Add
         </Button>
       </div>
@@ -602,7 +621,7 @@ export function SkillsTab(props: SkillsTabProps) {
                       variant="ghost"
                       size="icon"
                       class="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleteConfirm({ id: skill.id, name: skill.name })}
+                      onClick={() => crud.confirmDelete(skill)}
                       disabled={isLoading()}
                       title="Delete skill"
                     >
@@ -625,7 +644,7 @@ export function SkillsTab(props: SkillsTabProps) {
             </div>
             <h3 class="text-lg font-medium text-foreground mb-2">No skills added</h3>
             <p class="text-muted-foreground mb-4">Add your skills to discover the best jobs</p>
-            <Button onClick={() => setShowAddForm(true)}>Add a skill</Button>
+            <Button onClick={crud.openAddForm}>Add a skill</Button>
           </CardContent>
         </Card>
       </Show>
@@ -644,7 +663,7 @@ export function SkillsTab(props: SkillsTabProps) {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    setShowAddForm(false);
+                    crud.closeAddForm();
                     resetNewSkill();
                   }}
                 >
@@ -760,7 +779,7 @@ export function SkillsTab(props: SkillsTabProps) {
                   variant="outline"
                   class="flex-1"
                   onClick={() => {
-                    setShowAddForm(false);
+                    crud.closeAddForm();
                     resetNewSkill();
                   }}
                 >
@@ -796,10 +815,10 @@ export function SkillsTab(props: SkillsTabProps) {
           const confirm = deleteConfirm();
           if (confirm) {
             removeSkill(confirm.id);
-            setDeleteConfirm(null);
+            crud.cancelDelete();
           }
         }}
-        onCancel={() => setDeleteConfirm(null)}
+        onCancel={crud.cancelDelete}
       />
     </div>
   );

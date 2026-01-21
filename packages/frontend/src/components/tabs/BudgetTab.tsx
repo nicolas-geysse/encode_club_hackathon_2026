@@ -5,6 +5,7 @@
  * Income category for managing income sources.
  * Expense categories: housing, food, transport, subscriptions, other.
  * Uses lifestyleService for expenses and incomeService for income (DuckDB persistence).
+ * Uses createCrudTab hook for common CRUD state management.
  */
 
 import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
@@ -18,6 +19,7 @@ import {
 } from '~/lib/lifestyleService';
 import { mergeExpenseSources } from '~/lib/expenseUtils';
 import { incomeService } from '~/lib/incomeService';
+import { createCrudTab } from '~/hooks/createCrudTab';
 import { monthsUntil, formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { type LegacyLifestyleItem, itemToLegacy, legacyToItem } from '~/types/entities';
@@ -86,13 +88,29 @@ export function BudgetTab(props: BudgetTabProps) {
   // Feature M: Get primary goal amount for savings progress calculation
   const primaryGoal = () => goals().find((g) => g.status === 'active' && !g.parentGoalId);
   const goalAmount = () => primaryGoal()?.amount || 0;
+
+  // Use createCrudTab hook for common CRUD state management
+  // We use a generic type since we manage both LifestyleItem and IncomeItem
+  const crud = createCrudTab<LifestyleItem | IncomeItem>({
+    getItemId: (item) => item.id,
+    getItemName: (item) => item.name,
+  });
+
+  // Destructure for convenience (aliased to match original names)
+  const {
+    showAddForm,
+    setShowAddForm,
+    isLoading,
+    setIsLoading,
+    editingId: editingItemId,
+    setEditingId: setEditingItemId,
+    deleteConfirm,
+    setDeleteConfirm,
+  } = crud;
+
   const [localItems, setLocalItems] = createSignal<LifestyleItem[]>([]);
   const [localIncomeItems, setLocalIncomeItems] = createSignal<IncomeItem[]>([]);
   const [activeCategory, setActiveCategory] = createSignal<string>('income');
-  const [showAddForm, setShowAddForm] = createSignal(false);
-  const [isLoading, setIsLoading] = createSignal(false);
-  const [editingItemId, setEditingItemId] = createSignal<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = createSignal<{ id: string; name: string } | null>(null);
   const [newItem, setNewItem] = createSignal<
     Partial<CreateLifestyleItemInput & { amount?: number }>
   >({
@@ -308,26 +326,24 @@ export function BudgetTab(props: BudgetTabProps) {
       currentCost: 0,
       amount: 0,
     });
-    setEditingItemId(null);
+    crud.resetForm();
   };
 
   const handleEditExpense = (item: LifestyleItem) => {
-    setEditingItemId(item.id);
     setNewItem({
       name: item.name,
       category: item.category,
       currentCost: item.currentCost,
     });
-    setShowAddForm(true);
+    crud.startEdit(item.id);
   };
 
   const handleEditIncome = (item: IncomeItem) => {
-    setEditingItemId(item.id);
     setNewItem({
       name: item.name,
       amount: item.amount,
     });
-    setShowAddForm(true);
+    crud.startEdit(item.id);
   };
 
   const updateItem = async () => {
@@ -770,7 +786,7 @@ export function BudgetTab(props: BudgetTabProps) {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    setShowAddForm(false);
+                    crud.closeAddForm();
                     resetNewItem();
                   }}
                 >
@@ -878,7 +894,7 @@ export function BudgetTab(props: BudgetTabProps) {
                   variant="outline"
                   class="flex-1"
                   onClick={() => {
-                    setShowAddForm(false);
+                    crud.closeAddForm();
                     resetNewItem();
                   }}
                 >
@@ -914,10 +930,10 @@ export function BudgetTab(props: BudgetTabProps) {
           const confirm = deleteConfirm();
           if (confirm) {
             removeItem(confirm.id);
-            setDeleteConfirm(null);
+            crud.cancelDelete();
           }
         }}
-        onCancel={() => setDeleteConfirm(null)}
+        onCancel={crud.cancelDelete}
       />
     </div>
   );

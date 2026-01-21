@@ -4,11 +4,13 @@
  * Lists existing goals and allows creating new ones.
  * Supports complex goals with components and conditional goals.
  * Uses goalService for DuckDB persistence.
+ * Uses createCrudTab hook for common CRUD state management.
  */
 
 import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
 import { goalService } from '~/lib/goalService';
 import { useProfile, type Goal, type GoalComponent } from '~/lib/profileContext';
+import { createCrudTab } from '~/hooks/createCrudTab';
 import { toast } from '~/lib/notificationStore';
 import { createLogger } from '~/lib/logger';
 
@@ -87,8 +89,20 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // Combine context loading with local initialization
   const loading = () => context.loading();
-  const [showNewGoalForm, setShowNewGoalForm] = createSignal(false);
-  const [editingGoalId, setEditingGoalId] = createSignal<string | null>(null);
+
+  // Use createCrudTab hook for common CRUD state management
+  const crud = createCrudTab<Goal>({
+    getItemId: (goal) => goal.id,
+    getItemName: (goal) => goal.name,
+  });
+
+  // Destructure for convenience (aliased to match original names)
+  const {
+    showAddForm: showNewGoalForm,
+    setShowAddForm: setShowNewGoalForm,
+    editingId: editingGoalId,
+    setEditingId: setEditingGoalId,
+  } = crud;
 
   // Form state
   const [goalName, setGoalName] = createSignal(props.initialData?.goalName || '');

@@ -317,13 +317,15 @@ export function checkComebackCompletion(
 
   const totalTarget = plan.reduce((sum, w) => sum + w.target, 0);
   const totalActual = actualEarnings.reduce((sum, e) => sum + e, 0);
-  const completionRate = Math.min(1, totalActual / totalTarget);
+  const rawCompletionRate = totalActual / totalTarget;
+  const completionRate = Math.min(1, rawCompletionRate); // Cap for return value
 
   const completed = completionRate >= 0.8; // 80% = success
 
   let achievement: ComebackAchievement | null = null;
   if (completed) {
-    if (completionRate >= 1.1) {
+    // Use raw rate for achievement check (allows overachiever detection)
+    if (rawCompletionRate >= 1.1) {
       achievement = {
         id: 'comeback_overachiever',
         name: 'Overachiever',
@@ -331,7 +333,7 @@ export function checkComebackCompletion(
         emoji: '🌟',
         tier: 'gold',
       };
-    } else if (completionRate >= 1.0) {
+    } else if (rawCompletionRate >= 1.0) {
       achievement = {
         id: 'comeback_complete',
         name: 'Mission Accomplie',

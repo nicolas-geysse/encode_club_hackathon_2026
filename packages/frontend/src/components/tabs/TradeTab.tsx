@@ -2,10 +2,12 @@
  * Trade Tab Component
  *
  * Borrowing and trading: track loans and exchanges with friends.
+ * Uses createCrudTab hook for common CRUD state management.
  */
 
 import { createSignal, createEffect, For, Show, untrack } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
+import { createCrudTab } from '~/hooks/createCrudTab';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -221,11 +223,30 @@ export function TradeTab(props: TradeTabProps) {
   const currency = () => props.currency || 'USD';
   const currencySymbol = () => getCurrencySymbol(currency());
 
-  const [trades, setTrades] = createSignal<TradeItem[]>(props.initialTrades || []);
+  // Use createCrudTab hook for common CRUD state management
+  const crud = createCrudTab<TradeItem>({
+    getItemId: (trade) => trade.id,
+    getItemName: (trade) => trade.name,
+    onItemsChange: props.onTradesChange,
+  });
+
+  // Destructure for convenience (aliased to match original names for minimal changes)
+  const {
+    items: trades,
+    setItems: setTrades,
+    showAddForm,
+    setShowAddForm,
+    deleteConfirm,
+    editingId: editingTradeId,
+    setEditingId: setEditingTradeId,
+  } = crud;
+
+  // Initialize with initial trades
+  if (props.initialTrades && props.initialTrades.length > 0 && trades().length === 0) {
+    setTrades(props.initialTrades);
+  }
+
   const [activeType, setActiveType] = createSignal<string>('sell');
-  const [showAddForm, setShowAddForm] = createSignal(false);
-  const [deleteConfirm, setDeleteConfirm] = createSignal<{ id: string; name: string } | null>(null);
-  const [editingTradeId, setEditingTradeId] = createSignal<string | null>(null);
   const [newTrade, setNewTrade] = createSignal<Partial<TradeItem>>({
     type: 'sell',
     name: '',
@@ -319,9 +340,7 @@ export function TradeTab(props: TradeTabProps) {
   };
 
   const removeTrade = (id: string) => {
-    const updated = trades().filter((t) => t.id !== id);
-    setTrades(updated);
-    props.onTradesChange?.(updated);
+    crud.handleDelete(id);
   };
 
   const resetForm = () => {
@@ -332,11 +351,10 @@ export function TradeTab(props: TradeTabProps) {
       value: 0,
       status: 'pending',
     });
-    setEditingTradeId(null);
+    crud.resetForm();
   };
 
   const handleEditTrade = (trade: TradeItem) => {
-    setEditingTradeId(trade.id);
     setNewTrade({
       type: trade.type,
       name: trade.name,
@@ -346,7 +364,7 @@ export function TradeTab(props: TradeTabProps) {
       dueDate: trade.dueDate,
       status: trade.status,
     });
-    setShowAddForm(true);
+    crud.startEdit(trade.id);
   };
 
   const updateTrade = () => {
@@ -756,7 +774,7 @@ export function TradeTab(props: TradeTabProps) {
                     variant="ghost"
                     size="icon"
                     class="hover:text-destructive"
-                    onClick={() => setDeleteConfirm({ id: trade.id, name: trade.name })}
+                    onClick={() => crud.confirmDelete(trade)}
                   >
                     <Trash2 class="h-4 w-4 text-muted-foreground hover:text-destructive" />
                   </Button>
@@ -848,7 +866,7 @@ export function TradeTab(props: TradeTabProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      setShowAddForm(false);
+                      crud.closeAddForm();
                       resetForm();
                     }}
                   >
@@ -963,7 +981,7 @@ export function TradeTab(props: TradeTabProps) {
                   variant="outline"
                   class="flex-1"
                   onClick={() => {
-                    setShowAddForm(false);
+                    crud.closeAddForm();
                     resetForm();
                   }}
                 >
@@ -993,10 +1011,9 @@ export function TradeTab(props: TradeTabProps) {
           const confirm = deleteConfirm();
           if (confirm) {
             removeTrade(confirm.id);
-            setDeleteConfirm(null);
           }
         }}
-        onCancel={() => setDeleteConfirm(null)}
+        onCancel={crud.cancelDelete}
       />
     </div>
   );
