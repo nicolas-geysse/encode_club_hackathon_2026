@@ -2,6 +2,8 @@
 
 > Navigate student life, one smart step at a time
 
+**Live Demo**: [https://encodeclubhackathon2026-production.up.railway.app/](https://encodeclubhackathon2026-production.up.railway.app/)
+
 ## 30 Second Pitch
 
 Stride helps students manage their budget with 4 intelligent features:
@@ -98,7 +100,7 @@ cp .env.example .env
 # Edit .env with your GROQ_API_KEY, OPIK_API_KEY, OPIK_WORKSPACE
 
 # 3. Run development servers
-pnpm dev              # Frontend → http://localhost:3000
+pnpm dev              # Frontend → http://localhost:3006
 pnpm dev:mcp          # MCP Server (stdio)
 ```
 
@@ -120,6 +122,7 @@ Details: [docs/OPIK.md](docs/OPIK.md)
 - [OPIK.md](docs/OPIK.md) - Opik integration + traces
 - [SCREENS_AND_EVALS.md](docs/SCREENS_AND_EVALS.md) - Screen details
 - [PLAN.md](docs/PLAN.md) - Full architecture
+- [tabpfn-eval.md](docs/tabpfn-eval.md) - TabPFN 2.5 ML evaluation (R&D)
 
 ---
 
