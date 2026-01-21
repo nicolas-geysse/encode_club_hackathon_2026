@@ -164,26 +164,8 @@ function generateUIResourceForResponse(
   currentStep: OnboardingStep,
   _response: string
 ): UIResource | undefined {
-  // Goal confirmation form - when goal data is extracted
-  if (currentStep === 'goal' && extractedData.goalName && extractedData.goalAmount) {
-    return {
-      type: 'form',
-      params: {
-        title: 'Confirm Your Goal',
-        fields: [
-          { name: 'goalName', label: 'Goal', type: 'text', value: extractedData.goalName },
-          { name: 'goalAmount', label: 'Amount', type: 'number', value: extractedData.goalAmount },
-          {
-            name: 'goalDeadline',
-            label: 'Deadline',
-            type: 'date',
-            value: extractedData.goalDeadline || '',
-          },
-        ],
-        submitLabel: 'Confirm Goal',
-      },
-    };
-  }
+  // Note: Goal confirmation form removed - OnboardingFormStep already captures goal data
+  // directly, making a second confirmation redundant and confusing for users.
 
   // Onboarding complete summary
   if (currentStep === 'complete' || currentStep === 'lifestyle') {

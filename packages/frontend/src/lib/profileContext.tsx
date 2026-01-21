@@ -21,6 +21,20 @@ import { eventBus } from './eventBus';
 
 const logger = createLogger('ProfileContext');
 
+/** Goal component for sub-tasks within a goal */
+export interface GoalComponent {
+  id?: string;
+  goalId?: string;
+  name: string;
+  type: 'exam' | 'time_allocation' | 'purchase' | 'milestone' | 'other';
+  estimatedHours?: number;
+  estimatedCost?: number;
+  status: 'pending' | 'in_progress' | 'completed';
+  completedAt?: string;
+  dependsOn?: string[];
+  createdAt?: string;
+}
+
 /** Goal type from API */
 export interface Goal {
   id: string;
@@ -34,6 +48,7 @@ export interface Goal {
   status: 'active' | 'waiting' | 'completed' | 'paused';
   progress: number;
   planData?: Record<string, unknown>;
+  components?: GoalComponent[];
   createdAt?: string;
   updatedAt?: string;
 }

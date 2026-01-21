@@ -19,11 +19,22 @@ export type FieldType =
   | 'autocomplete'
   | 'multi-select-pills'
   | 'geolocation-button'
-  | 'currency-select';
+  | 'currency-select'
+  | 'dynamic-list';
 
 export interface FieldOption {
   value: string;
   label: string;
+}
+
+/** Configuration for dynamic-list field type */
+export interface DynamicListFieldConfig {
+  /** Fields for each item in the list */
+  itemFields: FormField[];
+  /** Label for the "Add" button */
+  addLabel: string;
+  /** Maximum number of items allowed */
+  maxItems?: number;
 }
 
 export interface FormField {
@@ -38,6 +49,8 @@ export interface FormField {
   max?: number;
   suffix?: string; // e.g., "€/month", "/h"
   derivedFrom?: string; // Field that auto-fills this one
+  /** Configuration for dynamic-list fields */
+  config?: DynamicListFieldConfig;
 }
 
 export interface StepFormConfig {
@@ -179,6 +192,41 @@ export const POPULAR_SKILLS = [
   'Fitness',
   'Swimming',
   'Tennis',
+];
+
+// =============================================================================
+// Academic Event Types
+// =============================================================================
+
+export const ACADEMIC_EVENT_TYPES: FieldOption[] = [
+  { value: 'exam', label: 'Exam / Finals' },
+  { value: 'vacation', label: 'Vacation / Break' },
+  { value: 'busy', label: 'Busy Period' },
+  { value: 'internship', label: 'Internship' },
+  { value: 'project', label: 'Project Deadline' },
+];
+
+// =============================================================================
+// Inventory Categories
+// =============================================================================
+
+export const INVENTORY_CATEGORIES: FieldOption[] = [
+  { value: 'electronics', label: 'Electronics' },
+  { value: 'clothing', label: 'Clothing' },
+  { value: 'books', label: 'Books / Textbooks' },
+  { value: 'furniture', label: 'Furniture' },
+  { value: 'sports', label: 'Sports Equipment' },
+  { value: 'other', label: 'Other' },
+];
+
+// =============================================================================
+// Trade/Borrow Types
+// =============================================================================
+
+export const TRADE_TYPES: FieldOption[] = [
+  { value: 'borrow', label: 'Borrow' },
+  { value: 'lend', label: 'Lend' },
+  { value: 'trade', label: 'Trade / Swap' },
 ];
 
 // =============================================================================
@@ -373,36 +421,126 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
     fields: [
       {
         name: 'academicEvents',
-        type: 'text',
-        label: 'Upcoming events',
-        placeholder: 'e.g., Finals next week, Spring break in March',
+        type: 'dynamic-list',
+        label: 'Academic Events',
+        config: {
+          itemFields: [
+            {
+              name: 'type',
+              type: 'select',
+              label: 'Type',
+              options: ACADEMIC_EVENT_TYPES,
+              required: true,
+            },
+            {
+              name: 'name',
+              type: 'text',
+              label: 'Name',
+              placeholder: 'e.g., Finals week',
+              required: true,
+            },
+            {
+              name: 'startDate',
+              type: 'date',
+              label: 'Start date',
+              required: true,
+            },
+            {
+              name: 'endDate',
+              type: 'date',
+              label: 'End date',
+              required: true,
+            },
+          ],
+          addLabel: 'Add event',
+          maxItems: 10,
+        },
       },
     ],
-    helpText: "List any exams, vacations, or busy periods. We'll plan around them.",
+    helpText: "Add exams, vacations, or busy periods. We'll plan around them.",
   },
 
   inventory: {
     fields: [
       {
         name: 'inventoryItems',
-        type: 'text',
-        label: 'Items to sell',
-        placeholder: 'e.g., Old laptop, textbooks, clothes',
+        type: 'dynamic-list',
+        label: 'Items to Sell',
+        config: {
+          itemFields: [
+            {
+              name: 'name',
+              type: 'text',
+              label: 'Item',
+              placeholder: 'e.g., Old laptop',
+              required: true,
+            },
+            {
+              name: 'estimatedValue',
+              type: 'number',
+              label: 'Estimated price',
+              placeholder: '50',
+              min: 0,
+              suffix: '$',
+            },
+            {
+              name: 'category',
+              type: 'select',
+              label: 'Category',
+              options: INVENTORY_CATEGORIES,
+            },
+          ],
+          addLabel: 'Add item',
+          maxItems: 20,
+        },
       },
     ],
-    helpText: 'List items you could sell for extra cash. We can help estimate values.',
+    helpText: 'List items you could sell for extra cash.',
   },
 
   trade: {
     fields: [
       {
         name: 'tradeOpportunities',
-        type: 'text',
-        label: 'Trade opportunities',
-        placeholder: "e.g., Borrow Alex's bike, swap tutoring for web design",
+        type: 'dynamic-list',
+        label: 'Borrow/Trade Opportunities',
+        config: {
+          itemFields: [
+            {
+              name: 'type',
+              type: 'select',
+              label: 'Type',
+              options: TRADE_TYPES,
+              required: true,
+            },
+            {
+              name: 'name',
+              type: 'text',
+              label: 'Item',
+              placeholder: 'e.g., Camping tent',
+              required: true,
+            },
+            {
+              name: 'partner',
+              type: 'text',
+              label: 'From whom?',
+              placeholder: 'e.g., Alex',
+            },
+            {
+              name: 'estimatedSavings',
+              type: 'number',
+              label: 'Cost saved',
+              placeholder: '50',
+              min: 0,
+              suffix: '$',
+            },
+          ],
+          addLabel: 'Add opportunity',
+          maxItems: 15,
+        },
       },
     ],
-    helpText: 'Think about what you could borrow, lend, or trade with friends.',
+    helpText: 'Things you could borrow, lend, or trade with friends.',
   },
 
   lifestyle: {

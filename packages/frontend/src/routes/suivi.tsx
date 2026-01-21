@@ -5,7 +5,7 @@
  * Uses profileService and simulationService for DuckDB persistence.
  */
 
-import { createSignal, Show, onMount } from 'solid-js';
+import { createSignal, Show, onMount, onCleanup } from 'solid-js';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
 import { ComebackAlert } from '~/components/suivi/ComebackAlert';
@@ -15,6 +15,7 @@ import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
 import { goalService, type Goal } from '~/lib/goalService';
+import { eventBus } from '~/lib/eventBus';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { ClipboardList, MessageSquare, Target, Trophy } from 'lucide-solid';
@@ -102,7 +103,11 @@ export default function SuiviPage() {
     return lowWeeks >= 2 && current > 80 && previous < 50;
   };
 
-  onMount(async () => {
+  const loadData = async (options: { silent?: boolean } = {}) => {
+    // Only show loading spinner on initial load, not on background refreshes
+    if (!options.silent) {
+      setIsLoading(true);
+    }
     try {
       // Get the current (possibly simulated) date
       const simDate = await simulationService.getCurrentDate();
@@ -217,9 +222,13 @@ export default function SuiviPage() {
           if (existingFollowup && !needsMissionGeneration) {
             setFollowup(normalizeFollowup(existingFollowup));
           } else {
+            // Track if we generate initial data (to persist and avoid flickering on refresh)
+            let generatedInitialData = false;
+
             // Generate initial energy history (demo data) using dayjs
             const energyHistory: EnergyEntry[] = existingFollowup?.energyHistory || [];
             if (energyHistory.length === 0) {
+              generatedInitialData = true;
               for (let i = 1; i <= Math.min(4, totalWeeks); i++) {
                 energyHistory.push({
                   week: i,
@@ -344,31 +353,82 @@ export default function SuiviPage() {
               });
             }
 
-            setFollowup({
+            const newFollowupData = {
               currentAmount: existingFollowup?.currentAmount ?? 0,
               weeklyTarget,
               currentWeek: existingFollowup?.currentWeek ?? 1,
               totalWeeks,
               energyHistory,
               missions,
-            });
+            };
+            setFollowup(newFollowupData);
+
+            // Persist generated data to DB to avoid flickering on refresh
+            if (generatedInitialData && profile) {
+              profileService
+                .saveProfile({ ...profile, followupData: newFollowupData }, { setActive: false })
+                .catch(() => {
+                  // Ignore save errors - data is already in local state
+                });
+            }
           }
         } else {
           // Sprint 9.5: No active goal - check if there are completed goals
           const allGoals = await goalService.listGoals(profile.id, { status: 'all' });
           const completedGoals = allGoals.filter((g) => g.status === 'completed');
           setCompletedGoalsCount(completedGoals.length);
+          setHasData(false); // Make sure hasData is false so fallback shows
         }
         // Sprint 2.3 Fix: Removed fallback to profile.goalName/goalAmount
         // The goals table is now the single source of truth for goal data
         // If no goal exists in the goals table, user needs to create one via Goals tab
       } else {
         // No profile found - user needs to complete onboarding first
-        // (No localStorage fallback to prevent cross-profile contamination)
+        setHasData(false);
+        setActiveProfile(null);
+        setSetup(null);
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  onMount(async () => {
+    // Initial load
+    await loadData();
+
+    // Debounce DATA_CHANGED to prevent rapid-fire reloads
+    let reloadTimeout: ReturnType<typeof setTimeout>;
+    const debouncedReload = () => {
+      clearTimeout(reloadTimeout);
+      reloadTimeout = setTimeout(() => {
+        loadData({ silent: true }); // Silent refresh - no loading spinner
+      }, 200); // 200ms debounce
+    };
+
+    // Event Bus Subscriptions
+    const unsubReset = eventBus.on('DATA_RESET', async () => {
+      console.log('SuiviPage: DATA_RESET received, reloading...');
+      await loadData(); // Full reload with spinner for reset
+    });
+
+    const unsubProfile = eventBus.on('PROFILE_SWITCHED', async () => {
+      console.log('SuiviPage: PROFILE_SWITCHED received, reloading...');
+      await loadData(); // Full reload with spinner for profile switch
+    });
+
+    // Also listen for general data changes (e.g. goal updates)
+    // Use debounce + silent mode to prevent flickering
+    const unsubData = eventBus.on('DATA_CHANGED', () => {
+      debouncedReload();
+    });
+
+    onCleanup(() => {
+      clearTimeout(reloadTimeout);
+      unsubReset();
+      unsubProfile();
+      unsubData();
+    });
   });
 
   // Save followup data to DuckDB only (no localStorage to prevent cross-profile contamination)

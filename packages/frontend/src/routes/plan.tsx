@@ -179,13 +179,15 @@ export default function PlanPage() {
   const [isSheetOpen, setIsSheetOpen] = createSignal(false);
 
   // Load plan data when activeProfile changes
+  // FIX: Compare before setting to break the infinite loop:
+  // setPlanData → Effect 2 (save) → DATA_CHANGED → ProfileContext refresh → Effect 1 → setPlanData...
   createEffect(async () => {
     const profile = activeProfile();
     if (profile) {
       // Load plan data from profile (cast from stored JSON)
       if (profile.planData) {
         const stored = profile.planData as unknown as PlanData;
-        setPlanData({
+        const newData = {
           ...stored,
           completedTabs: stored.completedTabs || [],
           skills: stored.skills || [],
@@ -193,15 +195,21 @@ export default function PlanPage() {
           lifestyle: stored.lifestyle || [],
           trades: stored.trades || [],
           selectedScenarios: stored.selectedScenarios || [],
-        });
+        };
+
+        // Only update if data actually changed (breaks the infinite loop)
+        const current = untrack(() => planData());
+        if (JSON.stringify(current) !== JSON.stringify(newData)) {
+          setPlanData(newData);
+        }
       }
 
       // Load primary goal to populate setup.goalDeadline if not already set
-      const currentPlanData = planData();
+      const currentPlanData = untrack(() => planData());
       if (!currentPlanData.setup?.goalDeadline) {
         const primaryGoal = await goalService.getPrimaryGoal(profile.id);
         if (primaryGoal?.deadline) {
-          setPlanData({
+          const newSetupData = {
             ...currentPlanData,
             setup: {
               ...currentPlanData.setup,
@@ -211,7 +219,11 @@ export default function PlanPage() {
               academicEvents: currentPlanData.setup?.academicEvents || [],
               commitments: currentPlanData.setup?.commitments || [],
             },
-          });
+          };
+          // Only update if setup data actually changed
+          if (JSON.stringify(currentPlanData) !== JSON.stringify(newSetupData)) {
+            setPlanData(newSetupData);
+          }
         }
       }
     }

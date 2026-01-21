@@ -1592,10 +1592,68 @@ export function OnboardingChat() {
 
   /**
    * Handle form submission from OnboardingFormStep
-   * Converts form data to a natural language message and sends it through handleSend
+   * For dynamic-list fields, directly updates profile with structured data.
+   * For other fields, converts to natural language message for LLM processing.
    */
   const handleFormSubmit = (data: Record<string, unknown>) => {
     const currentStep = step();
+
+    // Handle dynamic-list steps specially - directly update profile
+    if (currentStep === 'academic_events' && Array.isArray(data.academicEvents)) {
+      const events = (data.academicEvents as Array<Record<string, unknown>>).map((item) => ({
+        name: (item.name as string) || '',
+        type: (item.type as 'exam' | 'vacation' | 'busy') || 'busy',
+        startDate: item.startDate as string,
+        endDate: item.endDate as string,
+      }));
+      // Directly update profile and advance
+      setProfile((prev) => ({ ...prev, academicEvents: events }));
+      // Generate simple message for chat history
+      const message =
+        events.length > 0 ? events.map((e) => `${e.name} (${e.type})`).join(', ') : 'none';
+      handleSend(message);
+      return;
+    }
+
+    if (currentStep === 'inventory' && Array.isArray(data.inventoryItems)) {
+      const items = (data.inventoryItems as Array<Record<string, unknown>>).map((item) => ({
+        name: (item.name as string) || '',
+        category: (item.category as string) || 'other',
+        estimatedValue: (item.estimatedValue as number) || 0,
+      }));
+      // Directly update profile
+      setProfile((prev) => ({ ...prev, inventoryItems: items }));
+      const message =
+        items.length > 0
+          ? items
+              .map((i) => `${i.name}${i.estimatedValue ? ` ($${i.estimatedValue})` : ''}`)
+              .join(', ')
+          : 'none';
+      handleSend(message);
+      return;
+    }
+
+    if (currentStep === 'trade' && Array.isArray(data.tradeOpportunities)) {
+      const trades = (data.tradeOpportunities as Array<Record<string, unknown>>).map((item) => ({
+        type: (item.type as 'borrow' | 'lend' | 'trade') || 'borrow',
+        description: (item.name as string) || '',
+        withPerson: (item.partner as string) || '',
+        estimatedValue: (item.estimatedSavings as number) || 0,
+      }));
+      // Directly update profile
+      setProfile((prev) => ({ ...prev, tradeOpportunities: trades }));
+      const message =
+        trades.length > 0
+          ? trades
+              .map(
+                (t) =>
+                  `${t.type} ${t.description}${t.withPerson ? ` from ${t.withPerson}` : ''}${t.estimatedValue ? ` (saves $${t.estimatedValue})` : ''}`
+              )
+              .join(', ')
+          : 'none';
+      handleSend(message);
+      return;
+    }
 
     // Convert form data to a natural message based on step
     let message = '';
@@ -1630,15 +1688,6 @@ export function OnboardingChat() {
         break;
       case 'goal':
         message = `${data.goalName} - ${data.goalAmount} by ${data.goalDeadline}`;
-        break;
-      case 'academic_events':
-        message = (data.academicEvents as string) || 'none';
-        break;
-      case 'inventory':
-        message = (data.inventoryItems as string) || 'none';
-        break;
-      case 'trade':
-        message = (data.tradeOpportunities as string) || 'none';
         break;
       case 'lifestyle':
         message = (data.subscriptions as string) || 'none';
@@ -1897,6 +1946,30 @@ export function OnboardingChat() {
                     currencySymbol={getCurrencySymbolForForm()}
                     onSubmit={handleFormSubmit}
                   />
+                </div>
+              </Show>
+
+              {/* Start my plan CTA - in chat area after completion */}
+              <Show when={isComplete()}>
+                <div class="flex justify-center mt-6 mb-4 animate-in slide-in-from-bottom-4 duration-500">
+                  <GlassButton onClick={goToPlan}>
+                    Start My Plan
+                    <svg
+                      class="animate-bounce-x"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </GlassButton>
                 </div>
               </Show>
 

@@ -229,8 +229,8 @@ export function ProfileSelector(props: Props) {
         throw new Error(data.message || 'Reset failed');
       }
 
-      // 1. Notify other components/tabs immediately
-      eventBus.emit('DATA_CHANGED');
+      // 1. Notify other components/tabs immediately (use DATA_RESET for full reset)
+      eventBus.emit('DATA_RESET');
 
       // 2. Clear all localStorage
       localStorage.removeItem('studentProfile');

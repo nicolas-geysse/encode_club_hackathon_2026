@@ -25,8 +25,8 @@ export const OnboardingProgress: Component<OnboardingProgressProps> = (props) =>
     const step = props.currentStepId;
 
     // Phase 1: Identity
-    // starts after region -> name
-    if (['name', 'location', 'studies', 'skills', 'certifications'].includes(step)) return 0;
+    // starts after greeting (city) -> name
+    if (['name', 'studies', 'skills', 'certifications'].includes(step)) return 0;
 
     // Phase 2: Money
     if (['budget', 'work_preferences'].includes(step)) return 1;

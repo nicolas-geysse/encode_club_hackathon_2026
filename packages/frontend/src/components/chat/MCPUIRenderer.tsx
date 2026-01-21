@@ -58,7 +58,9 @@ export function MCPUIRenderer(props: MCPUIRendererProps) {
 function ResourceRenderer(props: { resource: UIResource; onAction?: ActionCallback }) {
   return (
     <Switch
-      fallback={<div class="text-gray-500 text-sm">Unknown UI type: {props.resource.type}</div>}
+      fallback={
+        <div class="text-muted-foreground text-sm">Unknown UI type: {props.resource.type}</div>
+      }
     >
       <Match when={props.resource.type === 'text'}>
         <TextResource params={props.resource.params} />
@@ -117,17 +119,19 @@ function TableResource(props: { params?: Record<string, unknown> }) {
   const rows = () => (props.params?.rows as Array<Record<string, unknown>>) || [];
 
   return (
-    <div class="table-resource">
+    <div class="table-resource bg-card rounded-lg border border-border overflow-hidden">
       <Show when={title()}>
-        <h4 class="font-medium text-sm mb-2">{title()}</h4>
+        <h4 class="font-medium text-sm text-foreground px-3 py-2 border-b border-border">
+          {title()}
+        </h4>
       </Show>
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead>
-            <tr class="border-b">
+            <tr class="border-b border-border bg-muted/50">
               <For each={columns()}>
                 {(col) => (
-                  <th class="px-2 py-1 text-left font-medium text-gray-600">{col.label}</th>
+                  <th class="px-3 py-2 text-left font-medium text-muted-foreground">{col.label}</th>
                 )}
               </For>
             </tr>
@@ -135,9 +139,11 @@ function TableResource(props: { params?: Record<string, unknown> }) {
           <tbody>
             <For each={rows()}>
               {(row) => (
-                <tr class="border-b border-gray-100">
+                <tr class="border-b border-border last:border-b-0">
                   <For each={columns()}>
-                    {(col) => <td class="px-2 py-1">{String(row[col.key] || '-')}</td>}
+                    {(col) => (
+                      <td class="px-3 py-2 text-foreground">{String(row[col.key] || '-')}</td>
+                    )}
                   </For>
                 </tr>
               )}
@@ -166,16 +172,16 @@ function MetricResource(props: { params?: Record<string, unknown> }) {
       ? 'text-green-500'
       : t.direction === 'down'
         ? 'text-red-500'
-        : 'text-gray-500';
+        : 'text-muted-foreground';
   });
 
   return (
-    <div class="metric-resource bg-gray-50 rounded-lg p-3">
-      <div class="text-xs text-gray-500 uppercase tracking-wide">{title()}</div>
+    <div class="metric-resource bg-card rounded-lg p-3 border border-border">
+      <div class="text-xs text-muted-foreground uppercase tracking-wide">{title()}</div>
       <div class="mt-1 flex items-baseline gap-1">
-        <span class="text-2xl font-bold">{String(value())}</span>
+        <span class="text-2xl font-bold text-foreground">{String(value())}</span>
         <Show when={unit()}>
-          <span class="text-sm text-gray-500">{unit()}</span>
+          <span class="text-sm text-muted-foreground">{unit()}</span>
         </Show>
         <Show when={trend()}>
           <span class={`text-sm ${trendClass()}`}>
@@ -184,7 +190,7 @@ function MetricResource(props: { params?: Record<string, unknown> }) {
         </Show>
       </div>
       <Show when={subtitle()}>
-        <div class="text-xs text-gray-500 mt-1">{subtitle()}</div>
+        <div class="text-xs text-muted-foreground mt-1">{subtitle()}</div>
       </Show>
     </div>
   );
@@ -223,12 +229,12 @@ function LinkResource(props: { params?: Record<string, unknown> }) {
         href={url()}
         target="_blank"
         rel="noopener noreferrer"
-        class="text-blue-600 hover:text-blue-800 underline"
+        class="text-primary hover:text-primary/80 underline"
       >
         {label()}
       </a>
       <Show when={description()}>
-        <p class="text-xs text-gray-500 mt-1">{description()}</p>
+        <p class="text-xs text-muted-foreground mt-1">{description()}</p>
       </Show>
     </div>
   );
@@ -254,13 +260,13 @@ function ActionResource(props: { params?: Record<string, unknown>; onAction?: Ac
     const base = 'px-3 py-1.5 text-sm rounded-md transition-colors';
     switch (variant()) {
       case 'primary':
-        return `${base} bg-blue-600 text-white hover:bg-blue-700`;
+        return `${base} bg-primary text-primary-foreground hover:bg-primary/90`;
       case 'outline':
-        return `${base} border border-gray-300 hover:bg-gray-50`;
+        return `${base} border border-border text-foreground hover:bg-muted`;
       case 'ghost':
-        return `${base} hover:bg-gray-100`;
+        return `${base} text-foreground hover:bg-muted`;
       default:
-        return base;
+        return `${base} text-foreground`;
     }
   });
 
@@ -422,9 +428,9 @@ function ChartPlaceholder(props: { params?: Record<string, unknown> }) {
   const type = () => (props.params?.type as string) || 'bar';
 
   return (
-    <div class="chart-placeholder bg-gray-50 rounded-lg p-4 text-center">
-      <div class="text-sm text-gray-500">{title()}</div>
-      <div class="text-xs text-gray-400 mt-1">({type()} chart)</div>
+    <div class="chart-placeholder bg-card rounded-lg p-4 text-center border border-border">
+      <div class="text-sm text-foreground">{title()}</div>
+      <div class="text-xs text-muted-foreground mt-1">({type()} chart)</div>
     </div>
   );
 }
@@ -445,7 +451,7 @@ function simpleMarkdown(text: string): string {
       // Italic
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       // Code
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded text-sm">$1</code>')
+      .replace(/`(.*?)`/g, '<code class="bg-muted px-1 rounded text-sm">$1</code>')
       // Lists
       .replace(/^- (.*$)/gm, '<li class="ml-4">$1</li>')
       .replace(/(<li.*<\/li>\n)+/g, '<ul class="list-disc mb-2">$&</ul>')

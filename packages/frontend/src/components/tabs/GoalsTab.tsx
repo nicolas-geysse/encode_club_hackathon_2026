@@ -6,11 +6,10 @@
  * Uses goalService for DuckDB persistence.
  */
 
-import { createSignal, createMemo, createEffect, Show, For, onMount, onCleanup } from 'solid-js';
-import { goalService, type Goal, type GoalComponent } from '~/lib/goalService';
-import { profileService } from '~/lib/profileService';
+import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
+import { goalService } from '~/lib/goalService';
+import { useProfile, type Goal, type GoalComponent } from '~/lib/profileContext';
 import { toast } from '~/lib/notificationStore';
-import { eventBus } from '~/lib/eventBus';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('GoalsTab');
@@ -74,13 +73,20 @@ interface ComponentFormItem {
 }
 
 export function GoalsTab(props: GoalsTabProps) {
+  // Use ProfileContext for goals (single source of truth, handles DATA_CHANGED)
+  const context = useProfile();
+  const goals = () => context.goals();
+  const profile = () => context.profile();
+
   // Currency from props, defaults to USD
   const currency = () => props.currency || 'USD';
   const currencySymbol = () => getCurrencySymbol(currency());
 
-  const [loading, setLoading] = createSignal(true);
-  const [goals, setGoals] = createSignal<Goal[]>([]);
-  const [profileId, setProfileId] = createSignal<string | null>(null);
+  // Derived profileId from context
+  const profileId = () => profile()?.id || null;
+
+  // Combine context loading with local initialization
+  const loading = () => context.loading();
   const [showNewGoalForm, setShowNewGoalForm] = createSignal(false);
   const [editingGoalId, setEditingGoalId] = createSignal<string | null>(null);
 
@@ -172,78 +178,52 @@ export function GoalsTab(props: GoalsTabProps) {
     }
   });
 
-  // Listen for DATA_CHANGED events BEFORE async operations
-  // This ensures we catch events even if they fire during initial load
+  // ProfileContext handles DATA_CHANGED events and refreshes goals
+  // GoalsTab just uses the context's goals signal (single source of truth)
+
+  // Initialize form state on mount
   onMount(() => {
-    logger.info('GoalsTab mounted, registering DATA_CHANGED listener');
+    logger.info('GoalsTab mounted, using ProfileContext for goals');
 
-    const unsubscribe = eventBus.on('DATA_CHANGED', () => {
-      logger.info('DATA_CHANGED received, refreshing goals');
-      refreshGoals();
-    });
-
-    // Cleanup listener on unmount
-    onCleanup(() => {
-      logger.info('GoalsTab unmounting, removing DATA_CHANGED listener');
-      unsubscribe();
-    });
+    // BUG O FIX: Only set default deadline if no initialData provided AND no existing deadline
+    if (!goalDeadline() && !props.initialData?.goalDeadline) {
+      const defaultDeadline = new Date();
+      defaultDeadline.setDate(defaultDeadline.getDate() + 56);
+      setGoalDeadline(defaultDeadline.toISOString().split('T')[0]);
+    }
   });
 
-  // Load goals on mount (separate effect to not block listener registration)
-  onMount(async () => {
-    try {
-      const profile = await profileService.loadActiveProfile();
-      if (profile) {
-        setProfileId(profile.id);
-        const userGoals = await goalService.listGoals(profile.id, { status: 'all' });
-        setGoals(userGoals);
-
-        // If no goals and we have initial data from plan, pre-fill the form
-        if (userGoals.length === 0 && props.initialData?.goalName) {
-          setShowNewGoalForm(true);
-        }
-      }
-
-      // BUG O FIX: Only set default deadline if no initialData provided AND no existing deadline
-      // This prevents overwriting deadline loaded from props.initialData
-      if (!goalDeadline() && !props.initialData?.goalDeadline) {
-        const defaultDeadline = new Date();
-        defaultDeadline.setDate(defaultDeadline.getDate() + 56);
-        setGoalDeadline(defaultDeadline.toISOString().split('T')[0]);
-      }
-    } catch {
-      toast.error('Load failed', 'Could not load goals.');
-    } finally {
-      setLoading(false);
+  // Show new goal form if no goals and we have initial data
+  createEffect(() => {
+    const currentGoals = goals();
+    if (currentGoals.length === 0 && props.initialData?.goalName && !showNewGoalForm()) {
+      setShowNewGoalForm(true);
     }
   });
 
   // Feature K: Auto-complete goals when progress reaches 100%
+  // FIX: Track processed goal IDs to prevent duplicate auto-complete calls
+  // which could cause flickering when the effect re-runs after DATA_CHANGED
+  const processedAutoCompleteGoals = new Set<string>();
+
   createEffect(() => {
     const currentGoals = goals();
     for (const goal of currentGoals) {
       if (goal.progress >= 100 && goal.status === 'active') {
+        // Skip if already processed (prevents duplicate calls during refresh cycles)
+        if (processedAutoCompleteGoals.has(goal.id)) continue;
+        processedAutoCompleteGoals.add(goal.id);
+
         // Auto-mark as completed and show celebration
+        // goalService.updateGoal emits DATA_CHANGED, ProfileContext handles refresh
         goalService.updateGoal({ id: goal.id, status: 'completed' }).then(() => {
-          refreshGoals();
           toast.success('Goal achieved!', `"${goal.name}" has been completed!`);
         });
       }
     }
   });
 
-  // Refresh goals
-  const refreshGoals = async () => {
-    const pid = profileId();
-    if (!pid) {
-      logger.warn('refreshGoals: No profileId, skipping');
-      return;
-    }
-    logger.info('Refreshing goals', { profileId: pid });
-    const userGoals = await goalService.listGoals(pid, { status: 'all' });
-    logger.info('Goals refreshed', { count: userGoals.length });
-    setGoals(userGoals);
-  };
+  // refreshGoals is now from ProfileContext (single source of truth)
 
   // Component handlers
   const addComponent = () => {
@@ -392,8 +372,7 @@ export function GoalsTab(props: GoalsTabProps) {
       });
     }
 
-    // Refresh goals list
-    await refreshGoals();
+    // Note: goalService emits DATA_CHANGED, debounced listener handles refresh
     resetForm();
 
     // Also call onComplete for backward compatibility with plan.tsx
@@ -464,8 +443,8 @@ export function GoalsTab(props: GoalsTabProps) {
 
   const handleDelete = async (goalId: string) => {
     // Note: ConfirmDialog is already shown by GoalTimelineItem, no need for browser confirm()
+    // goalService.deleteGoal emits DATA_CHANGED, debounced listener handles refresh
     await goalService.deleteGoal(goalId);
-    await refreshGoals();
   };
 
   const handleToggleStatus = async (goal: Goal) => {
@@ -484,12 +463,12 @@ export function GoalsTab(props: GoalsTabProps) {
       await archiveActiveGoals();
     }
 
+    // goalService.updateGoal emits DATA_CHANGED, debounced listener handles refresh
     await goalService.updateGoal({
       id: goal.id,
       status: newStatus,
       progress: newStatus === 'completed' ? 100 : goal.progress,
     });
-    await refreshGoals();
   };
 
   // Handle component status update from timeline
@@ -512,8 +491,7 @@ export function GoalsTab(props: GoalsTabProps) {
         return;
       }
 
-      // Refresh goals to get updated progress
-      await refreshGoals();
+      // Note: API emits DATA_CHANGED via eventBus, debounced listener handles refresh
     } catch {
       toast.error('Update failed', 'Could not update component.');
     }

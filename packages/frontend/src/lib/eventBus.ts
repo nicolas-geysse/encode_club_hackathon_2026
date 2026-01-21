@@ -6,7 +6,11 @@
  */
 
 // Define supported event types
-export type AppEvent = 'DATA_CHANGED' | 'PROFILE_SWITCHED' | 'SIMULATION_UPDATED';
+export type AppEvent =
+  | 'DATA_CHANGED' // Generic data update (skills, inventory, etc.)
+  | 'DATA_RESET' // Full data reset (user clicked "Reset all data")
+  | 'PROFILE_SWITCHED'
+  | 'SIMULATION_UPDATED';
 
 class GlobalEventBus {
   private channel: BroadcastChannel;
