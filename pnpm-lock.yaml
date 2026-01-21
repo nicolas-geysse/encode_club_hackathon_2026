@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      groq-sdk:
+        specifier: ^0.37.0
+        version: 0.37.0(encoding@0.1.13)
+      opik:
+        specifier: ^1.9.92
+        version: 1.9.92(chokidar@3.6.0)(zod@4.3.5)
       sharp:
         specifier: 0.32.6
         version: 0.32.6
@@ -18,6 +24,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.0.0
         version: 8.53.0(eslint@8.57.1)(typescript@5.9.3)
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       eslint:
         specifier: ^8.57.0
         version: 8.57.1
@@ -36,6 +45,9 @@ importers:
       prettier:
         specifier: ^3.2.0
         version: 3.8.0
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
 
   packages/frontend:
     dependencies:
@@ -4216,6 +4228,12 @@ packages:
     peerDependencies:
       zod: ^3.25.55 || ^4.0.0
 
+  opik@1.9.92:
+    resolution: {integrity: sha512-RLK5pcE4LjTodyJz392Qtv60BzMRS561bYMpWNRLCRwgQEbbIP0fWOgfWI9BwuEsK5s1JIBN3CbsEd1JLRJLcQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.55 || ^4.0.0
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -7036,7 +7054,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 20.19.30
+      '@types/node': 22.19.7
       form-data: 4.0.5
 
   '@types/node@18.19.130':
@@ -10200,6 +10218,39 @@ snapshots:
       - supports-color
 
   opik@1.9.87(chokidar@3.6.0)(zod@4.3.5):
+    dependencies:
+      '@ai-sdk/anthropic': 3.0.15(zod@4.3.5)
+      '@ai-sdk/google': 3.0.10(zod@4.3.5)
+      '@ai-sdk/google-vertex': 4.0.17(zod@4.3.5)
+      '@ai-sdk/openai': 3.0.12(zod@4.3.5)
+      ai: 6.0.39(zod@4.3.5)
+      ansi-escapes: 7.2.0
+      boxen: 8.0.1
+      chalk: 5.6.2
+      date-fns: 3.6.0
+      dotenv: 16.6.1
+      fast-deep-equal: 3.1.3
+      fast-json-stable-stringify: 2.1.0
+      form-data-encoder: 4.1.0
+      formdata-node: 6.0.3
+      ini: 5.0.0
+      jest-diff: 29.7.0
+      mustache: 4.2.0
+      node-fetch: 3.3.2
+      nunjucks: 3.2.4(chokidar@3.6.0)
+      ora: 8.2.0
+      qs: 6.14.1
+      readable-stream: 4.7.0
+      tslog: 4.10.2
+      url-join: 5.0.0
+      uuid: 11.1.0
+      xxhash-wasm: 1.1.0
+      zod: 4.3.5
+    transitivePeerDependencies:
+      - chokidar
+      - supports-color
+
+  opik@1.9.92(chokidar@3.6.0)(zod@4.3.5):
     dependencies:
       '@ai-sdk/anthropic': 3.0.15(zod@4.3.5)
       '@ai-sdk/google': 3.0.10(zod@4.3.5)
