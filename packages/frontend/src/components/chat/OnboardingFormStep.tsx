@@ -5,15 +5,21 @@
  * Supports autocomplete, multi-select pills, geolocation, and more.
  */
 
-import { createSignal, For, Show, createEffect } from 'solid-js';
+import { createSignal, For, Show, createEffect, Index, Switch, Match } from 'solid-js';
+import { createStore, produce } from 'solid-js/store';
 import type { OnboardingStep } from '../../lib/chat/types';
-import { getStepFormConfig, type FormField } from '../../lib/chat/stepForms';
+import {
+  getStepFormConfig,
+  type FormField,
+  type DynamicListFieldConfig,
+} from '../../lib/chat/stepForms';
 import {
   getCurrentLocation,
   isGeolocationSupported,
   type GeolocationResult,
   type GeolocationError,
 } from '../../lib/geolocation';
+import MapPicker, { type MapCoordinates } from './MapPicker';
 
 // =============================================================================
 // Types
@@ -84,16 +90,16 @@ function AutocompleteInput(props: {
         onFocus={() => props.value && handleInput({ target: inputRef } as unknown as InputEvent)}
         onBlur={handleBlur}
         placeholder={props.field.placeholder}
-        class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
       <Show when={showSuggestions() && filteredSuggestions().length > 0}>
-        <div class="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+        <div class="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
           <For each={filteredSuggestions()}>
             {(suggestion) => (
               <button
                 type="button"
                 onClick={() => handleSelect(suggestion)}
-                class="w-full px-3 py-2 text-left text-white hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg"
+                class="w-full px-3 py-2 text-left text-foreground hover:bg-muted first:rounded-t-lg last:rounded-b-lg"
               >
                 {suggestion}
               </button>
@@ -149,9 +155,13 @@ function MultiSelectPills(props: {
         <div class="flex flex-wrap gap-2">
           <For each={props.selected}>
             {(item) => (
-              <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-sm rounded-full">
+              <span class="inline-flex items-center gap-1 px-2 py-1 bg-primary text-primary-foreground text-sm rounded-full">
                 {item}
-                <button type="button" onClick={() => removeItem(item)} class="hover:text-red-300">
+                <button
+                  type="button"
+                  onClick={() => removeItem(item)}
+                  class="hover:text-destructive"
+                >
                   ×
                 </button>
               </span>
@@ -173,16 +183,16 @@ function MultiSelectPills(props: {
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           onKeyDown={handleKeyDown}
           placeholder={props.field.placeholder || 'Type to add...'}
-          class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <Show when={showSuggestions() && availableSuggestions().length > 0}>
-          <div class="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          <div class="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
             <For each={availableSuggestions().slice(0, 8)}>
               {(suggestion) => (
                 <button
                   type="button"
                   onClick={() => addItem(suggestion)}
-                  class="w-full px-3 py-2 text-left text-white hover:bg-slate-700"
+                  class="w-full px-3 py-2 text-left text-foreground hover:bg-muted"
                 >
                   {suggestion}
                 </button>
@@ -229,7 +239,7 @@ function GeolocationButton(props: {
       type="button"
       onClick={handleClick}
       disabled={isLoading() || !isGeolocationSupported()}
-      class="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-lg transition-colors"
+      class="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 disabled:bg-muted/50 disabled:text-muted-foreground text-foreground rounded-lg transition-colors"
     >
       <Show
         when={!isLoading()}
@@ -282,6 +292,358 @@ function GeolocationButton(props: {
   );
 }
 
+/**
+ * DynamicSubField - Individual field within a dynamic list item
+ * This is a proper SolidJS component to preserve DOM identity on updates.
+ */
+function DynamicSubField(props: {
+  subField: FormField;
+  value: unknown;
+  currencySymbol: string;
+  onUpdate: (value: unknown) => void;
+}) {
+  return (
+    <Switch>
+      <Match when={props.subField.type === 'text'}>
+        <input
+          type="text"
+          value={(props.value as string) || ''}
+          onInput={(e) => props.onUpdate(e.currentTarget.value)}
+          placeholder={props.subField.placeholder}
+          required={props.subField.required}
+          class="w-full px-2 py-1.5 bg-background border border-input rounded text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
+        />
+      </Match>
+      <Match when={props.subField.type === 'number'}>
+        <div class="flex items-center gap-1">
+          <input
+            type="number"
+            value={(props.value as number) || ''}
+            onInput={(e) => props.onUpdate(parseInt(e.currentTarget.value, 10) || 0)}
+            placeholder={props.subField.placeholder}
+            min={props.subField.min}
+            max={props.subField.max}
+            required={props.subField.required}
+            class="flex-1 px-2 py-1.5 bg-background border border-input rounded text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
+          />
+          <Show when={props.subField.suffix}>
+            <span class="text-muted-foreground text-xs">
+              {props.subField.suffix === '$' ? props.currencySymbol : props.subField.suffix}
+            </span>
+          </Show>
+        </div>
+      </Match>
+      <Match when={props.subField.type === 'select'}>
+        <select
+          value={(props.value as string) || ''}
+          onChange={(e) => props.onUpdate(e.currentTarget.value)}
+          required={props.subField.required}
+          class="w-full px-2 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
+        >
+          <option value="">Select...</option>
+          <For each={props.subField.options}>
+            {(option) => <option value={option.value}>{option.label}</option>}
+          </For>
+        </select>
+      </Match>
+      {/* Default: text input */}
+      <Match when={!['text', 'number', 'select', 'date'].includes(props.subField.type)}>
+        <input
+          type="text"
+          value={(props.value as string) || ''}
+          onInput={(e) => props.onUpdate(e.currentTarget.value)}
+          placeholder={props.subField.placeholder}
+          class="w-full px-2 py-1.5 bg-background border border-input rounded text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
+        />
+      </Match>
+    </Switch>
+  );
+}
+
+/**
+ * DynamicDatePair - Renders startDate and endDate with "Same day" checkbox between them
+ */
+function DynamicDatePair(props: {
+  startDateField: FormField;
+  endDateField: FormField;
+  startValue: string;
+  endValue: string;
+  onUpdateStart: (value: string) => void;
+  onUpdateEnd: (value: string) => void;
+}) {
+  const [sameDay, setSameDay] = createSignal(
+    Boolean(props.startValue && props.startValue === props.endValue)
+  );
+
+  // When sameDay is toggled on, sync endDate to startDate
+  const handleSameDayChange = (checked: boolean) => {
+    setSameDay(checked);
+    if (checked && props.startValue) {
+      props.onUpdateEnd(props.startValue);
+    }
+  };
+
+  // When startDate changes and sameDay is active, update endDate too
+  const handleStartDateChange = (value: string) => {
+    props.onUpdateStart(value);
+    if (sameDay()) {
+      props.onUpdateEnd(value);
+    }
+  };
+
+  return (
+    <>
+      {/* Start date */}
+      <div class="col-span-1">
+        <label class="block text-xs text-muted-foreground mb-1">
+          {props.startDateField.label}
+          {props.startDateField.required && <span class="text-destructive ml-0.5">*</span>}
+        </label>
+        <input
+          type="date"
+          value={props.startValue || ''}
+          onInput={(e) => handleStartDateChange(e.currentTarget.value)}
+          required={props.startDateField.required}
+          class="w-full px-2 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
+        />
+      </div>
+
+      {/* Same day checkbox - placed between dates */}
+      <div class="col-span-2 flex items-center justify-center -my-1">
+        <label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+          <input
+            type="checkbox"
+            checked={sameDay()}
+            onChange={(e) => handleSameDayChange(e.currentTarget.checked)}
+            class="w-3.5 h-3.5 rounded border-input accent-primary"
+          />
+          Same day event
+        </label>
+      </div>
+
+      {/* End date */}
+      <div class="col-span-1">
+        <label class="block text-xs text-muted-foreground mb-1">
+          {props.endDateField.label}
+          {props.endDateField.required && <span class="text-destructive ml-0.5">*</span>}
+        </label>
+        <input
+          type="date"
+          value={props.endValue || ''}
+          onInput={(e) => props.onUpdateEnd(e.currentTarget.value)}
+          required={props.endDateField.required}
+          disabled={sameDay()}
+          class="w-full px-2 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+      </div>
+    </>
+  );
+}
+
+/**
+ * DynamicListItem - A single item in the dynamic list
+ * Proper component to preserve DOM identity and prevent re-renders.
+ */
+function DynamicListItem(props: {
+  item: Record<string, unknown>;
+  index: number;
+  config: DynamicListFieldConfig;
+  currencySymbol: string;
+  onUpdate: (field: string, value: unknown) => void;
+  onRemove: () => void;
+}) {
+  // Check if this config has startDate/endDate pair for the "Same day" feature
+  const hasDatePair = () => {
+    const fields = props.config.itemFields;
+    return fields.some((f) => f.name === 'startDate') && fields.some((f) => f.name === 'endDate');
+  };
+
+  const getDateFields = () => {
+    const startDate = props.config.itemFields.find((f) => f.name === 'startDate');
+    const endDate = props.config.itemFields.find((f) => f.name === 'endDate');
+    return { startDate, endDate };
+  };
+
+  // Non-date fields (or all fields if no date pair)
+  const nonDateFields = () => {
+    if (!hasDatePair()) {
+      return props.config.itemFields;
+    }
+    return props.config.itemFields.filter((f) => f.name !== 'startDate' && f.name !== 'endDate');
+  };
+
+  return (
+    <div class="p-3 bg-muted/50 rounded-lg border border-border space-y-2">
+      <div class="flex justify-between items-center">
+        <span class="text-xs text-muted-foreground font-medium">#{props.index + 1}</span>
+        <button
+          type="button"
+          onClick={() => props.onRemove()}
+          class="p-1 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive transition-colors"
+          title="Remove"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+        </button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        {/* Render non-date fields */}
+        <For each={nonDateFields()}>
+          {(subField) => (
+            <div class={subField.type === 'date' || subField.name === 'name' ? 'col-span-1' : ''}>
+              <label class="block text-xs text-muted-foreground mb-1">
+                {subField.label}
+                {subField.required && <span class="text-destructive ml-0.5">*</span>}
+              </label>
+              <DynamicSubField
+                subField={subField}
+                value={props.item[subField.name]}
+                currencySymbol={props.currencySymbol}
+                onUpdate={(val) => props.onUpdate(subField.name, val)}
+              />
+            </div>
+          )}
+        </For>
+
+        {/* Render date pair with "Same day" checkbox if applicable */}
+        <Show when={hasDatePair()}>
+          {(() => {
+            const { startDate, endDate } = getDateFields();
+            return (
+              <Show when={startDate && endDate}>
+                <DynamicDatePair
+                  startDateField={startDate!}
+                  endDateField={endDate!}
+                  startValue={(props.item.startDate as string) || ''}
+                  endValue={(props.item.endDate as string) || ''}
+                  onUpdateStart={(val) => props.onUpdate('startDate', val)}
+                  onUpdateEnd={(val) => props.onUpdate('endDate', val)}
+                />
+              </Show>
+            );
+          })()}
+        </Show>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Dynamic List Field for multi-item inputs (events, inventory, trades)
+ * Uses createStore + Index for fine-grained reactivity without DOM recreation.
+ */
+function DynamicListField(props: {
+  field: FormField;
+  items: Array<Record<string, unknown>>;
+  onChange: (items: Array<Record<string, unknown>>) => void;
+  currencySymbol: string;
+}) {
+  const config = () => props.field.config as DynamicListFieldConfig;
+
+  // Use a store for fine-grained reactivity
+  const [items, setItems] = createStore<Array<Record<string, unknown>>>(props.items);
+
+  // Track if we should sync from props (for external changes)
+  let skipSync = false;
+
+  // Sync store to parent onChange
+  createEffect(() => {
+    if (!skipSync) {
+      // Convert store back to plain array for parent
+      const plainArray = items.map((item) => ({ ...item }));
+      props.onChange(plainArray);
+    }
+    skipSync = false;
+  });
+
+  // Sync from props when initialValues change (e.g., form reset)
+  createEffect(() => {
+    const propsItems = props.items;
+    // Only sync if lengths differ or it's a complete reset
+    if (propsItems.length !== items.length) {
+      skipSync = true;
+      setItems(propsItems);
+    }
+  });
+
+  const addItem = () => {
+    const cfg = config();
+    if (cfg.maxItems && items.length >= cfg.maxItems) return;
+
+    const emptyItem: Record<string, unknown> = { id: `item_${Date.now()}` };
+    cfg.itemFields.forEach((f) => {
+      emptyItem[f.name] = '';
+    });
+    setItems(produce((draft) => draft.push(emptyItem)));
+  };
+
+  const removeItem = (index: number) => {
+    setItems(produce((draft) => draft.splice(index, 1)));
+  };
+
+  const updateItem = (index: number, fieldName: string, value: unknown) => {
+    // Fine-grained update - only changes the specific field
+    setItems(index, fieldName, value);
+  };
+
+  return (
+    <div class="space-y-3">
+      {/* List of items using Index for stable identity by index */}
+      <Index each={items}>
+        {(item, index) => (
+          <DynamicListItem
+            item={item()}
+            index={index}
+            config={config()}
+            currencySymbol={props.currencySymbol}
+            onUpdate={(field, val) => updateItem(index, field, val)}
+            onRemove={() => removeItem(index)}
+          />
+        )}
+      </Index>
+
+      {/* Add button */}
+      <button
+        type="button"
+        onClick={addItem}
+        disabled={(() => {
+          const max = config().maxItems;
+          return max != null && items.length >= max;
+        })()}
+        class="w-full px-3 py-2 border-2 border-dashed border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+        {config().addLabel}
+      </button>
+    </div>
+  );
+}
+
 // =============================================================================
 // Main Component
 // =============================================================================
@@ -289,6 +651,11 @@ function GeolocationButton(props: {
 export default function OnboardingFormStep(props: OnboardingFormStepProps) {
   const [formData, setFormData] = createSignal<Record<string, unknown>>({});
   const [geoError, setGeoError] = createSignal<string | null>(null);
+  const [detectedLocation, setDetectedLocation] = createSignal<{
+    city: string;
+    coordinates: MapCoordinates;
+  } | null>(null);
+  const [showMapPicker, setShowMapPicker] = createSignal(false);
 
   // Get form config for current step
   const config = () => getStepFormConfig(props.step);
@@ -318,6 +685,23 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
     if (result.currency) {
       updateField('currency', result.currency);
     }
+    // Store coordinates for map picker
+    setDetectedLocation({
+      city: result.city,
+      coordinates: {
+        latitude: result.coordinates.latitude,
+        longitude: result.coordinates.longitude,
+      },
+    });
+    // Store coordinates in form data
+    updateField('coordinates', result.coordinates);
+    // Show the map picker
+    setShowMapPicker(true);
+  };
+
+  // Handle map coordinates change
+  const handleMapCoordinatesChange = (coords: MapCoordinates) => {
+    updateField('coordinates', coords);
   };
 
   // Handle geolocation error
@@ -341,7 +725,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             onInput={(e) => updateField(field.name, e.currentTarget.value)}
             placeholder={field.placeholder}
             required={field.required}
-            class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         );
 
@@ -349,7 +733,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
         return (
           <div class="flex items-center gap-2">
             <Show when={field.suffix?.startsWith(currencySymbol())}>
-              <span class="text-slate-400">{currencySymbol()}</span>
+              <span class="text-muted-foreground">{currencySymbol()}</span>
             </Show>
             <input
               type="number"
@@ -359,10 +743,10 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
               min={field.min}
               max={field.max}
               required={field.required}
-              class="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="flex-1 px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <Show when={field.suffix}>
-              <span class="text-slate-400 text-sm">{field.suffix}</span>
+              <span class="text-muted-foreground text-sm">{field.suffix}</span>
             </Show>
           </div>
         );
@@ -374,7 +758,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             value={(value() as string) || ''}
             onInput={(e) => updateField(field.name, e.currentTarget.value)}
             required={field.required}
-            class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         );
 
@@ -385,7 +769,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             value={(value() as string) || ''}
             onChange={(e) => updateField(field.name, e.currentTarget.value)}
             required={field.required}
-            class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Select...</option>
             <For each={field.options}>
@@ -413,6 +797,16 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
           />
         );
 
+      case 'dynamic-list':
+        return (
+          <DynamicListField
+            field={field}
+            items={(value() as Array<Record<string, unknown>>) || []}
+            onChange={(items) => updateField(field.name, items)}
+            currencySymbol={currencySymbol()}
+          />
+        );
+
       default:
         return (
           <input
@@ -420,7 +814,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             value={(value() as string) || ''}
             onInput={(e) => updateField(field.name, e.currentTarget.value)}
             placeholder={field.placeholder}
-            class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         );
     }
@@ -429,16 +823,13 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
   return (
     <Show when={config()} fallback={null}>
       {(cfg) => (
-        <form
-          onSubmit={handleSubmit}
-          class="space-y-4 bg-slate-900/50 rounded-lg p-4 border border-slate-700"
-        >
+        <form onSubmit={handleSubmit} class="space-y-4 bg-card rounded-lg p-4 border border-border">
           <For each={cfg().fields}>
             {(field) => (
               <div class="space-y-1">
-                <label class="block text-sm font-medium text-slate-300">
+                <label class="block text-sm font-medium text-foreground">
                   {field.label}
-                  {field.required && <span class="text-red-400 ml-1">*</span>}
+                  {field.required && <span class="text-destructive ml-1">*</span>}
                 </label>
                 {renderField(field)}
               </div>
@@ -447,26 +838,38 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
 
           {/* Geolocation button for greeting step */}
           <Show when={props.step === 'greeting'}>
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col gap-3">
               <GeolocationButton
                 onLocationDetected={handleLocationDetected}
                 onError={handleGeoError}
               />
               <Show when={geoError()}>
-                <p class="text-sm text-amber-400">{geoError()}</p>
+                <p class="text-sm text-amber-500">{geoError()}</p>
+              </Show>
+
+              {/* Map picker after geolocation detection */}
+              <Show when={showMapPicker() && detectedLocation()}>
+                {(location) => (
+                  <MapPicker
+                    initialCoordinates={location().coordinates}
+                    cityName={location().city}
+                    onCoordinatesChange={handleMapCoordinatesChange}
+                    height="180px"
+                  />
+                )}
               </Show>
             </div>
           </Show>
 
           {/* Help text */}
           <Show when={cfg().helpText}>
-            <p class="text-xs text-slate-400">{cfg().helpText}</p>
+            <p class="text-xs text-muted-foreground">{cfg().helpText}</p>
           </Show>
 
           {/* Submit button */}
           <button
             type="submit"
-            class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+            class="w-full px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors"
           >
             Continue
           </button>
