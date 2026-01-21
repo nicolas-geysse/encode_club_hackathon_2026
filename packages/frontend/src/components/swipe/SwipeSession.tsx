@@ -22,6 +22,7 @@ interface SwipeSessionProps {
   scenarios: Scenario[];
   initialPreferences: UserPreferences;
   currency?: Currency;
+  profileId?: string;
   onComplete: (
     accepted: Scenario[],
     rejected: Scenario[],
@@ -151,6 +152,22 @@ export function SwipeSession(props: SwipeSessionProps) {
     // Update preferences using user's adjustments
     const updatedPrefs = updatePreferences(preferences(), scenario, direction, adjustments());
     setPreferences(updatedPrefs);
+
+    // Trace to Opik (fire-and-forget, non-blocking)
+    fetch('/api/swipe-trace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        direction,
+        scenarioId: scenario.id,
+        scenarioType: scenario.category,
+        scenarioTitle: scenario.title,
+        oldWeights: previousPrefs,
+        newWeights: updatedPrefs,
+        timeSpentMs: timeSpent,
+        profileId: props.profileId,
+      }),
+    }).catch(() => {}); // Non-blocking
 
     // Save to history for undo (including current adjustments)
     const currentAdjustments = { ...adjustments() };

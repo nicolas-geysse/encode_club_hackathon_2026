@@ -1,0 +1,125 @@
+/**
+ * Swipe Trace API Route
+ *
+ * Traces swipe preference updates to Opik for observability.
+ * Captures swipe direction, scenario details, and preference weight changes.
+ */
+
+import type { APIEvent } from '@solidjs/start/server';
+import { trace, logFeedbackScores, getTraceUrl } from '../../lib/opik';
+
+interface SwipeTraceRequest {
+  direction: 'left' | 'right' | 'up' | 'down';
+  scenarioId: string;
+  scenarioType?: string;
+  scenarioTitle: string;
+  oldWeights: {
+    effortSensitivity: number;
+    hourlyRatePriority: number;
+    timeFlexibility: number;
+    incomeStability: number;
+  };
+  newWeights: {
+    effortSensitivity: number;
+    hourlyRatePriority: number;
+    timeFlexibility: number;
+    incomeStability: number;
+  };
+  timeSpentMs: number;
+  profileId?: string;
+}
+
+export async function POST(event: APIEvent) {
+  try {
+    const data = (await event.request.json()) as SwipeTraceRequest;
+
+    // Calculate weight changes
+    const weightChanges = {
+      effortSensitivity: data.newWeights.effortSensitivity - data.oldWeights.effortSensitivity,
+      hourlyRatePriority: data.newWeights.hourlyRatePriority - data.oldWeights.hourlyRatePriority,
+      timeFlexibility: data.newWeights.timeFlexibility - data.oldWeights.timeFlexibility,
+      incomeStability: data.newWeights.incomeStability - data.oldWeights.incomeStability,
+    };
+
+    // Trace to Opik
+    const result = await trace(
+      'swipe.preference_update',
+      async (ctx) => {
+        ctx.setAttributes({
+          'swipe.direction': data.direction,
+          'swipe.scenario_id': data.scenarioId,
+          'swipe.scenario_type': data.scenarioType || 'unknown',
+          'swipe.scenario_title': data.scenarioTitle,
+          'swipe.time_spent_ms': data.timeSpentMs,
+          'swipe.profile_id': data.profileId || 'anonymous',
+          // Weight changes
+          'swipe.weight_delta.effort': weightChanges.effortSensitivity.toFixed(3),
+          'swipe.weight_delta.rate': weightChanges.hourlyRatePriority.toFixed(3),
+          'swipe.weight_delta.flex': weightChanges.timeFlexibility.toFixed(3),
+          'swipe.weight_delta.stability': weightChanges.incomeStability.toFixed(3),
+        });
+
+        ctx.setOutput({
+          direction: data.direction,
+          scenarioTitle: data.scenarioTitle,
+          weightChanges,
+          newWeights: data.newWeights,
+        });
+
+        // Log feedback score based on swipe type
+        const traceId = ctx.getTraceId();
+        if (traceId) {
+          const swipeScore =
+            data.direction === 'up'
+              ? 1.0 // Super like
+              : data.direction === 'right'
+                ? 0.8 // Accept
+                : data.direction === 'down'
+                  ? 0.2 // Meh
+                  : 0.0; // Left = reject
+
+          await logFeedbackScores(traceId, [
+            {
+              name: 'swipe_preference',
+              value: swipeScore,
+              reason: `${data.direction} swipe on "${data.scenarioTitle}"`,
+            },
+          ]);
+        }
+
+        return {
+          success: true,
+          traceId,
+          traceUrl: traceId ? getTraceUrl(traceId) : undefined,
+        };
+      },
+      {
+        source: 'swipe_session',
+        tags: ['swipe', `direction:${data.direction}`, data.scenarioType || 'job'].filter(Boolean),
+        input: {
+          direction: data.direction,
+          scenarioTitle: data.scenarioTitle,
+          oldWeights: data.oldWeights,
+        },
+      }
+    );
+
+    console.error(
+      `[SwipeTrace] ${data.direction} on "${data.scenarioTitle}" - profile: ${data.profileId || 'anonymous'}`
+    );
+
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('[SwipeTrace] Error:', error);
+    return new Response(
+      JSON.stringify({
+        error: true,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}

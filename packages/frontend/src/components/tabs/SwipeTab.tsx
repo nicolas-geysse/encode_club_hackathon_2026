@@ -44,6 +44,8 @@ interface SwipeTabProps {
   currency?: Currency;
   // BUG 3 FIX: Add initialPreferences to load saved preferences from profile
   initialPreferences?: UserPreferences;
+  /** Profile ID for tracing swipe preferences to Opik */
+  profileId?: string;
   onPreferencesChange?: (prefs: UserPreferences) => void;
   onScenariosSelected?: (scenarios: Scenario[]) => void;
 }
@@ -285,6 +287,7 @@ export function SwipeTab(props: SwipeTabProps) {
           scenarios={scenarios()}
           initialPreferences={preferences()}
           currency={currency()}
+          profileId={props.profileId}
           onComplete={handleSwipeComplete}
         />
       </Show>

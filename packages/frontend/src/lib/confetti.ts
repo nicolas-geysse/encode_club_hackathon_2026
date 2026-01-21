@@ -93,8 +93,46 @@ export function celebrateComeback(): void {
   });
 }
 
+/**
+ * Gold achievement celebration
+ * Use for: gold tier achievements (Comeback King, Goal Achieved)
+ */
+export function celebrateGoldAchievement(): void {
+  // Gold sparkles from center
+  confetti({
+    particleCount: 150,
+    spread: 100,
+    origin: { y: 0.5, x: 0.5 },
+    colors: ['#FFD700', '#FFA500', '#FFEC8B', '#F0E68C'],
+    shapes: ['star', 'circle'],
+    scalar: 1.2,
+    zIndex: 9999,
+  });
+
+  // Side bursts with delay
+  setTimeout(() => {
+    confetti({
+      particleCount: 50,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0, y: 0.6 },
+      colors: ['#FFD700', '#FFA500'],
+      zIndex: 9999,
+    });
+    confetti({
+      particleCount: 50,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1, y: 0.6 },
+      colors: ['#FFD700', '#FFA500'],
+      zIndex: 9999,
+    });
+  }, 250);
+}
+
 export default {
   celebrateBig,
   celebrateGoalAchieved,
   celebrateComeback,
+  celebrateGoldAchievement,
 };

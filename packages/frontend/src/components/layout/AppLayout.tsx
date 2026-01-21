@@ -5,13 +5,15 @@ import { RouteProgress } from '~/components/RouteProgress';
 
 interface AppLayoutProps {
   headerContent?: JSX.Element;
+  /** Callback when Debug button is clicked in navigation */
+  onDebugOpen?: () => void;
 }
 
 export const AppLayout: ParentComponent<AppLayoutProps> = (props) => {
   return (
     <div class="min-h-screen bg-background text-foreground transition-colors font-sans">
       <RouteProgress />
-      <Sidebar class="hidden md:block" />
+      <Sidebar class="hidden md:block" onDebugOpen={props.onDebugOpen} />
 
       <div class="pl-0 md:pl-64 flex flex-col min-h-screen">
         <header class="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -28,7 +30,7 @@ export const AppLayout: ParentComponent<AppLayoutProps> = (props) => {
         </main>
       </div>
 
-      <BottomNav />
+      <BottomNav onDebugOpen={props.onDebugOpen} />
     </div>
   );
 };

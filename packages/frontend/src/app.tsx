@@ -11,6 +11,7 @@ import { ProfileProvider } from '~/lib/profileContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { AppLayout } from '~/components/layout/AppLayout';
 import { ToastContainer } from '~/components/ui/Toast';
+import { DebugPanel } from '~/components/debug/DebugPanel';
 import {
   notifications,
   addNotification,
@@ -27,6 +28,9 @@ export default function App() {
     isSimulating: false,
   });
   const [progressPercent, setProgressPercent] = createSignal(0);
+
+  // Debug panel state
+  const [debugOpen, setDebugOpen] = createSignal(false);
 
   // Add welcome notification on mount
   onMount(() => {
@@ -85,6 +89,7 @@ export default function App() {
         <Router
           root={(props) => (
             <AppLayout
+              onDebugOpen={() => setDebugOpen(true)}
               headerContent={
                 <>
                   <div class="hidden md:flex items-center gap-3 pl-3 border-l border-border/50">
@@ -137,6 +142,7 @@ export default function App() {
           <FileRoutes />
         </Router>
         <ToastContainer />
+        <DebugPanel isOpen={debugOpen()} onClose={() => setDebugOpen(false)} />
       </ProfileProvider>
     </ThemeProvider>
   );

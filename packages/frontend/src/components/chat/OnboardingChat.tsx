@@ -1555,13 +1555,14 @@ export function OnboardingChat() {
         localStorage.setItem('studentProfile', JSON.stringify(finalProfile));
       }
 
-      // Add assistant message with source indicator and trace URL
+      // Add assistant message with source indicator, trace ID, and trace URL
       const assistantMsg: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: result.response,
         source: result.source,
         uiResource: (result as { uiResource?: UIResource }).uiResource, // MCP-UI interactive component if present
+        traceId: (result as { traceId?: string }).traceId, // Opik trace ID for feedback
         traceUrl: (result as { traceUrl?: string }).traceUrl, // Opik trace URL for "Explain This" feature
       };
       setMessages([...messages(), assistantMsg]);
@@ -1905,6 +1906,7 @@ export function OnboardingChat() {
                       avatar="B"
                       name={msg.role === 'assistant' ? 'Bruno' : undefined}
                       badge={msg.source}
+                      traceId={msg.traceId}
                       traceUrl={msg.traceUrl}
                     />
                     {/* MCP-UI interactive component (forms, tables, etc.) */}

@@ -39,6 +39,8 @@ export interface ChatMessage {
   uiResource?: UIResource;
   /** When the message was created */
   timestamp?: Date;
+  /** Opik trace ID for feedback API */
+  traceId?: string;
   /** Opik trace URL for "Explain This" feature - links to AI reasoning */
   traceUrl?: string;
 }

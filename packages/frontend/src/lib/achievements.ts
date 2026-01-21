@@ -11,12 +11,16 @@
  * - Swipe Master: Complete full swipe session
  */
 
+export type AchievementTier = 'bronze' | 'silver' | 'gold';
+
 export interface Achievement {
   id: string;
   name: string;
   description: string;
   icon: string;
   category: 'earning' | 'wellness' | 'optimization' | 'engagement';
+  /** Achievement tier - gold tier triggers special celebration */
+  tier: AchievementTier;
   condition: string;
   unlockedAt?: string;
   progress?: number;
@@ -31,6 +35,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You earned your first euro with Stride!',
     icon: '💰',
     category: 'earning',
+    tier: 'bronze',
     condition: 'earningsCollected >= 1',
     maxProgress: 1,
   },
@@ -40,6 +45,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You reached 100 euros in earnings',
     icon: '💯',
     category: 'earning',
+    tier: 'silver',
     condition: 'earningsCollected >= 100',
     maxProgress: 100,
   },
@@ -49,6 +55,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You completed all your missions for the week',
     icon: '📅',
     category: 'earning',
+    tier: 'bronze',
     condition: 'weeklyMissionsCompleted === weeklyMissionsTotal',
     maxProgress: 1,
   },
@@ -58,6 +65,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You reached your savings goal!',
     icon: '🏆',
     category: 'earning',
+    tier: 'gold',
     condition: 'currentAmount >= goalAmount',
     maxProgress: 1,
   },
@@ -69,6 +77,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You took care of yourself during a difficult period',
     icon: '🧘',
     category: 'wellness',
+    tier: 'silver',
     condition: 'energyDebtActivated && restModeUsed',
     maxProgress: 1,
   },
@@ -78,6 +87,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You completed a catch-up plan after an energy dip',
     icon: '🚀',
     category: 'wellness',
+    tier: 'gold',
     condition: 'comebackPlanCompleted',
     maxProgress: 1,
   },
@@ -87,6 +97,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You maintained energy above 60% for 4 weeks',
     icon: '⚡',
     category: 'wellness',
+    tier: 'silver',
     condition: 'energyHistory.filter(e => e.level >= 60).length >= 4',
     maxProgress: 4,
   },
@@ -98,6 +109,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You applied 3 lifestyle optimizations',
     icon: '💡',
     category: 'optimization',
+    tier: 'silver',
     condition: 'optimizationsApplied >= 3',
     maxProgress: 3,
   },
@@ -107,6 +119,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You used multi-criteria scoring to choose a job',
     icon: '📊',
     category: 'optimization',
+    tier: 'bronze',
     condition: 'skillArbitrageUsed',
     maxProgress: 1,
   },
@@ -116,6 +129,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You have 3+ active income sources',
     icon: '🌈',
     category: 'optimization',
+    tier: 'silver',
     condition: 'activeMissions.length >= 3',
     maxProgress: 3,
   },
@@ -127,6 +141,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You completed a Swipe Scenarios session',
     icon: '👆',
     category: 'engagement',
+    tier: 'bronze',
     condition: 'swipeSessionCompleted',
     maxProgress: 1,
   },
@@ -136,6 +151,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You completed all tabs in My Plan',
     icon: '✅',
     category: 'engagement',
+    tier: 'silver',
     condition: 'completedTabs.length === 6',
     maxProgress: 6,
   },
@@ -145,6 +161,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: 'You updated your energy for 7 days in a row',
     icon: '📱',
     category: 'engagement',
+    tier: 'bronze',
     condition: 'consecutiveDailyChecks >= 7',
     maxProgress: 7,
   },
@@ -329,4 +346,30 @@ export function getUnlockedCount(): { unlocked: number; total: number } {
     unlocked: state.unlocked.length,
     total: ACHIEVEMENTS.length,
   };
+}
+
+/**
+ * Handle achievement unlock - shows toast and triggers celebration for gold tier
+ * Call this when an achievement is newly unlocked
+ */
+export function onAchievementUnlock(
+  achievement: Achievement,
+  options?: {
+    showToast?: (type: 'success' | 'info', title: string, message: string) => void;
+    celebrateGold?: () => void;
+  }
+): void {
+  // Show toast notification if toast function provided
+  if (options?.showToast) {
+    options.showToast(
+      'success',
+      `${achievement.icon} ${achievement.name}`,
+      achievement.description
+    );
+  }
+
+  // Gold tier = big celebration
+  if (achievement.tier === 'gold' && options?.celebrateGold) {
+    options.celebrateGold();
+  }
 }

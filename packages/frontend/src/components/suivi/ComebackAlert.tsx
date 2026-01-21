@@ -6,12 +6,14 @@
  */
 
 import { Show, For, createMemo, createEffect, createSignal } from 'solid-js';
-import { celebrateComeback } from '~/lib/confetti';
+import { celebrateComeback, celebrateGoldAchievement } from '~/lib/confetti';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Rocket, Sparkles, Trophy } from 'lucide-solid';
 import { cn } from '~/lib/cn';
+import { ACHIEVEMENTS, onAchievementUnlock } from '~/lib/achievements';
+import { toast } from '~/lib/notificationStore';
 
 interface ComebackWindow {
   detected: boolean;
@@ -242,7 +244,23 @@ export function ComebackAlert(props: ComebackAlertProps) {
             <div class="flex gap-4 mt-8">
               <Button
                 class="flex-1 h-12 text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-lg shadow-green-300/30 dark:shadow-green-700/30 hover:shadow-green-400/40"
-                onClick={() => props.onAcceptPlan?.(catchUpPlan())}
+                onClick={() => {
+                  // Trigger gold celebration for Comeback King achievement
+                  const comebackAchievement = ACHIEVEMENTS.find((a) => a.id === 'comeback_king');
+                  if (comebackAchievement) {
+                    onAchievementUnlock(comebackAchievement, {
+                      showToast: (type, title, message) => {
+                        if (type === 'success') {
+                          toast.success(title, message);
+                        } else {
+                          toast.info(title, message);
+                        }
+                      },
+                      celebrateGold: celebrateGoldAchievement,
+                    });
+                  }
+                  props.onAcceptPlan?.(catchUpPlan());
+                }}
               >
                 <span class="mr-2">💪</span>
                 Let's go!

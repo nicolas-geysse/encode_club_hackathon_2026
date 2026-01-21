@@ -1,7 +1,8 @@
-import { Show } from 'solid-js';
+import { Show, createSignal } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { cn } from '~/lib/cn';
 import { OpikTraceLinkInline } from '~/components/ui/OpikTraceLink';
+import { ThumbsUp, ThumbsDown } from 'lucide-solid';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -10,6 +11,8 @@ interface ChatMessageProps {
   name?: string;
   /** Source badge (e.g., 'mastra', 'groq', 'fallback') */
   badge?: string;
+  /** Opik trace ID for feedback API */
+  traceId?: string;
   /** Opik trace URL for "Explain This" feature */
   traceUrl?: string;
 }
@@ -47,6 +50,36 @@ function parseFormattedText(text: string): JSX.Element[] {
 export function ChatMessage(props: ChatMessageProps) {
   const isAssistant = () => props.role === 'assistant';
   const formattedContent = () => (isAssistant() ? parseFormattedText(props.content) : null);
+
+  // Feedback state: null = not voted, 'up' = helpful, 'down' = not helpful
+  const [feedbackGiven, setFeedbackGiven] = createSignal<'up' | 'down' | null>(null);
+
+  // Send feedback to Opik via API
+  const handleFeedback = async (isHelpful: boolean) => {
+    if (!props.traceId) return;
+
+    const vote = isHelpful ? 'up' : 'down';
+    setFeedbackGiven(vote);
+
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          traceId: props.traceId,
+          scores: [
+            {
+              name: 'user_helpful',
+              value: isHelpful ? 1 : 0,
+              reason: isHelpful ? 'User clicked helpful' : 'User clicked not helpful',
+            },
+          ],
+        }),
+      });
+    } catch {
+      // Non-blocking - don't reset state on error
+    }
+  };
 
   return (
     <div
@@ -107,6 +140,35 @@ export function ChatMessage(props: ChatMessageProps) {
           <Show when={isAssistant() && props.traceUrl}>
             <div class="px-1 mt-1">
               <OpikTraceLinkInline traceUrl={props.traceUrl} label="Why this response?" />
+            </div>
+          </Show>
+
+          {/* Feedback buttons for assistant messages with traceId */}
+          <Show when={isAssistant() && props.traceId}>
+            <div class="flex items-center gap-1 px-1 mt-1.5">
+              <Show
+                when={feedbackGiven() === null}
+                fallback={
+                  <span class="text-xs text-muted-foreground">
+                    {feedbackGiven() === 'up' ? 'Thanks!' : "Noted, we'll improve"}
+                  </span>
+                }
+              >
+                <button
+                  onClick={() => handleFeedback(true)}
+                  class="p-1.5 rounded-md hover:bg-green-500/10 text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                  title="Helpful"
+                >
+                  <ThumbsUp class="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => handleFeedback(false)}
+                  class="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  title="Not helpful"
+                >
+                  <ThumbsDown class="h-3.5 w-3.5" />
+                </button>
+              </Show>
             </div>
           </Show>
         </div>

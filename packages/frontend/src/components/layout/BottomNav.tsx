@@ -1,15 +1,27 @@
-import { type Component, For } from 'solid-js';
+import { type Component, For, Show } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { cn } from '~/lib/cn';
-import { LayoutDashboard, Map, GraduationCap } from 'lucide-solid';
+import { LayoutDashboard, Map, GraduationCap, Wrench } from 'lucide-solid';
 
-export const BottomNav: Component = () => {
+interface NavItem {
+  href?: string;
+  action?: string;
+  label: string;
+  icon: Component<{ class?: string }>;
+}
+
+interface BottomNavProps {
+  onDebugOpen?: () => void;
+}
+
+export const BottomNav: Component<BottomNavProps> = (props) => {
   const location = useLocation();
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { href: '/', label: 'Onboarding', icon: GraduationCap },
     { href: '/plan', label: 'My Plan', icon: LayoutDashboard },
     { href: '/suivi', label: 'Tracking', icon: Map },
+    { action: 'debug', label: 'Debug', icon: Wrench },
   ];
 
   return (
@@ -17,18 +29,34 @@ export const BottomNav: Component = () => {
       <div class="flex items-center justify-around h-16">
         <For each={navItems}>
           {(item) => {
-            const isActive = () => location.pathname === item.href;
+            const isActive = () => item.href && location.pathname === item.href;
             return (
-              <A
-                href={item.href}
-                class={cn(
-                  'flex flex-col items-center justify-center w-full h-full gap-1 transition-colors',
-                  isActive() ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-                )}
+              <Show
+                when={item.href}
+                fallback={
+                  <button
+                    onClick={() => item.action === 'debug' && props.onDebugOpen?.()}
+                    class={cn(
+                      'flex flex-col items-center justify-center w-full h-full gap-1 transition-colors',
+                      'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <item.icon class="h-5 w-5" />
+                    <span class="text-[10px] font-medium">{item.label}</span>
+                  </button>
+                }
               >
-                <item.icon class="h-5 w-5" />
-                <span class="text-[10px] font-medium">{item.label}</span>
-              </A>
+                <A
+                  href={item.href!}
+                  class={cn(
+                    'flex flex-col items-center justify-center w-full h-full gap-1 transition-colors',
+                    isActive() ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <item.icon class="h-5 w-5" />
+                  <span class="text-[10px] font-medium">{item.label}</span>
+                </A>
+              </Show>
             );
           }}
         </For>

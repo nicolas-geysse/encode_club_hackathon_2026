@@ -567,6 +567,7 @@ export default function PlanPage() {
                     value: t.value,
                   }))}
                   currency={activeProfile()?.currency}
+                  profileId={activeProfile()?.id}
                   // BUG 3 FIX: Pass saved preferences from profile
                   initialPreferences={
                     activeProfile()?.swipePreferences
