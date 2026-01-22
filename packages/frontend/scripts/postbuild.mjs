@@ -1,48 +1,55 @@
 #!/usr/bin/env node
 /**
- * Post-build script to create @ai-sdk/*-v5 symlinks in the Nitro output.
+ * Post-build script to create aliased package symlinks in the Nitro output.
  *
- * @mastra/core imports @ai-sdk/provider-v5 and @ai-sdk/provider-utils-v5 at runtime.
- * These don't exist as real packages - they're npm aliases. Since @mastra/core is
- * externalized, Vite's alias configuration doesn't apply at runtime.
+ * Mastra packages import non-existent packages with version suffixes (e.g., -v5, -v3).
+ * These are npm aliases in our package.json. Since Mastra is externalized,
+ * Vite's alias configuration doesn't apply at runtime.
  *
- * This script creates the necessary symlinks in .output/server/node_modules/@ai-sdk/
+ * This script creates the necessary symlinks in .output/server/node_modules/
  * after Nitro builds the output.
  */
 
-import { existsSync, symlinkSync, mkdirSync, readdirSync } from "fs";
+import { existsSync, symlinkSync, readdirSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outputDir = resolve(__dirname, "../.output/server/node_modules/@ai-sdk");
+const nodeModulesDir = resolve(__dirname, "../.output/server/node_modules");
 
-// Symlinks to create: alias -> real package
+// Symlinks to create: { dir, alias, target }
+// dir: subdirectory within node_modules (empty string for root)
 const symlinks = [
-  { alias: "provider-v5", target: "provider" },
-  { alias: "provider-utils-v5", target: "provider-utils" },
+  // @mastra/core imports
+  { dir: "@ai-sdk", alias: "provider-v5", target: "provider" },
+  { dir: "@ai-sdk", alias: "provider-utils-v5", target: "provider-utils" },
+  // @mastra/schema-compat imports
+  { dir: "", alias: "zod-from-json-schema-v3", target: "zod-from-json-schema" },
 ];
 
-console.log("[postbuild] Creating @ai-sdk/*-v5 symlinks for Mastra runtime...");
+console.log("[postbuild] Creating Mastra runtime symlinks...");
 
-// Ensure the directory exists
-if (!existsSync(outputDir)) {
-  console.log(`[postbuild] Directory not found: ${outputDir}`);
+// Ensure the base directory exists
+if (!existsSync(nodeModulesDir)) {
+  console.log(`[postbuild] Directory not found: ${nodeModulesDir}`);
   console.log("[postbuild] Skipping - build output may not exist yet");
   process.exit(0);
 }
 
-// List existing packages to find the target
-const existingPackages = readdirSync(outputDir);
-console.log(`[postbuild] Found packages in output: ${existingPackages.join(", ")}`);
+for (const { dir, alias, target } of symlinks) {
+  const baseDir = dir ? join(nodeModulesDir, dir) : nodeModulesDir;
+  const aliasPath = join(baseDir, alias);
+  const targetPath = join(baseDir, target);
 
-for (const { alias, target } of symlinks) {
-  const aliasPath = join(outputDir, alias);
-  const targetPath = join(outputDir, target);
+  // Check if base directory exists
+  if (!existsSync(baseDir)) {
+    console.log(`[postbuild] Warning: Directory ${dir || "root"} not found, skipping ${alias}`);
+    continue;
+  }
 
   // Check if target exists
   if (!existsSync(targetPath)) {
-    console.log(`[postbuild] Warning: Target ${target} not found, skipping ${alias}`);
+    console.log(`[postbuild] Warning: Target ${target} not found in ${dir || "root"}, skipping ${alias}`);
     continue;
   }
 
@@ -53,9 +60,9 @@ for (const { alias, target } of symlinks) {
   }
 
   try {
-    // Create relative symlink: provider-v5 -> provider
+    // Create relative symlink
     symlinkSync(target, aliasPath);
-    console.log(`[postbuild] Created symlink: ${alias} -> ${target}`);
+    console.log(`[postbuild] Created symlink: ${dir ? dir + "/" : ""}${alias} -> ${target}`);
   } catch (err) {
     console.error(`[postbuild] Failed to create symlink ${alias}:`, err.message);
   }
