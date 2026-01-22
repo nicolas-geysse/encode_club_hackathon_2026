@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vinxi dev --port 3006",
-    "build": "vinxi build",
+    "build": "vinxi build && node scripts/postbuild.mjs",
     "start": "vinxi start",
     "test": "vitest",
     "test:run": "vitest run",
@@ -14,6 +14,8 @@
   "dependencies": {
     "@ai-sdk/provider": "^3.0.5",
     "@ai-sdk/provider-utils": "^4.0.9",
+    "@ai-sdk/provider-utils-v5": "npm:@ai-sdk/provider-utils@^4.0.9",
+    "@ai-sdk/provider-v5": "npm:@ai-sdk/provider@^3.0.5",
     "@ark-ui/solid": "5.30.0",
     "@kobalte/core": "^0.13.11",
     "@seed-ship/mcp-ui-solid": "^2.1.1",

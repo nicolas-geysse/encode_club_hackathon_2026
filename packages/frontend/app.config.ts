@@ -9,7 +9,13 @@ export default defineConfig({
   server: {
     preset: "node-server",
     // Keep native modules and workspace packages external (not bundled by Nitro)
-    externals: ["duckdb", "@stride/mcp-server"],
+    // Include @ai-sdk/*-v5 aliases to satisfy @mastra/core runtime imports
+    externals: [
+      "duckdb",
+      "@stride/mcp-server",
+      "@ai-sdk/provider-v5",
+      "@ai-sdk/provider-utils-v5",
+    ],
   },
   vite: {
     server: {
@@ -19,6 +25,9 @@ export default defineConfig({
     resolve: {
       alias: {
         "~": resolve(__dirname, "./src"),
+        // Fix Mastra 1.0.4 bug: imports non-existent @ai-sdk/*-v5 packages
+        "@ai-sdk/provider-v5": "@ai-sdk/provider",
+        "@ai-sdk/provider-utils-v5": "@ai-sdk/provider-utils",
       },
     },
     // SSR config: don't bundle native modules and workspace packages

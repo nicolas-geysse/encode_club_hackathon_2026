@@ -57,6 +57,12 @@ importers:
       '@ai-sdk/provider-utils':
         specifier: ^4.0.9
         version: 4.0.9(zod@4.3.5)
+      '@ai-sdk/provider-utils-v5':
+        specifier: npm:@ai-sdk/provider-utils@^4.0.9
+        version: '@ai-sdk/provider-utils@4.0.9(zod@4.3.5)'
+      '@ai-sdk/provider-v5':
+        specifier: npm:@ai-sdk/provider@^3.0.5
+        version: '@ai-sdk/provider@3.0.5'
       '@ark-ui/solid':
         specifier: 5.30.0
         version: 5.30.0(solid-js@1.9.10)
