@@ -16,7 +16,18 @@ import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { Card } from '~/components/ui/Card';
-import { X, ThumbsDown, Heart, Star, Bot } from 'lucide-solid';
+import {
+  X,
+  ThumbsDown,
+  Heart,
+  Star,
+  Bot,
+  Undo2,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-solid';
 
 interface SwipeSessionProps {
   scenarios: Scenario[];
@@ -106,6 +117,7 @@ export function SwipeSession(props: SwipeSessionProps) {
   const [swipeHistory, setSwipeHistory] = createSignal<SwipeHistoryEntry[]>([]);
   const [negativeFeedback, setNegativeFeedback] = createSignal<Set<string>>(new Set());
   const [triggerSwipe, setTriggerSwipe] = createSignal<SwipeDirection | null>(null);
+  const [returnFromDirection, setReturnFromDirection] = createSignal<SwipeDirection | null>(null);
 
   // Adjustments for current card (reset when moving to next card)
   const getDefaultAdjustments = (): CardAdjustments => {
@@ -118,6 +130,50 @@ export function SwipeSession(props: SwipeSessionProps) {
     };
   };
   const [adjustments, setAdjustments] = createSignal<CardAdjustments>(getDefaultAdjustments());
+
+  // Check if undo is available
+  const canUndo = () => swipeHistory().length > 0;
+
+  // Undo last swipe
+  const handleUndo = () => {
+    const history = swipeHistory();
+    if (history.length === 0) return;
+
+    const lastEntry = history[history.length - 1];
+
+    // Set return animation direction (card will fly back from where it went)
+    setReturnFromDirection(lastEntry.direction);
+
+    // Restore preferences
+    setPreferences(lastEntry.previousPreferences);
+    setCurrentIndex(lastEntry.index);
+
+    // Remove from accepted/rejected
+    if (lastEntry.wasAccepted) {
+      setAccepted(accepted().filter((s) => s.id !== lastEntry.scenario.id));
+    } else if (lastEntry.direction === 'left' || lastEntry.direction === 'down') {
+      setRejected(rejected().filter((s) => s.id !== lastEntry.scenario.id));
+    }
+
+    // Remove from negative feedback if it was a "meh"
+    if (lastEntry.direction === 'down') {
+      const feedback = new Set(negativeFeedback());
+      feedback.delete(lastEntry.scenario.id);
+      setNegativeFeedback(feedback);
+    }
+
+    // Remove from decisions
+    setDecisions(decisions().slice(0, -1));
+
+    // Remove from history
+    setSwipeHistory(history.slice(0, -1));
+
+    // Restore the adjustments that were set for this card
+    setAdjustments(lastEntry.previousAdjustments);
+
+    // Clear return direction after animation completes
+    setTimeout(() => setReturnFromDirection(null), 600);
+  };
 
   const handleSwipe = (direction: SwipeDirection, timeSpent: number) => {
     setTriggerSwipe(null); // Reset trigger to prevent double firing on next card
@@ -407,6 +463,7 @@ export function SwipeSession(props: SwipeSessionProps) {
                     onSwipe={handleSwipe}
                     isActive={index() === currentIndex()}
                     triggerSwipe={triggerSwipe()}
+                    returnFrom={index() === currentIndex() ? returnFromDirection() : null}
                   />
                 </Show>
               )}
@@ -491,8 +548,52 @@ export function SwipeSession(props: SwipeSessionProps) {
         </Show>
       </div>
 
-      {/* Right Spacer for Balance (Centers the Card) */}
-      <div class="w-full md:w-72 hidden md:block shrink-0 order-3" aria-hidden="true" />
+      {/* Right Column: Undo Button (positioned at card middle height) */}
+      {/* pb-32 compensates for the action buttons + margins below the card to align with card center */}
+      <div class="w-full md:w-72 hidden md:flex shrink-0 order-3 items-center justify-start pl-4 pb-32">
+        {(() => {
+          const showUndo = () => canUndo() && currentIndex() < props.scenarios.length;
+          const lastDirection = () => swipeHistory()[swipeHistory().length - 1]?.direction;
+          const ArrowIcon = () => {
+            switch (lastDirection()) {
+              case 'right':
+                return <ArrowLeft class="h-5 w-5" />;
+              case 'left':
+                return <ArrowRight class="h-5 w-5" />;
+              case 'up':
+                return <ArrowDown class="h-5 w-5" />;
+              case 'down':
+                return <ArrowUp class="h-5 w-5" />;
+              default:
+                return <Undo2 class="h-5 w-5" />;
+            }
+          };
+          return (
+            <div
+              class="transition-all duration-300 ease-out"
+              classList={{
+                'opacity-100 scale-100': showUndo(),
+                'opacity-0 scale-75 pointer-events-none': !showUndo(),
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger
+                  as={Button}
+                  variant="outline"
+                  size="icon"
+                  class="h-14 w-14 rounded-full border-border bg-background dark:bg-[#121215] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all shadow-sm"
+                  onClick={handleUndo}
+                >
+                  <ArrowIcon />
+                </TooltipTrigger>
+                <TooltipContent side="right" class="bg-card border-border text-foreground">
+                  <span class="text-xs font-medium">Undo last swipe</span>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }

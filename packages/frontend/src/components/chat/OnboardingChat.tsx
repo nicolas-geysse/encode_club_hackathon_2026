@@ -578,6 +578,61 @@ export function OnboardingChat() {
     );
   };
 
+  // Helper to determine which step to resume from based on existing profile data
+  // Returns the first step that is missing data
+  const determineResumeStep = (p: {
+    city?: string;
+    currency?: string;
+    name?: string;
+    diploma?: string;
+    skills?: string[];
+    certifications?: string[];
+    incomeSources?: { source: string; amount: number }[];
+    expenses?: { category: string; amount: number }[];
+    maxWorkHoursWeekly?: number;
+    minHourlyRate?: number;
+    goalName?: string;
+    goalAmount?: number;
+  }): OnboardingStep => {
+    // Check each step in order and return the first incomplete one
+    if (!p.city) return 'greeting'; // greeting asks for city
+    // currency_confirm is handled automatically by detectCityMetadata, skip it
+    if (!p.name) return 'name';
+    if (!p.diploma) return 'studies';
+    if (!p.skills || p.skills.length === 0) return 'skills';
+    // certifications are optional, skip check
+    if (!p.incomeSources || p.incomeSources.length === 0) return 'budget';
+    // work_preferences have defaults, check if they're non-default
+    if (!p.goalName || !p.goalAmount) return 'goal';
+    // academic_events, inventory, trade, lifestyle are optional
+    // If we have goal data, go to academic_events to continue
+    return 'academic_events';
+  };
+
+  // Helper to get the appropriate welcome back message for resuming onboarding
+  const getResumeMessage = (resumeStep: OnboardingStep, name?: string): string => {
+    const greeting = name ? `Welcome back, **${name}**!` : 'Welcome back!';
+
+    const stepMessages: Record<OnboardingStep, string> = {
+      greeting: GREETING_MESSAGE,
+      currency_confirm: `${greeting} I need to confirm your region.\n\nAre you in **US** (USD), **UK** (GBP), or **Europe** (EUR)?`,
+      name: `${greeting} Let's continue where we left off.\n\nWhat's your name?`,
+      studies: `${greeting} Let's continue setting up your profile.\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science")`,
+      skills: `${greeting} Let's continue.\n\nWhat are your skills? (coding, languages, design, sports...)`,
+      certifications: `${greeting}\n\nDo you have any professional certifications? (BAFA, First Aid, TEFL, etc.) Say 'none' if not.`,
+      budget: `${greeting} Let's talk about your budget.\n\nHow much do you earn and spend per month roughly?`,
+      work_preferences: `${greeting}\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`,
+      goal: `${greeting} Almost there!\n\nWhat's your savings goal? What do you want to save for, how much, and by when?`,
+      academic_events: `${greeting}\n\nAny important academic events coming up? (exams, vacations, busy periods)`,
+      inventory: `${greeting}\n\nDo you have any items you could sell? (textbooks, electronics, etc.)`,
+      trade: `${greeting}\n\nAre there things you could borrow instead of buying, or skills you could trade with friends?`,
+      lifestyle: `${greeting}\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
+      complete: getWelcomeBackMessage(name || 'there'),
+    };
+
+    return stepMessages[resumeStep] || GREETING_MESSAGE;
+  };
+
   // Check for existing profile on mount
   // Priority: 1. Check forceNewProfile flag, 2. API (DuckDB), 3. localStorage fallback
   onMount(async () => {
@@ -637,15 +692,16 @@ export function OnboardingChat() {
           ]);
           setIsComplete(true);
         } else {
-          // Incomplete profile -> start onboarding
+          // Incomplete profile -> resume onboarding at the right step
+          const resumeStep = determineResumeStep(apiProfile);
           setChatMode('onboarding');
-          setStep('greeting'); // Start at greeting to collect name first
+          setStep(resumeStep);
           setIsComplete(false);
           setMessages([
             {
-              id: 'greeting',
+              id: 'resume',
               role: 'assistant',
-              content: GREETING_MESSAGE,
+              content: getResumeMessage(resumeStep, apiProfile.name),
             },
           ]);
         }
@@ -675,15 +731,25 @@ export function OnboardingChat() {
           ]);
           setIsComplete(true);
         } else {
-          // Incomplete profile -> start onboarding
+          // Incomplete profile -> resume onboarding at the right step
+          // Note: localStorage profile uses different field names
+          const resumeStep = determineResumeStep({
+            city: existingProfile.city,
+            name: existingProfile.name,
+            diploma: existingProfile.diploma,
+            skills: existingProfile.skills,
+            incomeSources: existingProfile.incomes, // localStorage uses 'incomes'
+            goalName: existingProfile.goalName,
+            goalAmount: existingProfile.goalAmount,
+          });
           setChatMode('onboarding');
-          setStep('greeting'); // Start at greeting to collect name first
+          setStep(resumeStep);
           setIsComplete(false);
           setMessages([
             {
-              id: 'greeting',
+              id: 'resume',
               role: 'assistant',
-              content: GREETING_MESSAGE,
+              content: getResumeMessage(resumeStep, existingProfile.name),
             },
           ]);
         }

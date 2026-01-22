@@ -12,7 +12,6 @@ import { createSignal, Show, For, createEffect } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
 import { toast } from '~/lib/notificationStore';
-import { calculateTotalExpenses } from '~/lib/expenseUtils';
 import {
   formatDate,
   formatCurrency,
@@ -23,7 +22,6 @@ import {
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
-import { cn } from '~/lib/cn';
 import {
   User,
   Target,
@@ -33,6 +31,7 @@ import {
   Clock,
   X,
   Plus,
+  Wallet,
 } from 'lucide-solid';
 
 // Alias for cleaner code
@@ -40,19 +39,14 @@ type Profile = FullProfile;
 
 interface ProfileTabProps {
   onProfileChange?: (profile: Partial<Profile>) => void;
-  currencySymbol?: string; // Kept for backward compatibility
+  /** Callback to switch to the Budget tab */
+  onNavigateToBudget?: () => void;
 }
 
 export function ProfileTab(props: ProfileTabProps) {
   // Use shared ProfileContext instead of local state
   // This ensures ProfileSelector and other components see the same data
-  const {
-    profile: contextProfile,
-    loading: contextLoading,
-    refreshProfile,
-    lifestyle: contextLifestyle,
-    income: contextIncome,
-  } = useProfile();
+  const { profile: contextProfile, loading: contextLoading, refreshProfile } = useProfile();
 
   // Get currency from profile context, fallback to USD
   const currency = () => (contextProfile()?.currency as Currency) || 'USD';
@@ -107,21 +101,6 @@ export function ProfileTab(props: ProfileTabProps) {
       setEditedProfile(profile()!);
     }
     setEditing(false);
-  };
-
-  const calculateBudgetSummary = () => {
-    const p = profile();
-    if (!p) return { income: 0, expenses: 0, margin: 0 };
-
-    // Use dynamic income from context (same as Budget Tab)
-    const incomeItems = contextIncome();
-    const income = incomeItems.reduce((sum, item) => sum + item.amount, 0);
-
-    // Use merged expense sources (lifestyle_items + profile.expenses fallback)
-    const lifestyleItems = contextLifestyle();
-    const expenses = calculateTotalExpenses(lifestyleItems, p.expenses);
-
-    return { income, expenses, margin: income - expenses };
   };
 
   return (
@@ -203,62 +182,32 @@ export function ProfileTab(props: ProfileTabProps) {
           </Card>
         </Show>
 
-        {/* Budget Summary Cards */}
-        {(() => {
-          const budget = calculateBudgetSummary();
-          return (
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Income */}
-              <Card class="bg-gradient-to-br from-green-500/5 to-green-500/10 border-green-500/20">
-                <CardContent class="p-6">
-                  <div class="text-sm text-green-600 dark:text-green-400 font-medium">Income</div>
-                  <div class="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">
-                    {formatCurrencyWithSuffix(budget.income, currency(), '/mo')}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Expenses */}
-              <Card class="bg-gradient-to-br from-red-500/5 to-red-500/10 border-red-500/20">
-                <CardContent class="p-6">
-                  <div class="text-sm text-red-600 dark:text-red-400 font-medium">Expenses</div>
-                  <div class="text-2xl font-bold text-red-700 dark:text-red-300 mt-1">
-                    -{formatCurrencyWithSuffix(budget.expenses, currency(), '/mo')}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Net Margin */}
-              <Card
-                class={cn(
-                  'bg-gradient-to-br border',
-                  budget.margin >= 0
-                    ? 'from-primary/5 to-primary/10 border-primary/20'
-                    : 'from-amber-500/5 to-amber-500/10 border-amber-500/20'
-                )}
+        {/* Budget Link Card */}
+        <Card class="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <CardContent class="p-6">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Wallet class="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-primary">Budget & Finances</div>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    View income, expenses, savings, and trades
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => props.onNavigateToBudget?.()}
+                class="shrink-0"
               >
-                <CardContent class="p-6">
-                  <div
-                    class={cn(
-                      'text-sm font-medium',
-                      budget.margin >= 0 ? 'text-primary' : 'text-amber-600 dark:text-amber-400'
-                    )}
-                  >
-                    Margin
-                  </div>
-                  <div
-                    class={cn(
-                      'text-2xl font-bold mt-1',
-                      budget.margin >= 0 ? 'text-primary' : 'text-amber-700 dark:text-amber-300'
-                    )}
-                  >
-                    {formatCurrency(budget.margin, currency(), { showSign: true })}/mo
-                  </div>
-                </CardContent>
-              </Card>
+                View Budget
+              </Button>
             </div>
-          );
-        })()}
+          </CardContent>
+        </Card>
 
         {/* Personal Info Card */}
         <Card>

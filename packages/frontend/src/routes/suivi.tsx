@@ -13,12 +13,13 @@ import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
 import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary';
-import { VoiceBrunoBar } from '~/components/suivi/VoiceBrunoBar';
+import { BrunoTips } from '~/components/suivi/BrunoTips';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
 import { goalService, type Goal } from '~/lib/goalService';
 import { eventBus } from '~/lib/eventBus';
+import { createLogger } from '~/lib/logger';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { ClipboardList, Target } from 'lucide-solid';
@@ -31,6 +32,8 @@ import {
   type Currency,
 } from '~/lib/dateUtils';
 import { PageLoader } from '~/components/PageLoader';
+
+const logger = createLogger('SuiviPage');
 
 // Types
 interface SetupData {
@@ -412,12 +415,12 @@ export default function SuiviPage() {
 
     // Event Bus Subscriptions
     const unsubReset = eventBus.on('DATA_RESET', async () => {
-      console.log('SuiviPage: DATA_RESET received, reloading...');
+      logger.info('DATA_RESET received, reloading...');
       await loadData(); // Full reload with spinner for reset
     });
 
     const unsubProfile = eventBus.on('PROFILE_SWITCHED', async () => {
-      console.log('SuiviPage: PROFILE_SWITCHED received, reloading...');
+      logger.info('PROFILE_SWITCHED received, reloading...');
       await loadData(); // Full reload with spinner for profile switch
     });
 
@@ -599,8 +602,8 @@ export default function SuiviPage() {
     <Show when={!isLoading()} fallback={<PageLoader />}>
       <Show when={hasData()} fallback={<FallbackView />}>
         <div class="space-y-6">
-          {/* Voice Bruno Bar - Replaces old "Need Help" button */}
-          <VoiceBrunoBar
+          {/* Bruno Tips - Data-driven insights with AI-powered tips */}
+          <BrunoTips
             profileId={activeProfile()?.id || ''}
             missions={followup().missions}
             currentEnergy={
@@ -608,9 +611,12 @@ export default function SuiviPage() {
                 ? followup().energyHistory[followup().energyHistory.length - 1].level
                 : 50
             }
-            onMissionUpdate={handleMissionUpdate}
-            onEnergyUpdate={handleEnergyUpdate}
-            onDataChanged={() => loadData({ silent: true })}
+            energyHistory={followup().energyHistory}
+            currentAmount={followup().currentAmount}
+            goalAmount={setup()?.goalAmount || 0}
+            weeklyTarget={followup().weeklyTarget}
+            currency={currency()}
+            useLLM={true}
           />
 
           {/* Section 1: Goal Hero + Key Metrics */}

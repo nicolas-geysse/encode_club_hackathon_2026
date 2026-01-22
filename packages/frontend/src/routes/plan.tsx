@@ -501,7 +501,7 @@ export default function PlanPage() {
               <TabsContent value="profile" class="mt-0">
                 <ProfileTab
                   onProfileChange={handleProfileChange}
-                  currencySymbol={getCurrencySymbol(activeProfile()?.currency)}
+                  onNavigateToBudget={() => setActiveTab('budget')}
                 />
               </TabsContent>
 

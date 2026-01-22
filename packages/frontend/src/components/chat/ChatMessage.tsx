@@ -69,9 +69,9 @@ export function ChatMessage(props: ChatMessageProps) {
           traceId: props.traceId,
           scores: [
             {
-              name: 'user_helpful',
+              name: 'User feedback',
               value: isHelpful ? 1 : 0,
-              reason: isHelpful ? 'User clicked helpful' : 'User clicked not helpful',
+              reason: isHelpful ? 'User found this helpful' : 'User did not find this helpful',
             },
           ],
         }),

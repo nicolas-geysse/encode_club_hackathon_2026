@@ -587,8 +587,8 @@ export interface FeedbackScore {
  * Log feedback scores to a trace
  * Used for evaluation and quality monitoring
  *
- * Uses SDK batch queue: traceFeedbackScoresBatchQueue.create() + flush()
- * See: https://www.comet.com/docs/opik/tracing/annotate_traces
+ * Note: Using REST API instead of batch queue due to visibility issue
+ * See: https://github.com/comet-ml/opik/issues/2769
  */
 export async function logFeedbackScores(
   traceId: string | null,
@@ -600,27 +600,37 @@ export async function logFeedbackScores(
     return false;
   }
 
-  const client = await getOpikClient();
-  if (!client) {
-    console.error('[Opik] Client not initialized, cannot log feedback scores');
+  if (!OPIK_API_KEY) {
+    console.error('[Opik] OPIK_API_KEY not set, cannot log feedback scores');
     return false;
   }
 
   try {
-    // Use SDK batch queue method: create() then flush()
-    // FeedbackScoreBatchItem: { id: traceId, name, value, source, reason? }
-    for (const score of scores) {
-      client.traceFeedbackScoresBatchQueue.create({
-        id, // trace_id
-        name: score.name,
-        value: score.value,
-        source: 'sdk',
-        reason: score.reason,
-      });
-    }
+    // Use REST API directly for each score to ensure visibility in traces table
+    // Endpoint: PUT /v1/private/traces/{id}/feedback-scores
+    const apiUrl = OPIK_BASE_URL || 'https://www.comet.com/opik/api';
 
-    // Flush to send all queued scores
-    await client.flush();
+    for (const score of scores) {
+      const response = await fetch(`${apiUrl}/v1/private/traces/${id}/feedback-scores`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPIK_API_KEY}`,
+          ...(OPIK_WORKSPACE ? { 'Comet-Workspace': OPIK_WORKSPACE } : {}),
+        },
+        body: JSON.stringify({
+          name: score.name,
+          value: score.value,
+          source: 'sdk',
+          reason: score.reason,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Opik] Failed to log feedback score: ${response.status} - ${errorText}`);
+      }
+    }
 
     console.error(`[Opik] Logged ${scores.length} feedback scores to trace ${id}`);
     return true;

@@ -53,6 +53,121 @@ import { runResponseEvaluation } from '../../lib/chat/evaluation';
 const logger = createLogger('ChatAPI');
 
 /**
+ * Consolidated budget context for chat
+ */
+interface BudgetContext {
+  totalIncome: number;
+  activeExpenses: number;
+  netMargin: number;
+  pausedSavings: number;
+  tradeSalesCompleted: number;
+  tradeBorrowSavings: number;
+  tradePotential: number;
+  adjustedMargin: number;
+  goalProgress: number;
+  monthsUntilDeadline: number;
+}
+
+/**
+ * Fetch consolidated budget context for a profile
+ * Returns null on failure (non-blocking)
+ */
+async function fetchBudgetContext(profileId?: string): Promise<BudgetContext | null> {
+  if (!profileId) return null;
+
+  try {
+    const url = `${process.env.INTERNAL_API_URL || 'http://localhost:3000'}/api/budget?profileId=${profileId}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.error || !data.budget) {
+      return null;
+    }
+
+    const b = data.budget;
+    return {
+      totalIncome: b.totalIncome || 0,
+      activeExpenses: b.activeExpenses || 0,
+      netMargin: b.netMargin || 0,
+      pausedSavings: b.pausedSavings || 0,
+      tradeSalesCompleted: b.tradeSalesCompleted || 0,
+      tradeBorrowSavings: b.tradeBorrowSavings || 0,
+      tradePotential: b.totalTradePotential || 0,
+      adjustedMargin: b.adjustedMargin || 0,
+      goalProgress: b.goalProgress || 0,
+      monthsUntilDeadline: b.monthsUntilDeadline || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format budget context for LLM prompt
+ * Uses correct semantic separation: monthly recurring vs one-time gains
+ */
+function formatBudgetForPrompt(budget: BudgetContext): string {
+  const lines: string[] = ['Situation Financière:'];
+
+  // MONTHLY RECURRING (continuous cash flows)
+  lines.push('');
+  lines.push('REVENUS MENSUELS (récurrent):');
+  lines.push(`- Revenus: ${budget.totalIncome}€/mois`);
+  lines.push(`- Dépenses: ${budget.activeExpenses}€/mois`);
+  lines.push(`- Marge nette: ${budget.netMargin}€/mois`);
+
+  // ONE-TIME GAINS (realized)
+  const oneTimeGainsTotal =
+    (budget.tradeSalesCompleted || 0) +
+    (budget.tradeBorrowSavings || 0) +
+    (budget.pausedSavings || 0);
+
+  if (oneTimeGainsTotal > 0) {
+    lines.push('');
+    lines.push('GAINS PONCTUELS RÉALISÉS:');
+    if (budget.tradeSalesCompleted > 0) {
+      lines.push(`- Ventes complétées: +${budget.tradeSalesCompleted}€`);
+    }
+    if (budget.tradeBorrowSavings > 0) {
+      lines.push(`- Emprunts économisés: +${budget.tradeBorrowSavings}€`);
+    }
+    if (budget.pausedSavings > 0) {
+      lines.push(`- Items pausés: +${budget.pausedSavings}€`);
+    }
+    lines.push(`- Total gains ponctuels: +${oneTimeGainsTotal}€`);
+  }
+
+  // POTENTIAL (not yet realized)
+  if (budget.tradePotential > 0) {
+    lines.push('');
+    lines.push('GAINS POTENTIELS (non réalisés):');
+    lines.push(`- Trades en attente: +${budget.tradePotential}€`);
+  }
+
+  // GOAL PROJECTION (combines correctly)
+  if (budget.goalProgress > 0 && budget.monthsUntilDeadline > 0) {
+    const fromMonthlyMargin = budget.netMargin * budget.monthsUntilDeadline;
+    const totalProjected = fromMonthlyMargin + oneTimeGainsTotal;
+
+    lines.push('');
+    lines.push('PROJECTION VERS OBJECTIF:');
+    lines.push(`- Mois restants: ${budget.monthsUntilDeadline}`);
+    lines.push(
+      `- Via marge mensuelle: ${fromMonthlyMargin}€ (${budget.netMargin}€ × ${budget.monthsUntilDeadline} mois)`
+    );
+    lines.push(`- Via gains ponctuels: ${oneTimeGainsTotal}€`);
+    lines.push(`- TOTAL PROJETÉ: ${totalProjected}€`);
+    lines.push(`- Progression: ${budget.goalProgress.toFixed(1)}%`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
  * Fetch RAG context for a query (non-blocking, returns empty on failure)
  * @see sprint-10-5.md Phase 2
  */
@@ -777,6 +892,29 @@ async function handleConversationMode(
         { type: 'tool', input: { profileId } }
       );
 
+      // Span 2.5: Fetch consolidated budget context (type: tool)
+      const budgetContext = await ctx.createChildSpan(
+        'chat.budget_context',
+        async (span) => {
+          const budget = await fetchBudgetContext(profileId);
+          span.setAttributes({
+            'budget.available': budget !== null,
+            'budget.net_margin': budget?.netMargin || 0,
+            'budget.adjusted_margin': budget?.adjustedMargin || 0,
+            'budget.goal_progress': budget?.goalProgress || 0,
+          });
+          if (budget) {
+            span.setOutput({
+              netMargin: budget.netMargin,
+              adjustedMargin: budget.adjustedMargin,
+              goalProgress: budget.goalProgress,
+            });
+          }
+          return budget;
+        },
+        { type: 'tool', input: { profileId } }
+      );
+
       // Log intent detection feedback scores for evaluation and dashboard
       const isFallback = isIntentFallback(intent);
       const traceIdForFeedback = ctx.getTraceId();
@@ -1144,9 +1282,15 @@ async function handleConversationMode(
                     ? `\n${ragContext}\nUse this context from similar students to personalize your advice.\n`
                     : '';
 
+                  // Build consolidated budget section for prompt
+                  const budgetSection = budgetContext
+                    ? `\n${formatBudgetForPrompt(budgetContext)}\n`
+                    : '';
+
                   span.setAttributes({
                     'rag.available': ragContext.length > 0,
                     'rag.context_length': ragContext.length,
+                    'budget.available': budgetContext !== null,
                   });
 
                   const completion = await client.chat.completions.create({
@@ -1157,8 +1301,9 @@ async function handleConversationMode(
                         content: `${SYSTEM_PROMPTS.onboarding}
 
 The user has already completed onboarding. Their profile: ${JSON.stringify(context)}.
-${ragSection}
-Help them with general questions about their finances, savings plan, or profile.
+${budgetSection}${ragSection}
+You have access to their consolidated financial data including income, expenses, savings from paused items, and trade values.
+Use this data to provide personalized, specific financial advice.
 Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed information.`,
                       },
                       { role: 'user', content: message },

@@ -71,20 +71,46 @@ interface Mission {
   earningsCollected: number;
 }
 
+interface TradeRow {
+  type: string;
+  value: number;
+  status: string;
+}
+
 interface AnalyticsResponse {
   summary: {
-    totalIncome: number;
-    totalExpenses: number;
-    netMargin: number;
+    // MONTHLY RECURRING (correct semantics)
+    totalIncome: number; // Monthly income only (no trades)
+    totalExpenses: number; // Active monthly expenses
+    netMargin: number; // Monthly margin (income - expenses)
     goalProgress: number;
     totalEarnings: number;
     totalHoursWorked: number;
     goalName?: string;
     goalAmount?: number;
     daysRemaining?: number;
+    // ONE-TIME GAINS (discrete events)
+    tradeSalesCompleted?: number;
+    tradeBorrowSavings?: number;
+    pausedSavings?: number;
+    oneTimeGainsTotal?: number; // NEW: Total one-time gains
+    // Legacy (deprecated)
+    adjustedMargin?: number;
   };
   incomeBreakdown: { source: string; amount: number; percentage: number }[];
   expenseBreakdown: { category: string; amount: number; percentage: number }[];
+  // One-time gains breakdown (trades + paused items)
+  savingsBreakdown?: { source: string; amount: number; type: 'trade' | 'paused' }[];
+  // NEW: Goal projection with correct calculation
+  goalProjection?: {
+    goalAmount: number;
+    monthsRemaining: number;
+    fromMonthlyMargin: number; // margin × months
+    fromOneTimeGains: number; // one-time gains already acquired
+    totalProjected: number; // sum of above
+    potentialExtra: number; // pending trades/borrows
+    progressPercent: number;
+  };
   earningsTimeline: { week: number; date: string; amount: number; cumulative: number }[];
   energyTrend: { week: number; level: number; status: 'low' | 'medium' | 'high' }[];
   goalMetrics?: {
@@ -201,8 +227,12 @@ export async function GET(event: APIEvent) {
       }));
     }
 
-    // Aggregate by category for expense breakdown
-    const categoryTotals = lifestyleItems.reduce(
+    // Separate active and paused items for accurate expense calculation
+    const activeItems = lifestyleItems.filter((item) => item.paused_months === 0);
+    const pausedItems = lifestyleItems.filter((item) => item.paused_months > 0);
+
+    // Aggregate by category for expense breakdown (active items only)
+    const categoryTotals = activeItems.reduce(
       (acc, item) => {
         const cat = item.category === 'rent' ? 'housing' : item.category;
         if (!acc[cat]) {
@@ -214,11 +244,43 @@ export async function GET(event: APIEvent) {
       {} as Record<string, number>
     );
 
-    // Calculate totals from income_items
+    // Calculate paused savings (monthly cost * paused months)
+    const pausedSavings = pausedItems.reduce(
+      (sum, item) => sum + item.current_cost * item.paused_months,
+      0
+    );
+
+    // Query trades table for completed sales and borrow savings
+    let tradeSalesCompleted = 0;
+    let tradeBorrowSavings = 0;
+    try {
+      const tradeItems = await query<TradeRow>(
+        `SELECT type, value, status FROM trades WHERE profile_id = '${profile.id}'`
+      );
+
+      // Completed sales = realized income
+      tradeSalesCompleted = tradeItems
+        .filter((t) => t.type === 'sell' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.value, 0);
+
+      // Borrow savings (active + completed)
+      tradeBorrowSavings = tradeItems
+        .filter((t) => t.type === 'borrow' && (t.status === 'active' || t.status === 'completed'))
+        .reduce((sum, t) => sum + t.value, 0);
+    } catch {
+      // trades table might not exist yet
+    }
+
+    // Calculate totals from income_items (CORRECT: no trades in monthly income)
     const incomeFromItems = incomeItems.reduce((sum, i) => sum + i.amount, 0);
-    const totalIncome = incomeFromItems; // Use calculated total from items (source of truth)
+    // FIX: totalIncome is ONLY recurring income, NOT including one-time trade sales
+    const totalIncome = incomeFromItems; // CORRECT: No tradeSalesCompleted here
     const totalExpenses = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
-    const netMargin = totalIncome - totalExpenses;
+    const netMargin = totalIncome - totalExpenses; // CORRECT: Monthly margin
+    // oneTimeGainsTotal for display
+    const oneTimeGainsTotal = tradeSalesCompleted + tradeBorrowSavings + pausedSavings;
+    // Legacy adjusted margin kept for backward compatibility but deprecated
+    const adjustedMargin = netMargin + pausedSavings + tradeBorrowSavings;
 
     // Income breakdown with percentages (from income_items)
     const incomeBreakdown = incomeItems.map((i) => ({
@@ -348,20 +410,75 @@ export async function GET(event: APIEvent) {
         ? Math.round(((followupData?.currentAmount || totalEarnings) / goalAmount) * 100)
         : 0;
 
+    // Build savings breakdown for the new consolidated view
+    const savingsBreakdown: { source: string; amount: number; type: 'trade' | 'paused' }[] = [];
+
+    if (tradeSalesCompleted > 0) {
+      savingsBreakdown.push({ source: 'Trade Sales', amount: tradeSalesCompleted, type: 'trade' });
+    }
+    if (tradeBorrowSavings > 0) {
+      savingsBreakdown.push({
+        source: 'Borrow Savings',
+        amount: tradeBorrowSavings,
+        type: 'trade',
+      });
+    }
+    if (pausedSavings > 0) {
+      savingsBreakdown.push({
+        source: `Paused Items (${pausedItems.length})`,
+        amount: pausedSavings,
+        type: 'paused',
+      });
+    }
+
+    // Calculate goal projection (correct semantics)
+    const monthsRemaining = goalMetrics?.daysRemaining
+      ? Math.ceil(goalMetrics.daysRemaining / 30)
+      : 0;
+    const fromMonthlyMargin = netMargin * monthsRemaining;
+    const fromOneTimeGains = oneTimeGainsTotal;
+    const totalProjected = fromMonthlyMargin + fromOneTimeGains;
+    const progressPercent =
+      goalAmount && goalAmount > 0
+        ? Math.min(100, Math.max(0, (totalProjected / goalAmount) * 100))
+        : 0;
+
     const response: AnalyticsResponse = {
       summary: {
-        totalIncome,
+        // MONTHLY RECURRING (correct)
+        totalIncome, // Only recurring income
         totalExpenses,
-        netMargin,
+        netMargin, // Correct monthly margin
         goalProgress: Math.min(100, goalProgress),
         totalEarnings,
         totalHoursWorked,
         goalName,
         goalAmount,
         daysRemaining: goalMetrics?.daysRemaining,
+        // ONE-TIME GAINS
+        tradeSalesCompleted,
+        tradeBorrowSavings,
+        pausedSavings,
+        oneTimeGainsTotal, // NEW: Total one-time gains
+        // Legacy (deprecated)
+        adjustedMargin,
       },
       incomeBreakdown,
       expenseBreakdown,
+      savingsBreakdown: savingsBreakdown.length > 0 ? savingsBreakdown : undefined,
+      // NEW: Goal projection with correct calculation
+      goalProjection:
+        goalAmount && goalAmount > 0
+          ? {
+              goalAmount,
+              monthsRemaining,
+              fromMonthlyMargin,
+              fromOneTimeGains,
+              totalProjected,
+              potentialExtra: 0, // TODO: Add pending trades calculation
+              progressPercent,
+            }
+          : undefined,
       earningsTimeline,
       energyTrend,
       goalMetrics,

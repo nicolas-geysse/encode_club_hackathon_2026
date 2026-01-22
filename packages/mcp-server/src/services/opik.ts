@@ -29,6 +29,7 @@ const ENABLE_OPIK = process.env.ENABLE_OPIK !== 'false';
 export const ENABLE_REALTIME_OPIK = process.env.ENABLE_REALTIME_OPIK === 'true';
 
 if (process.env.NODE_ENV === 'development') {
+  // eslint-disable-next-line no-console
   console.log(
     `[Opik] Realtime tracing enabled: ${ENABLE_REALTIME_OPIK} (Env: ${process.env.ENABLE_REALTIME_OPIK})`
   );
@@ -52,6 +53,10 @@ export interface TokenUsage {
 export interface Span {
   setAttributes(attrs: Record<string, unknown>): void;
   addEvent(name: string, attrs?: Record<string, unknown>): void;
+  /** Set the input for this trace/span (visible in Opik UI) */
+  setInput(input: Record<string, unknown>): void;
+  /** Set the output for this trace/span (visible in Opik UI) */
+  setOutput(output: Record<string, unknown>): void;
   /** Set token usage at root level (not in metadata) for proper Opik display */
   setUsage(usage: TokenUsage): void;
   end(): void;
@@ -119,17 +124,31 @@ export async function initOpik(): Promise<void> {
 }
 
 /**
+ * Options for creating a trace
+ */
+export interface TraceOptions {
+  /** Tags for filtering/grouping traces in Opik UI */
+  tags?: string[];
+  /** Initial metadata to attach to the trace */
+  metadata?: Record<string, unknown>;
+  /** Initial input data */
+  input?: Record<string, unknown>;
+}
+
+/**
  * Create a trace wrapper for a function
  * Automatically tracks duration, success/failure, and custom attributes
  */
 export async function trace<T>(
   name: string,
   fn: (span: Span) => Promise<T>,
-  _parentSpan?: Span
+  options?: TraceOptions
 ): Promise<T> {
   const startTime = new Date();
-  const collectedAttrs: Record<string, unknown> = {};
+  const collectedAttrs: Record<string, unknown> = options?.metadata ? { ...options.metadata } : {};
   let usageData: TokenUsage | null = null;
+  let inputData: Record<string, unknown> | null = options?.input || null;
+  let outputData: Record<string, unknown> | null = null;
 
   // Create a mock span if Opik is not available
   const mockSpan: Span = {
@@ -138,6 +157,12 @@ export async function trace<T>(
     },
     addEvent: (eventName, attrs) => {
       Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
+    },
+    setInput: (input) => {
+      inputData = input;
+    },
+    setOutput: (output) => {
+      outputData = output;
     },
     setUsage: (usage) => {
       usageData = usage;
@@ -162,12 +187,24 @@ export async function trace<T>(
   const hasClient = await ensureOpikClient();
   if (hasClient && opikClient) {
     try {
-      traceHandle = opikClient.trace({
+      const traceConfig: Record<string, unknown> = {
         name,
         projectName: OPIK_PROJECT,
         startTime,
-        metadata: {},
-      });
+        metadata: options?.metadata || {},
+      };
+
+      // Add tags if provided
+      if (options?.tags && options.tags.length > 0) {
+        traceConfig.tags = options.tags;
+      }
+
+      // Add initial input if provided
+      if (options?.input) {
+        traceConfig.input = options.input;
+      }
+
+      traceHandle = opikClient.trace(traceConfig);
       currentTraceId = traceHandle.data?.id || traceHandle.id;
       currentTraceHandle = traceHandle;
 
@@ -178,13 +215,26 @@ export async function trace<T>(
         addEvent: (eventName, attrs) => {
           Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
         },
+        setInput: (input) => {
+          inputData = input;
+        },
+        setOutput: (output) => {
+          outputData = output;
+        },
         setUsage: (usage) => {
           usageData = usage;
         },
         end: () => {
           if (traceHandle) {
-            // Update with metadata and usage at root level
+            // Update with metadata, input, output, and usage at root level
             const updateData: Record<string, unknown> = { metadata: collectedAttrs };
+            // Set input/output for Opik UI display
+            if (inputData) {
+              updateData.input = inputData;
+            }
+            if (outputData) {
+              updateData.output = outputData;
+            }
             // IMPORTANT: Set usage at root level, not in metadata, for Opik to display correctly
             if (usageData) {
               updateData.usage = usageData;
@@ -300,6 +350,8 @@ export async function createSpan<T>(
   const startTime = new Date();
   const collectedAttrs: Record<string, unknown> = {};
   let usageData: TokenUsage | null = null;
+  let inputData: Record<string, unknown> | null = options?.input || null;
+  let outputData: Record<string, unknown> | null = null;
 
   // Create a mock span for when no parent trace exists
   const mockSpan: Span = {
@@ -308,6 +360,12 @@ export async function createSpan<T>(
     },
     addEvent: (eventName, attrs) => {
       Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
+    },
+    setInput: (input) => {
+      inputData = input;
+    },
+    setOutput: (output) => {
+      outputData = output;
     },
     setUsage: (usage) => {
       usageData = usage;
@@ -354,12 +412,24 @@ export async function createSpan<T>(
         addEvent: (eventName, attrs) => {
           Object.assign(collectedAttrs, { [`event_${eventName}`]: attrs || true });
         },
+        setInput: (input) => {
+          inputData = input;
+        },
+        setOutput: (output) => {
+          outputData = output;
+        },
         setUsage: (usage) => {
           usageData = usage;
         },
         end: () => {
           if (spanHandle) {
             const updateData: Record<string, unknown> = { metadata: collectedAttrs };
+            if (inputData) {
+              updateData.input = inputData;
+            }
+            if (outputData) {
+              updateData.output = outputData;
+            }
             if (usageData) {
               updateData.usage = usageData;
             }
@@ -401,18 +471,20 @@ export function getCurrentTraceHandle(): unknown {
 export async function maybeTrace<T>(
   name: string,
   fn: (span: Span) => Promise<T>,
-  parentSpan?: Span
+  options?: TraceOptions
 ): Promise<T> {
   if (!ENABLE_REALTIME_OPIK) {
     const mockSpan: Span = {
       setAttributes: () => {},
       addEvent: () => {},
+      setInput: () => {},
+      setOutput: () => {},
       setUsage: () => {},
       end: () => {},
     };
     return fn(mockSpan);
   }
-  return trace(name, fn, parentSpan);
+  return trace(name, fn, options);
 }
 
 // Helper to skip span creation if realtime logs are disabled
@@ -425,6 +497,8 @@ export async function maybeCreateSpan<T>(
     const mockSpan: Span = {
       setAttributes: () => {},
       addEvent: () => {},
+      setInput: () => {},
+      setOutput: () => {},
       setUsage: () => {},
       end: () => {},
     };

@@ -26,8 +26,9 @@ export const SLASH_COMMANDS: Record<string, SlashCommandHandler> = {
    * /budget - Show budget summary with metrics
    */
   budget: (context) => {
-    const income = (context.monthlyIncome as number) || 0;
-    const expenses = (context.monthlyExpenses as number) || 0;
+    // Support both field naming conventions: income/expenses (profile) or monthlyIncome/monthlyExpenses
+    const income = (context.income as number) || (context.monthlyIncome as number) || 0;
+    const expenses = (context.expenses as number) || (context.monthlyExpenses as number) || 0;
     const margin = income - expenses;
     const savingsRate = income > 0 ? Math.round((margin / income) * 100) : 0;
 
@@ -204,8 +205,9 @@ export const SLASH_COMMANDS: Record<string, SlashCommandHandler> = {
    */
   summary: (context) => {
     const name = (context.name as string) || 'Student';
-    const income = (context.monthlyIncome as number) || 0;
-    const expenses = (context.monthlyExpenses as number) || 0;
+    // Support both field naming conventions
+    const income = (context.income as number) || (context.monthlyIncome as number) || 0;
+    const expenses = (context.expenses as number) || (context.monthlyExpenses as number) || 0;
     const goalName = (context.goalName as string) || 'Not set';
     const goalAmount = (context.goalAmount as number) || 0;
     const skills = (context.skills as string[]) || [];

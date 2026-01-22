@@ -33,6 +33,7 @@ export interface SwipeCardProps {
   onSwipe: (direction: SwipeDirection, timeSpent: number, adjustments?: CardAdjustments) => void;
   isActive?: boolean;
   triggerSwipe?: SwipeDirection | null;
+  returnFrom?: SwipeDirection | null; // For undo animation - card returns from this direction
 }
 
 export interface CardAdjustments {
@@ -54,15 +55,51 @@ export function SwipeCard(props: SwipeCardProps) {
   let cardRef: HTMLDivElement | undefined;
   let startPos = { x: 0, y: 0 };
 
+  const [isReturning, setIsReturning] = createSignal(false);
+
   onMount(() => {
     setStartTime(Date.now());
+
+    // If returnFrom is set, start from exited position and animate back
+    if (props.returnFrom) {
+      const flyDistance = 800;
+      const startPositions: Record<SwipeDirection, { x: number; y: number }> = {
+        right: { x: flyDistance, y: 0 },
+        left: { x: -flyDistance, y: 0 },
+        up: { x: 0, y: -flyDistance },
+        down: { x: 0, y: flyDistance },
+      };
+      const startRotations: Record<SwipeDirection, number> = {
+        right: 45,
+        left: -45,
+        up: 0,
+        down: 0,
+      };
+
+      // Start from exited position
+      setPosition(startPositions[props.returnFrom]);
+      setRotation(startRotations[props.returnFrom]);
+      setIsReturning(true);
+
+      // Animate back to center after a tiny delay (for CSS transition to kick in)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setPosition({ x: 0, y: 0 });
+          setRotation(0);
+          setTimeout(() => setIsReturning(false), 500);
+        });
+      });
+    }
   });
 
   // Reset state when the card ID updates (recycling the component)
   createEffect(() => {
     // specific dependency on props.id
     const _ = props.id;
+    // Don't reset if we're doing a return animation
+    if (props.returnFrom) return;
     setIsExiting(false);
+    setIsReturning(false);
     setPosition({ x: 0, y: 0 });
     setRotation(0);
     setSwipeDirection(null);

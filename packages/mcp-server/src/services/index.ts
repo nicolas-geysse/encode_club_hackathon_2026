@@ -5,8 +5,17 @@
  */
 
 // Opik tracing
-export { trace, initOpik, logFeedback, getTraceUrl, getCurrentTraceId, opik } from './opik.js';
-export type { Span } from './opik.js';
+export {
+  trace,
+  createSpan,
+  initOpik,
+  logFeedback,
+  getTraceUrl,
+  getCurrentTraceId,
+  getCurrentTraceHandle,
+  opik,
+} from './opik.js';
+export type { Span, TokenUsage, TraceOptions } from './opik.js';
 
 // Groq LLM
 export { initGroq, chat, analyzeBudget, generateAdvice, transcribeAudio, groq } from './groq.js';
