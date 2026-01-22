@@ -554,6 +554,7 @@ export function SwipeSession(props: SwipeSessionProps) {
         {(() => {
           const showUndo = () => canUndo() && currentIndex() < props.scenarios.length;
           const lastDirection = () => swipeHistory()[swipeHistory().length - 1]?.direction;
+          /* eslint-disable solid/components-return-once */
           const ArrowIcon = () => {
             switch (lastDirection()) {
               case 'right':
@@ -568,6 +569,7 @@ export function SwipeSession(props: SwipeSessionProps) {
                 return <Undo2 class="h-5 w-5" />;
             }
           };
+          /* eslint-enable solid/components-return-once */
           return (
             <div
               class="transition-all duration-300 ease-out"

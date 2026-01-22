@@ -14,7 +14,7 @@ import { SkillsTab } from '~/components/tabs/SkillsTab';
 import { BudgetTab } from '~/components/tabs/BudgetTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab, type UserPreferences } from '~/components/tabs/SwipeTab';
-import { profileService, type FullProfile } from '~/lib/profileService';
+import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
 import { tradeService } from '~/lib/tradeService';
@@ -114,20 +114,9 @@ interface PlanData {
   completedTabs: string[];
 }
 
-// Currency type
+// Currency type - used in local storage structure
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type Currency = 'USD' | 'EUR' | 'GBP';
-
-// Helper to get currency symbol
-function getCurrencySymbol(currency?: Currency): string {
-  switch (currency) {
-    case 'EUR':
-      return '\u20AC'; // €
-    case 'GBP':
-      return '\u00A3'; // £
-    default:
-      return '$';
-  }
-}
 
 const TABS = [
   { id: 'profile', label: 'Profile', icon: 'User' },
@@ -187,6 +176,7 @@ export default function PlanPage() {
   // Load plan data when activeProfile changes
   // FIX: Compare before setting to break the infinite loop:
   // setPlanData → Effect 2 (save) → DATA_CHANGED → ProfileContext refresh → Effect 1 → setPlanData...
+  // eslint-disable-next-line solid/reactivity
   createEffect(async () => {
     const profile = activeProfile();
     if (profile) {

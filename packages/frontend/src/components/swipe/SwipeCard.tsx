@@ -55,7 +55,8 @@ export function SwipeCard(props: SwipeCardProps) {
   let cardRef: HTMLDivElement | undefined;
   let startPos = { x: 0, y: 0 };
 
-  const [isReturning, setIsReturning] = createSignal(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isReturning, setIsReturning] = createSignal(false);
 
   onMount(() => {
     setStartTime(Date.now());
@@ -95,7 +96,7 @@ export function SwipeCard(props: SwipeCardProps) {
   // Reset state when the card ID updates (recycling the component)
   createEffect(() => {
     // specific dependency on props.id
-    const _ = props.id;
+    void props.id;
     // Don't reset if we're doing a return animation
     if (props.returnFrom) return;
     setIsExiting(false);
@@ -279,11 +280,13 @@ export function SwipeCard(props: SwipeCardProps) {
       <div
         class="holo-card w-full h-full relative rounded-3xl"
         style={
+          /* eslint-disable @typescript-eslint/no-explicit-any */
           {
             '--pointer-x': tilt().x,
             '--pointer-y': tilt().y,
             '--card-scale': isDragging() ? 1.05 : 1,
           } as any
+          /* eslint-enable @typescript-eslint/no-explicit-any */
         }
       >
         {/* Holographic Effects Layers */}

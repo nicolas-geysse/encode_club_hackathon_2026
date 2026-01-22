@@ -9,7 +9,7 @@
  * - Convert: model.export_onnx("./models/m2v-bge-m3-1024d.onnx")
  */
 
-import { trace, createSpan, maybeTrace, maybeCreateSpan, ENABLE_REALTIME_OPIK } from './opik.js';
+import { maybeTrace, maybeCreateSpan } from './opik.js';
 
 // Lazy-load pipeline to avoid startup delay
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

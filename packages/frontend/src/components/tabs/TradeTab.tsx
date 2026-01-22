@@ -224,11 +224,13 @@ export function TradeTab(props: TradeTabProps) {
   const currencySymbol = () => getCurrencySymbol(currency());
 
   // Use createCrudTab hook for common CRUD state management
+  /* eslint-disable solid/reactivity */
   const crud = createCrudTab<TradeItem>({
     getItemId: (trade) => trade.id,
     getItemName: (trade) => trade.name,
     onItemsChange: props.onTradesChange,
   });
+  /* eslint-enable solid/reactivity */
 
   // Destructure for convenience (aliased to match original names for minimal changes)
   const {
@@ -238,7 +240,6 @@ export function TradeTab(props: TradeTabProps) {
     setShowAddForm,
     deleteConfirm,
     editingId: editingTradeId,
-    setEditingId: setEditingTradeId,
   } = crud;
 
   // Initialize with initial trades

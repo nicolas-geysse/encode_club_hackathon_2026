@@ -63,7 +63,7 @@ export async function runResponseEvaluation(
       score: Math.round(score * 100) / 100,
       issues,
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

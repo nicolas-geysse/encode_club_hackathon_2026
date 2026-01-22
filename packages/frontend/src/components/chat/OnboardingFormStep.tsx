@@ -371,9 +371,11 @@ function DynamicDatePair(props: {
   onUpdateStart: (value: string) => void;
   onUpdateEnd: (value: string) => void;
 }) {
+  /* eslint-disable solid/reactivity */
   const [sameDay, setSameDay] = createSignal(
     Boolean(props.startValue && props.startValue === props.endValue)
   );
+  /* eslint-enable solid/reactivity */
 
   // When sameDay is toggled on, sync endDate to startDate
   const handleSameDayChange = (checked: boolean) => {
@@ -553,6 +555,7 @@ function DynamicListField(props: {
   const config = () => props.field.config as DynamicListFieldConfig;
 
   // Use a store for fine-grained reactivity
+  // eslint-disable-next-line solid/reactivity
   const [items, setItems] = createStore<Array<Record<string, unknown>>>(props.items);
 
   // Track if we should sync from props (for external changes)

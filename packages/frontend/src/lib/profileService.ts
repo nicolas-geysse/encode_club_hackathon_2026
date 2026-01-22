@@ -245,9 +245,8 @@ export async function saveProfile(
       const result = await response.json();
       logger.info('Profile saved to API');
 
-      // Trigger embedding after successful API save (fire-and-forget)
-      const profileWithId = { ...profile, id: result.profileId || profile.id };
       // BUG FIX: Disable auto-embedding to prevent DuckDB concurrency conflicts during rapid saves
+      // const profileWithId = { ...profile, id: result.profileId || profile.id };
       // triggerProfileEmbedding(profileWithId).catch(() => {
       //   // Already logged in triggerProfileEmbedding
       // });

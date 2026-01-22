@@ -216,9 +216,7 @@ export function SkillsTab(props: SkillsTabProps) {
     isLoading,
     setIsLoading,
     editingId: editingSkillId,
-    setEditingId: setEditingSkillId,
     deleteConfirm,
-    setDeleteConfirm,
     resetForm: resetFormState,
   } = crud;
 

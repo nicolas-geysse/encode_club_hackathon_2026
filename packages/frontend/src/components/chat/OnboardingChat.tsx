@@ -1784,6 +1784,7 @@ export function OnboardingChat() {
   };
 
   // Helper for left sidebar context (reserved for future use)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _getStepContext = (s: OnboardingStep) => {
     const contextMap: Record<string, { title: string; description: string }> = {
       greeting: {
@@ -1866,6 +1867,7 @@ export function OnboardingChat() {
             <GlassButton
               class="icon-mode group transform-gpu"
               title="Restart Onboarding"
+              // eslint-disable-next-line solid/reactivity
               onClick={async () => {
                 setProfile({
                   skills: [],

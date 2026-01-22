@@ -68,6 +68,7 @@ export function EnergyHistory(props: EnergyHistoryProps) {
   const isComeback = createMemo(() => detectComeback(props.history, threshold()));
 
   // Energy trend insight (comparing last 2 weeks) - prefixed with _ as it's for future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _energyTrend = createMemo(() => {
     if (props.history.length < 2) return null;
     const current = props.history[props.history.length - 1].level;

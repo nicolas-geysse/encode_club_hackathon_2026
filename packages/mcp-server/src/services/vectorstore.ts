@@ -6,7 +6,7 @@
  */
 
 import { DuckDBVector } from '@mastra/duckdb';
-import { trace, createSpan, maybeTrace, maybeCreateSpan } from './opik.js';
+import { maybeTrace, maybeCreateSpan } from './opik.js';
 import * as path from 'path';
 import * as fs from 'fs';
 

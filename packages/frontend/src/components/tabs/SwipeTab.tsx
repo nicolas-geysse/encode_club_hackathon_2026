@@ -12,7 +12,6 @@ import { celebrateBig } from '~/lib/confetti';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { Progress } from '~/components/ui/Progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot } from 'lucide-solid';
 

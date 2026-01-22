@@ -117,6 +117,7 @@ export default function MapPicker(props: MapPickerProps) {
       }).addTo(map);
 
       // Update coordinates when marker is dragged
+      // eslint-disable-next-line solid/reactivity
       marker.on('dragend', () => {
         const pos = marker.getLatLng();
         const newCoords = { latitude: pos.lat, longitude: pos.lng };
@@ -125,6 +126,7 @@ export default function MapPicker(props: MapPickerProps) {
       });
 
       // Also allow clicking on map to move marker
+      // eslint-disable-next-line solid/reactivity
       map.on('click', (e: { latlng: { lat: number; lng: number } }) => {
         marker.setLatLng(e.latlng);
         const newCoords = { latitude: e.latlng.lat, longitude: e.latlng.lng };

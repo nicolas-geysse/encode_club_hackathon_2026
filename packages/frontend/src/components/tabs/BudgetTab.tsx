@@ -103,7 +103,6 @@ export function BudgetTab(props: BudgetTabProps) {
     isLoading,
     setIsLoading,
     editingId: editingItemId,
-    setEditingId: setEditingItemId,
     deleteConfirm,
     setDeleteConfirm,
   } = crud;

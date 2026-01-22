@@ -5,7 +5,7 @@
  * to generate more personalized and relevant recommendations.
  */
 
-import { trace, maybeTrace } from '../services/opik.js';
+import { maybeTrace } from '../services/opik.js';
 import { vectorstore } from '../services/vectorstore.js';
 import { embeddings } from '../services/embeddings.js';
 
