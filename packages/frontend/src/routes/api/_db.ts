@@ -137,6 +137,8 @@ async function initializeDatabaseInternal(state: DuckDBState): Promise<void> {
       } else {
         console.log('[DuckDB] Connection verified - ready for queries');
         state.initialized = true;
+        // Start periodic checkpoint after successful init
+        startPeriodicCheckpoint();
         resolve();
       }
     });
@@ -359,4 +361,34 @@ if (!(globalThis as Record<string, unknown>).__stride_shutdown_registered__) {
   (globalThis as Record<string, unknown>).__stride_shutdown_registered__ = true;
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
+
+// D - Periodic checkpoint: flush WAL to main database file every 5 minutes
+// This reduces WAL file size and ensures data durability
+const CHECKPOINT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+let checkpointIntervalId: ReturnType<typeof setInterval> | null = null;
+
+function startPeriodicCheckpoint(): void {
+  if (checkpointIntervalId) return; // Already running
+
+  checkpointIntervalId = setInterval(() => {
+    const state = getGlobalState();
+    if (!state.conn || !state.initialized || shutdownInProgress) return;
+
+    state.conn.exec('CHECKPOINT', (err) => {
+      if (err) {
+        console.warn('[DuckDB] Periodic checkpoint failed:', err.message);
+      }
+      // Silent success - don't spam logs
+    });
+  }, CHECKPOINT_INTERVAL_MS);
+
+  // Don't prevent process from exiting
+  checkpointIntervalId.unref?.();
+}
+
+// Start periodic checkpoint after first successful database init
+// This is called from initDatabase() after connection is verified
+export function enablePeriodicCheckpoint(): void {
+  startPeriodicCheckpoint();
 }

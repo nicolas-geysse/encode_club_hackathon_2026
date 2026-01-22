@@ -1334,12 +1334,18 @@ Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed 
                   span.setOutput({ response: llmResponse.substring(0, 200) });
                   return llmResponse;
                 } catch {
+                  const fallbackResponse =
+                    "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
                   span.setAttributes({ error: true, used_llm: false });
-                  return "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+                  span.setOutput({ response: fallbackResponse, fallback: true });
+                  return fallbackResponse;
                 }
               } else {
+                const fallbackResponse =
+                  "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
                 span.setAttributes({ error: false, used_llm: false, reason: 'no_client' });
-                return "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+                span.setOutput({ response: fallbackResponse, fallback: true });
+                return fallbackResponse;
               }
             },
             {

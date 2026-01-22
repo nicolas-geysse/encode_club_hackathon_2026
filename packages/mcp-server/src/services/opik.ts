@@ -17,6 +17,19 @@ let initialized = false;
 // with .env loading in server-side frameworks (Vinxi/SolidStart)
 // See: OPIK_API_KEY, OPIK_WORKSPACE, OPIK_PROJECT, OPIK_BASE_URL, ENABLE_OPIK
 
+// Log level configuration: 'debug' | 'info' | 'warn' | 'error'
+// Set LOG_LEVEL=debug to see verbose Opik span/trace logs
+const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
+type LogLevel = keyof typeof LOG_LEVELS;
+const currentLogLevel: LogLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) || 'info';
+
+/** Log only if current level allows it */
+function logDebug(...args: unknown[]): void {
+  if (LOG_LEVELS[currentLogLevel] <= LOG_LEVELS.debug) {
+    console.error(...args);
+  }
+}
+
 // Allow disabling mostly "spammy" realtime traces (e.g. background embeddings)
 // DEFAULT: FALSE (Opt-in) because it generates too many logs
 // Note: This one is safe at module level since it's not critical for auth
@@ -281,7 +294,7 @@ export async function trace<T>(
       traceHandle = opikClient.trace(traceConfig);
       currentTraceId = traceHandle.data?.id || traceHandle.id;
       currentTraceHandle = traceHandle;
-      console.error(`[Opik:${name}] Created trace with ID: ${currentTraceId}`);
+      logDebug(`[Opik:${name}] Created trace with ID: ${currentTraceId}`);
 
       ctx = {
         setAttributes: (attrs) => {
@@ -295,7 +308,7 @@ export async function trace<T>(
         },
         setOutput: (output) => {
           outputData = output;
-          console.error(
+          logDebug(
             `[Opik:${name}] setOutput called with:`,
             JSON.stringify(output).substring(0, 300)
           );
@@ -335,7 +348,7 @@ export async function trace<T>(
   // Helper to finalize the trace with all collected data
   const finalizeTrace = async () => {
     if (traceHandle) {
-      console.error(
+      logDebug(
         `[Opik:${name}] finalizeTrace called, outputData:`,
         outputData ? JSON.stringify(outputData).substring(0, 300) : 'null'
       );
@@ -375,7 +388,7 @@ export async function trace<T>(
       // Only call update if we have data to add
       if (Object.keys(updateData).length > 0) {
         try {
-          console.error(
+          logDebug(
             `[Opik:${name}] Calling update with:`,
             JSON.stringify({
               traceId: currentTraceId,
@@ -391,7 +404,7 @@ export async function trace<T>(
 
           // Try direct update call
           traceHandle.update(updateData);
-          console.error(`[Opik:${name}] update() called successfully`);
+          logDebug(`[Opik:${name}] update() called successfully`);
         } catch (err) {
           console.error('[Opik] Error updating trace:', err);
         }
@@ -400,7 +413,7 @@ export async function trace<T>(
       // End the trace
       try {
         traceHandle.end();
-        console.error(`[Opik:${name}] end() called`);
+        logDebug(`[Opik:${name}] end() called`);
       } catch (err) {
         console.error('[Opik] Error ending trace:', err);
       }
@@ -418,9 +431,9 @@ export async function trace<T>(
     // Flush traces and WAIT for it to complete
     if (flushFn) {
       try {
-        console.error(`[Opik:${name}] Flushing all traces...`);
+        logDebug(`[Opik:${name}] Flushing all traces...`);
         await flushFn();
-        console.error(`[Opik:${name}] Flush completed`);
+        logDebug(`[Opik:${name}] Flush completed`);
       } catch (err) {
         console.error('[Opik] Flush error:', err);
       }
@@ -520,7 +533,7 @@ async function createSpanInternal<T>(
   try {
     spanHandle = traceHandle.span(spanConfig);
     childSpans.push(spanHandle);
-    console.error(`[Opik:span:${name}] Created span (type=${options?.type || 'general'})`);
+    logDebug(`[Opik:span:${name}] Created span (type=${options?.type || 'general'})`);
 
     const span: Span = {
       setAttributes: (attrs) => Object.assign(collectedAttrs, attrs),
@@ -532,7 +545,7 @@ async function createSpanInternal<T>(
       },
       setOutput: (output) => {
         outputData = output;
-        console.error(
+        logDebug(
           `[Opik:span:${name}] setOutput called with:`,
           JSON.stringify(output).substring(0, 200)
         );
@@ -574,7 +587,7 @@ async function createSpanInternal<T>(
       }
       spanHandle.update(updateData);
       spanHandle.end();
-      console.error(`[Opik:span:${name}] end() called`);
+      logDebug(`[Opik:span:${name}] end() called`);
     }
 
     return result;
