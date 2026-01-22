@@ -18,14 +18,21 @@
  * - Spans must end() before parent trace ends
  */
 
-// Configuration from environment
-const OPIK_API_KEY = process.env.OPIK_API_KEY;
-const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
-const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
-const OPIK_PROJECT_ID = process.env.OPIK_PROJECT_ID; // UUID for dashboard URLs
-const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
-// Allow explicit disabling via env var (default to true if key exists)
-const ENABLE_OPIK = process.env.ENABLE_OPIK !== 'false';
+// Configuration - env vars read lazily to avoid race conditions with .env loading
+// in server-side frameworks (Vinxi/SolidStart)
+// Functions below read process.env directly at runtime
+
+// Helper to get env vars lazily
+function getOpikConfig() {
+  return {
+    apiKey: process.env.OPIK_API_KEY?.trim(),
+    workspace: process.env.OPIK_WORKSPACE?.trim(),
+    project: process.env.OPIK_PROJECT?.trim() || 'stride',
+    projectId: process.env.OPIK_PROJECT_ID?.trim(),
+    baseUrl: process.env.OPIK_BASE_URL?.trim(),
+    enabled: process.env.ENABLE_OPIK !== 'false',
+  };
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let opikClient: any = null;
@@ -101,7 +108,10 @@ export interface TraceContext extends Span {
 async function getOpikClient() {
   if (opikClient) return opikClient;
 
-  if (!ENABLE_OPIK) {
+  // Read env vars lazily at runtime
+  const cfg = getOpikConfig();
+
+  if (!cfg.enabled) {
     // Only log once to avoid spamming
     if (process.env.NODE_ENV === 'development') {
       console.warn('[Opik] Tracing disabled by ENABLE_OPIK=false');
@@ -109,7 +119,7 @@ async function getOpikClient() {
     return null;
   }
 
-  if (!OPIK_API_KEY) {
+  if (!cfg.apiKey) {
     console.error('[Opik] OPIK_API_KEY not set, tracing disabled');
     return null;
   }
@@ -126,21 +136,21 @@ async function getOpikClient() {
       workspaceName?: string;
       baseUrl?: string;
     } = {
-      apiKey: OPIK_API_KEY,
-      projectName: OPIK_PROJECT,
+      apiKey: cfg.apiKey,
+      projectName: cfg.project,
     };
 
-    if (OPIK_WORKSPACE) {
-      config.workspaceName = OPIK_WORKSPACE;
+    if (cfg.workspace) {
+      config.workspaceName = cfg.workspace;
     }
 
-    if (OPIK_BASE_URL) {
-      config.baseUrl = OPIK_BASE_URL;
+    if (cfg.baseUrl) {
+      config.baseUrl = cfg.baseUrl;
     }
 
     opikClient = new Opik(config);
     console.error(
-      `[Opik] Initialized - project: ${OPIK_PROJECT}, workspace: ${OPIK_WORKSPACE || 'default'}`
+      `[Opik] Initialized - project: ${cfg.project}, workspace: ${cfg.workspace || 'default'}`
     );
     return opikClient;
   } catch (error) {
@@ -245,10 +255,11 @@ export async function trace<T>(
   let traceId = '';
 
   try {
-    // Build trace config
+    // Build trace config (get project name lazily)
+    const cfg = getOpikConfig();
     const traceConfig: Record<string, unknown> = {
       name,
-      projectName: OPIK_PROJECT,
+      projectName: cfg.project,
       startTime,
       metadata,
     };
@@ -549,19 +560,21 @@ export function getCurrentTraceId(): string | null {
  */
 export function getTraceUrl(traceId?: string): string {
   const id = traceId || currentTraceId;
-  const baseUrl = OPIK_BASE_URL || 'https://www.comet.com/opik';
-  const workspace = OPIK_WORKSPACE || 'default';
+  // Read config lazily at runtime
+  const cfg = getOpikConfig();
+  const baseUrl = cfg.baseUrl || 'https://www.comet.com/opik';
+  const workspace = cfg.workspace || 'default';
 
   // Need project ID (UUID) for proper dashboard URLs
-  if (!OPIK_PROJECT_ID) {
+  if (!cfg.projectId) {
     // Fallback: return project list URL if no project ID configured
     return `${baseUrl}/${workspace}/projects`;
   }
 
   if (!id) {
-    return `${baseUrl}/${workspace}/projects/${OPIK_PROJECT_ID}/traces`;
+    return `${baseUrl}/${workspace}/projects/${cfg.projectId}/traces`;
   }
-  return `${baseUrl}/${workspace}/projects/${OPIK_PROJECT_ID}/traces?trace=${id}`;
+  return `${baseUrl}/${workspace}/projects/${cfg.projectId}/traces?trace=${id}`;
 }
 
 /**
@@ -600,7 +613,10 @@ export async function logFeedbackScores(
     return false;
   }
 
-  if (!OPIK_API_KEY) {
+  // Read config lazily at runtime
+  const cfg = getOpikConfig();
+
+  if (!cfg.apiKey) {
     console.error('[Opik] OPIK_API_KEY not set, cannot log feedback scores');
     return false;
   }
@@ -608,15 +624,15 @@ export async function logFeedbackScores(
   try {
     // Use REST API directly for each score to ensure visibility in traces table
     // Endpoint: PUT /v1/private/traces/{id}/feedback-scores
-    const apiUrl = OPIK_BASE_URL || 'https://www.comet.com/opik/api';
+    const apiUrl = cfg.baseUrl || 'https://www.comet.com/opik/api';
 
     for (const score of scores) {
       const response = await fetch(`${apiUrl}/v1/private/traces/${id}/feedback-scores`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPIK_API_KEY}`,
-          ...(OPIK_WORKSPACE ? { 'Comet-Workspace': OPIK_WORKSPACE } : {}),
+          Authorization: `Bearer ${cfg.apiKey}`,
+          ...(cfg.workspace ? { 'Comet-Workspace': cfg.workspace } : {}),
         },
         body: JSON.stringify({
           name: score.name,

@@ -7,7 +7,7 @@
 
 import Groq from 'groq-sdk';
 import { toFile } from 'groq-sdk/uploads';
-import { trace } from './opik.js';
+import { trace, createSpan, getCurrentTraceHandle } from './opik.js';
 
 // Configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -63,19 +63,41 @@ export interface ChatMessage {
 
 /**
  * Generate a chat completion
+ *
+ * Uses createSpan() when called within an existing trace (for proper nesting),
+ * otherwise creates a new trace() for standalone calls.
  */
 export async function chat(
   messages: ChatMessage[],
   options?: {
     temperature?: number;
     maxTokens?: number;
+    /** Tags for Opik tracing (default: ['llm', 'groq']) */
+    tags?: string[];
+    /** Additional metadata for Opik tracing */
+    metadata?: Record<string, unknown>;
   }
 ): Promise<string> {
-  return trace('llm_chat', async (span) => {
+  const tags = options?.tags || ['llm', 'groq'];
+  const temperature = options?.temperature ?? 0.5;
+
+  // Prepare input for tracing (summarize messages to avoid bloating)
+  const inputData = {
+    messages: messages.map((m) => ({
+      role: m.role,
+      content: m.content.length > 200 ? m.content.substring(0, 200) + '...' : m.content,
+    })),
+    model: MODEL,
+    temperature,
+  };
+
+  // Core chat logic - shared between span and trace
+  const executeChatCompletion = async (span: import('./opik.js').Span): Promise<string> => {
+    span.setInput(inputData);
     span.setAttributes({
       model: MODEL,
       messages_count: messages.length,
-      temperature: options?.temperature || 0.7,
+      temperature,
     });
 
     if (!groqClient) {
@@ -85,11 +107,17 @@ export async function chat(
     const response = await groqClient.chat.completions.create({
       model: MODEL,
       messages,
-      temperature: options?.temperature || 0.7,
+      temperature,
       max_tokens: options?.maxTokens || 1024,
     });
 
     const content = response.choices[0]?.message?.content || '';
+
+    // Set output for Opik UI
+    span.setOutput({
+      content: content.length > 500 ? content.substring(0, 500) + '...' : content,
+      content_length: content.length,
+    });
 
     // Calculate cost and set token usage at root level for Opik UI display
     if (response.usage) {
@@ -104,36 +132,79 @@ export async function chat(
         cost,
       });
 
-      // Also keep in attributes for metadata
       span.setAttributes({
         tokens_used: response.usage.total_tokens,
         completion_tokens: completionTokens,
         prompt_tokens: promptTokens,
         estimated_cost_usd: cost,
-        model: MODEL,
       });
     }
 
     return content;
-  });
+  };
+
+  // Use createSpan if we're inside an existing trace (for proper nesting)
+  // Otherwise create a new top-level trace
+  const hasParentTrace = !!getCurrentTraceHandle();
+
+  if (hasParentTrace) {
+    return createSpan('llm_chat', executeChatCompletion, {
+      tags,
+      input: inputData,
+    });
+  } else {
+    return trace('llm_chat', executeChatCompletion, {
+      tags,
+      metadata: {
+        ...options?.metadata,
+        model: MODEL,
+        messages_count: messages.length,
+        temperature,
+      },
+      input: inputData,
+    });
+  }
 }
 
 /**
  * Generate a chat completion with JSON mode
  * Forces the model to return valid JSON - useful for structured extraction
+ *
+ * Uses createSpan() when called within an existing trace (for proper nesting),
+ * otherwise creates a new trace() for standalone calls.
  */
 export async function chatWithJsonMode<T = Record<string, unknown>>(
   messages: ChatMessage[],
   options?: {
     temperature?: number;
     maxTokens?: number;
+    /** Tags for Opik tracing (default: ['llm', 'groq', 'json']) */
+    tags?: string[];
+    /** Additional metadata for Opik tracing */
+    metadata?: Record<string, unknown>;
   }
 ): Promise<T> {
-  return trace('llm_chat_json', async (span) => {
+  const tags = options?.tags || ['llm', 'groq', 'json'];
+  const temperature = options?.temperature ?? 0.0;
+
+  // Prepare input for tracing
+  const inputData = {
+    messages: messages.map((m) => ({
+      role: m.role,
+      content: m.content.length > 200 ? m.content.substring(0, 200) + '...' : m.content,
+    })),
+    model: MODEL,
+    temperature,
+    response_format: 'json_object',
+  };
+
+  // Core chat logic
+  const executeChatCompletion = async (span: import('./opik.js').Span): Promise<T> => {
+    span.setInput(inputData);
     span.setAttributes({
       model: MODEL,
       messages_count: messages.length,
-      temperature: options?.temperature || 0.0,
+      temperature,
       response_format: 'json_object',
     });
 
@@ -144,14 +215,14 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
     const response = await groqClient.chat.completions.create({
       model: MODEL,
       messages,
-      temperature: options?.temperature || 0.0, // Low temperature for deterministic extraction
+      temperature,
       max_tokens: options?.maxTokens || 1024,
       response_format: { type: 'json_object' },
     });
 
     const content = response.choices[0]?.message?.content || '{}';
 
-    // Calculate cost and set token usage at root level for Opik UI display
+    // Calculate cost and set token usage
     if (response.usage) {
       const promptTokens = response.usage.prompt_tokens || 0;
       const completionTokens = response.usage.completion_tokens || 0;
@@ -164,27 +235,53 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
         cost,
       });
 
-      // Also keep in attributes for metadata
       span.setAttributes({
         tokens_used: response.usage.total_tokens,
         completion_tokens: completionTokens,
         prompt_tokens: promptTokens,
         estimated_cost_usd: cost,
-        model: MODEL,
         response_length: content.length,
       });
     }
 
     try {
-      return JSON.parse(content) as T;
+      const parsed = JSON.parse(content) as T;
+      span.setOutput({
+        parsed_json: parsed,
+        content_length: content.length,
+      });
+      return parsed;
     } catch {
       span.setAttributes({
         parse_error: true,
         raw_content: content.substring(0, 500),
       });
+      span.setOutput({ error: 'JSON parse failed', raw_content: content.substring(0, 200) });
       throw new Error(`Failed to parse JSON response: ${content.substring(0, 200)}`);
     }
-  });
+  };
+
+  // Use createSpan if we're inside an existing trace
+  const hasParentTrace = !!getCurrentTraceHandle();
+
+  if (hasParentTrace) {
+    return createSpan('llm_chat_json', executeChatCompletion, {
+      tags,
+      input: inputData,
+    });
+  } else {
+    return trace('llm_chat_json', executeChatCompletion, {
+      tags,
+      metadata: {
+        ...options?.metadata,
+        model: MODEL,
+        messages_count: messages.length,
+        temperature,
+        response_format: 'json_object',
+      },
+      input: inputData,
+    });
+  }
 }
 
 /**

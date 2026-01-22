@@ -87,6 +87,15 @@ export {
   type OnboardingOutput,
 } from './onboarding-agent.js';
 
+// Tips Orchestrator (Multi-Agent System)
+export { orchestrateTips } from './tips-orchestrator.js';
+export type {
+  TipsOrchestratorInput,
+  TipsOrchestratorOutput,
+  AgentRecommendation,
+  LocalOpportunity,
+} from './tips-orchestrator.js';
+
 // Initialize all tools (must be called before creating agents)
 import './budget-coach.js';
 import './job-matcher.js';
@@ -95,3 +104,4 @@ import './guardian.js';
 import './money-maker.js';
 import './strategy-comparator.js';
 import './onboarding-agent.js';
+import './tips-orchestrator.js';

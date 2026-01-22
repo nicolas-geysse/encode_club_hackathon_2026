@@ -80,3 +80,21 @@ export {
   indexGoal,
 } from '../tools/rag.js';
 export type { RAGContext, RAGQueryParams } from '../tools/rag.js';
+
+// Local Discovery
+export {
+  discoverLocalOpportunities,
+  getRegionalResources,
+  adjustSavingsGoal,
+  localDiscovery,
+  PROFILE_TO_PLACES,
+  REGIONAL_RESOURCES,
+  FALLBACK_SUGGESTIONS,
+} from './local-discovery.js';
+export type {
+  Location,
+  LocalJob,
+  LocalPlace,
+  LocalDiscoveryResult,
+  DiscoveryContext,
+} from './local-discovery.js';

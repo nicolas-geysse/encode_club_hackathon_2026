@@ -13,27 +13,17 @@ let currentTraceHandle: any = null;
 let flushFn: (() => Promise<void>) | null = null;
 let initialized = false;
 
-// Configuration
-// Opik Cloud: https://www.comet.com/opik (no OPIK_BASE_URL needed)
-// Self-hosted: set OPIK_BASE_URL to your Opik API endpoint
-const OPIK_API_KEY = process.env.OPIK_API_KEY;
-const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE;
-const OPIK_PROJECT = process.env.OPIK_PROJECT || 'stride';
-// For self-hosted only (Opik Cloud doesn't need this)
-// For self-hosted only (Opik Cloud doesn't need this)
-const OPIK_BASE_URL = process.env.OPIK_BASE_URL;
-// Allow disabled state
-const ENABLE_OPIK = process.env.ENABLE_OPIK !== 'false';
+// Configuration - env vars are read lazily inside functions to avoid race conditions
+// with .env loading in server-side frameworks (Vinxi/SolidStart)
+// See: OPIK_API_KEY, OPIK_WORKSPACE, OPIK_PROJECT, OPIK_BASE_URL, ENABLE_OPIK
+
 // Allow disabling mostly "spammy" realtime traces (e.g. background embeddings)
 // DEFAULT: FALSE (Opt-in) because it generates too many logs
+// Note: This one is safe at module level since it's not critical for auth
 export const ENABLE_REALTIME_OPIK = process.env.ENABLE_REALTIME_OPIK === 'true';
 
-if (process.env.NODE_ENV === 'development') {
-  // eslint-disable-next-line no-console
-  console.log(
-    `[Opik] Realtime tracing enabled: ${ENABLE_REALTIME_OPIK} (Env: ${process.env.ENABLE_REALTIME_OPIK})`
-  );
-}
+// Store project name for use after initialization
+let opikProject: string = 'stride';
 
 /**
  * Token usage information for LLM calls
@@ -69,45 +59,61 @@ async function ensureOpikClient(): Promise<boolean> {
   if (initialized) return !!opikClient;
   initialized = true;
 
-  if (!ENABLE_OPIK) {
+  // ✅ Read env vars NOW, when .env is fully loaded (not at module import time)
+  const apiKey = process.env.OPIK_API_KEY?.trim();
+  const workspace = process.env.OPIK_WORKSPACE?.trim();
+  const project = process.env.OPIK_PROJECT?.trim() || 'stride';
+  const apiUrl = process.env.OPIK_BASE_URL?.trim();
+  const enableOpik = process.env.ENABLE_OPIK !== 'false';
+
+  // Store project name for later use
+  opikProject = project;
+
+  if (!enableOpik) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[Opik] Tracing disabled by ENABLE_OPIK=false');
     }
     return false;
   }
 
-  if (!OPIK_API_KEY) {
+  if (!apiKey) {
     console.error('[Opik] OPIK_API_KEY not set, tracing disabled');
     return false;
   }
 
   try {
     const opikModule = await import('opik');
-    const { Opik, flushAll } = opikModule;
+    const { Opik } = opikModule;
 
-    flushFn = flushAll;
+    // SDK v1.9.92+ requires explicit apiUrl (env var OPIK_URL_OVERRIDE or constructor param)
+    // Default to Comet Cloud URL if not set (for self-hosted, set OPIK_BASE_URL)
+    const effectiveApiUrl = apiUrl || 'https://www.comet.com/opik/api';
 
-    const config: {
-      apiKey: string;
-      projectName: string;
-      workspaceName?: string;
-      baseUrl?: string;
-    } = {
-      apiKey: OPIK_API_KEY,
-      projectName: OPIK_PROJECT,
-    };
-
-    if (OPIK_WORKSPACE) {
-      config.workspaceName = OPIK_WORKSPACE;
+    // SDK bug workaround: explicitly set env vars before creating client
+    // The HTTP client layer may read from env vars instead of constructor params
+    process.env.OPIK_API_KEY = apiKey;
+    process.env.OPIK_URL_OVERRIDE = effectiveApiUrl;
+    if (workspace) {
+      process.env.OPIK_WORKSPACE = workspace;
     }
 
-    if (OPIK_BASE_URL) {
-      config.baseUrl = OPIK_BASE_URL;
-    }
-
-    opikClient = new Opik(config);
+    // WORKAROUND for SDK bug: apiKey is documented to "Override the Authorization header"
+    // but normalizeClientOptions() in BaseClient.ts NEVER adds it to headers!
+    // We must pass it manually via the headers option.
+    // See: https://github.com/comet-ml/opik/blob/main/sdks/typescript/src/opik/rest_api/BaseClient.ts
+    opikClient = new Opik({
+      apiKey,
+      projectName: project,
+      workspaceName: workspace,
+      apiUrl: effectiveApiUrl,
+      headers: {
+        authorization: apiKey, // Lowercase, NO "Bearer " prefix per Opik REST API spec
+      },
+    });
+    // Use client's flush method instead of global flushAll
+    flushFn = () => opikClient.flush();
     console.error(
-      `[Opik] Initialized with project: ${OPIK_PROJECT}, workspace: ${OPIK_WORKSPACE || 'default'}`
+      `[Opik] Initialized with project: ${project}, workspace: ${workspace || 'default'}`
     );
     return true;
   } catch (error) {
@@ -189,7 +195,7 @@ export async function trace<T>(
     try {
       const traceConfig: Record<string, unknown> = {
         name,
-        projectName: OPIK_PROJECT,
+        projectName: opikProject,
         startTime,
         metadata: options?.metadata || {},
       };
@@ -207,6 +213,7 @@ export async function trace<T>(
       traceHandle = opikClient.trace(traceConfig);
       currentTraceId = traceHandle.data?.id || traceHandle.id;
       currentTraceHandle = traceHandle;
+      console.error(`[Opik:${name}] Created trace with ID: ${currentTraceId}`);
 
       span = {
         setAttributes: (attrs) => {
@@ -220,28 +227,16 @@ export async function trace<T>(
         },
         setOutput: (output) => {
           outputData = output;
+          console.error(
+            `[Opik:${name}] setOutput called with:`,
+            JSON.stringify(output).substring(0, 300)
+          );
         },
         setUsage: (usage) => {
           usageData = usage;
         },
         end: () => {
-          if (traceHandle) {
-            // Update with metadata, input, output, and usage at root level
-            const updateData: Record<string, unknown> = { metadata: collectedAttrs };
-            // Set input/output for Opik UI display
-            if (inputData) {
-              updateData.input = inputData;
-            }
-            if (outputData) {
-              updateData.output = outputData;
-            }
-            // IMPORTANT: Set usage at root level, not in metadata, for Opik to display correctly
-            if (usageData) {
-              updateData.usage = usageData;
-            }
-            traceHandle.update(updateData);
-            traceHandle.end();
-          }
+          // No-op - actual end logic is handled in the try/catch below
         },
       };
     } catch (error) {
@@ -250,15 +245,79 @@ export async function trace<T>(
     }
   }
 
+  // Helper to finalize the trace with all collected data
+  const finalizeTrace = async () => {
+    if (traceHandle) {
+      console.error(
+        `[Opik:${name}] finalizeTrace called, outputData:`,
+        outputData ? JSON.stringify(outputData).substring(0, 300) : 'null'
+      );
+
+      // Build update data with output and additional metadata
+      const updateData: Record<string, unknown> = {};
+
+      // Merge collected attributes into metadata
+      if (Object.keys(collectedAttrs).length > 0) {
+        updateData.metadata = collectedAttrs;
+      }
+      if (outputData) {
+        updateData.output = outputData;
+      }
+      if (usageData) {
+        updateData.usage = usageData;
+      }
+
+      // Only call update if we have data to add
+      if (Object.keys(updateData).length > 0) {
+        try {
+          console.error(
+            `[Opik:${name}] Calling update with:`,
+            JSON.stringify({
+              traceId: currentTraceId,
+              hasOutput: !!updateData.output,
+              hasMetadata: !!updateData.metadata,
+              hasUsage: !!updateData.usage,
+              outputValue: updateData.output
+                ? JSON.stringify(updateData.output).substring(0, 200)
+                : 'null',
+            })
+          );
+
+          // Try direct update call
+          traceHandle.update(updateData);
+          console.error(`[Opik:${name}] update() called successfully`);
+        } catch (err) {
+          console.error('[Opik] Error updating trace:', err);
+        }
+      }
+
+      // End the trace
+      try {
+        traceHandle.end();
+        console.error(`[Opik:${name}] end() called`);
+      } catch (err) {
+        console.error('[Opik] Error ending trace:', err);
+      }
+    }
+  };
+
   try {
     const result = await fn(span);
     collectedAttrs.duration_ms = Date.now() - startTime.getTime();
     collectedAttrs.status = 'success';
-    span.end();
 
-    // Flush traces asynchronously
+    // Finalize trace with all data
+    await finalizeTrace();
+
+    // Flush traces and WAIT for it to complete
     if (flushFn) {
-      flushFn().catch((err) => console.error('[Opik] Flush error:', err));
+      try {
+        console.error(`[Opik:${name}] Flushing all traces...`);
+        await flushFn();
+        console.error(`[Opik:${name}] Flush completed`);
+      } catch (err) {
+        console.error('[Opik] Flush error:', err);
+      }
     }
 
     return result;
@@ -267,11 +326,17 @@ export async function trace<T>(
     collectedAttrs.duration_ms = Date.now() - startTime.getTime();
     collectedAttrs.status = 'error';
     collectedAttrs.error_message = errorMessage;
-    span.end();
 
-    // Flush traces asynchronously
+    // Finalize trace even on error
+    await finalizeTrace();
+
+    // Flush traces and WAIT for it to complete
     if (flushFn) {
-      flushFn().catch((err) => console.error('[Opik] Flush error:', err));
+      try {
+        await flushFn();
+      } catch (err) {
+        console.error('[Opik] Flush error:', err);
+      }
     }
 
     throw error;
@@ -305,14 +370,15 @@ export async function logFeedback(
  */
 export function getTraceUrl(traceId?: string): string {
   const id = traceId || currentTraceId;
-  // Use Opik Cloud URL if no base URL is set
-  const baseUrl = OPIK_BASE_URL || 'https://www.comet.com/opik';
-  const workspace = OPIK_WORKSPACE || 'default';
+  // Read env vars at runtime to avoid race condition with .env loading
+  const baseUrl = process.env.OPIK_BASE_URL || 'https://www.comet.com/opik';
+  const workspace = process.env.OPIK_WORKSPACE || 'default';
+  const project = process.env.OPIK_PROJECT || 'stride';
 
   if (!id) {
-    return `${baseUrl}/${workspace}/${OPIK_PROJECT}`;
+    return `${baseUrl}/${workspace}/${project}`;
   }
-  return `${baseUrl}/${workspace}/${OPIK_PROJECT}/traces/${id}`;
+  return `${baseUrl}/${workspace}/${project}/traces/${id}`;
 }
 
 /**
@@ -404,6 +470,7 @@ export async function createSpan<T>(
       }
 
       spanHandle = currentTraceHandle.span(spanConfig);
+      console.error(`[Opik:span:${name}] Created span under trace ${currentTraceId}`);
 
       span = {
         setAttributes: (attrs) => {
@@ -417,25 +484,16 @@ export async function createSpan<T>(
         },
         setOutput: (output) => {
           outputData = output;
+          console.error(
+            `[Opik:span:${name}] setOutput called with:`,
+            JSON.stringify(output).substring(0, 200)
+          );
         },
         setUsage: (usage) => {
           usageData = usage;
         },
         end: () => {
-          if (spanHandle) {
-            const updateData: Record<string, unknown> = { metadata: collectedAttrs };
-            if (inputData) {
-              updateData.input = inputData;
-            }
-            if (outputData) {
-              updateData.output = outputData;
-            }
-            if (usageData) {
-              updateData.usage = usageData;
-            }
-            spanHandle.update(updateData);
-            spanHandle.end();
-          }
+          // No-op - actual end logic is handled in the try/catch below
         },
       };
     } catch (error) {
@@ -444,18 +502,64 @@ export async function createSpan<T>(
     }
   }
 
+  // Helper to finalize the span with all collected data
+  const finalizeSpan = async () => {
+    if (spanHandle) {
+      console.error(
+        `[Opik:span:${name}] finalizeSpan called, outputData:`,
+        outputData ? JSON.stringify(outputData).substring(0, 200) : 'null'
+      );
+
+      // Build update data with output and additional metadata
+      const updateData: Record<string, unknown> = {};
+
+      // Merge collected attributes into metadata
+      if (Object.keys(collectedAttrs).length > 0) {
+        updateData.metadata = collectedAttrs;
+      }
+      if (outputData) {
+        updateData.output = outputData;
+      }
+      if (usageData) {
+        updateData.usage = usageData;
+      }
+
+      // Only call update if we have data to add
+      if (Object.keys(updateData).length > 0) {
+        try {
+          console.error(
+            `[Opik:span:${name}] Calling update with output:`,
+            updateData.output ? 'yes' : 'no'
+          );
+          spanHandle.update(updateData);
+          console.error(`[Opik:span:${name}] update() called successfully`);
+        } catch (err) {
+          console.error('[Opik] Error updating span:', err);
+        }
+      }
+
+      // End the span
+      try {
+        spanHandle.end();
+        console.error(`[Opik:span:${name}] end() called`);
+      } catch (err) {
+        console.error('[Opik] Error ending span:', err);
+      }
+    }
+  };
+
   try {
     const result = await fn(span);
     collectedAttrs.duration_ms = Date.now() - startTime.getTime();
     collectedAttrs.status = 'success';
-    span.end();
+    await finalizeSpan();
     return result;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     collectedAttrs.duration_ms = Date.now() - startTime.getTime();
     collectedAttrs.status = 'error';
     collectedAttrs.error_message = errorMessage;
-    span.end();
+    await finalizeSpan();
     throw error;
   }
 }

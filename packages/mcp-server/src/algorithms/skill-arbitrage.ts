@@ -14,7 +14,7 @@
  */
 
 import Dinero from 'dinero.js';
-import { trace } from '../services/opik.js';
+import { trace, createSpan, getCurrentTraceHandle, type Span } from '../services/opik.js';
 
 // Configure Dinero for EUR by default
 Dinero.defaultCurrency = 'EUR';
@@ -206,14 +206,32 @@ export async function rankSkills(
   skills: Skill[],
   weights: ArbitrageWeights = DEFAULT_WEIGHTS
 ): Promise<SkillRanking> {
-  return trace('skill_arbitrage_ranking', async (span) => {
+  const tags = ['skill-arbitrage', 'algorithm', 'tips'];
+
+  // Prepare input for tracing
+  const inputData = {
+    skills: skills.map((s) => ({
+      name: s.name,
+      hourlyRate: s.hourlyRate,
+      marketDemand: s.marketDemand,
+      cognitiveEffort: s.cognitiveEffort,
+    })),
+    weights,
+  };
+
+  // Core ranking logic
+  const executeRanking = async (span: Span): Promise<SkillRanking> => {
+    span.setInput(inputData);
+
     if (skills.length === 0) {
-      return {
+      const emptyResult = {
         skills: [],
         topPick: null,
         averageScore: 0,
         insights: ['Aucune compétence à évaluer'],
       };
+      span.setOutput(emptyResult);
+      return emptyResult;
     }
 
     // Calculate scores for all skills
@@ -234,13 +252,39 @@ export async function rankSkills(
       'arbitrage.top_score': topPick?.score || 0,
     });
 
-    return {
+    const result = {
       skills: results,
       topPick,
       averageScore,
       insights,
     };
-  });
+
+    // Set output for Opik UI
+    span.setOutput({
+      topPick: topPick?.skill.name || null,
+      topScore: topPick?.score || 0,
+      averageScore,
+      skillsRanked: results.length,
+      insightsCount: insights.length,
+    });
+
+    return result;
+  };
+
+  // Use createSpan if inside an existing trace
+  const hasParentTrace = !!getCurrentTraceHandle();
+
+  if (hasParentTrace) {
+    return createSpan('skill_arbitrage_ranking', executeRanking, {
+      tags,
+      input: inputData,
+    });
+  } else {
+    return trace('skill_arbitrage_ranking', executeRanking, {
+      tags,
+      input: inputData,
+    });
+  }
 }
 
 // ============================================

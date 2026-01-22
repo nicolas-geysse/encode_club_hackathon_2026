@@ -58,11 +58,11 @@ importers:
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.10)
       '@seed-ship/mcp-ui-solid':
-        specifier: ^1.2.6
-        version: 1.2.6(solid-js@1.9.10)
+        specifier: ^2.1.0
+        version: 2.1.0(chart.js@4.5.1)(solid-js@1.9.10)
       '@seed-ship/mcp-ui-spec':
-        specifier: ^1.2.0
-        version: 1.2.0
+        specifier: ^2.0.0
+        version: 2.0.0
       '@solidjs/router':
         specifier: ^0.15.3
         version: 0.15.4(solid-js@1.9.10)
@@ -94,8 +94,8 @@ importers:
         specifier: ^0.562.0
         version: 0.562.0(solid-js@1.9.10)
       opik:
-        specifier: ^1.9.87
-        version: 1.9.87(chokidar@3.6.0)(zod@4.3.5)
+        specifier: ^1.9.92
+        version: 1.9.92(chokidar@3.6.0)(zod@4.3.5)
       solid-chartjs:
         specifier: ^1.3.11
         version: 1.3.11(chart.js@4.5.1)(solid-js@1.9.10)
@@ -155,11 +155,11 @@ importers:
         specifier: ^3.0.4
         version: 3.0.4
       '@mastra/core':
-        specifier: ^1.0.0-beta.23
-        version: 1.0.0-beta.23(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76)
+        specifier: ^1.0.4
+        version: 1.0.4(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76)
       '@mastra/duckdb':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(@mastra/core@1.0.0-beta.23(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76))
+        specifier: ^1.0.0
+        version: 1.0.0(@mastra/core@1.0.4(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76))
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.0
         version: 1.25.2(hono@4.11.4)(zod@3.25.76)
@@ -188,8 +188,8 @@ importers:
         specifier: ^4.1.0
         version: 4.1.1
       opik:
-        specifier: ^1.0.0
-        version: 1.9.87(chokidar@3.6.0)(zod@3.25.76)
+        specifier: ^1.9.92
+        version: 1.9.92(chokidar@3.6.0)(zod@3.25.76)
       uuid:
         specifier: ^13.0.0
         version: 13.0.0
@@ -1065,20 +1065,20 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@mastra/core@1.0.0-beta.23':
-    resolution: {integrity: sha512-ZMx6aCABCCM1BYmmfBcBRvSeMuhgT5XKy9Eu3KXdN+ARXNqp/ui3Sp/sy7QIJSXyeNPI53+JXtllxrTzOFe8Qw==}
+  '@mastra/core@1.0.4':
+    resolution: {integrity: sha512-kBSlYoUD3zjwvVMxFVneNHe0+cLKvXs1rZTGeRUHQdwVYo7guMXFu/qnsxizSGd+eNz976Ph81LixmqK2Ca7dA==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
-  '@mastra/duckdb@1.0.0-beta.3':
-    resolution: {integrity: sha512-xnJuzKE/SrDAhfiXHuGNCX6hZcZ8KH5ST/YzB6ApZwpJV9GB/AUHsmzLCaKNUs+1rDkQ9uAU+eCGr0BxrE5khA==}
+  '@mastra/duckdb@1.0.0':
+    resolution: {integrity: sha512-AMvcFarhbZUMzyUwYzHH8we5DUX++m41OnN+36Db9fOwsPcoX75bzAi4ASTCH8fPA2JAjzNUztNa9oXESCsPfg==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       '@mastra/core': '>=1.0.0-0 <2.0.0-0'
 
-  '@mastra/schema-compat@1.0.0-beta.6':
-    resolution: {integrity: sha512-9PfpTMpxHnqhqfNTaEFM7MZwxtahVg8NAhkP4sbMQCHcc6fjnJawg4E7kv6cIz3XZTtXsUO7bA8twQrDgoD2Uw==}
+  '@mastra/schema-compat@1.0.0':
+    resolution: {integrity: sha512-jR5QsibhCO3lh2Vv3hNifd5XaKFnOV7ecduZyNxNg21Fw1+59ozpHkNtUAmDQW88uwvx/qHu1dKN/XtOhwWeyw==}
     engines: {node: '>=22.13.0'}
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
@@ -1474,13 +1474,32 @@ packages:
     resolution: {integrity: sha512-TCeKQEc+gc77gXw8qvv0vns/AbhXIQPU6bxe0N0niH82ZqWDJ/Hk8DkJk4WMe2+61LkVMRzkZbQRaof3ij6MOg==}
     engines: {node: '>=20.0.0'}
 
-  '@seed-ship/mcp-ui-solid@1.2.6':
-    resolution: {integrity: sha512-Laim2B8bdOo6wkNUBKkEiBfQ5ODRxM+ftr6edDYsXInO7jo5wRdb9JZJflGx9gTBMtCAEggkJ9tmSbkSHZjVRA==}
+  '@seed-ship/mcp-ui-solid@2.1.0':
+    resolution: {integrity: sha512-bsusCMikZrIW4GYWgQWgPU0rAYJcbw/ntc5X3odFh/fIr4W2w6c29kB69ppz1EmFOzIwWhbvMfDjI6Sv3cb5fg==}
     peerDependencies:
+      '@duckdb/duckdb-wasm': ^1.28.0
+      '@tanstack/solid-virtual': ^3.0.0
+      chart.js: ^4.0.0
+      highlight.js: ^11.9.0
+      leaflet: ^1.9.4
+      leaflet.markercluster: ^1.5.0
       solid-js: ^1.9.0
+    peerDependenciesMeta:
+      '@duckdb/duckdb-wasm':
+        optional: true
+      '@tanstack/solid-virtual':
+        optional: true
+      chart.js:
+        optional: true
+      highlight.js:
+        optional: true
+      leaflet:
+        optional: true
+      leaflet.markercluster:
+        optional: true
 
-  '@seed-ship/mcp-ui-spec@1.2.0':
-    resolution: {integrity: sha512-58KnfDMjZJlLaO3OvAdeu4bMbxPOyfWcobJFvbBinEm1VuWr0Nmsy4LABXExN8cCiIDg7tY9WeWG7E/FSsqHGg==}
+  '@seed-ship/mcp-ui-spec@2.0.0':
+    resolution: {integrity: sha512-9wYmcJgsXR4/Rg3GeW+1aH1kqLdYXu6w0wLpjTDhpkRg5Qvs3Flv/ihVBsjx2i6N9IkJnmtl3jQ4d9gf4E/fGg==}
 
   '@shikijs/core@1.29.2':
     resolution: {integrity: sha512-vju0lY9r27jJfOY4Z7+Rt/nIOjzJpZ3y+nYpqtUZInVoXQ/TJZcfGnNOGnKjFdVZb8qexiCuSlZRKcGfhhTTZQ==}
@@ -4222,12 +4241,6 @@ packages:
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
 
-  opik@1.9.87:
-    resolution: {integrity: sha512-8jkpFuPD3fQU6gP78HusE1ZdL7BEA0spzh6SpUHv2FEJI9ypJ5yqL/mB3aiuQv6EkumxXbaL+8jObpZNHoZROg==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.55 || ^4.0.0
-
   opik@1.9.92:
     resolution: {integrity: sha512-RLK5pcE4LjTodyJz392Qtv60BzMRS561bYMpWNRLCRwgQEbbIP0fWOgfWI9BwuEsK5s1JIBN3CbsEd1JLRJLcQ==}
     engines: {node: '>=18'}
@@ -6359,7 +6372,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@mastra/core@1.0.0-beta.23(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76)':
+  '@mastra/core@1.0.4(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76)':
     dependencies:
       '@a2a-js/sdk': 0.2.5
       '@ai-sdk/provider-utils-v5': '@ai-sdk/provider-utils@3.0.12(zod@3.25.76)'
@@ -6369,7 +6382,7 @@ snapshots:
       '@ai-sdk/ui-utils-v5': '@ai-sdk/ui-utils@1.2.11(zod@3.25.76)'
       '@isaacs/ttlcache': 1.4.1
       '@lukeed/uuid': 2.0.1
-      '@mastra/schema-compat': 1.0.0-beta.6(zod@3.25.76)
+      '@mastra/schema-compat': 1.0.0(zod@3.25.76)
       '@modelcontextprotocol/sdk': 1.25.2(hono@4.11.4)(zod@3.25.76)
       '@sindresorhus/slugify': 2.2.1
       dotenv: 17.2.3
@@ -6392,12 +6405,12 @@ snapshots:
       - openapi-types
       - supports-color
 
-  '@mastra/duckdb@1.0.0-beta.3(@mastra/core@1.0.0-beta.23(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76))':
+  '@mastra/duckdb@1.0.0(@mastra/core@1.0.4(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76))':
     dependencies:
       '@duckdb/node-api': 1.4.2-r.1
-      '@mastra/core': 1.0.0-beta.23(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76)
+      '@mastra/core': 1.0.4(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76)
 
-  '@mastra/schema-compat@1.0.0-beta.6(zod@3.25.76)':
+  '@mastra/schema-compat@1.0.0(zod@3.25.76)':
     dependencies:
       json-schema-to-zod: 2.7.0
       zod: 3.25.76
@@ -6749,15 +6762,17 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@seed-ship/mcp-ui-solid@1.2.6(solid-js@1.9.10)':
+  '@seed-ship/mcp-ui-solid@2.1.0(chart.js@4.5.1)(solid-js@1.9.10)':
     dependencies:
       '@types/dompurify': 3.2.0
       dompurify: 3.3.1
       marked: 16.4.2
       solid-js: 1.9.10
       zod: 3.25.76
+    optionalDependencies:
+      chart.js: 4.5.1
 
-  '@seed-ship/mcp-ui-spec@1.2.0':
+  '@seed-ship/mcp-ui-spec@2.0.0':
     dependencies:
       zod: 3.25.76
 
@@ -10184,7 +10199,7 @@ snapshots:
 
   openapi-types@12.1.3: {}
 
-  opik@1.9.87(chokidar@3.6.0)(zod@3.25.76):
+  opik@1.9.92(chokidar@3.6.0)(zod@3.25.76):
     dependencies:
       '@ai-sdk/anthropic': 3.0.15(zod@3.25.76)
       '@ai-sdk/google': 3.0.10(zod@3.25.76)
@@ -10213,39 +10228,6 @@ snapshots:
       uuid: 11.1.0
       xxhash-wasm: 1.1.0
       zod: 3.25.76
-    transitivePeerDependencies:
-      - chokidar
-      - supports-color
-
-  opik@1.9.87(chokidar@3.6.0)(zod@4.3.5):
-    dependencies:
-      '@ai-sdk/anthropic': 3.0.15(zod@4.3.5)
-      '@ai-sdk/google': 3.0.10(zod@4.3.5)
-      '@ai-sdk/google-vertex': 4.0.17(zod@4.3.5)
-      '@ai-sdk/openai': 3.0.12(zod@4.3.5)
-      ai: 6.0.39(zod@4.3.5)
-      ansi-escapes: 7.2.0
-      boxen: 8.0.1
-      chalk: 5.6.2
-      date-fns: 3.6.0
-      dotenv: 16.6.1
-      fast-deep-equal: 3.1.3
-      fast-json-stable-stringify: 2.1.0
-      form-data-encoder: 4.1.0
-      formdata-node: 6.0.3
-      ini: 5.0.0
-      jest-diff: 29.7.0
-      mustache: 4.2.0
-      node-fetch: 3.3.2
-      nunjucks: 3.2.4(chokidar@3.6.0)
-      ora: 8.2.0
-      qs: 6.14.1
-      readable-stream: 4.7.0
-      tslog: 4.10.2
-      url-join: 5.0.0
-      uuid: 11.1.0
-      xxhash-wasm: 1.1.0
-      zod: 4.3.5
     transitivePeerDependencies:
       - chokidar
       - supports-color

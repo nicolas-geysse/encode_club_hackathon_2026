@@ -35,6 +35,128 @@ import { PageLoader } from '~/components/PageLoader';
 
 const logger = createLogger('SuiviPage');
 
+// ============================================================================
+// Helper functions for BrunoTips props
+// ============================================================================
+
+/**
+ * Detect region from city name for location-aware tips
+ */
+function detectRegion(city: string): 'france' | 'uk' | 'us' | 'europe' | undefined {
+  const cityLower = city.toLowerCase();
+
+  // France
+  if (
+    ['paris', 'lyon', 'marseille', 'toulouse', 'nice', 'bordeaux', 'lille', 'nantes'].some((c) =>
+      cityLower.includes(c)
+    )
+  ) {
+    return 'france';
+  }
+
+  // UK
+  if (
+    ['london', 'manchester', 'birmingham', 'leeds', 'glasgow', 'edinburgh', 'bristol'].some((c) =>
+      cityLower.includes(c)
+    )
+  ) {
+    return 'uk';
+  }
+
+  // US
+  if (
+    [
+      'new york',
+      'los angeles',
+      'chicago',
+      'houston',
+      'phoenix',
+      'philadelphia',
+      'san francisco',
+      'boston',
+    ].some((c) => cityLower.includes(c))
+  ) {
+    return 'us';
+  }
+
+  return 'europe';
+}
+
+/**
+ * Extract skills from planData for job matching
+ */
+function extractSkills(planData: Record<string, unknown> | null | undefined): string[] | undefined {
+  if (!planData) return undefined;
+
+  const skills: string[] = [];
+
+  // Extract from skills array
+  if (Array.isArray(planData.skills)) {
+    for (const skill of planData.skills) {
+      if (typeof skill === 'object' && skill !== null && 'name' in skill) {
+        skills.push(String(skill.name));
+      }
+    }
+  }
+
+  // Extract from lifestyle/services
+  if (Array.isArray(planData.lifestyle)) {
+    for (const item of planData.lifestyle) {
+      if (typeof item === 'object' && item !== null && 'type' in item) {
+        const type = String(item.type);
+        if (['babysitting', 'tutoring', 'dog_walking', 'cleaning'].includes(type)) {
+          skills.push(type);
+        }
+      }
+    }
+  }
+
+  return skills.length > 0 ? skills : undefined;
+}
+
+/**
+ * Calculate monthly margin from planData (income - expenses)
+ */
+function calculateMonthlyMargin(
+  planData: Record<string, unknown> | null | undefined
+): number | undefined {
+  if (!planData) return undefined;
+
+  let totalIncome = 0;
+  let totalExpenses = 0;
+
+  // Sum income from various sources
+  if (typeof planData.monthlyIncome === 'number') {
+    totalIncome += planData.monthlyIncome;
+  }
+  if (Array.isArray(planData.incomes)) {
+    for (const income of planData.incomes) {
+      if (typeof income === 'object' && income !== null && 'amount' in income) {
+        totalIncome += Number(income.amount) || 0;
+      }
+    }
+  }
+
+  // Sum expenses
+  if (typeof planData.monthlyExpenses === 'number') {
+    totalExpenses += planData.monthlyExpenses;
+  }
+  if (Array.isArray(planData.expenses)) {
+    for (const expense of planData.expenses) {
+      if (typeof expense === 'object' && expense !== null && 'amount' in expense) {
+        totalExpenses += Number(expense.amount) || 0;
+      }
+    }
+  }
+
+  // Return margin if we have data
+  if (totalIncome > 0 || totalExpenses > 0) {
+    return totalIncome - totalExpenses;
+  }
+
+  return undefined;
+}
+
 // Types
 interface SetupData {
   goalName: string;
@@ -617,6 +739,17 @@ export default function SuiviPage() {
             weeklyTarget={followup().weeklyTarget}
             currency={currency()}
             useLLM={true}
+            location={
+              activeProfile()?.city
+                ? {
+                    city: activeProfile()!.city || '',
+                    currency: (activeProfile()?.currency as 'USD' | 'EUR' | 'GBP') || 'EUR',
+                    region: detectRegion(activeProfile()?.city || ''),
+                  }
+                : undefined
+            }
+            skills={extractSkills(activeProfile()?.planData)}
+            monthlyMargin={calculateMonthlyMargin(activeProfile()?.planData)}
           />
 
           {/* Section 1: Goal Hero + Key Metrics */}

@@ -9,7 +9,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, createStrideAgent } from './factory.js';
-import { trace } from '../services/opik.js';
+import { trace, createSpan, getCurrentTraceHandle, type Span } from '../services/opik.js';
 
 /**
  * Strategy types
@@ -218,7 +218,27 @@ export async function compareStrategies(
     goalAmount?: number;
   }
 ): Promise<StrategyComparison> {
-  return trace('strategy_comparison', async (span) => {
+  const tags = ['strategy-comparator', 'tips'];
+
+  // Prepare input for tracing
+  const inputData = {
+    strategies: strategies.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.type,
+      monthlyGain: s.monthlyGain,
+    })),
+    userContext: {
+      monthlyMargin: userContext.monthlyMargin,
+      urgency: userContext.urgency,
+      hoursAvailable: userContext.hoursAvailable,
+      goalAmount: userContext.goalAmount,
+    },
+  };
+
+  // Core comparison logic
+  const executeComparison = async (span: Span): Promise<StrategyComparison> => {
+    span.setInput(inputData);
     span.setAttributes({
       'comparison.strategies_count': strategies.length,
       'comparison.urgency': userContext.urgency,
@@ -286,7 +306,7 @@ export async function compareStrategies(
       'comparison.best_longterm': bestLongTerm.name,
     });
 
-    return {
+    const result = {
       strategies: scoredStrategies,
       bestOverall: bestOverall.name,
       bestQuickWin: bestQuickWin.name,
@@ -294,7 +314,33 @@ export async function compareStrategies(
       recommendation,
       comparisonMatrix,
     };
-  });
+
+    // Set output for Opik UI
+    span.setOutput({
+      bestOverall: result.bestOverall,
+      bestQuickWin: result.bestQuickWin,
+      bestLongTerm: result.bestLongTerm,
+      recommendation: result.recommendation,
+      strategiesCount: result.strategies.length,
+    });
+
+    return result;
+  };
+
+  // Use createSpan if inside an existing trace
+  const hasParentTrace = !!getCurrentTraceHandle();
+
+  if (hasParentTrace) {
+    return createSpan('strategy_comparison', executeComparison, {
+      tags,
+      input: inputData,
+    });
+  } else {
+    return trace('strategy_comparison', executeComparison, {
+      tags,
+      input: inputData,
+    });
+  }
 }
 
 /**
