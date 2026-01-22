@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.8",
-    "@ai-sdk/provider": "^3.0.4",
+    "@ai-sdk/provider": "^3.0.5",
     "@google/generative-ai": "^0.24.1",
     "@mastra/core": "^1.0.4",
     "@mastra/duckdb": "^1.0.0",

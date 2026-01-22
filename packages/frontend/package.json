@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/provider": "^3.0.5",
+    "@ai-sdk/provider-utils": "^4.0.9",
     "@ark-ui/solid": "5.30.0",
     "@kobalte/core": "^0.13.11",
     "@seed-ship/mcp-ui-solid": "^2.1.1",
