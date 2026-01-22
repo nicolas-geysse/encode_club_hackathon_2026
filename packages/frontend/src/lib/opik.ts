@@ -675,6 +675,48 @@ export function setThreadId(threadId: string): void {
 }
 
 /**
+ * Audit information returned with API responses
+ * Allows clients to verify that their request was traced
+ */
+export interface AuditInfo {
+  /** The trace ID for this request */
+  traceId: string | null;
+  /** Direct URL to view the trace in Opik dashboard */
+  traceUrl: string;
+}
+
+/**
+ * Create audit info from a trace context
+ * Use this in API handlers to include tracing info in responses
+ *
+ * @example
+ * ```typescript
+ * const result = await trace('my.operation', async (ctx) => {
+ *   // ... operation ...
+ *   return { data: myData, ...createAuditInfo(ctx) };
+ * });
+ * ```
+ */
+export function createAuditInfo(ctx: TraceContext): AuditInfo {
+  const traceId = ctx.getTraceId();
+  return {
+    traceId,
+    traceUrl: getTraceUrl(traceId || undefined),
+  };
+}
+
+/**
+ * Create audit info from current trace (for use outside trace context)
+ * Falls back to current global trace ID
+ */
+export function createAuditInfoFromCurrent(): AuditInfo {
+  return {
+    traceId: currentTraceId,
+    traceUrl: getTraceUrl(currentTraceId || undefined),
+  };
+}
+
+/**
  * Generate a new unique thread ID
  */
 export function generateThreadId(): string {

@@ -15,7 +15,13 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { query } from './_db';
-import { trace, type TraceContext, type TraceOptions } from '../../lib/opik';
+import {
+  trace,
+  createAuditInfo,
+  type TraceContext,
+  type TraceOptions,
+  type AuditInfo,
+} from '../../lib/opik';
 import type { ConsolidatedBudget } from '../../lib/budgetService';
 
 // Types for database rows
@@ -404,7 +410,7 @@ export async function GET(event: APIEvent) {
           { type: 'tool' }
         );
 
-        // Build response
+        // Build response with audit info for traceability
         const response: {
           budget: ConsolidatedBudget;
           breakdown?: {
@@ -412,7 +418,7 @@ export async function GET(event: APIEvent) {
             expenses: BreakdownItem[];
             trades: BreakdownItem[];
           };
-        } = { budget };
+        } & AuditInfo = { budget, ...createAuditInfo(ctx) };
 
         if (includeBreakdown) {
           response.breakdown = {

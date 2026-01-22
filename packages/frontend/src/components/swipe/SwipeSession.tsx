@@ -228,6 +228,17 @@ export function SwipeSession(props: SwipeSessionProps) {
         if (!response.ok) {
           const errorBody = await response.text();
           console.error(`[SwipeSession] Trace API error ${response.status}:`, errorBody);
+        } else {
+          try {
+            const data = await response.json();
+            if (data.traceUrl) {
+              // Audit log: Proof that the trace was received by Opik
+              // eslint-disable-next-line no-console
+              console.debug(`[SwipeSession] Trace audited: ${data.traceUrl}`);
+            }
+          } catch {
+            // Ignore JSON parse errors on success if any, usually fine
+          }
         }
       })
       .catch((err) => {
