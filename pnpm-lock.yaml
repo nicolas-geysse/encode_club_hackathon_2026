@@ -58,8 +58,8 @@ importers:
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.10)
       '@seed-ship/mcp-ui-solid':
-        specifier: ^2.1.0
-        version: 2.1.0(chart.js@4.5.1)(solid-js@1.9.10)
+        specifier: ^2.1.1
+        version: 2.1.1(chart.js@4.5.1)(solid-js@1.9.10)
       '@seed-ship/mcp-ui-spec':
         specifier: ^2.0.0
         version: 2.0.0
@@ -154,6 +154,9 @@ importers:
       '@ai-sdk/provider':
         specifier: ^3.0.4
         version: 3.0.4
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       '@mastra/core':
         specifier: ^1.0.4
         version: 1.0.4(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-community/standard-openapi@0.2.9(@standard-community/standard-json@0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@standard-schema/spec@1.1.0)(openapi-types@12.1.3)(zod@3.25.76))(@types/json-schema@7.0.15)(openapi-types@12.1.3)(zod@3.25.76)
@@ -961,6 +964,10 @@ packages:
   '@gar/promisify@1.1.3':
     resolution: {integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==}
 
+  '@google/generative-ai@0.24.1':
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
+    engines: {node: '>=18.0.0'}
+
   '@hono/node-server@1.19.9':
     resolution: {integrity: sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==}
     engines: {node: '>=18.14.1'}
@@ -1474,8 +1481,8 @@ packages:
     resolution: {integrity: sha512-TCeKQEc+gc77gXw8qvv0vns/AbhXIQPU6bxe0N0niH82ZqWDJ/Hk8DkJk4WMe2+61LkVMRzkZbQRaof3ij6MOg==}
     engines: {node: '>=20.0.0'}
 
-  '@seed-ship/mcp-ui-solid@2.1.0':
-    resolution: {integrity: sha512-bsusCMikZrIW4GYWgQWgPU0rAYJcbw/ntc5X3odFh/fIr4W2w6c29kB69ppz1EmFOzIwWhbvMfDjI6Sv3cb5fg==}
+  '@seed-ship/mcp-ui-solid@2.1.1':
+    resolution: {integrity: sha512-PbAxErWIfzlvfutQOisWH+iVl4Nk/7o8Dsic4vzxkZbmk2ljuUUeEn+ZLcycYsPew6yHETnqRHlHPEFaQrp/rg==}
     peerDependencies:
       '@duckdb/duckdb-wasm': ^1.28.0
       '@tanstack/solid-virtual': ^3.0.0
@@ -6247,6 +6254,8 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
+  '@google/generative-ai@0.24.1': {}
+
   '@hono/node-server@1.19.9(hono@4.11.4)':
     dependencies:
       hono: 4.11.4
@@ -6762,7 +6771,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@seed-ship/mcp-ui-solid@2.1.0(chart.js@4.5.1)(solid-js@1.9.10)':
+  '@seed-ship/mcp-ui-solid@2.1.1(chart.js@4.5.1)(solid-js@1.9.10)':
     dependencies:
       '@types/dompurify': 3.2.0
       dompurify: 3.3.1

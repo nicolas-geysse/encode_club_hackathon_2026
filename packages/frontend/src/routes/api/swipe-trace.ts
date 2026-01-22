@@ -30,6 +30,9 @@ interface SwipeTraceRequest {
 }
 
 export async function POST(event: APIEvent) {
+  // Generate unique request ID for structured logging
+  const requestId = `swipe_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
   try {
     const data = (await event.request.json()) as SwipeTraceRequest;
 
@@ -113,10 +116,15 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[SwipeTrace] Error:', error);
+    // Structured error logging with context for debugging
+    console.error(`[SwipeTrace:${requestId}] Error:`, {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return new Response(
       JSON.stringify({
         error: true,
+        requestId,
         message: error instanceof Error ? error.message : 'Unknown error',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

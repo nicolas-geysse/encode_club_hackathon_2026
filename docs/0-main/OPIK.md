@@ -2,7 +2,11 @@
 
 > Complete traceability for multi-agent financial AI
 
-Stride uses **Opik self-hosted** for full observability across 4 AI agents orchestrating student financial recommendations. This document explains how Opik enables each of our **4 Killer Features**.
+> **Technical Reference**: For LLM provider abstraction (Groq/Gemini), SDK configuration, API details, and migration guides, see **[gemini-groq-opik-guidelines.md](../architecture/gemini-groq-opik-guidelines.md)**.
+>
+> This document focuses on **feature-specific trace hierarchies** and how Opik enables the 4 Killer Features.
+
+Stride uses **Opik Cloud** for full observability across 4 AI agents orchestrating student financial recommendations. This document explains how Opik enables each of our **4 Killer Features**.
 
 **Track**: Financial Health ($5,000 prize) - Encode Club Hackathon 2026
 **Sponsor**: Comet (Opik)

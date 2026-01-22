@@ -209,7 +209,7 @@ export function SwipeSession(props: SwipeSessionProps) {
     const updatedPrefs = updatePreferences(preferences(), scenario, direction, adjustments());
     setPreferences(updatedPrefs);
 
-    // Trace to Opik (fire-and-forget, non-blocking)
+    // Trace to Opik (fire-and-forget, non-blocking but with proper error handling)
     fetch('/api/swipe-trace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -223,7 +223,16 @@ export function SwipeSession(props: SwipeSessionProps) {
         timeSpentMs: timeSpent,
         profileId: props.profileId,
       }),
-    }).catch(() => {}); // Non-blocking
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error(`[SwipeSession] Trace API error ${response.status}:`, errorBody);
+        }
+      })
+      .catch((err) => {
+        console.error('[SwipeSession] Network error tracing swipe:', err.message);
+      }); // Non-blocking
 
     // Save to history for undo (including current adjustments)
     const currentAdjustments = { ...adjustments() };

@@ -626,6 +626,10 @@ export async function logFeedbackScores(
     // Endpoint: PUT /v1/private/traces/{id}/feedback-scores
     const apiUrl = cfg.baseUrl || 'https://www.comet.com/opik/api';
 
+    // Track if all scores were logged successfully
+    let allSucceeded = true;
+    let successCount = 0;
+
     for (const score of scores) {
       const response = await fetch(`${apiUrl}/v1/private/traces/${id}/feedback-scores`, {
         method: 'PUT',
@@ -643,13 +647,20 @@ export async function logFeedbackScores(
       });
 
       if (!response.ok) {
+        allSucceeded = false;
         const errorText = await response.text();
-        console.error(`[Opik] Failed to log feedback score: ${response.status} - ${errorText}`);
+        console.error(
+          `[Opik] Failed to log feedback score "${score.name}": ${response.status} - ${errorText}`
+        );
+      } else {
+        successCount++;
       }
     }
 
-    console.error(`[Opik] Logged ${scores.length} feedback scores to trace ${id}`);
-    return true;
+    console.error(
+      `[Opik] Logged ${successCount}/${scores.length} feedback scores to trace ${id}${allSucceeded ? '' : ' (some failed)'}`
+    );
+    return allSucceeded;
   } catch (error) {
     console.error('[Opik] Error logging feedback scores:', error);
     return false;

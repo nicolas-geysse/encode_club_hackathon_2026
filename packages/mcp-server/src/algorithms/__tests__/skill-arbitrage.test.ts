@@ -20,12 +20,39 @@ import {
   type ArbitrageWeights,
 } from '../skill-arbitrage.js';
 
-// Mock the opik trace function to avoid actual tracing in tests
+// Mock the opik module to avoid actual tracing in tests
 vi.mock('../../services/opik.js', () => ({
   trace: vi.fn(async (_name: string, fn: (span: unknown) => Promise<unknown>) => {
-    const mockSpan = { setAttributes: vi.fn() };
+    const mockSpan = {
+      setAttributes: vi.fn(),
+      setInput: vi.fn(),
+      setOutput: vi.fn(),
+      setUsage: vi.fn(),
+      setCost: vi.fn(),
+      addEvent: vi.fn(),
+      end: vi.fn(),
+      createChildSpan: vi.fn(),
+      getTraceId: vi.fn(() => null),
+    };
     return fn(mockSpan);
   }),
+  createSpan: vi.fn(async (_name: string, fn: (span: unknown) => Promise<unknown>) => {
+    const mockSpan = {
+      setAttributes: vi.fn(),
+      setInput: vi.fn(),
+      setOutput: vi.fn(),
+      setUsage: vi.fn(),
+      setCost: vi.fn(),
+      addEvent: vi.fn(),
+      end: vi.fn(),
+    };
+    return fn(mockSpan);
+  }),
+  getCurrentTraceHandle: vi.fn(() => null),
+  getCurrentTraceId: vi.fn(() => null),
+  getCurrentThreadId: vi.fn(() => null),
+  setThreadId: vi.fn(),
+  generateThreadId: vi.fn(() => 'mock-thread-id'),
 }));
 
 // ============================================

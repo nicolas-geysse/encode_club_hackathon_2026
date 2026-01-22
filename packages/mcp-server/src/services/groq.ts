@@ -7,7 +7,7 @@
 
 import Groq from 'groq-sdk';
 import { toFile } from 'groq-sdk/uploads';
-import { trace, createSpan, getCurrentTraceHandle } from './opik.js';
+import { trace, createSpan, getCurrentTraceHandle, type SpanOptions } from './opik.js';
 
 // Configuration
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -125,12 +125,15 @@ export async function chat(
       const completionTokens = response.usage.completion_tokens || 0;
       const cost = calculateCost(MODEL, promptTokens, completionTokens);
 
+      // Set usage separately from cost (Opik SDK requirement)
       span.setUsage({
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
         total_tokens: response.usage.total_tokens || 0,
-        cost,
       });
+
+      // Cost goes in separate field
+      span.setCost(cost);
 
       span.setAttributes({
         tokens_used: response.usage.total_tokens,
@@ -147,11 +150,17 @@ export async function chat(
   // Otherwise create a new top-level trace
   const hasParentTrace = !!getCurrentTraceHandle();
 
+  // Span options with type, model, and provider for proper Opik display
+  const spanOptions: SpanOptions = {
+    tags,
+    input: inputData,
+    type: 'llm',
+    model: MODEL,
+    provider: 'groq',
+  };
+
   if (hasParentTrace) {
-    return createSpan('llm_chat', executeChatCompletion, {
-      tags,
-      input: inputData,
-    });
+    return createSpan('llm_chat', executeChatCompletion, spanOptions);
   } else {
     return trace('llm_chat', executeChatCompletion, {
       tags,
@@ -228,12 +237,15 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
       const completionTokens = response.usage.completion_tokens || 0;
       const cost = calculateCost(MODEL, promptTokens, completionTokens);
 
+      // Set usage separately from cost (Opik SDK requirement)
       span.setUsage({
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
         total_tokens: response.usage.total_tokens || 0,
-        cost,
       });
+
+      // Cost goes in separate field
+      span.setCost(cost);
 
       span.setAttributes({
         tokens_used: response.usage.total_tokens,
@@ -264,11 +276,17 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
   // Use createSpan if we're inside an existing trace
   const hasParentTrace = !!getCurrentTraceHandle();
 
+  // Span options with type, model, and provider for proper Opik display
+  const spanOptions: SpanOptions = {
+    tags,
+    input: inputData,
+    type: 'llm',
+    model: MODEL,
+    provider: 'groq',
+  };
+
   if (hasParentTrace) {
-    return createSpan('llm_chat_json', executeChatCompletion, {
-      tags,
-      input: inputData,
-    });
+    return createSpan('llm_chat_json', executeChatCompletion, spanOptions);
   } else {
     return trace('llm_chat_json', executeChatCompletion, {
       tags,
@@ -544,11 +562,19 @@ Réponds de manière concise et actionnable.`;
   });
 }
 
-// Export service
-export const groq = {
+import type { LLMProvider } from './llm-provider.js';
+
+// Export service as LLMProvider interface for unified access
+export const groq: LLMProvider = {
+  providerName: 'groq',
   init: initGroq,
   chat,
   chatWithJsonMode,
+};
+
+// Extended service with Groq-specific features
+export const groqExtended = {
+  ...groq,
   analyzeBudget,
   generateAdvice,
   transcribeAudio,
