@@ -17,11 +17,14 @@ let initialized = false;
 // with .env loading in server-side frameworks (Vinxi/SolidStart)
 // See: OPIK_API_KEY, OPIK_WORKSPACE, OPIK_PROJECT, OPIK_BASE_URL, ENABLE_OPIK
 
-// Log level configuration: 'debug' | 'info' | 'warn' | 'error'
+// Log level configuration: 'debug' | 'info' | 'warn' | 'error' | 'none'
 // Set LOG_LEVEL=debug to see verbose Opik span/trace logs
-const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
+// Set LOG_LEVEL=info (default) for normal operation
+// Set LOG_LEVEL=none to suppress all debug logs (same as info, but explicit)
+const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3, none: 4 } as const;
 type LogLevel = keyof typeof LOG_LEVELS;
-const currentLogLevel: LogLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) || 'info';
+const rawLogLevel = process.env.LOG_LEVEL?.toLowerCase() || 'info';
+const currentLogLevel: LogLevel = rawLogLevel in LOG_LEVELS ? (rawLogLevel as LogLevel) : 'info';
 
 /** Log only if current level allows it */
 function logDebug(...args: unknown[]): void {
