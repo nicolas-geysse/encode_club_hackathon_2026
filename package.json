@@ -8,7 +8,11 @@
     "onlyBuiltDependencies": [
       "duckdb",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "h3": ">=1.15.5",
+      "tar": ">=7.5.4"
+    }
   },
   "scripts": {
     "dev": "pnpm --filter @stride/frontend dev",
