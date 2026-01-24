@@ -130,25 +130,27 @@ async function getOpikClient() {
 
     flushFn = flushAll;
 
-    const config: {
-      apiKey: string;
-      projectName: string;
-      workspaceName?: string;
-      baseUrl?: string;
-    } = {
+    // Workaround for Opik SDK v1.9.92 bug: SDK doesn't pass apiKey in HTTP headers
+    // We explicitly add the authorization header to ensure authentication works
+    const effectiveApiUrl = cfg.baseUrl || 'https://www.comet.com/opik/api';
+
+    // SDK bug workaround: explicitly set env vars before creating client
+    // The HTTP client layer may read from env vars instead of constructor params
+    process.env.OPIK_API_KEY = cfg.apiKey;
+    process.env.OPIK_URL_OVERRIDE = effectiveApiUrl;
+    if (cfg.workspace) {
+      process.env.OPIK_WORKSPACE = cfg.workspace;
+    }
+
+    opikClient = new Opik({
       apiKey: cfg.apiKey,
       projectName: cfg.project,
-    };
-
-    if (cfg.workspace) {
-      config.workspaceName = cfg.workspace;
-    }
-
-    if (cfg.baseUrl) {
-      config.baseUrl = cfg.baseUrl;
-    }
-
-    opikClient = new Opik(config);
+      workspaceName: cfg.workspace,
+      apiUrl: effectiveApiUrl,
+      headers: {
+        authorization: cfg.apiKey, // Workaround SDK bug - pass API key directly
+      },
+    });
     console.error(
       `[Opik] Initialized - project: ${cfg.project}, workspace: ${cfg.workspace || 'default'}`
     );
@@ -635,7 +637,7 @@ export async function logFeedbackScores(
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${cfg.apiKey}`,
+          authorization: cfg.apiKey, // Opik API expects raw API key, not "Bearer" prefix
           ...(cfg.workspace ? { 'Comet-Workspace': cfg.workspace } : {}),
         },
         body: JSON.stringify({
