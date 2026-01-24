@@ -85,18 +85,20 @@ export const mastra = new Mastra({
 });
 ```
 
-### Variables d'environnement (Self-hosted)
+### Variables d'environnement (Configuration)
+401|
+**IMPORTANT**: Dans ce monorepo, assurez-vous que les variables d'environnement sont cohérentes.
+- Le fichier `.env` à la racine est la source de vérité.
+- **Attention**: `packages/frontend/.env` peut surcharger les valeurs racines. Si vous avez une erreur 401 sur Opik, vérifiez que `packages/frontend/.env` ne contient pas une clé API obsolète.
 
 ```bash
-# Opik OTLP endpoint
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5173/api/v1/private/otel
-OTEL_EXPORTER_OTLP_HEADERS='projectName=stride'
+# Opik Cloud Configuration
+OPIK_API_KEY=1NSD...          # Votre clé API
+OPIK_WORKSPACE=nickoolas      # Votre workspace
+OPIK_PROJECT=stride           # Nom du projet
 
-# OpenAI for agents
-OPENAI_API_KEY=sk-...
-
-# Groq for voice
-GROQ_API_KEY=gsk_...
+# Opik Self-hosted (Alternative)
+# OPIK_BASE_URL=http://localhost:5173/api
 ```
 
 ### Custom Span Creation
@@ -1470,3 +1472,81 @@ app.post('/api/chat', async (req) => {
 2. **Utiliser des noms de span descriptifs** par service (`chat.validate`, `mcp.budget-coach`, `db.query`)
 3. **Inclure le service name** dans les attributs pour filtrage
 4. **Gérer les timeouts** - les traces distribuées peuvent être longues
+
+---
+
+## Typage Sémantique des Spans (Semantic Types)
+
+Pour tirer le meilleur parti de l'interface Opik, il est **impératif** de typer les spans correctement. Par défaut, un span est de type `general`.
+
+### Types Disponibles
+
+| Type | Usage | Exemple Stride |
+|------|-------|----------------|
+| `general` | Défaut. Opérations génériques, blocs de code. | `tips.parallel_agents`, `tips.orchestrator` |
+| `tool` | **Agents et outils externes**. Indispensable pour voir les "appels" dans la timeline. | `agent.budget_coach`, `agent.job_matcher` |
+| `llm` | **Appels LLM**. Doit contenir les tokens usage et model. | `llm_chat`, `groq.completion` |
+| `guardrail` | **Validation & Sécurité**. Affiche un shield (bouclier) dans l'UI. | `agent.guardian` |
+
+### Implémentation
+
+```typescript
+// Exemple: Agent (Tool)
+await createSpan(
+  'agent.job_matcher',
+  async (span) => { ... },
+  { 
+    type: 'tool', // <--- IMPORTANT
+    tags: ['job-matcher'] 
+  }
+);
+
+// Exemple: Guardian (Guardrail)
+await createSpan(
+  'agent.guardian',
+  async (span) => { ... },
+  { 
+    type: 'guardrail', // <--- Affiche l'icône de sécurité
+    tags: ['validation'] 
+  }
+);
+```
+
+---
+
+## Troubleshooting
+
+### Erreur 401: User with provided api key not found!
+
+**Symptôme**: L'application démarre mais affiche des erreurs 401 lors de l'envoi des traces.
+
+**Cause Probable**:
+- La clé API utilisée n'est pas celle que vous pensez.
+- Dans notre structure monorepo, `packages/frontend/.env` est prioritaire sur le `.env` racine pour l'application frontend.
+
+**Solution**:
+1. Vérifiez `packages/frontend/.env`.
+2. Assurez-vous qu'il contient la **même** clé `OPIK_API_KEY` que le fichier `.env` racine.
+3. Si vous utilisez Opik Cloud, vérifiez que la clé correspond bien au workspace configuré.
+
+### Script de Debug
+
+Si vous avez des doutes sur la connectivité, vous pouvez créer un script `debug-opik.ts` à la racine pour tester la clé en isolation :
+
+```typescript
+import { Opik } from 'opik';
+import dotenv from 'dotenv';
+dotenv.config(); // Charge le .env racine
+
+const client = new Opik({ 
+  apiKey: process.env.OPIK_API_KEY,
+  workspaceName: process.env.OPIK_WORKSPACE 
+});
+
+// Test simple trace
+const trace = client.trace({ name: 'debug-check' });
+trace.end();
+await client.flush();
+console.log('Success!');
+```
+
