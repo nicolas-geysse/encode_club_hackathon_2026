@@ -10,13 +10,13 @@
 import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { goalService } from '~/lib/goalService';
+import { profileService } from '~/lib/profileService';
 import { useProfile, type Goal, type GoalComponent } from '~/lib/profileContext';
 import { createCrudTab } from '~/hooks/createCrudTab';
 import { toast } from '~/lib/notificationStore';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('GoalsTab');
-import { GoalTimelineList } from '~/components/GoalTimeline';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -34,12 +34,27 @@ import {
   GraduationCap,
   Package,
   Trash2,
+  Check,
+  TrendingUp,
+  RotateCcw,
 } from 'lucide-solid';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
+import { WhatIfSimulator } from '~/components/WhatIfSimulator';
+import { WeeklyProgressCards } from '~/components/WeeklyProgressCards';
+import { EarningsChart } from '~/components/EarningsChart';
+import { FlaskConical } from 'lucide-solid';
+// Note: GoalComponentsList available at '~/components/GoalComponentsList' for future integration
 
 interface AcademicEvent {
   id: string;
-  type: 'exam_period' | 'class_intensive' | 'vacation' | 'internship' | 'project_deadline';
+  type:
+    | 'exam_period'
+    | 'class_intensive'
+    | 'vacation'
+    | 'vacation_rest'
+    | 'vacation_available'
+    | 'internship'
+    | 'project_deadline';
   name: string;
   startDate: string;
   endDate: string;
@@ -84,6 +99,7 @@ export function GoalsTab(props: GoalsTabProps) {
   const context = useProfile();
   const goals = () => context.goals();
   const profile = () => context.profile();
+  const refreshProfile = () => context.refreshProfile({ silent: true });
 
   // Currency from props, defaults to USD
   const currency = () => props.currency || 'USD';
@@ -113,6 +129,8 @@ export function GoalsTab(props: GoalsTabProps) {
   const [goalName, setGoalName] = createSignal(props.initialData?.goalName || '');
   const [goalAmount, setGoalAmount] = createSignal(props.initialData?.goalAmount || 500);
   const [goalDeadline, setGoalDeadline] = createSignal(props.initialData?.goalDeadline || '');
+  // Flag to prevent re-initialization during user typing (e.g., typing "500" while entering "5000")
+  const [amountInitialized, setAmountInitialized] = createSignal(!!props.initialData?.goalAmount);
   const [academicEvents, setAcademicEvents] = createSignal<AcademicEvent[]>(
     props.initialData?.academicEvents || []
   );
@@ -144,6 +162,7 @@ export function GoalsTab(props: GoalsTabProps) {
     startDate: '',
     endDate: '',
   });
+  const [editingEventId, setEditingEventId] = createSignal<string | null>(null);
   const [isSameDay, setIsSameDay] = createSignal(false);
   const [newCommitment, setNewCommitment] = createSignal<Partial<Commitment>>({
     type: 'class',
@@ -167,6 +186,9 @@ export function GoalsTab(props: GoalsTabProps) {
   // Retroplan panel state
   const [showRetroplan, setShowRetroplan] = createSignal<Goal | null>(null);
 
+  // What-If Simulator state
+  const [showWhatIf, setShowWhatIf] = createSignal(false);
+
   // Available parent goals for conditional goals
   const availableParentGoals = createMemo(() => {
     const currentId = editingGoalId();
@@ -188,9 +210,10 @@ export function GoalsTab(props: GoalsTabProps) {
       setGoalName(name);
     }
     const amount = props.initialData?.goalAmount;
-    if (amount && goalAmount() === 500) {
-      // Only update if still at default value
+    if (amount && !amountInitialized()) {
+      // Only update if not yet initialized (prevents reset during user typing)
       setGoalAmount(amount);
+      setAmountInitialized(true);
     }
     if (props.initialData?.academicEvents && academicEvents().length === 0) {
       setAcademicEvents(props.initialData.academicEvents);
@@ -284,23 +307,48 @@ export function GoalsTab(props: GoalsTabProps) {
     setComponents(components().filter((c) => c.id !== id));
   };
 
-  const addAcademicEvent = () => {
+  const addOrUpdateAcademicEvent = () => {
     const event = newEvent();
     if (!event.name || !event.startDate || !event.endDate) return;
 
-    setAcademicEvents([
-      ...academicEvents(),
-      { ...event, id: `event_${Date.now()}` } as AcademicEvent,
-    ]);
+    const editingId = editingEventId();
+    if (editingId) {
+      // Update existing event
+      setAcademicEvents(
+        academicEvents().map((e) =>
+          e.id === editingId ? ({ ...event, id: editingId } as AcademicEvent) : e
+        )
+      );
+      setEditingEventId(null);
+    } else {
+      // Add new event
+      setAcademicEvents([
+        ...academicEvents(),
+        { ...event, id: `event_${Date.now()}` } as AcademicEvent,
+      ]);
+    }
+    // Reset form
     setNewEvent({ type: 'exam_period', name: '', startDate: '', endDate: '' });
+    setIsSameDay(false);
+  };
+
+  const cancelEditEvent = () => {
+    setEditingEventId(null);
+    setNewEvent({ type: 'exam_period', name: '', startDate: '', endDate: '' });
+    setIsSameDay(false);
   };
 
   const removeAcademicEvent = (id: string) => {
     setAcademicEvents(academicEvents().filter((e) => e.id !== id));
+    // If we're editing this event, cancel the edit
+    if (editingEventId() === id) {
+      cancelEditEvent();
+    }
   };
 
-  // Bug F Fix: Add edit functionality for academic events
+  // Edit event: populate form but DON'T remove from list
   const editAcademicEvent = (event: AcademicEvent) => {
+    setEditingEventId(event.id);
     setNewEvent({
       type: event.type,
       name: event.name,
@@ -308,7 +356,6 @@ export function GoalsTab(props: GoalsTabProps) {
       endDate: event.endDate,
     });
     setIsSameDay(event.startDate === event.endDate);
-    removeAcademicEvent(event.id);
   };
 
   const addCommitment = () => {
@@ -326,6 +373,7 @@ export function GoalsTab(props: GoalsTabProps) {
   const resetForm = () => {
     setGoalName('');
     setGoalAmount(500);
+    setAmountInitialized(false); // Allow re-initialization from props
     const defaultDeadline = new Date();
     defaultDeadline.setDate(defaultDeadline.getDate() + 56);
     setGoalDeadline(defaultDeadline.toISOString().split('T')[0]);
@@ -402,16 +450,48 @@ export function GoalsTab(props: GoalsTabProps) {
       });
     }
 
+    // Capture values BEFORE resetForm() since it clears the signals
+    const savedGoalName = goalName();
+    const savedGoalAmount = goalAmount();
+    const savedGoalDeadline = goalDeadline();
+    const savedAcademicEvents = academicEvents();
+    const savedCommitments = commitments();
+
     // Note: goalService emits DATA_CHANGED, debounced listener handles refresh
     resetForm();
 
+    // Sync profile's goalAmount/goalName/goalDeadline for consistency with Setup tab
+    // This ensures the primary goal info is reflected on the profile
+    const currentProfile = profile();
+    if (currentProfile && profileId()) {
+      try {
+        await profileService.saveProfile(
+          {
+            ...currentProfile,
+            id: profileId()!,
+            goalName: savedGoalName,
+            goalAmount: savedGoalAmount,
+            goalDeadline: savedGoalDeadline,
+          },
+          { setActive: false }
+        );
+        logger.debug('Profile synced with goal data');
+
+        // Refresh the profile context so other tabs see the updated values
+        await refreshProfile();
+      } catch (syncError) {
+        // Non-critical - goal was saved successfully
+        logger.warn('Failed to sync profile with goal', { syncError });
+      }
+    }
+
     // Also call onComplete for backward compatibility with plan.tsx
     props.onComplete({
-      goalName: goalName(),
-      goalAmount: goalAmount(),
-      goalDeadline: goalDeadline(),
-      academicEvents: academicEvents(),
-      commitments: commitments(),
+      goalName: savedGoalName,
+      goalAmount: savedGoalAmount,
+      goalDeadline: savedGoalDeadline,
+      academicEvents: savedAcademicEvents,
+      commitments: savedCommitments,
     });
   };
 
@@ -437,6 +517,7 @@ export function GoalsTab(props: GoalsTabProps) {
     setEditingGoalId(goal.id);
     setGoalName(goal.name);
     setGoalAmount(goal.amount);
+    setAmountInitialized(true); // Prevent re-initialization from props
     setGoalDeadline(goal.deadline || '');
 
     // Load plan data if available
@@ -499,32 +580,6 @@ export function GoalsTab(props: GoalsTabProps) {
       status: newStatus,
       progress: newStatus === 'completed' ? 100 : goal.progress,
     });
-  };
-
-  // Handle component status update from timeline
-  const handleComponentUpdate = async (
-    goalId: string,
-    componentId: string,
-    status: GoalComponent['status']
-  ) => {
-    try {
-      // Call the goal-components API to update the status
-      const response = await fetch('/api/goal-components', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: componentId, status }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error('Update failed', error.message || 'Could not update component.');
-        return;
-      }
-
-      // Note: API emits DATA_CHANGED via eventBus, debounced listener handles refresh
-    } catch {
-      toast.error('Update failed', 'Could not update component.');
-    }
   };
 
   const getTypeIcon = (type: GoalComponent['type']) => {
@@ -613,6 +668,14 @@ export function GoalsTab(props: GoalsTabProps) {
           <Button onClick={() => setShowNewGoalForm(true)}>
             <Plus class="h-4 w-4 mr-2" /> New Goal
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowWhatIf(true)}
+            class="border-purple-500/30 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+          >
+            <FlaskConical class="h-4 w-4 mr-2" /> What-If
+          </Button>
         </Show>
       </div>
 
@@ -626,36 +689,489 @@ export function GoalsTab(props: GoalsTabProps) {
         </Card>
       </Show>
 
-      {/* Goals Timeline */}
+      {/* Active Goal with Weekly Progress + Chart */}
       <Show when={!loading() && goals().length > 0 && !showNewGoalForm()}>
-        <GoalTimelineList
-          goals={goals()}
-          currency={currency()}
-          onComponentUpdate={handleComponentUpdate}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onToggleStatus={handleToggleStatus}
-          onViewRetroplan={(goal) => setShowRetroplan(goal)}
-        />
+        {(() => {
+          const activeGoal = () => goals().find((g) => g.status === 'active');
+          const otherGoals = () => goals().filter((g) => g.status !== 'active');
+
+          return (
+            <div class="space-y-6">
+              {/* Active Goal Section */}
+              <Show when={activeGoal()}>
+                {(goal) => {
+                  const goalPlanData = goal().planData as
+                    | { academicEvents?: AcademicEvent[] }
+                    | undefined;
+                  const goalAcademicEvents = goalPlanData?.academicEvents || academicEvents();
+
+                  // Feasibility score and risk factors from retroplan
+                  const [feasibility, setFeasibility] = createSignal<number | null>(null);
+                  const [riskFactors, setRiskFactors] = createSignal<string[]>([]);
+                  const [maxEarnings, setMaxEarnings] = createSignal<number | null>(null);
+                  const [avgAdjustedTarget, setAvgAdjustedTarget] = createSignal<number | null>(
+                    null
+                  );
+
+                  // Fetch feasibility score
+                  createEffect(() => {
+                    const g = goal();
+                    const currentProfile = profile();
+                    if (g.status === 'active' && g.deadline && g.amount) {
+                      // Get hourly rate from profile or use default
+                      const hourlyRate = currentProfile?.minHourlyRate || 15;
+                      fetch('/api/retroplan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          action: 'generate_retroplan',
+                          goalId: g.id,
+                          goalAmount: g.amount,
+                          deadline: g.deadline,
+                          academicEvents: goalAcademicEvents,
+                          hourlyRate,
+                        }),
+                      })
+                        .then((res) => (res.ok ? res.json() : null))
+                        .then((data) => {
+                          if (data?.retroplan) {
+                            if (data.retroplan.feasibilityScore != null) {
+                              setFeasibility(data.retroplan.feasibilityScore);
+                            }
+                            if (data.retroplan.riskFactors) {
+                              setRiskFactors(data.retroplan.riskFactors);
+                            }
+                            // Calculate max earnings and average adjusted target from milestones
+                            if (data.retroplan.milestones) {
+                              const milestones = data.retroplan.milestones as Array<{
+                                capacity?: { maxEarningPotential?: number };
+                                adjustedTarget?: number;
+                              }>;
+                              const total = milestones.reduce(
+                                (sum, m) => sum + (m.capacity?.maxEarningPotential || 0),
+                                0
+                              );
+                              setMaxEarnings(Math.round(total));
+
+                              // Calculate average adjusted target across milestones
+                              const adjustedTargets = milestones
+                                .map((m) => m.adjustedTarget)
+                                .filter((t): t is number => t != null && t > 0);
+                              if (adjustedTargets.length > 0) {
+                                const avgTarget =
+                                  adjustedTargets.reduce((a, b) => a + b, 0) /
+                                  adjustedTargets.length;
+                                setAvgAdjustedTarget(Math.round(avgTarget));
+                              }
+                            }
+                          }
+                        })
+                        .catch(() => {});
+                    }
+                  });
+
+                  // Calculate days remaining
+                  const daysRemaining = () => {
+                    if (!goal().deadline) return null;
+                    const deadline = new Date(goal().deadline!);
+                    const now = new Date();
+                    const diffTime = deadline.getTime() - now.getTime();
+                    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  };
+
+                  // Format deadline
+                  const formattedDeadline = () => {
+                    if (!goal().deadline) return null;
+                    return new Date(goal().deadline!).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                  };
+
+                  // Deadline color based on urgency
+                  const getDeadlineColor = () => {
+                    const days = daysRemaining();
+                    if (days === null)
+                      return 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300';
+                    if (days <= 0)
+                      return 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300';
+                    if (days <= 7)
+                      return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300';
+                    return 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300';
+                  };
+
+                  // Feasibility color and label - styled like capacity breakdown
+                  const getFeasibilityInfo = () => {
+                    const score = feasibility();
+                    if (score === null)
+                      return {
+                        bg: 'bg-slate-100 dark:bg-slate-700/50',
+                        border: 'border-slate-200 dark:border-slate-600',
+                        text: 'text-slate-600 dark:text-slate-300',
+                        label: '...',
+                        icon: '⏳',
+                      };
+                    if (score >= 0.8)
+                      return {
+                        bg: 'bg-green-500/10',
+                        border: 'border-green-500/40',
+                        text: 'text-green-600 dark:text-green-400',
+                        label: 'Very achievable',
+                        icon: '🚀',
+                      };
+                    if (score >= 0.6)
+                      return {
+                        bg: 'bg-emerald-500/10',
+                        border: 'border-emerald-500/40',
+                        text: 'text-emerald-600 dark:text-emerald-400',
+                        label: 'Achievable',
+                        icon: '✅',
+                      };
+                    if (score >= 0.4)
+                      return {
+                        bg: 'bg-amber-500/10',
+                        border: 'border-amber-500/40',
+                        text: 'text-amber-600 dark:text-amber-400',
+                        label: 'Challenging',
+                        icon: '⚠️',
+                      };
+                    if (score >= 0.15)
+                      return {
+                        bg: 'bg-red-500/10',
+                        border: 'border-red-500/40',
+                        text: 'text-red-600 dark:text-red-400',
+                        label: 'Very hard',
+                        icon: '🔴',
+                      };
+                    // Below 15% - essentially impossible
+                    return {
+                      bg: 'bg-red-500/20',
+                      border: 'border-red-500/60',
+                      text: 'text-red-700 dark:text-red-300',
+                      label: 'Unrealistic',
+                      icon: '❌',
+                    };
+                  };
+
+                  return (
+                    <Card class="border-primary/30">
+                      <CardContent class="p-4 space-y-4">
+                        {/* Header Row */}
+                        <div class="flex items-center justify-between">
+                          <div class="flex items-center gap-3">
+                            <span class="text-2xl">🎯</span>
+                            <div>
+                              <h3 class="text-lg font-bold text-foreground">{goal().name}</h3>
+                              <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300">
+                                Active
+                              </span>
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(goal())}
+                              title="Edit"
+                            >
+                              <Pencil class="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleToggleStatus(goal())}
+                              class="text-green-600"
+                              title="Mark Complete"
+                            >
+                              <CheckCircle2 class="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(goal().id)}
+                              class="text-destructive"
+                              title="Delete"
+                            >
+                              <Trash2 class="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Key Metrics Row - Target, Deadline, Progress, Achievable */}
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {/* Target */}
+                          <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                              Target
+                            </p>
+                            <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
+                              {formatCurrency(goal().amount, currency())}
+                            </p>
+                          </div>
+
+                          {/* Deadline */}
+                          <div class={`rounded-lg p-3 text-center ${getDeadlineColor()}`}>
+                            <p class="text-xs uppercase tracking-wider mb-1 opacity-80">Deadline</p>
+                            <Show
+                              when={goal().deadline}
+                              fallback={<p class="text-lg font-bold">Not set</p>}
+                            >
+                              <p class="text-lg font-bold">{formattedDeadline()}</p>
+                              <p class="text-xs font-medium mt-0.5">
+                                {daysRemaining() !== null && daysRemaining()! > 0
+                                  ? `${daysRemaining()}d left`
+                                  : daysRemaining() === 0
+                                    ? 'Today!'
+                                    : `${Math.abs(daysRemaining()!)}d overdue`}
+                              </p>
+                            </Show>
+                          </div>
+
+                          {/* Progress */}
+                          <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                              Progress
+                            </p>
+                            <p class="text-lg font-bold text-primary-600 dark:text-primary-400">
+                              {goal().progress || 0}%
+                            </p>
+                          </div>
+
+                          {/* Achievable */}
+                          <div
+                            class={`rounded-lg p-3 text-center border-2 ${getFeasibilityInfo().bg} ${getFeasibilityInfo().border}`}
+                          >
+                            <p
+                              class={`text-xs uppercase tracking-wider mb-1 ${getFeasibilityInfo().text} opacity-80`}
+                            >
+                              Achievable
+                            </p>
+                            <p class={`text-lg font-bold ${getFeasibilityInfo().text}`}>
+                              {getFeasibilityInfo().icon}{' '}
+                              {feasibility() !== null
+                                ? `${Math.round(feasibility()! * 100)}%`
+                                : '...'}
+                            </p>
+                            <p class={`text-xs font-medium mt-0.5 ${getFeasibilityInfo().text}`}>
+                              {getFeasibilityInfo().label}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Feasibility Alert - shown when goal exceeds earning capacity */}
+                        <Show
+                          when={
+                            feasibility() !== null &&
+                            feasibility()! < 0.5 &&
+                            riskFactors().length > 0
+                          }
+                        >
+                          <div
+                            class={`rounded-lg p-3 border ${feasibility()! < 0.15 ? 'bg-red-500/10 border-red-500/40' : 'bg-amber-500/10 border-amber-500/40'}`}
+                          >
+                            <div class="flex items-start gap-2">
+                              <AlertCircle
+                                class={`h-5 w-5 mt-0.5 flex-shrink-0 ${feasibility()! < 0.15 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}
+                              />
+                              <div class="flex-1 min-w-0">
+                                <p
+                                  class={`text-sm font-medium ${feasibility()! < 0.15 ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'}`}
+                                >
+                                  {feasibility()! < 0.15
+                                    ? 'Goal exceeds your earning capacity'
+                                    : 'Goal requires maximum effort'}
+                                </p>
+                                <Show when={maxEarnings()}>
+                                  <p class="text-xs text-muted-foreground mt-1">
+                                    Max earnings possible:{' '}
+                                    <span class="font-medium">
+                                      {formatCurrency(maxEarnings()!, currency())}
+                                    </span>{' '}
+                                    (goal: {formatCurrency(goal().amount, currency())})
+                                  </p>
+                                </Show>
+                                <ul class="mt-2 text-xs space-y-1">
+                                  <For each={riskFactors().slice(0, 3)}>
+                                    {(factor) => <li class="text-muted-foreground">• {factor}</li>}
+                                  </For>
+                                </ul>
+                                <p class="text-xs text-muted-foreground mt-2 italic">
+                                  Consider: extending deadline, reducing goal, or increasing work
+                                  hours/rate
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </Show>
+
+                        {/* Progress Bar */}
+                        <div>
+                          <div class="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                            <div
+                              class="h-full bg-gradient-to-r from-primary-400 to-primary-600 transition-all duration-500"
+                              style={{ width: `${goal().progress || 0}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Weekly Progress Cards (horizontal scroll) */}
+                        <Show when={goal().deadline}>
+                          <div class="border-t border-border pt-4">
+                            <h4 class="text-sm font-medium text-muted-foreground mb-3">
+                              📅 Weekly Progress
+                            </h4>
+                            <Show when={goal().id} keyed>
+                              {(goalId) => (
+                                <WeeklyProgressCards
+                                  goal={goals().find((g) => g.id === goalId)!}
+                                  currency={currency()}
+                                />
+                              )}
+                            </Show>
+                          </div>
+                        </Show>
+
+                        {/* Earnings Chart */}
+                        <div class="border-t border-border pt-4">
+                          <h4 class="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                            <TrendingUp class="h-4 w-4" /> Earnings vs Goal
+                          </h4>
+                          <Show when={goal().id} keyed>
+                            {(goalId) => (
+                              <EarningsChart
+                                goal={goals().find((g) => g.id === goalId)!}
+                                currency={currency()}
+                                adjustedWeeklyTarget={avgAdjustedTarget() ?? undefined}
+                              />
+                            )}
+                          </Show>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }}
+              </Show>
+
+              {/* Other Goals (completed, paused, waiting) */}
+              <Show when={otherGoals().length > 0}>
+                <div>
+                  <h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                    Other Goals ({otherGoals().length})
+                  </h3>
+                  <div class="space-y-2">
+                    <For each={otherGoals()}>
+                      {(goal) => (
+                        <Card class="opacity-70 hover:opacity-100 transition-opacity">
+                          <CardContent class="p-3">
+                            <div class="flex items-center justify-between">
+                              <div class="flex items-center gap-3">
+                                <span class="text-xl">
+                                  {goal.status === 'completed'
+                                    ? '✅'
+                                    : goal.status === 'paused'
+                                      ? '📦'
+                                      : '⏳'}
+                                </span>
+                                <div>
+                                  <h4 class="font-medium text-foreground">{goal.name}</h4>
+                                  <p class="text-xs text-muted-foreground">
+                                    {formatCurrency(goal.amount, currency())} • {goal.progress || 0}
+                                    % • {goal.status}
+                                  </p>
+                                </div>
+                              </div>
+                              <div class="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEdit(goal)}
+                                  class="h-8 w-8"
+                                >
+                                  <Pencil class="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleStatus(goal)}
+                                  class="h-8 w-8 text-amber-600"
+                                >
+                                  <RotateCcw class="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDelete(goal.id)}
+                                  class="h-8 w-8 text-destructive"
+                                >
+                                  <Trash2 class="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </For>
+                  </div>
+                </div>
+              </Show>
+
+              {/* No active goal message */}
+              <Show when={!activeGoal() && otherGoals().length > 0}>
+                <Card class="border-dashed">
+                  <CardContent class="p-6 text-center">
+                    <p class="text-muted-foreground mb-3">
+                      No active goal. Reactivate one or create a new goal.
+                    </p>
+                    <Button onClick={() => setShowNewGoalForm(true)}>
+                      <Plus class="h-4 w-4 mr-2" /> New Goal
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Show>
+            </div>
+          );
+        })()}
       </Show>
 
       {/* Retroplan Panel Modal */}
       <Show when={showRetroplan()}>
-        {(goal) => (
-          <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <RetroplanPanel
-                goalId={goal().id}
-                goalName={goal().name}
-                goalAmount={goal().amount}
-                goalDeadline={goal().deadline || ''}
-                userId={profileId() || undefined}
-                currency={currency()}
-                onClose={() => setShowRetroplan(null)}
-              />
+        {(goal) => {
+          // Extract academic events from goal's planData
+          const goalPlanData = goal().planData as { academicEvents?: AcademicEvent[] } | undefined;
+          const goalAcademicEvents = goalPlanData?.academicEvents || [];
+
+          return (
+            <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+              <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <RetroplanPanel
+                  goalId={goal().id}
+                  goalName={goal().name}
+                  goalAmount={goal().amount}
+                  goalDeadline={goal().deadline || ''}
+                  userId={profileId() || undefined}
+                  currency={currency()}
+                  academicEvents={goalAcademicEvents}
+                  onClose={() => setShowRetroplan(null)}
+                />
+              </div>
             </div>
+          );
+        }}
+      </Show>
+
+      {/* What-If Simulator Modal */}
+      <Show when={showWhatIf() && profile()}>
+        <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div class="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <WhatIfSimulator
+              profile={profile()!}
+              currency={currency()}
+              onClose={() => setShowWhatIf(false)}
+              onSimulationCreated={() => setShowWhatIf(false)}
+            />
           </div>
-        )}
+        </div>
       </Show>
 
       {/* Empty State / New Goal Form */}
@@ -669,41 +1185,44 @@ export function GoalsTab(props: GoalsTabProps) {
           </Show>
 
           {/* Goal Presets */}
-          <Card>
-            <CardContent class="p-6">
-              <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Target class="h-5 w-5 text-primary" /> Quick goal
-              </h3>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <For each={presets}>
-                  {(preset) => (
-                    <button
-                      type="button"
-                      class={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 text-center hover:scale-[1.02] active:scale-[0.98] ${
-                        goalName() === preset.name
-                          ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary'
-                          : 'border-border bg-card hover:border-primary/50 text-foreground'
-                      }`}
-                      onClick={() => applyPreset(preset)}
-                    >
-                      <span class="text-2xl mb-1">{preset.icon}</span>
-                      <div class="flex flex-col">
-                        <span class="font-medium text-sm">{preset.name}</span>
-                        <span class="text-xs text-muted-foreground">
-                          {formatCurrency(preset.amount, currency())}
-                        </span>
-                      </div>
-                      <Show when={preset.components.length > 0}>
-                        <span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full mt-1">
-                          {preset.components.length} steps
-                        </span>
-                      </Show>
-                    </button>
-                  )}
-                </For>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Quick Presets - only show when creating a new goal, not editing */}
+          <Show when={!editingGoalId()}>
+            <Card>
+              <CardContent class="p-6">
+                <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Target class="h-5 w-5 text-primary" /> Quick goal
+                </h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <For each={presets}>
+                    {(preset) => (
+                      <button
+                        type="button"
+                        class={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 text-center hover:scale-[1.02] active:scale-[0.98] ${
+                          goalName() === preset.name
+                            ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary'
+                            : 'border-border bg-card hover:border-primary/50 text-foreground'
+                        }`}
+                        onClick={() => applyPreset(preset)}
+                      >
+                        <span class="text-2xl mb-1">{preset.icon}</span>
+                        <div class="flex flex-col">
+                          <span class="font-medium text-sm">{preset.name}</span>
+                          <span class="text-xs text-muted-foreground">
+                            {formatCurrency(preset.amount, currency())}
+                          </span>
+                        </div>
+                        <Show when={preset.components.length > 0}>
+                          <span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full mt-1">
+                            {preset.components.length} steps
+                          </span>
+                        </Show>
+                      </button>
+                    )}
+                  </For>
+                </div>
+              </CardContent>
+            </Card>
+          </Show>
 
           {/* Goal Details */}
           <Card>
@@ -981,52 +1500,76 @@ export function GoalsTab(props: GoalsTabProps) {
               <Show when={academicEvents().length > 0}>
                 <div class="space-y-2 mb-4">
                   <For each={academicEvents()}>
-                    {(event) => (
-                      <div class="flex items-center justify-between bg-muted/50 rounded-lg p-3 border border-border">
-                        <div class="flex items-center gap-3">
-                          <span class="text-xl">
-                            {event.type === 'exam_period'
-                              ? '📝'
-                              : event.type === 'vacation'
-                                ? '🏖️'
-                                : event.type === 'internship'
-                                  ? '💼'
-                                  : event.type === 'project_deadline'
-                                    ? '⏰'
-                                    : '📚'}
-                          </span>
-                          <div>
-                            <p class="font-medium text-foreground">{event.name}</p>
-                            <p class="text-xs text-muted-foreground">
-                              {new Date(event.startDate).toLocaleDateString()} -{' '}
-                              {new Date(event.endDate).toLocaleDateString()}
-                            </p>
+                    {(event) => {
+                      const isEditing = () => editingEventId() === event.id;
+                      return (
+                        <div
+                          class={`flex items-center justify-between rounded-lg p-3 border transition-colors ${
+                            isEditing()
+                              ? 'bg-primary/10 border-primary ring-2 ring-primary/20'
+                              : 'bg-muted/50 border-border'
+                          }`}
+                        >
+                          <div class="flex items-center gap-3">
+                            <span class="text-xl">
+                              {event.type === 'exam_period'
+                                ? '📝'
+                                : event.type === 'vacation' || event.type === 'vacation_available'
+                                  ? '🏖️'
+                                  : event.type === 'vacation_rest'
+                                    ? '📵'
+                                    : event.type === 'internship'
+                                      ? '💼'
+                                      : event.type === 'project_deadline'
+                                        ? '⏰'
+                                        : '📚'}
+                            </span>
+                            <div>
+                              <p class="font-medium text-foreground">
+                                {event.name}
+                                {isEditing() && (
+                                  <span class="ml-2 text-xs text-primary font-normal">
+                                    (editing)
+                                  </span>
+                                )}
+                              </p>
+                              <p class="text-xs text-muted-foreground">
+                                {new Date(event.startDate).toLocaleDateString()} -{' '}
+                                {new Date(event.endDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div class="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              class={`h-8 w-8 ${
+                                isEditing()
+                                  ? 'text-primary bg-primary/10'
+                                  : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                              }`}
+                              onClick={() =>
+                                isEditing() ? cancelEditEvent() : editAcademicEvent(event)
+                              }
+                              title={isEditing() ? 'Cancel edit' : 'Edit event'}
+                            >
+                              {isEditing() ? <X class="h-4 w-4" /> : <Pencil class="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                              onClick={() =>
+                                setDeleteEventConfirm({ id: event.id, name: event.name })
+                              }
+                              title="Delete event"
+                            >
+                              <Trash2 class="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div class="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            class="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 w-8"
-                            onClick={() => editAcademicEvent(event)}
-                            title="Edit event"
-                          >
-                            <Pencil class="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                            onClick={() =>
-                              setDeleteEventConfirm({ id: event.id, name: event.name })
-                            }
-                            title="Delete event"
-                          >
-                            <Trash2 class="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                      );
+                    }}
                   </For>
                 </div>
               </Show>
@@ -1042,7 +1585,8 @@ export function GoalsTab(props: GoalsTabProps) {
                   }
                   options={[
                     { value: 'exam_period', label: '📝 Exam period' },
-                    { value: 'vacation', label: '🏖️ Vacation' },
+                    { value: 'vacation_rest', label: '📵 Vacation (rest)' },
+                    { value: 'vacation_available', label: '🏖️ Vacation (available)' },
                     { value: 'internship', label: '💼 Internship' },
                     { value: 'class_intensive', label: '📚 Intensive class' },
                     { value: 'project_deadline', label: '⏰ Deadline' },
@@ -1117,14 +1661,29 @@ export function GoalsTab(props: GoalsTabProps) {
                 </div>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                class="mt-3 w-full border-dashed"
-                onClick={addAcademicEvent}
-              >
-                <Plus class="h-4 w-4 mr-2" /> Add event
-              </Button>
+              <div class="flex gap-2 mt-3">
+                <Button
+                  variant={editingEventId() ? 'default' : 'outline'}
+                  size="sm"
+                  class={`flex-1 ${editingEventId() ? '' : 'border-dashed'}`}
+                  onClick={addOrUpdateAcademicEvent}
+                >
+                  {editingEventId() ? (
+                    <>
+                      <Check class="h-4 w-4 mr-2" /> Update event
+                    </>
+                  ) : (
+                    <>
+                      <Plus class="h-4 w-4 mr-2" /> Add event
+                    </>
+                  )}
+                </Button>
+                <Show when={editingEventId()}>
+                  <Button variant="outline" size="sm" onClick={cancelEditEvent}>
+                    Cancel
+                  </Button>
+                </Show>
+              </div>
             </CardContent>
           </Card>
 
