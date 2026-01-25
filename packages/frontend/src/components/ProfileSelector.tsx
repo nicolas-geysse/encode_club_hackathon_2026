@@ -15,6 +15,7 @@ import { eventBus } from '~/lib/eventBus';
 import { toast } from '~/lib/notificationStore';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
+import { DatePicker } from '~/components/ui/DatePicker';
 import {
   Card,
   CardContent,
@@ -35,6 +36,7 @@ import {
   Upload,
   UserPlus,
   RotateCcw,
+  FlaskConical,
 } from 'lucide-solid';
 
 interface Props {
@@ -132,8 +134,13 @@ export function ProfileSelector(props: Props) {
 
   const getProfileIcon = (profile: ProfileSummary | FullProfile | null) => {
     if (!profile) return User;
+    if (profile.profileType === 'simulation') return FlaskConical;
     if (profile.profileType === 'goal-clone') return Target;
     return User;
+  };
+
+  const isSimulation = (profile: ProfileSummary | FullProfile | null) => {
+    return profile?.profileType === 'simulation';
   };
 
   const handleExport = async () => {
@@ -264,11 +271,19 @@ export function ProfileSelector(props: Props) {
         disabled={loading()}
       >
         <Show when={!loading()} fallback={<span class="animate-pulse">...</span>}>
-          <Dynamic component={getProfileIcon(activeProfile())} class="h-4 w-4" />
+          <Dynamic
+            component={getProfileIcon(activeProfile())}
+            class={`h-4 w-4 ${isSimulation(activeProfile()) ? 'text-purple-500' : ''}`}
+          />
           <span class="font-medium max-w-[120px] truncate hidden sm:inline">
             {activeProfile()?.name || 'No profile'}
           </span>
-          <Show when={activeProfile()?.goalName}>
+          <Show when={isSimulation(activeProfile())}>
+            <span class="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded hidden sm:inline">
+              SIM
+            </span>
+          </Show>
+          <Show when={activeProfile()?.goalName && !isSimulation(activeProfile())}>
             <span class="text-xs text-muted-foreground max-w-[80px] truncate hidden md:inline">
               ({activeProfile()?.goalName})
             </span>
@@ -312,7 +327,14 @@ export function ProfileSelector(props: Props) {
                       class="h-4 w-4 text-muted-foreground"
                     />
                     <div class="flex-1 min-w-0">
-                      <div class="font-medium text-sm truncate">{profile.name}</div>
+                      <div class="font-medium text-sm truncate flex items-center gap-1">
+                        {profile.name}
+                        <Show when={isSimulation(profile)}>
+                          <span class="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded">
+                            SIM
+                          </span>
+                        </Show>
+                      </div>
                       <Show when={profile.goalName}>
                         <div class="text-xs text-muted-foreground truncate">
                           {profile.goalName} - ${profile.goalAmount}
@@ -442,15 +464,11 @@ export function ProfileSelector(props: Props) {
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-foreground mb-1">
-                  Deadline (optional)
-                </label>
-                <Input
-                  type="date"
+                <DatePicker
+                  label="Deadline (optional)"
                   value={newGoalForm().deadline}
-                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                    setNewGoalForm({ ...newGoalForm(), deadline: e.currentTarget.value })
-                  }
+                  onChange={(date) => setNewGoalForm({ ...newGoalForm(), deadline: date })}
+                  fullWidth={false}
                 />
               </div>
             </CardContent>

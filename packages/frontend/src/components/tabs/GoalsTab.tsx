@@ -23,6 +23,7 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
+import { DatePicker } from '~/components/ui/DatePicker';
 import {
   Pencil,
   CheckCircle2,
@@ -1262,17 +1263,12 @@ export function GoalsTab(props: GoalsTabProps) {
                   </div>
 
                   <div>
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Deadline
-                    </label>
-                    <Input
-                      type="date"
+                    <DatePicker
+                      label="Deadline"
                       value={goalDeadline() || ''}
-                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                        setGoalDeadline(e.currentTarget.value)
-                      }
+                      onChange={(date) => setGoalDeadline(date)}
                       min={new Date().toISOString().split('T')[0]}
-                      class="dark:[color-scheme:dark]"
+                      fullWidth={false}
                     />
                   </div>
                 </div>
@@ -1602,29 +1598,28 @@ export function GoalsTab(props: GoalsTabProps) {
                   }
                 />
 
-                {/* Dates Section - Spans 2 columns to allow side-by-side date pickers with checkbox */}
-                <div class="col-span-1 md:col-span-2 flex items-start gap-4">
-                  <div class="flex-1">
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Start date
-                    </label>
-                    <Input
-                      type="date"
-                      value={newEvent().startDate}
-                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                        setNewEvent({
-                          ...newEvent(),
-                          startDate: e.currentTarget.value,
-                          endDate: isSameDay() ? e.currentTarget.value : newEvent().endDate,
-                        })
-                      }
-                      class="dark:[color-scheme:dark]"
-                    />
-                  </div>
-
-                  <div class="flex flex-col justify-end h-full pb-2">
+                {/* Dates Section - Range DatePicker with "Same day" checkbox */}
+                <div class="col-span-1 md:col-span-2">
+                  <div class="flex items-end gap-3">
+                    <div class="flex-1">
+                      <label class="block text-sm font-medium text-muted-foreground mb-1">
+                        Dates
+                      </label>
+                      <DatePicker
+                        mode="range"
+                        startValue={newEvent().startDate}
+                        endValue={isSameDay() ? newEvent().startDate : newEvent().endDate}
+                        onRangeChange={(start, end) => {
+                          setNewEvent({
+                            ...newEvent(),
+                            startDate: start,
+                            endDate: isSameDay() ? start : end,
+                          });
+                        }}
+                      />
+                    </div>
                     <label
-                      class="flex flex-col items-center gap-1 cursor-pointer"
+                      class="flex flex-col items-center gap-1 cursor-pointer pb-2"
                       title="The event ends on the same day"
                     >
                       <input
@@ -1642,21 +1637,6 @@ export function GoalsTab(props: GoalsTabProps) {
                         Same day
                       </span>
                     </label>
-                  </div>
-
-                  <div class="flex-1">
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      End date
-                    </label>
-                    <Input
-                      type="date"
-                      value={newEvent().endDate}
-                      disabled={isSameDay()}
-                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                        setNewEvent({ ...newEvent(), endDate: e.currentTarget.value })
-                      }
-                      class={`dark:[color-scheme:dark] ${isSameDay() ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    />
                   </div>
                 </div>
               </div>

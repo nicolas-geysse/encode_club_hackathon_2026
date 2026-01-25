@@ -13,6 +13,7 @@ import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtil
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
+import { DatePicker } from '~/components/ui/DatePicker';
 import {
   Banknote,
   Download,
@@ -949,15 +950,11 @@ export function TradeTab(props: TradeTabProps) {
                     />
                   </div>
                   <div>
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Return date
-                    </label>
-                    <Input
-                      type="date"
+                    <DatePicker
+                      label="Return date"
                       value={newTrade().dueDate}
-                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                        setNewTrade({ ...newTrade(), dueDate: e.currentTarget.value })
-                      }
+                      onChange={(date) => setNewTrade({ ...newTrade(), dueDate: date })}
+                      fullWidth={false}
                     />
                   </div>
                 </div>

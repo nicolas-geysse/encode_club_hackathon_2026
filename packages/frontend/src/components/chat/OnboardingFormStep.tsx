@@ -20,6 +20,7 @@ import {
   type GeolocationError,
 } from '../../lib/geolocation';
 import MapPicker, { type MapCoordinates } from './MapPicker';
+import { DatePicker } from '~/components/ui/DatePicker';
 
 // =============================================================================
 // Types
@@ -401,12 +402,10 @@ function DynamicDatePair(props: {
           {props.startDateField.label}
           {props.startDateField.required && <span class="text-destructive ml-0.5">*</span>}
         </label>
-        <input
-          type="date"
+        <DatePicker
           value={props.startValue || ''}
-          onInput={(e) => handleStartDateChange(e.currentTarget.value)}
-          required={props.startDateField.required}
-          class="w-full px-2 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
+          onChange={handleStartDateChange}
+          fullWidth={false}
         />
       </div>
 
@@ -429,13 +428,11 @@ function DynamicDatePair(props: {
           {props.endDateField.label}
           {props.endDateField.required && <span class="text-destructive ml-0.5">*</span>}
         </label>
-        <input
-          type="date"
+        <DatePicker
           value={props.endValue || ''}
-          onInput={(e) => props.onUpdateEnd(e.currentTarget.value)}
-          required={props.endDateField.required}
+          onChange={(date) => props.onUpdateEnd(date)}
           disabled={sameDay()}
-          class="w-full px-2 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          fullWidth={false}
         />
       </div>
     </>
@@ -756,12 +753,10 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
 
       case 'date':
         return (
-          <input
-            type="date"
+          <DatePicker
             value={(value() as string) || ''}
-            onInput={(e) => updateField(field.name, e.currentTarget.value)}
-            required={field.required}
-            class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(date) => updateField(field.name, date)}
+            fullWidth={false}
           />
         );
 
