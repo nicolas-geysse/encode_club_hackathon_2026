@@ -5,12 +5,19 @@
  * Shows timeline from creation to deadline with progress milestones.
  */
 
-import { createMemo, Show, For, createSignal } from 'solid-js';
+import { createMemo, Show, For, createSignal, createEffect } from 'solid-js';
 import { type Goal, type GoalComponent, goalService } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '~/components/ui/Tooltip';
-import { Pencil, Check, Trash2, RotateCcw } from 'lucide-solid';
+import { Pencil, Check, Trash2, RotateCcw, Zap, CalendarClock } from 'lucide-solid';
+
+interface WeekCapacity {
+  weekNumber: number;
+  capacityScore: number;
+  capacityCategory: 'high' | 'medium' | 'low' | 'protected';
+  effectiveHours: number;
+}
 
 interface GoalTimelineProps {
   goal: Goal;
@@ -25,12 +32,58 @@ interface GoalTimelineProps {
   onEdit?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onToggleStatus?: (goal: Goal) => void;
+  onViewRetroplan?: (goal: Goal) => void;
 }
+
+const CAPACITY_COLORS = {
+  high: {
+    bg: 'bg-green-500/10',
+    text: 'text-green-600 dark:text-green-400',
+    border: 'border-green-500/30',
+  },
+  medium: {
+    bg: 'bg-yellow-500/10',
+    text: 'text-yellow-600 dark:text-yellow-400',
+    border: 'border-yellow-500/30',
+  },
+  low: {
+    bg: 'bg-orange-500/10',
+    text: 'text-orange-600 dark:text-orange-400',
+    border: 'border-orange-500/30',
+  },
+  protected: {
+    bg: 'bg-red-500/10',
+    text: 'text-red-600 dark:text-red-400',
+    border: 'border-red-500/30',
+  },
+};
 
 export function GoalTimeline(props: GoalTimelineProps) {
   const currency = () => props.currency || 'USD';
   const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = createSignal(false);
+  const [capacity, setCapacity] = createSignal<WeekCapacity | null>(null);
+
+  // Fetch capacity for active goals
+  createEffect(() => {
+    if (props.goal.status === 'active' && props.goal.deadline) {
+      fetch('/api/retroplan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'get_week_capacity',
+          goalId: props.goal.id,
+        }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.capacity) setCapacity(data.capacity);
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    }
+  });
 
   // BUG 8 FIX: Use simulated date if provided for time calculations
   const currentDate = createMemo(() => props.simulatedDate || new Date());
@@ -306,6 +359,43 @@ export function GoalTimeline(props: GoalTimelineProps) {
         </div>
       </div>
 
+      {/* Capacity Indicator (for active goals) */}
+      <Show when={props.goal.status === 'active' && capacity()}>
+        {(cap) => {
+          const colors = CAPACITY_COLORS[cap().capacityCategory];
+          return (
+            <div
+              class={`flex items-center justify-between p-3 rounded-lg mb-4 border ${colors.bg} ${colors.border}`}
+            >
+              <div class="flex items-center gap-3">
+                <Zap class={`h-5 w-5 ${colors.text}`} />
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class={`text-sm font-bold uppercase ${colors.text}`}>
+                      {cap().capacityCategory} capacity
+                    </span>
+                    <span class="text-xs text-muted-foreground">Week {cap().weekNumber}</span>
+                  </div>
+                  <span class="text-xs text-muted-foreground">
+                    {cap().effectiveHours}h available this week
+                  </span>
+                </div>
+              </div>
+              <Show when={props.onViewRetroplan}>
+                <button
+                  type="button"
+                  onClick={() => props.onViewRetroplan?.(props.goal)}
+                  class={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${colors.text} hover:bg-black/5 dark:hover:bg-white/5`}
+                >
+                  <CalendarClock class="h-3.5 w-3.5" />
+                  View plan
+                </button>
+              </Show>
+            </div>
+          );
+        }}
+      </Show>
+
       {/* Progress Bar */}
       <div class="mb-4">
         <div class="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
@@ -564,6 +654,7 @@ interface GoalTimelineListProps {
   onEdit?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onToggleStatus?: (goal: Goal) => void;
+  onViewRetroplan?: (goal: Goal) => void;
 }
 
 export function GoalTimelineList(props: GoalTimelineListProps) {
@@ -621,6 +712,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}
                   onToggleStatus={props.onToggleStatus}
+                  onViewRetroplan={props.onViewRetroplan}
                 />
               )}
             </For>
@@ -645,6 +737,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}
                   onToggleStatus={props.onToggleStatus}
+                  onViewRetroplan={props.onViewRetroplan}
                 />
               )}
             </For>
@@ -669,6 +762,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}
                   onToggleStatus={props.onToggleStatus}
+                  onViewRetroplan={props.onViewRetroplan}
                 />
               )}
             </For>
@@ -693,6 +787,7 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
                   onEdit={props.onEdit}
                   onDelete={props.onDelete}
                   onToggleStatus={props.onToggleStatus}
+                  onViewRetroplan={props.onViewRetroplan}
                 />
               )}
             </For>

@@ -14,6 +14,7 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot } from 'lucide-solid';
+import { toastPopup } from '~/components/ui/Toast';
 
 export interface Scenario {
   id: string;
@@ -233,9 +234,17 @@ export function SwipeTab(props: SwipeTabProps) {
     // Trigger celebration
     celebrateBig();
 
+    // Show toast feedback
+    const prefs = preferences();
+    const scenarioCount = selectedScenarios().length;
+    toastPopup.success(
+      'Preferences saved!',
+      `${scenarioCount} scenario${scenarioCount > 1 ? 's' : ''} added to your plan`
+    );
+
     // Call the callbacks after a short delay to let celebration start
     setTimeout(() => {
-      props.onPreferencesChange?.(preferences());
+      props.onPreferencesChange?.(prefs);
       props.onScenariosSelected?.(selectedScenarios());
     }, 500);
   };

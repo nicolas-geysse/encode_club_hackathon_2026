@@ -430,6 +430,13 @@ export async function POST(event: APIEvent) {
 
         const capacity = calculateWeekCapacity(weekStart, userId);
 
+        // Calculate week number relative to goal start or current year
+        const yearStart = new Date(targetDate.getFullYear(), 0, 1);
+        const weekNumber = Math.ceil(
+          ((targetDate.getTime() - yearStart.getTime()) / 86400000 + yearStart.getDay() + 1) / 7
+        );
+        capacity.weekNumber = weekNumber;
+
         return new Response(JSON.stringify({ capacity }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },

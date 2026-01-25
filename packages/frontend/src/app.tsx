@@ -18,6 +18,7 @@ import {
   markAsRead,
   clearAllNotifications,
 } from '~/lib/notificationStore';
+import { eventBus } from '~/lib/eventBus';
 
 export default function App() {
   // Simulation state (managed by SimulationControls, shared with app)
@@ -64,6 +65,14 @@ export default function App() {
       if (state.offsetDays % 3 === 0 && daysDiff > 0) {
         addNotification('info', 'Check-in reminder', 'Remember to update your progress!');
       }
+
+      // Trigger data reload so pages reflect the new simulated time
+      eventBus.emit('DATA_CHANGED');
+    }
+
+    // Also reload when resetting to real time
+    if (!state.isSimulating && prevState.isSimulating) {
+      eventBus.emit('DATA_CHANGED');
     }
   };
 

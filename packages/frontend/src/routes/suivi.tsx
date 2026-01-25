@@ -14,6 +14,8 @@ import { MissionList } from '~/components/suivi/MissionList';
 import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary';
 import { BrunoTips } from '~/components/suivi/BrunoTips';
+import { CapacityForecast } from '~/components/suivi/CapacityForecast';
+import { RetroplanPanel } from '~/components/RetroplanPanel';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
@@ -213,6 +215,7 @@ export default function SuiviPage() {
 
   // Sprint 9.5: Track completed goals for "all goals completed" message
   const [completedGoalsCount, setCompletedGoalsCount] = createSignal(0);
+  const [showRetroplan, setShowRetroplan] = createSignal(false);
 
   // Get currency from profile
   const currency = (): Currency => (activeProfile()?.currency as Currency) || 'USD';
@@ -769,6 +772,15 @@ export default function SuiviPage() {
             />
           </Show>
 
+          {/* Capacity Forecast Card */}
+          <Show when={currentGoal()}>
+            <CapacityForecast
+              goalId={currentGoal()!.id}
+              userId={activeProfile()?.id}
+              onViewDetails={() => setShowRetroplan(true)}
+            />
+          </Show>
+
           {/* Section 2: Energy (MOVED UP - leading indicator) */}
           <EnergyHistory history={followup().energyHistory} onEnergyUpdate={handleEnergyUpdate} />
 
@@ -802,6 +814,23 @@ export default function SuiviPage() {
             />
           </div>
         </div>
+
+        {/* Retroplan Modal */}
+        <Show when={showRetroplan() && currentGoal()}>
+          <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <RetroplanPanel
+                goalId={currentGoal()!.id}
+                goalName={currentGoal()!.name}
+                goalAmount={currentGoal()!.amount}
+                goalDeadline={currentGoal()!.deadline || ''}
+                userId={activeProfile()?.id}
+                currency={currency()}
+                onClose={() => setShowRetroplan(false)}
+              />
+            </div>
+          </div>
+        </Show>
       </Show>
     </Show>
   );

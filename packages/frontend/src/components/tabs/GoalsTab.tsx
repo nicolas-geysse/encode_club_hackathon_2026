@@ -35,6 +35,7 @@ import {
   Package,
   Trash2,
 } from 'lucide-solid';
+import { RetroplanPanel } from '~/components/RetroplanPanel';
 
 interface AcademicEvent {
   id: string;
@@ -162,6 +163,9 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // Sprint 9.5: Single active goal confirmation state
   const [replaceGoalConfirm, setReplaceGoalConfirm] = createSignal<Goal | null>(null);
+
+  // Retroplan panel state
+  const [showRetroplan, setShowRetroplan] = createSignal<Goal | null>(null);
 
   // Available parent goals for conditional goals
   const availableParentGoals = createMemo(() => {
@@ -631,7 +635,27 @@ export function GoalsTab(props: GoalsTabProps) {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}
+          onViewRetroplan={(goal) => setShowRetroplan(goal)}
         />
+      </Show>
+
+      {/* Retroplan Panel Modal */}
+      <Show when={showRetroplan()}>
+        {(goal) => (
+          <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <RetroplanPanel
+                goalId={goal().id}
+                goalName={goal().name}
+                goalAmount={goal().amount}
+                goalDeadline={goal().deadline || ''}
+                userId={profileId() || undefined}
+                currency={currency()}
+                onClose={() => setShowRetroplan(null)}
+              />
+            </div>
+          </div>
+        )}
       </Show>
 
       {/* Empty State / New Goal Form */}
