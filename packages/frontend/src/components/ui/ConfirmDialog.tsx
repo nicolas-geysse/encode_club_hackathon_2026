@@ -15,7 +15,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
-  variant?: 'danger' | 'warning' | 'success' | 'default';
+  variant?: 'danger' | 'warning' | 'success' | 'default' | 'neutral';
 }
 
 export function ConfirmDialog(props: ConfirmDialogProps) {
@@ -27,6 +27,8 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         return 'bg-amber-500 hover:bg-amber-600 text-white';
       case 'success':
         return 'bg-green-600 hover:bg-green-700 text-white';
+      case 'neutral':
+        return 'bg-white dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-foreground border border-border';
       default:
         return 'bg-primary hover:bg-primary/90 text-primary-foreground';
     }

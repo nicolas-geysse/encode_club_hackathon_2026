@@ -13,6 +13,8 @@ import { goalService } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
 import { useProfile, type Goal, type GoalComponent } from '~/lib/profileContext';
 import { createCrudTab } from '~/hooks/createCrudTab';
+import { createDirtyState } from '~/hooks/createDirtyState';
+import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { toast } from '~/lib/notificationStore';
 import { createLogger } from '~/lib/logger';
 
@@ -80,6 +82,8 @@ interface GoalsTabProps {
   onComplete: (data: SetupData) => void;
   initialData?: Partial<SetupData>;
   currency?: Currency;
+  /** Callback when dirty state changes (for parent to track unsaved changes) */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 // Component form item
@@ -154,6 +158,32 @@ export function GoalsTab(props: GoalsTabProps) {
     estimatedHours: 0,
     estimatedCost: 0,
     dependsOn: [],
+  });
+
+  // Dirty state tracking for unsaved changes dialog
+  const {
+    isDirty,
+    setOriginal: setDirtyOriginal,
+    clear: clearDirty,
+  } = createDirtyState({
+    getCurrentValues: () => ({
+      goalName: goalName(),
+      goalAmount: goalAmount(),
+      goalDeadline: goalDeadline(),
+      academicEvents: academicEvents(),
+      commitments: commitments(),
+      components: components(),
+      parentGoalId: parentGoalId(),
+      conditionType: conditionType(),
+    }),
+  });
+
+  // Unsaved changes confirmation dialog
+  const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+
+  // Notify parent when dirty state changes
+  createEffect(() => {
+    props.onDirtyChange?.(isDirty());
   });
 
   // New event/commitment forms
@@ -243,7 +273,7 @@ export function GoalsTab(props: GoalsTabProps) {
       ? searchParams.action[0]
       : searchParams.action;
     if (action === 'new') {
-      setShowNewGoalForm(true);
+      openNewGoalForm();
     }
   });
 
@@ -251,7 +281,7 @@ export function GoalsTab(props: GoalsTabProps) {
   createEffect(() => {
     const currentGoals = goals();
     if (currentGoals.length === 0 && props.initialData?.goalName && !showNewGoalForm()) {
-      setShowNewGoalForm(true);
+      openNewGoalForm();
     }
   });
 
@@ -386,6 +416,29 @@ export function GoalsTab(props: GoalsTabProps) {
     setShowAdvanced(false);
     setEditingGoalId(null);
     setShowNewGoalForm(false);
+    clearDirty(); // Clear dirty state when form closes
+  };
+
+  // Handle cancel - shows confirmation dialog if there are unsaved changes
+  const handleCancel = () => {
+    if (isDirty()) {
+      setShowUnsavedDialog(true);
+    } else {
+      resetForm();
+    }
+  };
+
+  // Discard changes and close form (called from unsaved changes dialog)
+  const handleDiscardChanges = () => {
+    setShowUnsavedDialog(false);
+    resetForm();
+  };
+
+  // Open new goal form with dirty state tracking
+  const openNewGoalForm = () => {
+    setShowNewGoalForm(true);
+    // Capture initial empty/default state for dirty tracking
+    setDirtyOriginal();
   };
 
   // Sprint 9.5: Archive all active goals (used before creating new one)
@@ -551,6 +604,9 @@ export function GoalsTab(props: GoalsTabProps) {
     }
 
     setShowNewGoalForm(true);
+    // Capture the loaded values as the "original" for dirty state tracking
+    // Must be called after all setters have been invoked
+    setDirtyOriginal();
   };
 
   const handleDelete = async (goalId: string) => {
@@ -666,7 +722,7 @@ export function GoalsTab(props: GoalsTabProps) {
           </p>
         </div>
         <Show when={!showNewGoalForm() && goals().length > 0}>
-          <Button onClick={() => setShowNewGoalForm(true)}>
+          <Button onClick={openNewGoalForm}>
             <Plus class="h-4 w-4 mr-2" /> New Goal
           </Button>
           <Button
@@ -1124,7 +1180,7 @@ export function GoalsTab(props: GoalsTabProps) {
                     <p class="text-muted-foreground mb-3">
                       No active goal. Reactivate one or create a new goal.
                     </p>
-                    <Button onClick={() => setShowNewGoalForm(true)}>
+                    <Button onClick={openNewGoalForm}>
                       <Plus class="h-4 w-4 mr-2" /> New Goal
                     </Button>
                   </CardContent>
@@ -1785,7 +1841,7 @@ export function GoalsTab(props: GoalsTabProps) {
             <Button
               variant="outline"
               class="flex-1 bg-[#F4F4F5] hover:bg-[#E4E4E7] dark:bg-[#27272A] dark:hover:bg-[#3F3F46] border-border"
-              onClick={resetForm}
+              onClick={handleCancel}
             >
               Cancel
             </Button>
@@ -1832,6 +1888,13 @@ export function GoalsTab(props: GoalsTabProps) {
         variant="warning"
         onConfirm={handleReplaceGoalConfirm}
         onCancel={() => setReplaceGoalConfirm(null)}
+      />
+
+      {/* Unsaved changes confirmation */}
+      <UnsavedChangesDialog
+        isOpen={showUnsavedDialog()}
+        onDiscard={handleDiscardChanges}
+        onKeepEditing={() => setShowUnsavedDialog(false)}
       />
     </div>
   );

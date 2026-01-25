@@ -10,6 +10,8 @@ import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
 import { useProfile } from '~/lib/profileContext';
 import { skillService, type Skill, type CreateSkillInput } from '~/lib/skillService';
 import { createCrudTab } from '~/hooks/createCrudTab';
+import { createDirtyState } from '~/hooks/createDirtyState';
+import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { type LegacySkill, skillToLegacy } from '~/types/entities';
@@ -34,6 +36,8 @@ interface SkillsTabProps {
   initialSkills?: LegacySkill[];
   onSkillsChange?: (skills: LegacySkill[]) => void;
   currency?: Currency;
+  /** Callback when dirty state changes (for parent to track unsaved changes) */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 const SKILL_TEMPLATES: Partial<CreateSkillInput>[] = [
@@ -229,6 +233,23 @@ export function SkillsTab(props: SkillsTabProps) {
     restNeeded: 1,
   });
 
+  // Dirty state tracking for unsaved changes dialog
+  const {
+    isDirty,
+    setOriginal: setDirtyOriginal,
+    clear: clearDirty,
+  } = createDirtyState({
+    getCurrentValues: () => newSkill(),
+  });
+
+  // Unsaved changes confirmation dialog
+  const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+
+  // Notify parent when dirty state changes
+  createEffect(() => {
+    props.onDirtyChange?.(isDirty());
+  });
+
   // BUG Q FIX: Track skills loading state to distinguish "loading" from "no skills"
   // 'initial' = first load, 'loaded' = skills fetched successfully, 'error' = fetch failed
   const [skillsLoadState, setSkillsLoadState] = createSignal<'initial' | 'loaded' | 'error'>(
@@ -385,6 +406,30 @@ export function SkillsTab(props: SkillsTabProps) {
       restNeeded: 1,
     });
     resetFormState();
+    clearDirty(); // Clear dirty state when form closes
+  };
+
+  // Handle cancel - shows confirmation dialog if there are unsaved changes
+  const handleCancel = () => {
+    if (isDirty()) {
+      setShowUnsavedDialog(true);
+    } else {
+      resetNewSkill();
+      crud.closeAddForm();
+    }
+  };
+
+  // Discard changes and close form (called from unsaved changes dialog)
+  const handleDiscardChanges = () => {
+    setShowUnsavedDialog(false);
+    resetNewSkill();
+    crud.closeAddForm();
+  };
+
+  // Open add form with dirty state tracking
+  const openAddForm = () => {
+    crud.openAddForm();
+    setDirtyOriginal(); // Capture initial state
   };
 
   const handleEdit = (skill: Skill) => {
@@ -397,6 +442,7 @@ export function SkillsTab(props: SkillsTabProps) {
       restNeeded: skill.restNeeded,
     });
     crud.startEdit(skill.id);
+    setDirtyOriginal(); // Capture loaded values as original
   };
 
   const updateSkill = async () => {
@@ -483,7 +529,7 @@ export function SkillsTab(props: SkillsTabProps) {
             The highest paying job isn't necessarily the best
           </p>
         </div>
-        <Button onClick={crud.openAddForm} disabled={isLoading()}>
+        <Button onClick={openAddForm} disabled={isLoading()}>
           <Plus class="h-4 w-4 mr-2" /> Add
         </Button>
       </div>
@@ -642,7 +688,7 @@ export function SkillsTab(props: SkillsTabProps) {
             </div>
             <h3 class="text-lg font-medium text-foreground mb-2">No skills added</h3>
             <p class="text-muted-foreground mb-4">Add your skills to discover the best jobs</p>
-            <Button onClick={crud.openAddForm}>Add a skill</Button>
+            <Button onClick={openAddForm}>Add a skill</Button>
           </CardContent>
         </Card>
       </Show>
@@ -657,14 +703,7 @@ export function SkillsTab(props: SkillsTabProps) {
                   <Briefcase class="h-5 w-5 text-primary" />
                   {editingSkillId() ? 'Edit skill' : 'New skill'}
                 </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    crud.closeAddForm();
-                    resetNewSkill();
-                  }}
-                >
+                <Button variant="ghost" size="icon" onClick={handleCancel}>
                   <X class="h-4 w-4" />
                 </Button>
               </div>
@@ -773,14 +812,7 @@ export function SkillsTab(props: SkillsTabProps) {
               </div>
 
               <div class="flex gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  class="flex-1"
-                  onClick={() => {
-                    crud.closeAddForm();
-                    resetNewSkill();
-                  }}
-                >
+                <Button variant="outline" class="flex-1" onClick={handleCancel}>
                   Cancel
                 </Button>
                 <Button
@@ -817,6 +849,13 @@ export function SkillsTab(props: SkillsTabProps) {
           }
         }}
         onCancel={crud.cancelDelete}
+      />
+
+      {/* Unsaved changes confirmation */}
+      <UnsavedChangesDialog
+        isOpen={showUnsavedDialog()}
+        onDiscard={handleDiscardChanges}
+        onKeepEditing={() => setShowUnsavedDialog(false)}
       />
     </div>
   );

@@ -8,6 +8,8 @@
 import { createSignal, createEffect, For, Show, untrack } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { createCrudTab } from '~/hooks/createCrudTab';
+import { createDirtyState } from '~/hooks/createDirtyState';
+import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -64,6 +66,8 @@ interface TradeTabProps {
   inventoryItems?: InventoryItemForTrade[];
   lifestyleItems?: LifestyleItemForTrade[];
   onInventorySold?: (inventoryItemId: string, soldPrice: number) => Promise<void>;
+  /** Callback when dirty state changes (for parent to track unsaved changes) */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 interface TradeSuggestion {
@@ -257,6 +261,23 @@ export function TradeTab(props: TradeTabProps) {
     status: 'pending',
   });
 
+  // Dirty state tracking for unsaved changes dialog
+  const {
+    isDirty,
+    setOriginal: setDirtyOriginal,
+    clear: clearDirty,
+  } = createDirtyState({
+    getCurrentValues: () => newTrade(),
+  });
+
+  // Unsaved changes confirmation dialog
+  const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+
+  // Notify parent when dirty state changes
+  createEffect(() => {
+    props.onDirtyChange?.(isDirty());
+  });
+
   // Sync local trades with props.initialTrades when they change (e.g., after DB refresh)
   // This handles the case where bulkCreateTrades generates new IDs
   createEffect(() => {
@@ -354,6 +375,31 @@ export function TradeTab(props: TradeTabProps) {
       status: 'pending',
     });
     crud.resetForm();
+    clearDirty(); // Clear dirty state when form closes
+  };
+
+  // Handle cancel - shows confirmation dialog if there are unsaved changes
+  const handleCancel = () => {
+    if (isDirty()) {
+      setShowUnsavedDialog(true);
+    } else {
+      resetForm();
+      crud.closeAddForm();
+    }
+  };
+
+  // Discard changes and close form (called from unsaved changes dialog)
+  const handleDiscardChanges = () => {
+    setShowUnsavedDialog(false);
+    resetForm();
+    crud.closeAddForm();
+  };
+
+  // Open add form with dirty state tracking
+  const openAddForm = () => {
+    setNewTrade({ ...newTrade(), type: activeType() as TradeItem['type'] });
+    setShowAddForm(true);
+    setDirtyOriginal(); // Capture initial state
   };
 
   const handleEditTrade = (trade: TradeItem) => {
@@ -367,6 +413,7 @@ export function TradeTab(props: TradeTabProps) {
       status: trade.status,
     });
     crud.startEdit(trade.id);
+    setDirtyOriginal(); // Capture loaded values as original
   };
 
   const updateTrade = () => {
@@ -477,6 +524,7 @@ export function TradeTab(props: TradeTabProps) {
       partner: '',
     });
     setShowAddForm(true);
+    setDirtyOriginal(); // Capture initial state for dirty tracking
   };
 
   const getTypeInfo = (type: string) => TRADE_TYPES.find((t) => t.id === type);
@@ -675,13 +723,7 @@ export function TradeTab(props: TradeTabProps) {
             <Dynamic component={getTypeIcon(activeType())} class="h-5 w-5" />
             {getTypeInfo(activeType())?.label}
           </h3>
-          <Button
-            size="sm"
-            onClick={() => {
-              setNewTrade({ ...newTrade(), type: activeType() as TradeItem['type'] });
-              setShowAddForm(true);
-            }}
-          >
+          <Button size="sm" onClick={openAddForm}>
             <Plus class="h-4 w-4 mr-2" /> Add
           </Button>
         </div>
@@ -864,14 +906,7 @@ export function TradeTab(props: TradeTabProps) {
                   <h3 class="text-lg font-semibold text-foreground">
                     {editingTradeId() ? 'Edit Trade' : 'New Trade'}
                   </h3>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      crud.closeAddForm();
-                      resetForm();
-                    }}
-                  >
+                  <Button variant="ghost" size="icon" onClick={handleCancel}>
                     <X class="h-4 w-4" />
                   </Button>
                 </div>
@@ -975,14 +1010,7 @@ export function TradeTab(props: TradeTabProps) {
               </div>
 
               <div class="flex gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  class="flex-1"
-                  onClick={() => {
-                    crud.closeAddForm();
-                    resetForm();
-                  }}
-                >
+                <Button variant="outline" class="flex-1" onClick={handleCancel}>
                   Cancel
                 </Button>
                 <Button
@@ -1012,6 +1040,13 @@ export function TradeTab(props: TradeTabProps) {
           }
         }}
         onCancel={crud.cancelDelete}
+      />
+
+      {/* Unsaved changes confirmation */}
+      <UnsavedChangesDialog
+        isOpen={showUnsavedDialog()}
+        onDiscard={handleDiscardChanges}
+        onKeepEditing={() => setShowUnsavedDialog(false)}
       />
     </div>
   );

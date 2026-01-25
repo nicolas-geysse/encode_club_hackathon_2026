@@ -20,6 +20,8 @@ import {
 import { mergeExpenseSources } from '~/lib/expenseUtils';
 import { incomeService } from '~/lib/incomeService';
 import { createCrudTab } from '~/hooks/createCrudTab';
+import { createDirtyState } from '~/hooks/createDirtyState';
+import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { monthsUntil, formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { type LegacyLifestyleItem, itemToLegacy, legacyToItem } from '~/types/entities';
@@ -52,6 +54,8 @@ interface BudgetTabProps {
   profileExpenses?: Array<{ category: string; amount: number }>;
   profileIncomeSources?: Array<{ source: string; amount: number }>;
   goalDeadline?: string;
+  /** Callback when dirty state changes (for parent to track unsaved changes) */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 interface CategoryInfo {
@@ -117,6 +121,23 @@ export function BudgetTab(props: BudgetTabProps) {
     category: 'subscriptions',
     currentCost: 0,
     amount: 0,
+  });
+
+  // Dirty state tracking for unsaved changes dialog
+  const {
+    isDirty,
+    setOriginal: setDirtyOriginal,
+    clear: clearDirty,
+  } = createDirtyState({
+    getCurrentValues: () => newItem(),
+  });
+
+  // Unsaved changes confirmation dialog
+  const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+
+  // Notify parent when dirty state changes
+  createEffect(() => {
+    props.onDirtyChange?.(isDirty());
   });
 
   // Use context data (from DB) as source of truth when profile exists
@@ -326,6 +347,33 @@ export function BudgetTab(props: BudgetTabProps) {
       amount: 0,
     });
     crud.resetForm();
+    clearDirty(); // Clear dirty state when form closes
+  };
+
+  // Handle cancel - shows confirmation dialog if there are unsaved changes
+  const handleCancel = () => {
+    if (isDirty()) {
+      setShowUnsavedDialog(true);
+    } else {
+      resetNewItem();
+      crud.closeAddForm();
+    }
+  };
+
+  // Discard changes and close form (called from unsaved changes dialog)
+  const handleDiscardChanges = () => {
+    setShowUnsavedDialog(false);
+    resetNewItem();
+    crud.closeAddForm();
+  };
+
+  // Open add form with dirty state tracking
+  const openAddForm = () => {
+    // Sprint 2 Bug #6 fix: Reset form state when opening Add form
+    // This ensures the category matches the active tab (income vs expense)
+    resetNewItem();
+    setShowAddForm(true);
+    setDirtyOriginal(); // Capture initial state
   };
 
   const handleEditExpense = (item: LifestyleItem) => {
@@ -335,6 +383,7 @@ export function BudgetTab(props: BudgetTabProps) {
       currentCost: item.currentCost,
     });
     crud.startEdit(item.id);
+    setDirtyOriginal(); // Capture loaded values as original
   };
 
   const handleEditIncome = (item: IncomeItem) => {
@@ -343,6 +392,7 @@ export function BudgetTab(props: BudgetTabProps) {
       amount: item.amount,
     });
     crud.startEdit(item.id);
+    setDirtyOriginal(); // Capture loaded values as original
   };
 
   const updateItem = async () => {
@@ -631,15 +681,7 @@ export function BudgetTab(props: BudgetTabProps) {
             <Dynamic component={getCategoryInfo(activeCategory())?.icon} class="h-5 w-5" />
             {getCategoryInfo(activeCategory())?.label}
           </h3>
-          <Button
-            size="sm"
-            onClick={() => {
-              // Sprint 2 Bug #6 fix: Reset form state when opening Add form
-              // This ensures the category matches the active tab (income vs expense)
-              resetNewItem();
-              setShowAddForm(true);
-            }}
-          >
+          <Button size="sm" onClick={openAddForm}>
             <Plus class="h-4 w-4 mr-2" /> Add
           </Button>
         </div>
@@ -781,14 +823,7 @@ export function BudgetTab(props: BudgetTabProps) {
                       ? 'New income'
                       : 'New expense'}
                 </h3>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    crud.closeAddForm();
-                    resetNewItem();
-                  }}
-                >
+                <Button variant="ghost" size="icon" onClick={handleCancel}>
                   <X class="h-4 w-4" />
                 </Button>
               </div>
@@ -889,14 +924,7 @@ export function BudgetTab(props: BudgetTabProps) {
               </div>
 
               <div class="flex gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  class="flex-1"
-                  onClick={() => {
-                    crud.closeAddForm();
-                    resetNewItem();
-                  }}
-                >
+                <Button variant="outline" class="flex-1" onClick={handleCancel}>
                   Cancel
                 </Button>
                 <Button
@@ -933,6 +961,13 @@ export function BudgetTab(props: BudgetTabProps) {
           }
         }}
         onCancel={crud.cancelDelete}
+      />
+
+      {/* Unsaved changes confirmation */}
+      <UnsavedChangesDialog
+        isOpen={showUnsavedDialog()}
+        onDiscard={handleDiscardChanges}
+        onKeepEditing={() => setShowUnsavedDialog(false)}
       />
     </div>
   );

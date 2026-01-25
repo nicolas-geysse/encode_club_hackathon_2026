@@ -32,12 +32,15 @@ import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '~/co
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
 import { Check, User, Target, Briefcase, PiggyBank, Handshake, Dices, Menu } from 'lucide-solid';
+import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 
 // Types for plan data - local types for plan-specific structures
 type AcademicEventType =
   | 'exam_period'
   | 'class_intensive'
   | 'vacation'
+  | 'vacation_rest'
+  | 'vacation_available'
   | 'internship'
   | 'project_deadline';
 type CommitmentType = 'class' | 'sport' | 'club' | 'family' | 'health' | 'other';
@@ -173,6 +176,39 @@ export default function PlanPage() {
   const [isSaving] = createSignal(false);
   const [isSheetOpen, setIsSheetOpen] = createSignal(false);
 
+  // Dirty state tracking for unsaved changes warning when switching tabs
+  const [isCurrentTabDirty, setIsCurrentTabDirty] = createSignal(false);
+  const [pendingTabChange, setPendingTabChange] = createSignal<string | null>(null);
+  const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+
+  // Handler for tab change that checks for dirty state
+  const handleTabChange = (newTab: string) => {
+    if (isCurrentTabDirty()) {
+      // Store the pending tab and show confirmation dialog
+      setPendingTabChange(newTab);
+      setShowUnsavedDialog(true);
+    } else {
+      setActiveTab(newTab);
+    }
+  };
+
+  // Confirm discard and switch to pending tab
+  const handleDiscardAndSwitch = () => {
+    const pending = pendingTabChange();
+    setShowUnsavedDialog(false);
+    setPendingTabChange(null);
+    setIsCurrentTabDirty(false); // Reset dirty state
+    if (pending) {
+      setActiveTab(pending);
+    }
+  };
+
+  // Cancel the tab switch
+  const handleKeepEditing = () => {
+    setShowUnsavedDialog(false);
+    setPendingTabChange(null);
+  };
+
   // Load plan data when activeProfile changes
   // FIX: Compare before setting to break the infinite loop:
   // setPlanData → Effect 2 (save) → DATA_CHANGED → ProfileContext refresh → Effect 1 → setPlanData...
@@ -266,7 +302,7 @@ export default function PlanPage() {
   const handleSetupComplete = (data: SetupData) => {
     setPlanData({ ...planData(), setup: data });
     markTabComplete('goals');
-    setActiveTab('skills');
+    // Stay on the same tab after saving (don't auto-navigate to skills)
   };
 
   const handleProfileChange = () => {
@@ -404,7 +440,7 @@ export default function PlanPage() {
     <Show when={!isLoading()} fallback={mounted() ? <PageLoader /> : null}>
       <Show when={hasProfile()} fallback={<NoProfileView />}>
         <div class="flex flex-col h-full space-y-6">
-          <Tabs value={activeTab()} onChange={setActiveTab} class="w-full">
+          <Tabs value={activeTab()} onChange={handleTabChange} class="w-full">
             <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50">
               {/* Desktop Tabs */}
               <div class="hidden md:block py-3">
@@ -448,7 +484,7 @@ export default function PlanPage() {
                           return (
                             <button
                               onClick={() => {
-                                setActiveTab(tab.id);
+                                handleTabChange(tab.id);
                                 setIsSheetOpen(false);
                               }}
                               class={cn(
@@ -500,6 +536,7 @@ export default function PlanPage() {
                   onComplete={handleSetupComplete}
                   initialData={planData().setup}
                   currency={activeProfile()?.currency}
+                  onDirtyChange={setIsCurrentTabDirty}
                 />
               </TabsContent>
 
@@ -508,6 +545,7 @@ export default function PlanPage() {
                   initialSkills={planData().skills}
                   onSkillsChange={handleSkillsChange}
                   currency={activeProfile()?.currency}
+                  onDirtyChange={setIsCurrentTabDirty}
                 />
               </TabsContent>
 
@@ -520,6 +558,7 @@ export default function PlanPage() {
                   profileExpenses={activeProfile()?.expenses}
                   profileIncomeSources={activeProfile()?.incomeSources}
                   goalDeadline={planData().setup?.goalDeadline}
+                  onDirtyChange={setIsCurrentTabDirty}
                 />
               </TabsContent>
 
@@ -560,6 +599,7 @@ export default function PlanPage() {
                     })();
                     return Promise.resolve();
                   }}
+                  onDirtyChange={setIsCurrentTabDirty}
                 />
               </TabsContent>
 
@@ -607,6 +647,14 @@ export default function PlanPage() {
               </TabsContent>
             </div>
           </Tabs>
+
+          {/* Unsaved changes dialog for tab navigation */}
+          <UnsavedChangesDialog
+            isOpen={showUnsavedDialog()}
+            onDiscard={handleDiscardAndSwitch}
+            onKeepEditing={handleKeepEditing}
+            message="You have unsaved changes in this tab. Discard changes and switch tabs?"
+          />
         </div>
       </Show>
     </Show>
