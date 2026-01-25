@@ -268,7 +268,7 @@ export const validateCalculationTool = createTool({
     calculationType: z
       .enum(['margin', 'projection', 'compound_interest', 'loan_payoff'])
       .describe('Type de calcul'),
-    inputs: z.record(z.number()).describe("Valeurs d'entree"),
+    inputs: z.record(z.string(), z.number()).describe("Valeurs d'entree"),
     expectedOutput: z.number().describe('Resultat attendu'),
     tolerance: z.number().optional().describe("Tolerance d'erreur (%)"),
   }),
@@ -349,7 +349,7 @@ export const hybridEvaluationTool = createTool({
       .array(
         z.object({
           type: z.enum(['margin', 'projection', 'compound_interest', 'loan_payoff']),
-          inputs: z.record(z.number()),
+          inputs: z.record(z.string(), z.number()),
           result: z.number(),
         })
       )

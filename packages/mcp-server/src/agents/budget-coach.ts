@@ -172,7 +172,10 @@ export const findOptimizationsTool = createTool({
   description: 'Find budget optimizations based on knowledge graph',
   inputSchema: z.object({
     expenseCategories: z.array(z.string()).describe('Expense categories to optimize'),
-    currentExpenses: z.record(z.number()).optional().describe('Current expenses by category'),
+    currentExpenses: z
+      .record(z.string(), z.number())
+      .optional()
+      .describe('Current expenses by category'),
     constraints: z.array(z.string()).optional().describe('Constraints (e.g., "no roommate")'),
   }),
   execute: async (input) => {

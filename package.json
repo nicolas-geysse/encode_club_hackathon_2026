@@ -33,23 +33,23 @@
     "demo:opik:traces": "npx tsx scripts/demo-opik.ts --traces-only"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
+    "@eslint/js": "^9.39.2",
     "dotenv": "^17.2.3",
-    "eslint": "^8.57.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-solid": "^0.14.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-solid": "^0.14.5",
     "husky": "^9.1.0",
-    "lint-staged": "^15.2.0",
-    "prettier": "^3.2.0",
-    "tsx": "^4.21.0"
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript-eslint": "^8.53.1"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "groq-sdk": "^0.37.0",
-    "opik": "^1.9.92",
-    "sharp": "0.32.6"
+    "opik": "^1.9.98",
+    "sharp": "0.34.5"
   }
 }
