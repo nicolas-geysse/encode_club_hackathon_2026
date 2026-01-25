@@ -367,6 +367,126 @@ export async function duplicateProfileForGoal(
 }
 
 /**
+ * Create a simulation profile for "What-If" scenarios
+ * Allows testing changes without affecting the main profile
+ */
+export async function createSimulationProfile(
+  sourceProfileId: string,
+  modifications: {
+    name?: string;
+    additionalIncome?: number;
+    additionalHoursPerWeek?: number;
+    newJob?: { name: string; hourlyRate: number; hoursPerWeek: number };
+    reducedExpense?: { category: string; reduction: number };
+  }
+): Promise<FullProfile | null> {
+  try {
+    // Load source profile
+    const source = await loadProfile(sourceProfileId);
+    if (!source) {
+      logger.error('Source profile not found for simulation', { sourceProfileId });
+      return null;
+    }
+
+    // Apply modifications
+    let modifiedIncome = source.monthlyIncome || 0;
+    let modifiedExpenses = source.monthlyExpenses || 0;
+    let modifiedHours = source.maxWorkHoursWeekly || 20;
+
+    if (modifications.additionalIncome) {
+      modifiedIncome += modifications.additionalIncome;
+    }
+
+    if (modifications.newJob) {
+      const jobMonthlyIncome =
+        modifications.newJob.hourlyRate * modifications.newJob.hoursPerWeek * 4;
+      modifiedIncome += jobMonthlyIncome;
+      modifiedHours += modifications.newJob.hoursPerWeek;
+    }
+
+    if (modifications.additionalHoursPerWeek) {
+      modifiedHours += modifications.additionalHoursPerWeek;
+    }
+
+    if (modifications.reducedExpense) {
+      modifiedExpenses = Math.max(0, modifiedExpenses - modifications.reducedExpense.reduction);
+    }
+
+    // Create simulation profile
+    const simName = modifications.name || `Simulation - ${source.name}`;
+    const newProfile: Partial<FullProfile> & { name: string } = {
+      name: simName,
+      diploma: source.diploma,
+      skills: source.skills,
+      currency: source.currency,
+      city: source.city,
+      citySize: source.citySize,
+      incomeSources: source.incomeSources,
+      expenses: source.expenses,
+      maxWorkHoursWeekly: modifiedHours,
+      minHourlyRate: source.minHourlyRate,
+      hasLoan: source.hasLoan,
+      loanAmount: source.loanAmount,
+      monthlyIncome: modifiedIncome,
+      monthlyExpenses: modifiedExpenses,
+      monthlyMargin: modifiedIncome - modifiedExpenses,
+      profileType: 'simulation',
+      parentProfileId: sourceProfileId,
+      goalName: source.goalName,
+      goalAmount: source.goalAmount,
+      goalDeadline: source.goalDeadline,
+      planData: source.planData,
+      // Don't copy followup data - simulation starts fresh
+      followupData: undefined,
+      achievements: undefined,
+    };
+
+    const result = await saveProfile(newProfile, { immediate: true, setActive: true });
+    if (result.success && result.profileId) {
+      // Copy goals from source profile to simulation profile
+      try {
+        const goalsResponse = await fetch(`/api/goals?profileId=${sourceProfileId}`);
+        if (goalsResponse.ok) {
+          const sourceGoals = await goalsResponse.json();
+          // Copy each goal to the simulation profile
+          for (const goal of sourceGoals) {
+            await fetch('/api/goals', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                profileId: result.profileId,
+                name: goal.name,
+                amount: goal.amount,
+                deadline: goal.deadline,
+                priority: goal.priority,
+                status: goal.status,
+                progress: goal.progress,
+                components: goal.components,
+              }),
+            });
+          }
+          logger.info('Copied goals to simulation profile', {
+            sourceProfileId,
+            simulationProfileId: result.profileId,
+            goalCount: sourceGoals.length,
+          });
+        }
+      } catch (goalError) {
+        // Goal copying is non-critical - log but don't fail
+        logger.warn('Failed to copy goals to simulation', { goalError });
+      }
+
+      return loadProfile(result.profileId);
+    }
+
+    return null;
+  } catch (error) {
+    logger.error('Error creating simulation profile', { error });
+    return null;
+  }
+}
+
+/**
  * Delete a profile
  */
 export async function deleteProfile(profileId: string): Promise<boolean> {
@@ -532,6 +652,7 @@ export const profileService = {
   saveProfile,
   switchProfile,
   duplicateProfileForGoal,
+  createSimulationProfile,
   deleteProfile,
   syncLocalToDb,
   exportProfile,
