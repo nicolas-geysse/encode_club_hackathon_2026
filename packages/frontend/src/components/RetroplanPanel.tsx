@@ -59,6 +59,21 @@ interface Retroplan {
   riskFactors: string[];
 }
 
+interface AcademicEvent {
+  id: string;
+  type:
+    | 'exam_period'
+    | 'class_intensive'
+    | 'vacation'
+    | 'vacation_rest'
+    | 'vacation_available'
+    | 'internship'
+    | 'project_deadline';
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
 interface RetroplanPanelProps {
   goalId: string;
   goalName: string;
@@ -66,6 +81,9 @@ interface RetroplanPanelProps {
   goalDeadline: string;
   userId?: string;
   currency?: Currency;
+  academicEvents?: AcademicEvent[];
+  /** Hourly rate for earnings calculations (from profile.minHourlyRate) */
+  hourlyRate?: number;
   onClose?: () => void;
 }
 
@@ -105,31 +123,34 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
   const currency = () => props.currency || 'USD';
 
   // Fetch or generate retroplan
-  const fetchRetroplan = async () => {
+  // Always regenerate to ensure latest goal parameters and academic events are used
+  const fetchRetroplan = async (forceRegenerate = false) => {
     setLoading(true);
     setError(null);
 
     try {
-      // First try to get existing retroplan
-      const getResponse = await fetch('/api/retroplan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'get_retroplan',
-          goalId: props.goalId,
-          userId: props.userId || 'default',
-        }),
-      });
+      // If not forcing regeneration, try to get existing retroplan
+      if (!forceRegenerate) {
+        const getResponse = await fetch('/api/retroplan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'get_retroplan',
+            goalId: props.goalId,
+            userId: props.userId || 'default',
+          }),
+        });
 
-      if (getResponse.ok) {
-        const data = await getResponse.json();
-        if (data.retroplan) {
-          setRetroplan(data.retroplan);
-          return;
+        if (getResponse.ok) {
+          const data = await getResponse.json();
+          if (data.retroplan) {
+            setRetroplan(data.retroplan);
+            return;
+          }
         }
       }
 
-      // Generate new retroplan if not found
+      // Generate new retroplan (always when forceRegenerate=true or when not found)
       const genResponse = await fetch('/api/retroplan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,6 +160,10 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
           goalAmount: props.goalAmount,
           deadline: props.goalDeadline,
           userId: props.userId || 'default',
+          // Pass academic events for protected weeks calculation
+          academicEvents: props.academicEvents || [],
+          // Pass hourlyRate from profile for consistent feasibility calculations
+          hourlyRate: props.hourlyRate,
         }),
       });
 
@@ -156,10 +181,19 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
     }
   };
 
-  // Load retroplan on mount
+  // Load retroplan on mount and when goal parameters change
+  // Always regenerate to ensure we have the latest data matching current props
   createEffect(() => {
-    if (props.goalId && props.goalAmount && props.goalDeadline) {
-      fetchRetroplan();
+    const goalId = props.goalId;
+    const goalAmount = props.goalAmount;
+    const goalDeadline = props.goalDeadline;
+    // Track academicEvents for reactivity (void to silence unused warning)
+    void (props.academicEvents?.length || 0);
+
+    if (goalId && goalAmount && goalDeadline) {
+      // Always regenerate - the backend retroplan might have been generated with different params
+      // This ensures the displayed data always matches the current goal configuration
+      fetchRetroplan(true);
     }
   });
 
@@ -191,9 +225,9 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
               variant="ghost"
               size="icon"
               class="h-8 w-8"
-              onClick={fetchRetroplan}
+              onClick={() => fetchRetroplan(true)}
               disabled={loading()}
-              title="Refresh retroplan"
+              title="Refresh retroplan (force regenerate)"
             >
               <RefreshCw class={`h-4 w-4 ${loading() ? 'animate-spin' : ''}`} />
             </Button>
@@ -225,7 +259,7 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
           <div class="text-center py-8">
             <AlertTriangle class="h-8 w-8 text-destructive mx-auto mb-2" />
             <p class="text-sm text-muted-foreground">{error()}</p>
-            <Button variant="outline" size="sm" class="mt-4" onClick={fetchRetroplan}>
+            <Button variant="outline" size="sm" class="mt-4" onClick={() => fetchRetroplan(true)}>
               Try again
             </Button>
           </div>

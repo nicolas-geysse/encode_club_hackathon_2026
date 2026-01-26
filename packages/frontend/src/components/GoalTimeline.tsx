@@ -10,13 +10,58 @@ import { type Goal, type GoalComponent, goalService } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '~/components/ui/Tooltip';
-import { Pencil, Check, Trash2, RotateCcw, Zap, CalendarClock } from 'lucide-solid';
+import {
+  Pencil,
+  Check,
+  Trash2,
+  RotateCcw,
+  Zap,
+  TrendingUp,
+  Shield,
+  CheckCircle2,
+} from 'lucide-solid';
+import { GoalComponentsList } from './GoalComponentsList';
 
 interface WeekCapacity {
   weekNumber: number;
+  weekStartDate: string;
   capacityScore: number;
-  capacityCategory: 'high' | 'medium' | 'low' | 'protected';
+  capacityCategory: 'high' | 'medium' | 'low' | 'protected' | 'boosted';
   effectiveHours: number;
+  events?: Array<{ name: string; type: string }>;
+}
+
+interface DynamicMilestone {
+  weekNumber: number;
+  adjustedTarget: number;
+  cumulativeTarget: number;
+  capacity: WeekCapacity;
+}
+
+interface RetroplanSummary {
+  totalWeeks: number;
+  boostedWeeks: number;
+  highCapacityWeeks: number;
+  mediumCapacityWeeks: number;
+  lowCapacityWeeks: number;
+  protectedWeeks: number;
+  feasibilityScore: number;
+  milestones: DynamicMilestone[];
+}
+
+interface AcademicEvent {
+  id: string;
+  type:
+    | 'exam_period'
+    | 'class_intensive'
+    | 'vacation'
+    | 'vacation_rest'
+    | 'vacation_available'
+    | 'internship'
+    | 'project_deadline';
+  name: string;
+  startDate: string;
+  endDate: string;
 }
 
 interface GoalTimelineProps {
@@ -24,6 +69,10 @@ interface GoalTimelineProps {
   currency?: Currency;
   // BUG 8 FIX: Accept simulated date for time simulation
   simulatedDate?: Date;
+  /** Academic events for protected weeks calculation */
+  academicEvents?: AcademicEvent[];
+  /** Hourly rate for earnings calculations (from profile.minHourlyRate) */
+  hourlyRate?: number;
   onComponentUpdate?: (
     goalId: string,
     componentId: string,
@@ -32,29 +81,43 @@ interface GoalTimelineProps {
   onEdit?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onToggleStatus?: (goal: Goal) => void;
-  onViewRetroplan?: (goal: Goal) => void;
 }
 
 const CAPACITY_COLORS = {
+  boosted: {
+    bg: 'bg-cyan-500/10',
+    text: 'text-cyan-600 dark:text-cyan-400',
+    border: 'border-cyan-500/30',
+    icon: '🚀',
+    label: 'Boosted',
+  },
   high: {
     bg: 'bg-green-500/10',
     text: 'text-green-600 dark:text-green-400',
     border: 'border-green-500/30',
+    icon: '🟢',
+    label: 'High',
   },
   medium: {
     bg: 'bg-yellow-500/10',
     text: 'text-yellow-600 dark:text-yellow-400',
     border: 'border-yellow-500/30',
+    icon: '🟡',
+    label: 'Medium',
   },
   low: {
     bg: 'bg-orange-500/10',
     text: 'text-orange-600 dark:text-orange-400',
     border: 'border-orange-500/30',
+    icon: '🟠',
+    label: 'Low',
   },
   protected: {
     bg: 'bg-red-500/10',
     text: 'text-red-600 dark:text-red-400',
     border: 'border-red-500/30',
+    icon: '🔴',
+    label: 'Protected',
   },
 };
 
@@ -62,27 +125,51 @@ export function GoalTimeline(props: GoalTimelineProps) {
   const currency = () => props.currency || 'USD';
   const [showDeleteConfirm, setShowDeleteConfirm] = createSignal(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = createSignal(false);
-  const [capacity, setCapacity] = createSignal<WeekCapacity | null>(null);
+  const [retroplan, setRetroplan] = createSignal<RetroplanSummary | null>(null);
+  const [loadingRetroplan, setLoadingRetroplan] = createSignal(false);
+  const [showAllWeeks, setShowAllWeeks] = createSignal(false);
 
-  // Fetch capacity for active goals
+  // Fetch full retroplan for active goals (always regenerate to ensure fresh data)
   createEffect(() => {
-    if (props.goal.status === 'active' && props.goal.deadline) {
+    const goalId = props.goal.id;
+    const status = props.goal.status;
+    const deadline = props.goal.deadline;
+    const amount = props.goal.amount;
+    // Track academicEvents for reactivity
+    void (props.academicEvents?.length || 0);
+
+    if (status === 'active' && deadline && amount) {
+      setLoadingRetroplan(true);
       fetch('/api/retroplan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'get_week_capacity',
-          goalId: props.goal.id,
+          action: 'generate_retroplan',
+          goalId,
+          goalAmount: amount,
+          deadline,
+          academicEvents: props.academicEvents || [],
+          // Pass hourlyRate from profile for consistent feasibility calculations
+          hourlyRate: props.hourlyRate,
         }),
       })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data?.capacity) setCapacity(data.capacity);
+          if (data?.retroplan) setRetroplan(data.retroplan);
         })
         .catch(() => {
           /* ignore */
-        });
+        })
+        .finally(() => setLoadingRetroplan(false));
     }
+  });
+
+  // Get current week's capacity from retroplan
+  const currentWeekCapacity = createMemo(() => {
+    const plan = retroplan();
+    if (!plan?.milestones?.length) return null;
+    // Return first milestone (current week)
+    return plan.milestones[0]?.capacity || null;
   });
 
   // BUG 8 FIX: Use simulated date if provided for time calculations
@@ -98,94 +185,17 @@ export function GoalTimeline(props: GoalTimelineProps) {
     return diffDays;
   });
 
-  // Calculate total cost from components
-  const totalCost = createMemo(() => goalService.calculateGoalTotalCost(props.goal));
+  // Calculate total cost from components (reserved for future summary display)
+  const _totalCost = createMemo(() => goalService.calculateGoalTotalCost(props.goal));
+  void _totalCost;
 
-  // Calculate total hours from components
-  const totalHours = createMemo(() => goalService.calculateGoalTotalHours(props.goal));
+  // Calculate total hours from components (reserved for future summary display)
+  const _totalHours = createMemo(() => goalService.calculateGoalTotalHours(props.goal));
+  void _totalHours;
 
   // Calculate component progress (reserved for future timeline visualization)
   const _componentProgress = createMemo(() => goalService.calculateComponentProgress(props.goal));
-  void _componentProgress; // Suppress unused warning - will be used in future
-
-  // Get status color
-  const getStatusColor = (status: GoalComponent['status']) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-500';
-      case 'in_progress':
-        return 'bg-primary-500';
-      case 'pending':
-        return 'bg-slate-300 dark:bg-slate-600';
-      default:
-        return 'bg-slate-300';
-    }
-  };
-
-  // Get status icon
-  const getStatusIcon = (status: GoalComponent['status']) => {
-    switch (status) {
-      case 'completed':
-        return '✓';
-      case 'in_progress':
-        return '●';
-      case 'pending':
-        return '○';
-      default:
-        return '○';
-    }
-  };
-
-  // Get component type icon
-  const getTypeIcon = (type: GoalComponent['type']) => {
-    switch (type) {
-      case 'exam':
-        return '📝';
-      case 'time_allocation':
-        return '⏰';
-      case 'purchase':
-        return '🛒';
-      case 'milestone':
-        return '🎯';
-      case 'other':
-        return '📋';
-      default:
-        return '📋';
-    }
-  };
-
-  // Check if a component can be started (dependencies met)
-  const canStartComponent = (component: GoalComponent): boolean => {
-    if (!component.dependsOn || component.dependsOn.length === 0) return true;
-
-    const components = props.goal.components || [];
-    return component.dependsOn.every((depName) => {
-      const dep = components.find((c) => c.name === depName);
-      return dep?.status === 'completed';
-    });
-  };
-
-  // Handle component status toggle
-  const handleComponentClick = (component: GoalComponent) => {
-    if (!component.id || !canStartComponent(component)) return;
-
-    let newStatus: GoalComponent['status'];
-    switch (component.status) {
-      case 'pending':
-        newStatus = 'in_progress';
-        break;
-      case 'in_progress':
-        newStatus = 'completed';
-        break;
-      case 'completed':
-        newStatus = 'pending';
-        break;
-      default:
-        newStatus = 'pending';
-    }
-
-    props.onComponentUpdate?.(props.goal.id, component.id, newStatus);
-  };
+  void _componentProgress;
 
   // Calculate timeline progress percentage
   // BUG 8 FIX: Use simulated date for timeline progress
@@ -359,41 +369,188 @@ export function GoalTimeline(props: GoalTimelineProps) {
         </div>
       </div>
 
-      {/* Capacity Indicator (for active goals) */}
-      <Show when={props.goal.status === 'active' && capacity()}>
-        {(cap) => {
-          const colors = CAPACITY_COLORS[cap().capacityCategory];
-          return (
-            <div
-              class={`flex items-center justify-between p-3 rounded-lg mb-4 border ${colors.bg} ${colors.border}`}
-            >
-              <div class="flex items-center gap-3">
-                <Zap class={`h-5 w-5 ${colors.text}`} />
-                <div>
-                  <div class="flex items-center gap-2">
-                    <span class={`text-sm font-bold uppercase ${colors.text}`}>
-                      {cap().capacityCategory} capacity
-                    </span>
-                    <span class="text-xs text-muted-foreground">Week {cap().weekNumber}</span>
-                  </div>
-                  <span class="text-xs text-muted-foreground">
-                    {cap().effectiveHours}h available this week
-                  </span>
-                </div>
-              </div>
-              <Show when={props.onViewRetroplan}>
-                <button
-                  type="button"
-                  onClick={() => props.onViewRetroplan?.(props.goal)}
-                  class={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${colors.text} hover:bg-black/5 dark:hover:bg-white/5`}
-                >
-                  <CalendarClock class="h-3.5 w-3.5" />
-                  View plan
-                </button>
-              </Show>
+      {/* Inline Retroplan Stats (for active goals) */}
+      <Show when={props.goal.status === 'active' && props.goal.deadline}>
+        <div class="mb-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+          {/* Loading state */}
+          <Show when={loadingRetroplan() && !retroplan()}>
+            <div class="flex items-center justify-center py-4">
+              <div class="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full" />
+              <span class="ml-2 text-sm text-muted-foreground">Calculating plan...</span>
             </div>
-          );
-        }}
+          </Show>
+
+          {/* Retroplan data */}
+          <Show when={retroplan()}>
+            {(plan) => {
+              const feasibility = plan().feasibilityScore;
+              const feasibilityColor =
+                feasibility >= 0.8
+                  ? 'text-green-600 dark:text-green-400'
+                  : feasibility >= 0.6
+                    ? 'text-yellow-600 dark:text-yellow-400'
+                    : feasibility >= 0.4
+                      ? 'text-orange-600 dark:text-orange-400'
+                      : 'text-red-600 dark:text-red-400';
+              const feasibilityLabel =
+                feasibility >= 0.8
+                  ? 'Very achievable'
+                  : feasibility >= 0.6
+                    ? 'Achievable'
+                    : feasibility >= 0.4
+                      ? 'Challenging'
+                      : 'Very challenging';
+
+              // Helper to format week date range
+              const formatWeekRange = (startDate: string) => {
+                const start = new Date(startDate);
+                const end = new Date(start);
+                end.setDate(end.getDate() + 6);
+                const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+                return `${start.toLocaleDateString('en-US', opts)} - ${end.toLocaleDateString('en-US', opts)}`;
+              };
+
+              // Weeks to display (first 4 by default, all if expanded)
+              const displayedWeeks = () =>
+                showAllWeeks() ? plan().milestones : plan().milestones.slice(0, 4);
+
+              return (
+                <>
+                  {/* Header: Feasibility score + summary badges */}
+                  <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <div class="flex items-center gap-2">
+                      <CheckCircle2 class={`h-5 w-5 ${feasibilityColor}`} />
+                      <span class={`text-lg font-bold ${feasibilityColor}`}>
+                        {Math.round(feasibility * 100)}%
+                      </span>
+                      <span class="text-sm text-muted-foreground">{feasibilityLabel}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 text-xs">
+                      <Show when={plan().boostedWeeks > 0}>
+                        <span class="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                          🚀 {plan().boostedWeeks}
+                        </span>
+                      </Show>
+                      <span class="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400">
+                        🟢 {plan().highCapacityWeeks}
+                      </span>
+                      <Show when={plan().mediumCapacityWeeks > 0}>
+                        <span class="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">
+                          🟡 {plan().mediumCapacityWeeks}
+                        </span>
+                      </Show>
+                      <Show when={plan().lowCapacityWeeks > 0}>
+                        <span class="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                          🟠 {plan().lowCapacityWeeks}
+                        </span>
+                      </Show>
+                      <Show when={plan().protectedWeeks > 0}>
+                        <span class="px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 dark:text-red-400">
+                          🔴 {plan().protectedWeeks}
+                        </span>
+                      </Show>
+                    </div>
+                  </div>
+
+                  {/* Week-by-week breakdown */}
+                  <div class="space-y-2">
+                    <For each={displayedWeeks()}>
+                      {(milestone, index) => {
+                        const cat = milestone.capacity.capacityCategory;
+                        const colors = CAPACITY_COLORS[cat];
+                        const isCurrentWeek = index() === 0;
+                        const events = milestone.capacity.events || [];
+
+                        return (
+                          <div
+                            class={`flex items-center gap-3 p-2 rounded-lg border transition-colors ${
+                              isCurrentWeek
+                                ? `${colors.bg} ${colors.border} border-2`
+                                : 'bg-background border-border'
+                            }`}
+                          >
+                            {/* Status icon */}
+                            <span class="text-lg flex-shrink-0" title={colors.label}>
+                              {colors.icon}
+                            </span>
+
+                            {/* Week info */}
+                            <div class="flex-1 min-w-0">
+                              <div class="flex items-center gap-2 flex-wrap">
+                                <span
+                                  class={`font-medium ${isCurrentWeek ? colors.text : 'text-foreground'}`}
+                                >
+                                  W{milestone.weekNumber}
+                                </span>
+                                <span class="text-xs text-muted-foreground">
+                                  {formatWeekRange(milestone.capacity.weekStartDate)}
+                                </span>
+                                {isCurrentWeek && (
+                                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    NOW
+                                  </span>
+                                )}
+                              </div>
+                              {/* Events affecting this week */}
+                              <Show when={events.length > 0}>
+                                <div class="flex flex-wrap gap-1 mt-1">
+                                  <For each={events}>
+                                    {(event) => (
+                                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                        {event.name}
+                                      </span>
+                                    )}
+                                  </For>
+                                </div>
+                              </Show>
+                            </div>
+
+                            {/* Capacity & Target */}
+                            <div class="text-right flex-shrink-0">
+                              <div class={`text-sm font-bold ${colors.text}`}>
+                                {milestone.capacity.effectiveHours}h
+                              </div>
+                              <div class="text-xs text-muted-foreground">
+                                {formatCurrency(milestone.adjustedTarget, currency())}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    </For>
+                  </div>
+
+                  {/* Show more/less button */}
+                  <Show when={plan().totalWeeks > 4}>
+                    <button
+                      type="button"
+                      class="mt-3 w-full text-center text-xs text-primary hover:text-primary/80 font-medium py-1"
+                      onClick={() => setShowAllWeeks(!showAllWeeks())}
+                    >
+                      {showAllWeeks() ? `Show less ▲` : `Show all ${plan().totalWeeks} weeks ▼`}
+                    </button>
+                  </Show>
+
+                  {/* Legend */}
+                  <div class="mt-3 pt-3 border-t border-border flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+                    <span>🚀 Vacation (available)</span>
+                    <span>🟢 Normal</span>
+                    <span>🟡 Medium</span>
+                    <span>🟠 Busy</span>
+                    <span>🔴 Protected/Rest</span>
+                  </div>
+                </>
+              );
+            }}
+          </Show>
+
+          {/* No retroplan yet */}
+          <Show when={!loadingRetroplan() && !retroplan()}>
+            <div class="text-center py-2 text-sm text-muted-foreground">
+              Set a deadline to see your capacity plan
+            </div>
+          </Show>
+        </div>
       </Show>
 
       {/* Progress Bar */}
@@ -434,101 +591,23 @@ export function GoalTimeline(props: GoalTimelineProps) {
         </div>
       </Show>
 
-      {/* Components Section */}
-      <Show when={props.goal.components && props.goal.components.length > 0}>
-        <div class="border-t border-slate-200 dark:border-slate-600 pt-4">
-          <div class="flex items-center justify-between mb-3">
-            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Components ({props.goal.components?.filter((c) => c.status === 'completed').length}/
-              {props.goal.components?.length})
-            </h4>
-            <div class="text-xs text-slate-500 dark:text-slate-400">
-              <Show when={totalHours() > 0}>
-                <span class="mr-3">{totalHours()}h total</span>
-              </Show>
-              <Show when={totalCost() > props.goal.amount}>
-                <span>{formatCurrency(totalCost(), currency())} total cost</span>
-              </Show>
-            </div>
-          </div>
-
-          {/* Component Progress */}
-          <div class="mb-4">
-            <div class="h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden flex">
-              <For each={props.goal.components}>
-                {(component) => (
-                  <div
-                    class={`h-full transition-all duration-300 ${getStatusColor(component.status)}`}
-                    style={{ width: `${100 / (props.goal.components?.length || 1)}%` }}
-                  />
-                )}
-              </For>
-            </div>
-          </div>
-
-          {/* Component List */}
-          <div class="space-y-2">
-            <For each={props.goal.components}>
-              {(component, index) => {
-                const canStart = () => canStartComponent(component);
-                const isBlocked = () => !canStart() && component.status === 'pending';
-
-                return (
-                  <div
-                    class={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                      isBlocked()
-                        ? 'bg-slate-100 dark:bg-slate-700/50 opacity-60'
-                        : 'bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 cursor-pointer'
-                    }`}
-                    onClick={() => !isBlocked() && handleComponentClick(component)}
-                  >
-                    {/* Status indicator */}
-                    <div
-                      class={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${getStatusColor(component.status)}`}
-                    >
-                      {getStatusIcon(component.status)}
-                    </div>
-
-                    {/* Component info */}
-                    <div class="flex-1">
-                      <div class="flex items-center gap-2">
-                        <span>{getTypeIcon(component.type)}</span>
-                        <span
-                          class={`font-medium ${
-                            component.status === 'completed'
-                              ? 'text-slate-500 line-through'
-                              : 'text-slate-800 dark:text-slate-200'
-                          }`}
-                        >
-                          {component.name}
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        <Show when={component.estimatedHours}>
-                          <span>⏱️ {component.estimatedHours}h</span>
-                        </Show>
-                        <Show when={component.estimatedCost}>
-                          <span>💰 {formatCurrency(component.estimatedCost!, currency())}</span>
-                        </Show>
-                        <Show when={isBlocked()}>
-                          <span class="text-amber-600 dark:text-amber-400">
-                            🔒 Requires: {component.dependsOn?.join(', ')}
-                          </span>
-                        </Show>
-                      </div>
-                    </div>
-
-                    {/* Connection line to next */}
-                    <Show when={index() < (props.goal.components?.length || 0) - 1}>
-                      <div class="absolute left-7 top-full h-2 w-0.5 bg-slate-300 dark:bg-slate-500" />
-                    </Show>
-                  </div>
-                );
-              }}
-            </For>
-          </div>
-        </div>
-      </Show>
+      {/* Components Section - Using GoalComponentsList for interactive management */}
+      <div class="border-t border-slate-200 dark:border-slate-600 pt-4">
+        <GoalComponentsList
+          goalId={props.goal.id}
+          currency={currency()}
+          onProgressUpdate={(_newProgress) => {
+            // Trigger parent refresh when components change
+            if (props.onComponentUpdate && props.goal.components?.[0]?.id) {
+              props.onComponentUpdate(
+                props.goal.id,
+                props.goal.components[0].id,
+                props.goal.components[0].status
+              );
+            }
+          }}
+        />
+      </div>
 
       {/* Savings Summary */}
       <div class="border-t border-slate-200 dark:border-slate-600 pt-4 mt-4">
@@ -646,6 +725,10 @@ interface GoalTimelineListProps {
   currency?: Currency;
   // BUG 8 FIX: Accept simulated date for time simulation
   simulatedDate?: Date;
+  /** Academic events for protected weeks calculation */
+  academicEvents?: AcademicEvent[];
+  /** Hourly rate for earnings calculations (from profile.minHourlyRate) */
+  hourlyRate?: number;
   onComponentUpdate?: (
     goalId: string,
     componentId: string,
@@ -654,7 +737,6 @@ interface GoalTimelineListProps {
   onEdit?: (goal: Goal) => void;
   onDelete?: (goalId: string) => void;
   onToggleStatus?: (goal: Goal) => void;
-  onViewRetroplan?: (goal: Goal) => void;
 }
 
 export function GoalTimelineList(props: GoalTimelineListProps) {
@@ -703,18 +785,27 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4">
             <For each={goalsByStatus().active}>
-              {(goal) => (
-                <GoalTimeline
-                  goal={goal}
-                  currency={props.currency}
-                  simulatedDate={props.simulatedDate}
-                  onComponentUpdate={props.onComponentUpdate}
-                  onEdit={props.onEdit}
-                  onDelete={props.onDelete}
-                  onToggleStatus={props.onToggleStatus}
-                  onViewRetroplan={props.onViewRetroplan}
-                />
-              )}
+              {(goal) => {
+                // Extract academic events from goal's planData (not form state)
+                const goalPlanData = goal.planData as
+                  | { academicEvents?: AcademicEvent[] }
+                  | undefined;
+                const goalAcademicEvents =
+                  goalPlanData?.academicEvents || props.academicEvents || [];
+                return (
+                  <GoalTimeline
+                    goal={goal}
+                    currency={props.currency}
+                    simulatedDate={props.simulatedDate}
+                    onComponentUpdate={props.onComponentUpdate}
+                    onEdit={props.onEdit}
+                    onDelete={props.onDelete}
+                    onToggleStatus={props.onToggleStatus}
+                    academicEvents={goalAcademicEvents}
+                    hourlyRate={props.hourlyRate}
+                  />
+                );
+              }}
             </For>
           </div>
         </div>
@@ -728,18 +819,26 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4 opacity-75">
             <For each={goalsByStatus().waiting}>
-              {(goal) => (
-                <GoalTimeline
-                  goal={goal}
-                  currency={props.currency}
-                  simulatedDate={props.simulatedDate}
-                  onComponentUpdate={props.onComponentUpdate}
-                  onEdit={props.onEdit}
-                  onDelete={props.onDelete}
-                  onToggleStatus={props.onToggleStatus}
-                  onViewRetroplan={props.onViewRetroplan}
-                />
-              )}
+              {(goal) => {
+                const goalPlanData = goal.planData as
+                  | { academicEvents?: AcademicEvent[] }
+                  | undefined;
+                const goalAcademicEvents =
+                  goalPlanData?.academicEvents || props.academicEvents || [];
+                return (
+                  <GoalTimeline
+                    goal={goal}
+                    currency={props.currency}
+                    simulatedDate={props.simulatedDate}
+                    onComponentUpdate={props.onComponentUpdate}
+                    onEdit={props.onEdit}
+                    onDelete={props.onDelete}
+                    onToggleStatus={props.onToggleStatus}
+                    academicEvents={goalAcademicEvents}
+                    hourlyRate={props.hourlyRate}
+                  />
+                );
+              }}
             </For>
           </div>
         </div>
@@ -753,18 +852,26 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4 opacity-60">
             <For each={goalsByStatus().completed}>
-              {(goal) => (
-                <GoalTimeline
-                  goal={goal}
-                  currency={props.currency}
-                  simulatedDate={props.simulatedDate}
-                  onComponentUpdate={props.onComponentUpdate}
-                  onEdit={props.onEdit}
-                  onDelete={props.onDelete}
-                  onToggleStatus={props.onToggleStatus}
-                  onViewRetroplan={props.onViewRetroplan}
-                />
-              )}
+              {(goal) => {
+                const goalPlanData = goal.planData as
+                  | { academicEvents?: AcademicEvent[] }
+                  | undefined;
+                const goalAcademicEvents =
+                  goalPlanData?.academicEvents || props.academicEvents || [];
+                return (
+                  <GoalTimeline
+                    goal={goal}
+                    currency={props.currency}
+                    simulatedDate={props.simulatedDate}
+                    onComponentUpdate={props.onComponentUpdate}
+                    onEdit={props.onEdit}
+                    onDelete={props.onDelete}
+                    onToggleStatus={props.onToggleStatus}
+                    academicEvents={goalAcademicEvents}
+                    hourlyRate={props.hourlyRate}
+                  />
+                );
+              }}
             </For>
           </div>
         </div>
@@ -778,18 +885,26 @@ export function GoalTimelineList(props: GoalTimelineListProps) {
           </h3>
           <div class="space-y-4 opacity-50">
             <For each={goalsByStatus().paused}>
-              {(goal) => (
-                <GoalTimeline
-                  goal={goal}
-                  currency={props.currency}
-                  simulatedDate={props.simulatedDate}
-                  onComponentUpdate={props.onComponentUpdate}
-                  onEdit={props.onEdit}
-                  onDelete={props.onDelete}
-                  onToggleStatus={props.onToggleStatus}
-                  onViewRetroplan={props.onViewRetroplan}
-                />
-              )}
+              {(goal) => {
+                const goalPlanData = goal.planData as
+                  | { academicEvents?: AcademicEvent[] }
+                  | undefined;
+                const goalAcademicEvents =
+                  goalPlanData?.academicEvents || props.academicEvents || [];
+                return (
+                  <GoalTimeline
+                    goal={goal}
+                    currency={props.currency}
+                    simulatedDate={props.simulatedDate}
+                    onComponentUpdate={props.onComponentUpdate}
+                    onEdit={props.onEdit}
+                    onDelete={props.onDelete}
+                    onToggleStatus={props.onToggleStatus}
+                    academicEvents={goalAcademicEvents}
+                    hourlyRate={props.hourlyRate}
+                  />
+                );
+              }}
             </For>
           </div>
         </div>

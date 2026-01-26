@@ -37,6 +37,8 @@ interface WeeklyProgressCardsProps {
   currency?: Currency;
   /** Optional: actual weekly earnings data */
   weeklyEarnings?: Array<{ week: number; earned: number }>;
+  /** Hourly rate for earnings calculations (from profile.minHourlyRate) */
+  hourlyRate?: number;
 }
 
 export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
@@ -122,6 +124,8 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
           goalAmount: goal.amount,
           deadline: goal.deadline,
           academicEvents: (goal.planData as { academicEvents?: unknown[] })?.academicEvents || [],
+          // Pass hourlyRate from profile for consistent feasibility calculations
+          hourlyRate: props.hourlyRate,
         }),
       })
         .then((res) => (res.ok ? res.json() : null))

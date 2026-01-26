@@ -1083,6 +1083,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                 <WeeklyProgressCards
                                   goal={goals().find((g) => g.id === goalId)!}
                                   currency={currency()}
+                                  hourlyRate={profile()?.minHourlyRate}
                                 />
                               )}
                             </Show>
@@ -1209,6 +1210,7 @@ export function GoalsTab(props: GoalsTabProps) {
                   userId={profileId() || undefined}
                   currency={currency()}
                   academicEvents={goalAcademicEvents}
+                  hourlyRate={profile()?.minHourlyRate}
                   onClose={() => setShowRetroplan(null)}
                 />
               </div>

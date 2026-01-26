@@ -16,12 +16,16 @@ import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary'
 import { BrunoTips } from '~/components/suivi/BrunoTips';
 import { CapacityForecast } from '~/components/suivi/CapacityForecast';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
+import { PredictiveAlerts } from '~/components/suivi/PredictiveAlerts';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
 import { goalService, type Goal } from '~/lib/goalService';
 import { eventBus } from '~/lib/eventBus';
 import { createLogger } from '~/lib/logger';
+import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
+import { celebrateGoalAchieved, celebrateGoldAchievement, celebrateComeback } from '~/lib/confetti';
+import { toastPopup } from '~/components/ui/Toast';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { ClipboardList, Target } from 'lucide-solid';
@@ -563,6 +567,34 @@ export default function SuiviPage() {
     });
   });
 
+  // Check achievements and trigger celebrations
+  const checkAndCelebrateAchievements = (context: Record<string, unknown>) => {
+    const { newlyUnlocked } = updateAchievements(context);
+
+    for (const achievement of newlyUnlocked) {
+      // Determine celebration type based on achievement
+      if (achievement.id === 'goal_achieved') {
+        celebrateGoalAchieved();
+      } else if (achievement.tier === 'gold') {
+        celebrateGoldAchievement();
+      } else if (achievement.id === 'comeback_king') {
+        celebrateComeback();
+      }
+
+      // Show toast for all achievements
+      onAchievementUnlock(achievement, {
+        showToast: (type, title, message) => {
+          if (type === 'success') {
+            toastPopup.success(title, message);
+          } else {
+            toastPopup.info(title, message);
+          }
+        },
+        celebrateGold: celebrateGoldAchievement,
+      });
+    }
+  };
+
   // Save followup data to DuckDB only (no localStorage to prevent cross-profile contamination)
   const updateFollowup = async (updates: Partial<FollowupData>) => {
     const updated = { ...followup(), ...updates };
@@ -583,6 +615,21 @@ export default function SuiviPage() {
           Math.round((updated.currentAmount / goalAmount) * 100)
         );
         await goalService.updateGoalProgress(goal.id, progressPercent);
+
+        // Check achievements after progress update
+        const totalEarnings = updated.missions.reduce((sum, m) => sum + m.earningsCollected, 0);
+        const completedMissions = updated.missions.filter((m) => m.status === 'completed').length;
+        const weeklyMissionsTotal = updated.missions.filter((m) => m.status !== 'skipped').length;
+
+        checkAndCelebrateAchievements({
+          earningsCollected: totalEarnings,
+          currentAmount: updated.currentAmount,
+          goalAmount: goalAmount,
+          weeklyMissionsCompleted: completedMissions,
+          weeklyMissionsTotal: weeklyMissionsTotal,
+          energyHistory: updated.energyHistory.map((e) => ({ level: e.level })),
+          activeMissions: updated.missions.filter((m) => m.status === 'active'),
+        });
       }
     }
   };
@@ -636,6 +683,11 @@ export default function SuiviPage() {
     const totalEarnings = missions.reduce((sum, m) => sum + m.earningsCollected, 0);
 
     updateFollowup({ missions, currentAmount: totalEarnings });
+
+    // Check if comeback plan is fully completed
+    if (updates.status === 'completed') {
+      checkComebackCompletion();
+    }
   };
 
   const handleMissionComplete = (id: string) => {
@@ -683,6 +735,24 @@ export default function SuiviPage() {
     updateFollowup({
       missions: [...followup().missions, ...catchUpMissions],
     });
+
+    // Celebrate comeback mode activation
+    celebrateComeback();
+    toastPopup.success('Comeback Mode Activated!', 'Your personalized catch-up plan is ready!');
+  };
+
+  // Handle comeback plan completion (all catch-up missions done)
+  const checkComebackCompletion = () => {
+    const missions = followup().missions;
+    const comebackMissions = missions.filter((m) => m.id.startsWith('comeback_'));
+    const allCompleted =
+      comebackMissions.length > 0 && comebackMissions.every((m) => m.status === 'completed');
+
+    if (allCompleted) {
+      checkAndCelebrateAchievements({
+        comebackPlanCompleted: true,
+      });
+    }
   };
 
   const handleMissionDelete = (id: string) => {
@@ -781,6 +851,15 @@ export default function SuiviPage() {
             />
           </Show>
 
+          {/* Predictive Alerts - Warn about upcoming difficult weeks */}
+          <Show when={currentGoal()}>
+            <PredictiveAlerts
+              goalId={currentGoal()!.id}
+              userId={activeProfile()?.id}
+              onViewPlan={() => setShowRetroplan(true)}
+            />
+          </Show>
+
           {/* Section 2: Energy (MOVED UP - leading indicator) */}
           <EnergyHistory history={followup().energyHistory} onEnergyUpdate={handleEnergyUpdate} />
 
@@ -817,19 +896,42 @@ export default function SuiviPage() {
 
         {/* Retroplan Modal */}
         <Show when={showRetroplan() && currentGoal()}>
-          <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <RetroplanPanel
-                goalId={currentGoal()!.id}
-                goalName={currentGoal()!.name}
-                goalAmount={currentGoal()!.amount}
-                goalDeadline={currentGoal()!.deadline || ''}
-                userId={activeProfile()?.id}
-                currency={currency()}
-                onClose={() => setShowRetroplan(false)}
-              />
-            </div>
-          </div>
+          {(() => {
+            const goal = currentGoal()!;
+            // Extract academic events from goal's planData for protected weeks calculation
+            const goalPlanData = goal.planData as Record<string, unknown> | undefined;
+            const goalAcademicEvents =
+              (goalPlanData?.academicEvents as Array<{
+                id: string;
+                type:
+                  | 'exam_period'
+                  | 'class_intensive'
+                  | 'vacation'
+                  | 'internship'
+                  | 'project_deadline';
+                name: string;
+                startDate: string;
+                endDate: string;
+              }>) || [];
+
+            return (
+              <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                <div class="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <RetroplanPanel
+                    goalId={goal.id}
+                    goalName={goal.name}
+                    goalAmount={goal.amount}
+                    goalDeadline={goal.deadline || ''}
+                    userId={activeProfile()?.id}
+                    currency={currency()}
+                    academicEvents={goalAcademicEvents}
+                    hourlyRate={activeProfile()?.minHourlyRate}
+                    onClose={() => setShowRetroplan(false)}
+                  />
+                </div>
+              </div>
+            );
+          })()}
         </Show>
       </Show>
     </Show>
