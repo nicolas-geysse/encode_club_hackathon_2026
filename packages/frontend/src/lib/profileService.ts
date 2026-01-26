@@ -75,6 +75,9 @@ export interface FullProfile {
   certifications?: string[]; // Professional certifications (BAFA, BNSSA, etc.)
   city?: string;
   citySize?: string;
+  latitude?: number; // Location coordinates from geolocation/map picker
+  longitude?: number;
+  address?: string; // Full address from reverse geocoding
   incomeSources?: IncomeSource[];
   expenses?: Expense[];
   maxWorkHoursWeekly?: number;
