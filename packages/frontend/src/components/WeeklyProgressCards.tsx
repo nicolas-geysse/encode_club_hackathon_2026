@@ -16,7 +16,7 @@ interface WeekData {
   earned: number;
   cumulative: number;
   cumulativeTarget: number;
-  status: 'ahead' | 'on-track' | 'behind' | 'future';
+  status: 'ahead' | 'on-track' | 'behind' | 'critical' | 'future';
   capacityCategory?: 'boosted' | 'high' | 'medium' | 'low' | 'protected';
   effectiveHours: number;
 }
@@ -193,8 +193,10 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
         status = 'ahead';
       } else if (cumulative >= m.cumulativeTarget * 0.9) {
         status = 'on-track';
-      } else {
+      } else if (cumulative >= m.cumulativeTarget * 0.4) {
         status = 'behind';
+      } else {
+        status = 'critical'; // < 40% of target
       }
 
       return {
@@ -217,21 +219,31 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
     const pastWeeks = weekData.filter((w) => w.status !== 'future');
     const aheadWeeks = pastWeeks.filter((w) => w.status === 'ahead').length;
     const behindWeeks = pastWeeks.filter((w) => w.status === 'behind').length;
+    const criticalWeeks = pastWeeks.filter((w) => w.status === 'critical').length;
     const totalEarned = pastWeeks.reduce((sum, w) => sum + w.earned, 0);
     const totalTarget = pastWeeks.reduce((sum, w) => sum + w.target, 0);
+
+    // Determine overall status
+    let overallStatus: WeekData['status'];
+    if (totalEarned >= totalTarget) {
+      overallStatus = 'ahead';
+    } else if (totalEarned >= totalTarget * 0.9) {
+      overallStatus = 'on-track';
+    } else if (totalEarned >= totalTarget * 0.4) {
+      overallStatus = 'behind';
+    } else {
+      overallStatus = 'critical';
+    }
 
     return {
       totalWeeks: weekData.length,
       pastWeeks: pastWeeks.length,
       aheadWeeks,
       behindWeeks,
+      criticalWeeks,
       totalEarned,
       totalTarget,
-      overallStatus: (totalEarned >= totalTarget
-        ? 'ahead'
-        : totalEarned >= totalTarget * 0.9
-          ? 'on-track'
-          : 'behind') as WeekData['status'],
+      overallStatus,
     };
   });
 
@@ -256,6 +268,12 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
       bg: 'bg-amber-500/10',
       border: 'border-amber-500/40',
       text: 'text-amber-600 dark:text-amber-400',
+    },
+    critical: {
+      icon: '🔴',
+      bg: 'bg-red-500/10',
+      border: 'border-red-500/40',
+      text: 'text-red-600 dark:text-red-400',
     },
     future: {
       icon: '○',
@@ -286,6 +304,9 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
           </Show>
           <Show when={stats().behindWeeks > 0}>
             <span class="text-amber-600 dark:text-amber-400">⚠ {stats().behindWeeks} behind</span>
+          </Show>
+          <Show when={stats().criticalWeeks > 0}>
+            <span class="text-red-600 dark:text-red-400">🔴 {stats().criticalWeeks} critical</span>
           </Show>
         </div>
         <div class={`font-medium ${statusConfig[stats().overallStatus].text}`}>
@@ -356,7 +377,9 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
                             ? 'bg-primary'
                             : week.status === 'behind'
                               ? 'bg-amber-500'
-                              : 'bg-muted-foreground/30'
+                              : week.status === 'critical'
+                                ? 'bg-red-500'
+                                : 'bg-muted-foreground/30'
                       }`}
                       style={{ width: `${progressPercent}%` }}
                     />
@@ -394,6 +417,7 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
         <span>🚀 Ahead</span>
         <span>✓ On track</span>
         <span>⚠ Behind</span>
+        <span>🔴 Critical</span>
         <span>○ Future</span>
         <span class="border-l border-border pl-3">
           Capacity: 🟢 High 🟡 Med 🟠 Low 🔴 Protected
