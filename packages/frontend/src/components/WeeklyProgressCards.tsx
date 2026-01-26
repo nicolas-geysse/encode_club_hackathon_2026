@@ -141,40 +141,51 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
     const plan = retroplan();
     if (!plan?.milestones) return [];
 
+    // Use actual goal progress to calculate current saved amount
     const currentSaved = Math.round((props.goal.amount * (props.goal.progress || 0)) / 100);
     const now = new Date();
     const earningsMap = new Map(props.weeklyEarnings?.map((w) => [w.week, w.earned]) || []);
 
+    // Find weeks that have passed (not future) and calculate their total target
+    const passedWeeks = plan.milestones.filter((m) => new Date(m.capacity.weekStartDate) <= now);
+    const totalTargetForPassedWeeks = passedWeeks.reduce((sum, m) => sum + m.adjustedTarget, 0);
+
     return plan.milestones.map((m, idx) => {
       const weekStart = new Date(m.capacity.weekStartDate);
       const isFuture = weekStart > now;
-      const isPast =
-        idx === 0
-          ? false
-          : new Date(plan.milestones[idx - 1].capacity.weekStartDate) < now && weekStart > now;
 
-      // For demo: simulate earnings based on progress
-      // In real app, this would come from actual tracking data
-      const simulatedEarned = isFuture
-        ? 0
-        : Math.round(m.adjustedTarget * (0.8 + Math.random() * 0.4)); // ±20% variance
-      const earned = earningsMap.get(m.weekNumber) ?? (idx < 3 ? simulatedEarned : 0);
+      // Calculate earned for this week based on actual progress distribution
+      // Distribute currentSaved proportionally to each week's target
+      let earned = 0;
+      if (!isFuture && totalTargetForPassedWeeks > 0) {
+        // Check if we have explicit weekly earnings data
+        const explicitEarned = earningsMap.get(m.weekNumber);
+        if (explicitEarned !== undefined) {
+          earned = explicitEarned;
+        } else {
+          // Distribute saved amount proportionally based on week's target
+          earned = Math.round((m.adjustedTarget / totalTargetForPassedWeeks) * currentSaved);
+        }
+      }
 
-      // Calculate cumulative
-      const prevCumulative =
-        idx > 0
-          ? plan.milestones.slice(0, idx).reduce((sum, p) => {
-              const prevEarned =
-                earningsMap.get(p.weekNumber) ??
-                (plan.milestones.indexOf(p) < 3
-                  ? Math.round(p.adjustedTarget * (0.8 + Math.random() * 0.4))
-                  : 0);
-              return sum + prevEarned;
-            }, 0)
-          : 0;
-      const cumulative = prevCumulative + earned;
+      // Calculate cumulative earnings up to this week
+      const cumulative = plan.milestones.slice(0, idx + 1).reduce((sum, p) => {
+        const pWeekStart = new Date(p.capacity.weekStartDate);
+        const pIsFuture = pWeekStart > now;
+        if (pIsFuture) return sum;
 
-      // Determine status
+        const pExplicit = earningsMap.get(p.weekNumber);
+        if (pExplicit !== undefined) {
+          return sum + pExplicit;
+        }
+        // Proportional distribution
+        if (totalTargetForPassedWeeks > 0) {
+          return sum + Math.round((p.adjustedTarget / totalTargetForPassedWeeks) * currentSaved);
+        }
+        return sum;
+      }, 0);
+
+      // Determine status based on cumulative progress vs cumulative target
       let status: WeekData['status'];
       if (isFuture) {
         status = 'future';
