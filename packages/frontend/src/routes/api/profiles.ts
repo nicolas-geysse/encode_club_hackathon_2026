@@ -37,6 +37,9 @@ const SCHEMA_SQL = `
     certifications VARCHAR[],
     city VARCHAR,
     city_size VARCHAR,
+    latitude DOUBLE,
+    longitude DOUBLE,
+    address VARCHAR,
     income_sources JSON,
     expenses JSON,
     max_work_hours_weekly INTEGER,
@@ -64,6 +67,9 @@ const MIGRATIONS = [
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS field VARCHAR`,
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS currency VARCHAR DEFAULT 'USD'`,
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS certifications VARCHAR[]`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS latitude DOUBLE`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS longitude DOUBLE`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address VARCHAR`,
 ];
 
 /**
@@ -178,6 +184,9 @@ interface ProfileRow {
   certifications: string[] | null;
   city: string | null;
   city_size: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  address: string | null;
   income_sources: string | null;
   expenses: string | null;
   max_work_hours_weekly: number | null;
@@ -212,6 +221,9 @@ function rowToProfile(row: ProfileRow) {
     certifications: row.certifications || undefined,
     city: row.city || undefined,
     citySize: row.city_size || undefined,
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
+    address: row.address || undefined,
     incomeSources: row.income_sources ? JSON.parse(row.income_sources) : undefined,
     expenses: row.expenses ? JSON.parse(row.expenses) : undefined,
     maxWorkHoursWeekly: row.max_work_hours_weekly || undefined,
@@ -357,6 +369,9 @@ export async function POST(event: APIEvent) {
           certifications = ${certificationsSQL},
           city = ${escapeSQL(body.city)},
           city_size = ${escapeSQL(body.citySize)},
+          latitude = ${body.latitude != null ? body.latitude : 'NULL'},
+          longitude = ${body.longitude != null ? body.longitude : 'NULL'},
+          address = ${escapeSQL(body.address)},
           income_sources = ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
           expenses = ${body.expenses ? escapeSQL(JSON.stringify(body.expenses)) : 'NULL'},
           max_work_hours_weekly = ${body.maxWorkHoursWeekly || 'NULL'},
@@ -380,7 +395,8 @@ export async function POST(event: APIEvent) {
     } else {
       await execute(`
         INSERT INTO profiles (
-          id, name, diploma, field, currency, skills, certifications, city, city_size, income_sources, expenses,
+          id, name, diploma, field, currency, skills, certifications, city, city_size,
+          latitude, longitude, address, income_sources, expenses,
           max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
           monthly_income, monthly_expenses, monthly_margin,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
@@ -395,6 +411,9 @@ export async function POST(event: APIEvent) {
           ${certificationsSQL},
           ${escapeSQL(body.city)},
           ${escapeSQL(body.citySize)},
+          ${body.latitude != null ? body.latitude : 'NULL'},
+          ${body.longitude != null ? body.longitude : 'NULL'},
+          ${escapeSQL(body.address)},
           ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
           ${body.expenses ? escapeSQL(JSON.stringify(body.expenses)) : 'NULL'},
           ${body.maxWorkHoursWeekly || 'NULL'},
