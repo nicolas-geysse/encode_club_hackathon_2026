@@ -109,19 +109,20 @@ pnpm dev:mcp          # MCP Server (stdio)
 ## Observability with Opik
 
 Every recommendation is traced:
-- Why this job? → `score_calculation` trace
-- Why this reduced goal? → `energy_debt_check` trace
-- How do my swipes influence? → `preference_learning` trace
+- **Why this job?** → `job_matcher_graph` trace with score breakdown
+- **How do my swipes influence?** → `swipe.preference_update` trace with weight deltas
+- **Is this advice safe?** → `guardian_validation` trace with risk checks
+- **Is the user happy?** → `feedback.score` trace from chat interactions
 
-Details: [docs/OPIK.md](docs/OPIK.md)
+Details: [docs/architecture/guideline-opik.md](docs/architecture/guideline-opik.md)
 
 ---
 
 ## Documentation
 
-- [OPIK.md](docs/OPIK.md) - Opik integration + traces
-- [SCREENS_AND_EVALS.md](docs/SCREENS_AND_EVALS.md) - Screen details
-- [PLAN.md](docs/PLAN.md) - Full architecture
+- [guideline-opik.md](docs/architecture/guideline-opik.md) - Opik integration + traces
+- [overview.md](docs/architecture/overview.md) - Architecture overview
+- [ROADMAP.md](docs/ROADMAP.md) - Project roadmap
 - [tabpfn-eval.md](docs/tabpfn-eval.md) - TabPFN 2.5 ML evaluation (R&D)
 
 ---
