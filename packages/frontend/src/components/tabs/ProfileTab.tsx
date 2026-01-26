@@ -8,7 +8,8 @@
  * are reflected in ProfileSelector and other components.
  */
 
-import { createSignal, Show, For, createEffect } from 'solid-js';
+import { createSignal, Show, For, createEffect, onCleanup, on } from 'solid-js';
+import { createDirtyState } from '~/hooks/createDirtyState';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
 import { toast } from '~/lib/notificationStore';
@@ -32,7 +33,12 @@ import {
   X,
   Plus,
   Wallet,
+  Search,
+  Loader2,
+  LocateFixed,
 } from 'lucide-solid';
+import { getCurrentLocation, isGeolocationSupported } from '~/lib/geolocation';
+import ProfileMap, { type LocationChangeData } from './ProfileMap';
 
 // Alias for cleaner code
 type Profile = FullProfile;
@@ -41,6 +47,8 @@ interface ProfileTabProps {
   onProfileChange?: (profile: Partial<Profile>) => void;
   /** Callback to switch to the Budget tab */
   onNavigateToBudget?: () => void;
+  /** Callback when dirty state changes (for parent to track unsaved changes) */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 export function ProfileTab(props: ProfileTabProps) {
@@ -58,6 +66,87 @@ export function ProfileTab(props: ProfileTabProps) {
   const [saving, setSaving] = createSignal(false);
   // BUG 5 FIX: State for new certification input
   const [newCertification, setNewCertification] = createSignal('');
+  // City search with debounce
+  const [citySearchInput, setCitySearchInput] = createSignal('');
+  const [citySearchQuery, setCitySearchQuery] = createSignal('');
+  const [isSearching, setIsSearching] = createSignal(false);
+  const [isGeolocating, setIsGeolocating] = createSignal(false);
+  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Dirty state tracking for unsaved changes warning
+  const {
+    isDirty,
+    setOriginal,
+    clear: clearDirty,
+  } = createDirtyState({
+    getCurrentValues: () => ({
+      name: editedProfile().name,
+      diploma: editedProfile().diploma,
+      field: editedProfile().field,
+      city: editedProfile().city,
+      address: editedProfile().address,
+      latitude: editedProfile().latitude,
+      longitude: editedProfile().longitude,
+      maxWorkHoursWeekly: editedProfile().maxWorkHoursWeekly,
+      minHourlyRate: editedProfile().minHourlyRate,
+      certifications: editedProfile().certifications,
+    }),
+  });
+
+  // Notify parent when dirty state changes
+  createEffect(
+    on(isDirty, (dirty) => {
+      props.onDirtyChange?.(dirty);
+    })
+  );
+
+  // Debounced city search - triggers after 500ms of no typing
+  const handleCitySearch = (value: string) => {
+    setCitySearchInput(value);
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+    if (value.trim().length >= 2) {
+      searchDebounceTimer = setTimeout(() => {
+        setCitySearchQuery(value.trim());
+      }, 500);
+    }
+  };
+
+  // Use browser geolocation to auto-detect location
+  const handleUseMyLocation = async () => {
+    if (!isGeolocationSupported()) {
+      toast.error('Not supported', 'Geolocation is not supported by your browser');
+      return;
+    }
+
+    setIsGeolocating(true);
+    try {
+      const result = await getCurrentLocation();
+      setEditedProfile({
+        ...editedProfile(),
+        latitude: result.coordinates.latitude,
+        longitude: result.coordinates.longitude,
+        city: result.city,
+        // Currency can also be updated based on location
+        currency: result.currency || editedProfile().currency,
+      });
+      setCitySearchInput(result.city);
+      toast.success('Location found', `Your location: ${result.city}, ${result.country}`);
+    } catch (err) {
+      const error = err as { message?: string };
+      toast.error('Location failed', error.message || 'Could not get your location');
+    } finally {
+      setIsGeolocating(false);
+    }
+  };
+
+  // Cleanup debounce timer
+  onCleanup(() => {
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+  });
 
   // Derived profile getter for cleaner access
   const profile = () => contextProfile();
@@ -87,6 +176,10 @@ export function ProfileTab(props: ProfileTabProps) {
       // 2. Other components using the context get the new data
       await refreshProfile();
 
+      // Reset search state and dirty tracking
+      setCitySearchInput('');
+      setCitySearchQuery('');
+      clearDirty();
       setEditing(false);
       props.onProfileChange?.(updates);
     } catch {
@@ -100,7 +193,19 @@ export function ProfileTab(props: ProfileTabProps) {
     if (profile()) {
       setEditedProfile(profile()!);
     }
+    // Reset search state and dirty tracking
+    setCitySearchInput('');
+    setCitySearchQuery('');
+    clearDirty();
     setEditing(false);
+  };
+
+  // Initialize search input and dirty tracking when entering edit mode
+  const handleStartEdit = () => {
+    setCitySearchInput(profile()?.city || '');
+    setCitySearchQuery('');
+    setOriginal(); // Capture current values for dirty tracking
+    setEditing(true);
   };
 
   return (
@@ -114,7 +219,7 @@ export function ProfileTab(props: ProfileTabProps) {
           <p class="text-sm text-muted-foreground mt-1">Your personal and financial information</p>
         </div>
         <Show when={!editing() && profile()}>
-          <Button onClick={() => setEditing(true)}>Edit</Button>
+          <Button onClick={handleStartEdit}>Edit</Button>
         </Show>
       </div>
 
@@ -209,44 +314,76 @@ export function ProfileTab(props: ProfileTabProps) {
           </CardContent>
         </Card>
 
-        {/* Personal Info Card */}
+        {/* Personal Info Card - 2 Column Layout */}
         <Card>
           <CardContent class="p-6">
             <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
               <ClipboardList class="h-4 w-4" /> Personal Information
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Name
-                </label>
-                <p class="text-lg font-medium text-foreground mt-1">
-                  {profile()?.name || 'Not set'}
-                </p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column: Identity */}
+              <div class="space-y-4">
+                <div>
+                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                    Name
+                  </label>
+                  <p class="text-lg font-medium text-foreground mt-1">
+                    {profile()?.name || 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                    Diploma
+                  </label>
+                  <p class="text-lg font-medium text-foreground mt-1">
+                    {profile()?.diploma || 'Not set'}
+                  </p>
+                </div>
+                <div>
+                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                    Field of Study
+                  </label>
+                  <p class="text-lg font-medium text-foreground mt-1">
+                    {profile()?.field || 'Not set'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  City
-                </label>
-                <p class="text-lg font-medium text-foreground mt-1">
-                  {profile()?.city || 'Not set'}
-                </p>
-              </div>
-              <div>
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Diploma
-                </label>
-                <p class="text-lg font-medium text-foreground mt-1">
-                  {profile()?.diploma || 'Not set'}
-                </p>
-              </div>
-              <div>
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Field of Study
-                </label>
-                <p class="text-lg font-medium text-foreground mt-1">
-                  {profile()?.field || 'Not set'}
-                </p>
+
+              {/* Right Column: Location */}
+              <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                      City
+                    </label>
+                    <p class="text-lg font-medium text-foreground mt-1">
+                      {profile()?.city || 'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                      Address
+                    </label>
+                    <p
+                      class="text-lg font-medium text-foreground mt-1 truncate"
+                      title={profile()?.address}
+                    >
+                      {profile()?.address || 'Not set'}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2 block">
+                    Location
+                  </label>
+                  <ProfileMap
+                    latitude={profile()?.latitude}
+                    longitude={profile()?.longitude}
+                    cityName={profile()?.city}
+                    editable={false}
+                    height="160px"
+                  />
+                </div>
               </div>
             </div>
           </CardContent>
@@ -329,60 +466,145 @@ export function ProfileTab(props: ProfileTabProps) {
       {/* Edit Form */}
       <Show when={editing()}>
         <div class="space-y-4">
-          {/* Personal Info */}
+          {/* Personal Info - 2 Column Layout */}
           <Card>
             <CardContent class="p-6 space-y-4">
               <h3 class="text-sm font-medium text-muted-foreground mb-4">Personal Information</h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Name
-                  </label>
-                  <Input
-                    type="text"
-                    value={editedProfile().name || ''}
-                    onInput={(e) =>
-                      setEditedProfile({ ...editedProfile(), name: e.currentTarget.value })
-                    }
-                  />
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column: Identity */}
+                <div class="space-y-4">
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Name
+                    </label>
+                    <Input
+                      type="text"
+                      value={editedProfile().name || ''}
+                      onInput={(e) =>
+                        setEditedProfile({ ...editedProfile(), name: e.currentTarget.value })
+                      }
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Diploma
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., Bachelor, Master, PhD"
+                      value={editedProfile().diploma || ''}
+                      onInput={(e) =>
+                        setEditedProfile({ ...editedProfile(), diploma: e.currentTarget.value })
+                      }
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Field of Study
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., Computer Science, Law, Business"
+                      value={editedProfile().field || ''}
+                      onInput={(e) =>
+                        setEditedProfile({ ...editedProfile(), field: e.currentTarget.value })
+                      }
+                    />
+                  </div>
                 </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    City
-                  </label>
-                  <Input
-                    type="text"
-                    value={editedProfile().city || ''}
-                    onInput={(e) =>
-                      setEditedProfile({ ...editedProfile(), city: e.currentTarget.value })
-                    }
-                  />
-                </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Diploma
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="e.g., Bachelor, Master, PhD"
-                    value={editedProfile().diploma || ''}
-                    onInput={(e) =>
-                      setEditedProfile({ ...editedProfile(), diploma: e.currentTarget.value })
-                    }
-                  />
-                </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Field of Study
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="e.g., Computer Science, Law, Business"
-                    value={editedProfile().field || ''}
-                    onInput={(e) =>
-                      setEditedProfile({ ...editedProfile(), field: e.currentTarget.value })
-                    }
-                  />
+
+                {/* Right Column: Location */}
+                <div class="space-y-4">
+                  {/* Location Input */}
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Location
+                    </label>
+                    {/* Use my location button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      class="w-full justify-center gap-2"
+                      onClick={handleUseMyLocation}
+                      disabled={isGeolocating()}
+                    >
+                      <Show when={isGeolocating()} fallback={<LocateFixed class="h-4 w-4" />}>
+                        <Loader2 class="h-4 w-4 animate-spin" />
+                      </Show>
+                      {isGeolocating() ? 'Detecting location...' : 'Use my location'}
+                    </Button>
+                    {/* City search input */}
+                    <div class="relative">
+                      <Input
+                        type="text"
+                        placeholder="Or search a city (e.g., Paris, London)"
+                        value={citySearchInput()}
+                        onInput={(e) => handleCitySearch(e.currentTarget.value)}
+                        class="pr-10"
+                      />
+                      <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Show
+                          when={isSearching()}
+                          fallback={<Search class="h-4 w-4 text-muted-foreground" />}
+                        >
+                          <Loader2 class="h-4 w-4 text-primary animate-spin" />
+                        </Show>
+                      </div>
+                    </div>
+                    <p class="text-xs text-muted-foreground">
+                      Use geolocation, search, or drag the marker on the map.
+                    </p>
+                  </div>
+
+                  {/* Map */}
+                  <div class="space-y-2">
+                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Location
+                    </label>
+                    <ProfileMap
+                      latitude={editedProfile().latitude}
+                      longitude={editedProfile().longitude}
+                      cityName={editedProfile().city}
+                      editable={true}
+                      height="200px"
+                      searchQuery={citySearchQuery()}
+                      onSearching={setIsSearching}
+                      onLocationChange={(location: LocationChangeData) => {
+                        setEditedProfile({
+                          ...editedProfile(),
+                          latitude: location.latitude,
+                          longitude: location.longitude,
+                          city: location.city,
+                          address: location.address || editedProfile().address,
+                        });
+                        // Update search input to match the new city
+                        setCitySearchInput(location.city);
+                      }}
+                    />
+                  </div>
+
+                  {/* City and Address shown as read-only, auto-updated by map */}
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        City
+                      </label>
+                      <p class="text-base font-medium text-foreground mt-1">
+                        {editedProfile().city || 'Search or move marker'}
+                      </p>
+                    </div>
+                    <div>
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Address
+                      </label>
+                      <p
+                        class="text-base font-medium text-foreground mt-1 truncate"
+                        title={editedProfile().address}
+                      >
+                        {editedProfile().address || 'Will be auto-filled'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>

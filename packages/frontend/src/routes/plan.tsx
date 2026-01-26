@@ -528,6 +528,7 @@ export default function PlanPage() {
                 <ProfileTab
                   onProfileChange={handleProfileChange}
                   onNavigateToBudget={() => setActiveTab('budget')}
+                  onDirtyChange={setIsCurrentTabDirty}
                 />
               </TabsContent>
 
