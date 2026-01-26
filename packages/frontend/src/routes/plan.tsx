@@ -1,7 +1,7 @@
 /**
  * My Plan Page (plan.tsx)
  *
- * 6 tabs: Profile, Goals, Skills, Lifestyle, Trade, Swipe
+ * 7 tabs: Profile, Goals, Skills, Lifestyle, Trade, Swipe, Prospection
  * Now uses profileService for DuckDB persistence instead of localStorage.
  */
 
@@ -14,6 +14,7 @@ import { SkillsTab } from '~/components/tabs/SkillsTab';
 import { BudgetTab } from '~/components/tabs/BudgetTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab, type UserPreferences } from '~/components/tabs/SwipeTab';
+import { ProspectionTab } from '~/components/tabs/ProspectionTab';
 import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
@@ -31,7 +32,17 @@ import { Card } from '~/components/ui/Card';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/Sheet';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
-import { Check, User, Target, Briefcase, PiggyBank, Handshake, Dices, Menu } from 'lucide-solid';
+import {
+  Check,
+  User,
+  Target,
+  Briefcase,
+  PiggyBank,
+  Handshake,
+  Dices,
+  Menu,
+  Compass,
+} from 'lucide-solid';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 
 // Types for plan data - local types for plan-specific structures
@@ -128,6 +139,7 @@ const TABS = [
   { id: 'budget', label: 'Budget', icon: 'PiggyBank' },
   { id: 'trade', label: 'Trade', icon: 'Handshake' },
   { id: 'swipe', label: 'Swipe', icon: 'Dices' },
+  { id: 'prospection', label: 'Jobs', icon: 'Compass' },
 ] as const;
 
 // Helper to map string icon names to components for Dynamic
@@ -138,6 +150,7 @@ const ICON_MAP = {
   PiggyBank,
   Handshake,
   Dices,
+  Compass,
 };
 
 export default function PlanPage() {
@@ -644,6 +657,22 @@ export default function PlanPage() {
                   }
                   onPreferencesChange={handleSwipePreferencesChange}
                   onScenariosSelected={handleScenariosSelected}
+                />
+              </TabsContent>
+
+              <TabsContent value="prospection" class="mt-0">
+                <ProspectionTab
+                  profileId={activeProfile()?.id}
+                  userLocation={
+                    activeProfile()?.latitude && activeProfile()?.longitude
+                      ? {
+                          lat: activeProfile()!.latitude!,
+                          lng: activeProfile()!.longitude!,
+                        }
+                      : undefined
+                  }
+                  city={activeProfile()?.city}
+                  currency={activeProfile()?.currency}
                 />
               </TabsContent>
             </div>
