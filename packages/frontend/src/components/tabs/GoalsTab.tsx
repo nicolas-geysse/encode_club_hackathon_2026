@@ -44,17 +44,25 @@ import { RetroplanPanel } from '~/components/RetroplanPanel';
 import { WhatIfSimulator } from '~/components/WhatIfSimulator';
 import { WeeklyProgressCards } from '~/components/WeeklyProgressCards';
 import { EarningsChart } from '~/components/EarningsChart';
+import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import { FlaskConical } from 'lucide-solid';
 import GoalComponentsList from '~/components/GoalComponentsList';
 import type { Mission } from '~/components/suivi/MissionCard';
 
 // FollowupData structure from /suivi page (stored in profile.followupData)
+interface SavingsAdjustment {
+  amount: number;
+  note?: string;
+  adjustedAt: string;
+}
+
 interface FollowupData {
   currentAmount: number;
   weeklyTarget: number;
   currentWeek: number;
   totalWeeks: number;
   missions: Mission[];
+  savingsAdjustments?: Record<number, SavingsAdjustment>;
 }
 
 interface AcademicEvent {
@@ -117,6 +125,10 @@ export function GoalsTab(props: GoalsTabProps) {
   const profile = () => context.profile();
   const refreshProfile = () => context.refreshProfile({ silent: true });
 
+  // Bug 3 Fix: Use profile context for income/lifestyle data (for pig badges)
+  const contextIncome = () => context.income();
+  const contextLifestyle = () => context.lifestyle();
+
   // Currency from props, defaults to USD
   const currency = () => props.currency || 'USD';
   const currencySymbol = () => getCurrencySymbol(currency());
@@ -126,6 +138,24 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // Combine context loading with local initialization
   const loading = () => context.loading();
+
+  // Bug 3 Fix: Calculate monthly margin from actual DB data (income_items - lifestyle_items)
+  const monthlyMargin = createMemo(() => {
+    const incomeItems = contextIncome();
+    const lifestyleItems = contextLifestyle();
+
+    const incomeTotal = incomeItems.reduce((sum, item) => sum + item.amount, 0);
+    const expensesTotal = lifestyleItems
+      .filter((item) => item.pausedMonths === 0) // Only count active expenses
+      .reduce((sum, item) => sum + item.currentCost, 0);
+
+    // Return undefined if no data (to preserve fallback behavior)
+    if (incomeTotal === 0 && expensesTotal === 0) {
+      return undefined;
+    }
+
+    return incomeTotal - expensesTotal;
+  });
 
   // Get followup data from profile for weekly earnings (used by WeeklyProgressCards)
   const followupData = () => profile()?.followupData as FollowupData | undefined;
@@ -249,6 +279,13 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // What-If Simulator state
   const [showWhatIf, setShowWhatIf] = createSignal(false);
+
+  // Savings adjustment modal state
+  const [showSavingsAdjust, setShowSavingsAdjust] = createSignal(false);
+  const [adjustingWeek, setAdjustingWeek] = createSignal<{
+    weekNumber: number;
+    amount: number;
+  } | null>(null);
 
   // Available parent goals for conditional goals
   const availableParentGoals = createMemo(() => {
@@ -649,6 +686,40 @@ export function GoalsTab(props: GoalsTabProps) {
       status: newStatus,
       progress: newStatus === 'completed' ? 100 : goal.progress,
     });
+  };
+
+  // Savings adjustment handlers
+  const handleOpenSavingsAdjust = (weekNumber: number, currentAmount: number) => {
+    setAdjustingWeek({ weekNumber, amount: currentAmount });
+    setShowSavingsAdjust(true);
+  };
+
+  const handleSavingsAdjust = async (amount: number, note?: string) => {
+    const week = adjustingWeek();
+    if (!week) return;
+
+    const currentFollowup: Partial<FollowupData> = followupData() || {};
+    const currentAdjustments = currentFollowup.savingsAdjustments || {};
+
+    const updatedFollowup = {
+      ...currentFollowup,
+      savingsAdjustments: {
+        ...currentAdjustments,
+        [week.weekNumber]: { amount, note, adjustedAt: new Date().toISOString() },
+      },
+    };
+
+    const currentProfile = profile();
+    if (currentProfile) {
+      await profileService.saveProfile(
+        { ...currentProfile, followupData: updatedFollowup },
+        { setActive: false }
+      );
+      await refreshProfile();
+    }
+
+    setShowSavingsAdjust(false);
+    setAdjustingWeek(null);
   };
 
   const getTypeIcon = (type: GoalComponent['type']) => {
@@ -1112,6 +1183,10 @@ export function GoalsTab(props: GoalsTabProps) {
                                   hourlyRate={profile()?.minHourlyRate}
                                   weeklyEarnings={weeklyEarnings()}
                                   simulatedDate={props.simulatedDate}
+                                  incomeDay={profile()?.incomeDay}
+                                  monthlyMargin={monthlyMargin()}
+                                  savingsAdjustments={followupData()?.savingsAdjustments}
+                                  onAdjustSavings={handleOpenSavingsAdjust}
                                 />
                               )}
                             </Show>
@@ -1129,6 +1204,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                 goal={goals().find((g) => g.id === goalId)!}
                                 currency={currency()}
                                 adjustedWeeklyTarget={avgAdjustedTarget() ?? undefined}
+                                currentSaved={followupData()?.currentAmount}
                               />
                             )}
                           </Show>
@@ -1930,6 +2006,22 @@ export function GoalsTab(props: GoalsTabProps) {
         onDiscard={handleDiscardChanges}
         onKeepEditing={() => setShowUnsavedDialog(false)}
       />
+
+      {/* Savings adjustment modal */}
+      <Show when={adjustingWeek()}>
+        <SavingsAdjustModal
+          isOpen={showSavingsAdjust()}
+          weekNumber={adjustingWeek()!.weekNumber}
+          expectedAmount={monthlyMargin() || 0}
+          currentAmount={adjustingWeek()!.amount}
+          currency={currency()}
+          onSave={handleSavingsAdjust}
+          onClose={() => {
+            setShowSavingsAdjust(false);
+            setAdjustingWeek(null);
+          }}
+        />
+      </Show>
     </div>
   );
 }
