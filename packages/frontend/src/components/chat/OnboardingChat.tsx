@@ -751,14 +751,41 @@ export function OnboardingChat() {
           // Complete profile -> conversation mode
           setChatMode('conversation');
           setStep('complete');
-          setMessages([
-            {
-              id: 'welcome-back',
-              role: 'assistant',
-              content: getWelcomeBackMessage(apiProfile.name!),
-            },
-          ]);
           setIsComplete(true);
+
+          // Try to load chat history from DuckDB first
+          try {
+            const historyRes = await fetch(`/api/chat-history?profileId=${apiProfile.id}&limit=50`);
+            if (historyRes.ok) {
+              const dbMessages = await historyRes.json();
+              if (Array.isArray(dbMessages) && dbMessages.length > 0) {
+                setMessages(dbMessages);
+                logger.info('Loaded chat history from DB for returning user', {
+                  count: dbMessages.length,
+                });
+              } else {
+                // No history in DB, show welcome back
+                setMessages([
+                  {
+                    id: 'welcome-back',
+                    role: 'assistant',
+                    content: getWelcomeBackMessage(apiProfile.name!),
+                  },
+                ]);
+              }
+            } else {
+              throw new Error('Failed to fetch chat history');
+            }
+          } catch (e) {
+            logger.warn('Could not load chat history, showing welcome message', { error: e });
+            setMessages([
+              {
+                id: 'welcome-back',
+                role: 'assistant',
+                content: getWelcomeBackMessage(apiProfile.name!),
+              },
+            ]);
+          }
         } else {
           // Incomplete profile -> resume onboarding at the right step
           const resumeStep = determineResumeStep(apiProfile);
