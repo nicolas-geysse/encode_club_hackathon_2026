@@ -672,7 +672,8 @@ export function SkillsTab(props: SkillsTabProps) {
                         {formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}
                       </span>
                       <span class="flex items-center gap-1" title="Market Demand">
-                        <Users class="h-3 w-3 text-yellow-500" /> {skill.marketDemand}/5
+                        <Users class="h-3 w-3 text-yellow-500" />{' '}
+                        {skill.marketDemand ? `${skill.marketDemand}/5` : '?'}
                       </span>
                       <span class="flex items-center gap-1" title="Cognitive Effort">
                         <BrainCircuit class="h-3 w-3 text-pink-500" />{' '}
@@ -799,10 +800,12 @@ export function SkillsTab(props: SkillsTabProps) {
                     </div>
                   </label>
                   <IconRating
-                    value={newSkill().marketDemand || 3}
+                    value={newSkill().marketDemand ?? 0}
                     max={5}
                     icon={Users}
                     activeColor="text-yellow-500"
+                    emptyLabel="Unknown (let Stride help you find out)"
+                    showNoneOption={true}
                     onChange={(val) => setNewSkill({ ...newSkill(), marketDemand: val })}
                     labels={['Very low', 'Low', 'Moderate', 'High', 'Very high']}
                   />
