@@ -209,6 +209,15 @@ export function SwipeSession(props: SwipeSessionProps) {
     const updatedPrefs = updatePreferences(preferences(), scenario, direction, adjustments());
     setPreferences(updatedPrefs);
 
+    // Sprint 13.5: Debug log for swipe preference tracking
+    // eslint-disable-next-line no-console
+    console.debug('[SwipeSession] Preferences updated:', {
+      direction,
+      scenarioId: scenario.id,
+      previousPrefs,
+      updatedPrefs,
+    });
+
     // Trace to Opik (fire-and-forget, non-blocking but with proper error handling)
     fetch('/api/swipe-trace', {
       method: 'POST',

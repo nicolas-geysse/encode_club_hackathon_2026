@@ -390,6 +390,10 @@ export default function PlanPage() {
 
   // BUG 2 FIX: Actually save swipe preferences to profile
   const handleSwipePreferencesChange = async (prefs: UserPreferences) => {
+    // Sprint 13.5: Debug log for swipe preference tracking
+    // eslint-disable-next-line no-console
+    console.debug('[plan.tsx] Saving swipe preferences:', prefs);
+
     markTabComplete('swipe');
 
     // Save preferences to profile via API
@@ -413,6 +417,9 @@ export default function PlanPage() {
         );
         // Refresh profile to update context
         await refreshProfile();
+        // Sprint 13.5: Debug log for swipe preference tracking
+        // eslint-disable-next-line no-console
+        console.debug('[plan.tsx] Swipe preferences saved to DB:', swipePreferences);
       } catch (err) {
         console.error('Failed to save swipe preferences', err);
       }

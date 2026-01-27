@@ -6,10 +6,37 @@
  * - Comeback detection status
  * - Energy debt status
  * - User preference weights
+ *
+ * Sprint 13.5: Now reads from profiles.followup_data.energyHistory (not energy_logs table)
+ *              and uses the same algorithms as tips-orchestrator for consistency.
  */
 
 import type { APIEvent } from '@solidjs/start/server';
 import { query, initDatabase } from './_db';
+
+// ============================================
+// TYPES (aligned with mcp-server algorithms)
+// ============================================
+
+interface EnergyEntry {
+  week: number;
+  level: number; // 0-100
+  date: string;
+}
+
+type DebtSeverity = 'low' | 'medium' | 'high';
+
+interface EnergyDebtResult {
+  detected: boolean;
+  consecutiveLowWeeks: number;
+  severity: DebtSeverity;
+}
+
+interface ComebackResult {
+  detected: boolean;
+  confidenceScore: number;
+  deficitWeeks: number;
+}
 
 interface DebugState {
   // Energy state
@@ -38,6 +65,100 @@ interface DebugState {
   };
 }
 
+// ============================================
+// ALGORITHMS (copied from mcp-server for consistency)
+// ============================================
+
+/**
+ * Detect energy debt from energy history
+ * Matches: packages/mcp-server/src/algorithms/energy-debt.ts:80-121
+ */
+function detectEnergyDebt(history: EnergyEntry[], threshold = 40): EnergyDebtResult {
+  const minConsecutiveWeeks = 3;
+
+  // Need at least minConsecutiveWeeks of data
+  if (history.length < minConsecutiveWeeks) {
+    return { detected: false, consecutiveLowWeeks: 0, severity: 'low' };
+  }
+
+  // Count consecutive low weeks from most recent
+  let consecutiveLow = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].level < threshold) {
+      consecutiveLow++;
+    } else {
+      break; // Chain broken
+    }
+  }
+
+  // Not enough consecutive low weeks
+  if (consecutiveLow < minConsecutiveWeeks) {
+    return { detected: false, consecutiveLowWeeks: 0, severity: 'low' };
+  }
+
+  // Determine severity (matches mcp-server logic)
+  const severity: DebtSeverity =
+    consecutiveLow >= 5 ? 'high' : consecutiveLow >= 4 ? 'medium' : 'low';
+
+  return {
+    detected: true,
+    consecutiveLowWeeks: consecutiveLow,
+    severity,
+  };
+}
+
+/**
+ * Detect a comeback window from energy history
+ * Matches: packages/mcp-server/src/algorithms/comeback-detection.ts:100-143
+ *
+ * A comeback is detected when:
+ * 1. At least 3 data points
+ * 2. At least 2 low weeks (energy < 40%)
+ * 3. Current energy > 80%
+ * 4. Previous energy < 50%
+ */
+function detectComebackWindow(energyLevels: number[]): ComebackResult | null {
+  const lowThreshold = 40;
+  const recoveryThreshold = 80;
+  const previousThreshold = 50;
+  const minLowWeeks = 2;
+
+  // Need at least 3 data points
+  if (energyLevels.length < 3) {
+    return null;
+  }
+
+  // Count low weeks
+  const lowWeeks = energyLevels.filter((e) => e < lowThreshold);
+
+  // Get current and previous energy
+  const currentEnergy = energyLevels[energyLevels.length - 1];
+  const previousEnergy = energyLevels[energyLevels.length - 2] || 50;
+
+  // Check comeback conditions
+  const hasEnoughLowWeeks = lowWeeks.length >= minLowWeeks;
+  const isRecovered = currentEnergy > recoveryThreshold;
+  const wasLow = previousEnergy < previousThreshold;
+
+  if (!hasEnoughLowWeeks || !isRecovered || !wasLow) {
+    return null;
+  }
+
+  // Calculate confidence based on recovery strength
+  const recoveryDelta = currentEnergy - previousEnergy;
+  const confidenceScore = Math.min(1, recoveryDelta / 50); // 50+ point jump = max confidence
+
+  return {
+    detected: true,
+    confidenceScore,
+    deficitWeeks: lowWeeks.length,
+  };
+}
+
+// ============================================
+// API HANDLER
+// ============================================
+
 export async function GET(event: APIEvent) {
   try {
     const url = new URL(event.request.url);
@@ -65,62 +186,88 @@ export async function GET(event: APIEvent) {
       });
     }
 
-    // Get energy logs (last 8 weeks)
-    let energyResult: Record<string, unknown>[] = [];
-    try {
-      energyResult = await query<Record<string, unknown>>(
-        `SELECT energy_level, week_number FROM energy_logs
-         WHERE profile_id = '${profileId.replace(/'/g, "''")}'
-         ORDER BY week_number DESC
-         LIMIT 8`
-      );
-    } catch {
-      // energy_logs table might not exist yet
-      energyResult = [];
+    // ============================================
+    // SPRINT 13.5 FIX: Read energy from followup_data
+    // ============================================
+
+    let energyEntries: EnergyEntry[] = [];
+    let energyHistory: number[] = [];
+
+    if (profile.followup_data) {
+      try {
+        const followupData =
+          typeof profile.followup_data === 'string'
+            ? JSON.parse(profile.followup_data)
+            : profile.followup_data;
+
+        if (Array.isArray(followupData?.energyHistory)) {
+          // Take last 8 entries (same as before)
+          energyEntries = followupData.energyHistory.slice(-8);
+          energyHistory = energyEntries.map((e: EnergyEntry) => e.level);
+        }
+      } catch (parseErr) {
+        console.error('[DebugState] Failed to parse followup_data:', parseErr);
+      }
     }
 
-    const energyHistory = energyResult.map((r) => Number(r.energy_level || 50)).reverse();
     const currentEnergy = energyHistory[energyHistory.length - 1] || 50;
 
-    // Analyze energy state
-    const lowWeeks = energyHistory.filter((e) => e < 40).length;
-    const consecutiveLowWeeks = countConsecutiveLow(energyHistory);
-    const previousEnergy = energyHistory[energyHistory.length - 2] || 50;
+    // ============================================
+    // SPRINT 13.5 FIX: Use real algorithms
+    // ============================================
 
-    // Determine state
+    // Energy Debt detection (using EnergyEntry format for proper algorithm)
+    const energyDebt = detectEnergyDebt(energyEntries);
+
+    // Comeback detection (using number[] for that algorithm)
+    const comeback = detectComebackWindow(energyHistory);
+
+    // Determine state (mutually exclusive: Comeback > Debt > Normal)
     let energyState: DebugState['energyState'] = 'Normal';
     let energyConfidence = 70;
     let comebackActive = false;
     let debtDetected = false;
     let debtSeverity: DebugState['debtSeverity'] = null;
 
-    // Comeback detection: current > 80%, previous < 50%, had 2+ low weeks
-    if (lowWeeks >= 2 && currentEnergy > 80 && previousEnergy < 50) {
+    // Comeback takes priority (it means we've recovered from debt)
+    if (comeback?.detected) {
       energyState = 'Comeback Active';
       comebackActive = true;
-      energyConfidence = 85;
-    }
-    // Energy debt: 3+ consecutive weeks below 40%
-    else if (consecutiveLowWeeks >= 3) {
+      energyConfidence = Math.round(comeback.confidenceScore * 100);
+    } else if (energyDebt.detected) {
       energyState = 'Energy Debt';
       debtDetected = true;
+      // Map algorithm severity to display severity
       debtSeverity =
-        consecutiveLowWeeks >= 5 ? 'severe' : consecutiveLowWeeks >= 4 ? 'moderate' : 'mild';
+        energyDebt.severity === 'high'
+          ? 'severe'
+          : energyDebt.severity === 'medium'
+            ? 'moderate'
+            : 'mild';
       energyConfidence = 80;
     }
 
     // Get swipe preferences
-    const swipePrefs = profile.swipe_preferences
-      ? JSON.parse(profile.swipe_preferences as string)
-      : {
-          effort_sensitivity: 0.5,
-          hourly_rate_priority: 0.5,
-          time_flexibility: 0.5,
-          income_stability: 0.5,
-        };
+    let swipePrefs = {
+      effort_sensitivity: 0.5,
+      hourly_rate_priority: 0.5,
+      time_flexibility: 0.5,
+      income_stability: 0.5,
+    };
+
+    if (profile.swipe_preferences) {
+      try {
+        swipePrefs =
+          typeof profile.swipe_preferences === 'string'
+            ? JSON.parse(profile.swipe_preferences)
+            : profile.swipe_preferences;
+      } catch {
+        // Keep defaults
+      }
+    }
 
     // Calculate comeback metrics
-    const deficitWeeks = lowWeeks;
+    const deficitWeeks = comeback?.deficitWeeks || energyHistory.filter((e) => e < 40).length;
     const comebackDeficit = calculateDeficit(energyHistory, profile);
     const recoveryProgress = comebackActive ? Math.round((currentEnergy / 100) * 100) : 0;
 
@@ -137,7 +284,7 @@ export async function GET(event: APIEvent) {
 
       debtDetected,
       debtSeverity,
-      debtWeeks: consecutiveLowWeeks,
+      debtWeeks: energyDebt.consecutiveLowWeeks,
 
       prefs: {
         effortSensitivity: swipePrefs.effort_sensitivity || 0.5,
@@ -163,20 +310,11 @@ export async function GET(event: APIEvent) {
   }
 }
 
-// Helper: count consecutive low energy weeks from the end
-function countConsecutiveLow(history: number[]): number {
-  let count = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i] < 40) {
-      count++;
-    } else {
-      break;
-    }
-  }
-  return count;
-}
+// ============================================
+// HELPERS
+// ============================================
 
-// Helper: estimate deficit based on low weeks and goal
+// Estimate deficit based on low weeks and goal
 function calculateDeficit(history: number[], profile: Record<string, unknown>): number {
   const lowWeeks = history.filter((e) => e < 40).length;
   const weeklyTarget = profile.weekly_target ? Number(profile.weekly_target) : 100;

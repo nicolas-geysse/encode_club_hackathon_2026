@@ -257,6 +257,10 @@ export function SwipeTab(props: SwipeTabProps) {
       `${scenarioCount} scenario${scenarioCount > 1 ? 's' : ''} added to your plan`
     );
 
+    // Sprint 13.5: Debug log for swipe preference tracking
+    // eslint-disable-next-line no-console
+    console.debug('[SwipeTab] Calling onPreferencesChange:', prefs);
+
     // Call the callbacks after a short delay to let celebration start
     setTimeout(() => {
       props.onPreferencesChange?.(prefs);
