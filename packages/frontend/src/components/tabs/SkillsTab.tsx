@@ -151,6 +151,8 @@ interface IconRatingProps {
   labels?: string[];
   activeColor?: string;
   emptyLabel?: string;
+  /** Show a "none" button at the start to allow clearing to 0 */
+  showNoneOption?: boolean;
 }
 
 function IconRating(props: IconRatingProps) {
@@ -173,6 +175,34 @@ function IconRating(props: IconRatingProps) {
   return (
     <div class="space-y-2">
       <div class="flex items-center gap-1 flex-wrap">
+        {/* "None" option - crossed out icon to clear selection */}
+        <Show when={props.showNoneOption}>
+          <button
+            type="button"
+            class={`focus:outline-none transition-transform hover:scale-110 active:scale-95 p-0.5 relative ${
+              props.value === 0 ? 'ring-2 ring-primary ring-offset-1 rounded' : ''
+            }`}
+            onMouseEnter={() => setHoverValue(0)}
+            onMouseLeave={() => setHoverValue(null)}
+            onClick={() => props.onChange(0)}
+            title="No rest needed"
+          >
+            <props.icon
+              class={`h-6 w-6 transition-colors ${
+                hoverValue() === 0 || props.value === 0
+                  ? 'text-muted-foreground'
+                  : 'text-muted-foreground/20'
+              }`}
+              fill="none"
+            />
+            {/* Strikethrough line */}
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-7 h-0.5 bg-red-500 rotate-45 rounded-full" />
+            </div>
+          </button>
+          <div class="w-px h-6 bg-border mx-1" /> {/* Separator */}
+        </Show>
+
         <For each={Array.from({ length: props.max }, (_, i) => i + 1)}>
           {(rating) => (
             <button
@@ -811,11 +841,12 @@ export function SkillsTab(props: SkillsTabProps) {
                     </div>
                   </label>
                   <IconRating
-                    value={getClosestRestStepIndex(newSkill().restNeeded || 0)}
+                    value={getClosestRestStepIndex(newSkill().restNeeded ?? 0)}
                     max={10}
                     icon={Bed}
                     activeColor="text-indigo-500"
                     emptyLabel="0h (No rest needed)"
+                    showNoneOption={true}
                     onChange={(index) => {
                       setNewSkill({
                         ...newSkill(),
