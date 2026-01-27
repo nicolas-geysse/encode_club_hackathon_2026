@@ -224,6 +224,7 @@ export function OnboardingChat() {
 
   // BUG 9 FIX (UPGRADED): Persist chat history to DuckDB with localStorage fallback
   const CHAT_STORAGE_KEY_PREFIX = 'stride_chat_history_';
+  const ONBOARDING_TEMP_KEY = 'stride_chat_onboarding_temp';
 
   // Load chat history from DuckDB when profileId becomes available
   createEffect(() => {
@@ -281,11 +282,22 @@ export function OnboardingChat() {
   });
 
   // Save new messages to DuckDB (with localStorage backup)
+  // During onboarding (no profileId yet), save to temp localStorage key
   const saveMessageToDb = async (msg: Message) => {
     const pid = profileId();
     const tid = threadId();
-    if (!pid) return;
+    const msgs = messages();
+    const toStore = msgs.slice(-50);
 
+    if (!pid) {
+      // During onboarding: save to temp localStorage only
+      // Will be migrated to DuckDB when profile is created
+      localStorage.setItem(ONBOARDING_TEMP_KEY, JSON.stringify(toStore));
+      logger.info('Chat saved to temp storage (onboarding)', { messageCount: toStore.length });
+      return;
+    }
+
+    // Profile exists: save to DuckDB
     try {
       await fetch('/api/chat-history', {
         method: 'POST',
@@ -299,14 +311,55 @@ export function OnboardingChat() {
           source: msg.source,
         }),
       });
+      logger.info('Chat message saved to DB', { messageId: msg.id, profileId: pid });
     } catch (e) {
       logger.warn('Failed to save message to DB, using localStorage fallback', { error: e });
     }
 
     // Always update localStorage as backup
-    const msgs = messages();
-    const toStore = msgs.slice(-50);
     localStorage.setItem(`${CHAT_STORAGE_KEY_PREFIX}${pid}`, JSON.stringify(toStore));
+  };
+
+  // Migrate temp onboarding messages to DuckDB when profileId becomes available
+  const migrateOnboardingMessages = async (newProfileId: string) => {
+    const tempMessages = localStorage.getItem(ONBOARDING_TEMP_KEY);
+    if (!tempMessages) return;
+
+    try {
+      const msgs = JSON.parse(tempMessages) as Message[];
+      const tid = threadId();
+
+      // Save all messages to DuckDB
+      for (const msg of msgs) {
+        try {
+          await fetch('/api/chat-history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: msg.id,
+              profile_id: newProfileId,
+              thread_id: tid,
+              role: msg.role,
+              content: msg.content,
+              source: msg.source,
+            }),
+          });
+        } catch (e) {
+          logger.warn('Failed to migrate message', { messageId: msg.id, error: e });
+        }
+      }
+
+      // Clear temp storage after successful migration
+      localStorage.removeItem(ONBOARDING_TEMP_KEY);
+      // Also save to profile-specific localStorage as backup
+      localStorage.setItem(`${CHAT_STORAGE_KEY_PREFIX}${newProfileId}`, tempMessages);
+      logger.info('Onboarding messages migrated to DB', {
+        count: msgs.length,
+        profileId: newProfileId,
+      });
+    } catch (e) {
+      logger.error('Failed to migrate onboarding messages', { error: e });
+    }
   };
 
   // Auto-scroll to bottom when messages change or loading state changes
@@ -654,6 +707,8 @@ export function OnboardingChat() {
     if (forceNew === 'true') {
       // Clear the flag immediately
       localStorage.removeItem('forceNewProfile');
+      // Also clear temp onboarding messages
+      localStorage.removeItem(ONBOARDING_TEMP_KEY);
       // Start fresh onboarding - don't load any existing profile
       setChatMode('onboarding');
       setStep('greeting');
@@ -777,8 +832,60 @@ export function OnboardingChat() {
       }
     }
 
-    // No profile found - start fresh onboarding
+    // No profile found - check for temp onboarding messages (user refreshed during onboarding)
     setChatMode('onboarding'); // Explicitly set mode (fixes race with contextProfile effect)
+
+    const tempMessages = localStorage.getItem(ONBOARDING_TEMP_KEY);
+    if (tempMessages) {
+      try {
+        const savedMsgs = JSON.parse(tempMessages) as Message[];
+        if (Array.isArray(savedMsgs) && savedMsgs.length > 0) {
+          // Resume onboarding with saved messages
+          setMessages(savedMsgs);
+          // Try to determine the step from the last message
+          const lastAssistantMsg = savedMsgs.filter((m) => m.role === 'assistant').pop();
+          if (lastAssistantMsg?.content) {
+            // Simple heuristic to determine current step from last message content
+            const content = lastAssistantMsg.content.toLowerCase();
+            if (content.includes('what city') || content.includes('greeting')) {
+              setStep('greeting');
+            } else if (content.includes('your name') || content.includes('call you')) {
+              setStep('name');
+            } else if (content.includes('studying') || content.includes('diploma')) {
+              setStep('studies');
+            } else if (content.includes('skills') || content.includes('superpowers')) {
+              setStep('skills');
+            } else if (content.includes('certifications') || content.includes('bafa')) {
+              setStep('certifications');
+            } else if (content.includes('budget') || content.includes('earn and spend')) {
+              setStep('budget');
+            } else if (content.includes('hours') || content.includes('hourly rate')) {
+              setStep('work_preferences');
+            } else if (content.includes('goal') || content.includes('saving for')) {
+              setStep('goal');
+            } else if (content.includes('academic') || content.includes('exam')) {
+              setStep('academic_events');
+            } else if (content.includes('inventory') || content.includes('sell')) {
+              setStep('inventory');
+            } else if (content.includes('trade') || content.includes('borrow')) {
+              setStep('trade');
+            } else if (content.includes('subscription') || content.includes('streaming')) {
+              setStep('lifestyle');
+            } else {
+              setStep('greeting'); // Default fallback
+            }
+          } else {
+            setStep('greeting');
+          }
+          logger.info('Resumed onboarding from temp storage', { messageCount: savedMsgs.length });
+          return;
+        }
+      } catch (e) {
+        logger.warn('Failed to parse temp onboarding messages', { error: e });
+      }
+    }
+
+    // Start fresh onboarding
     setMessages([
       {
         id: 'greeting',
@@ -795,6 +902,9 @@ export function OnboardingChat() {
   createEffect(() => {
     const unsubDataReset = eventBus.on('DATA_RESET', () => {
       logger.info('DATA_RESET received - resetting onboarding chat');
+
+      // Clear temp onboarding messages
+      localStorage.removeItem(ONBOARDING_TEMP_KEY);
 
       // Reset to initial state
       setMessages([{ id: 'greeting', role: 'assistant', content: GREETING_MESSAGE }]);
@@ -1020,6 +1130,7 @@ export function OnboardingChat() {
     localStorage.removeItem('studentProfile');
     localStorage.removeItem('followupData');
     localStorage.removeItem('achievements');
+    localStorage.removeItem(ONBOARDING_TEMP_KEY); // Clear temp chat messages
 
     // Reset profile to defaults
     setProfile({
@@ -1560,6 +1671,8 @@ export function OnboardingChat() {
           const savedProfileId = saveResult.profileId || existingProfileId;
           if (savedProfileId && !existingProfileId) {
             setProfileId(savedProfileId);
+            // Migrate onboarding chat messages to DB now that we have a profile ID
+            await migrateOnboardingMessages(savedProfileId);
           }
 
           // BUG F & G FIX: Verify profile actually exists in DB before creating goals/skills
