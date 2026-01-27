@@ -10,6 +10,12 @@ import type { Goal } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { getCurrentWeekInfo } from '~/lib/weekCalculator';
 import { cn } from '~/lib/cn';
+import {
+  calculateSavingsWeeks,
+  applySavingsAdjustments,
+  type MonthlySavingsInfo,
+} from '~/lib/savingsHelper';
+import { PiggyBank, Wrench } from 'lucide-solid';
 
 interface WeekData {
   weekNumber: number;
@@ -43,6 +49,14 @@ interface WeeklyProgressCardsProps {
   hourlyRate?: number;
   /** Optional: simulated date for testing (defaults to current date) */
   simulatedDate?: Date;
+  /** Day of month when income arrives (1-31, default 15) */
+  incomeDay?: number;
+  /** Monthly net margin (income - expenses) */
+  monthlyMargin?: number;
+  /** Savings adjustments by week number (from followup.savingsAdjustments) */
+  savingsAdjustments?: Record<number, { amount: number; note?: string; adjustedAt: string }>;
+  /** Callback when adjust button is clicked for a week's savings */
+  onAdjustSavings?: (weekNumber: number, currentAmount: number) => void;
 }
 
 export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
@@ -130,6 +144,10 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
           academicEvents: (goal.planData as { academicEvents?: unknown[] })?.academicEvents || [],
           // Pass hourlyRate from profile for consistent feasibility calculations
           hourlyRate: props.hourlyRate,
+          // Sprint 13.8 Fix: Pass simulated date for correct week calculations
+          simulatedDate: props.simulatedDate?.toISOString(),
+          // Bug 2 Fix: Pass goal creation date to generate weeks from original start
+          goalStartDate: goal.createdAt,
         }),
       })
         .then((res) => (res.ok ? res.json() : null))
@@ -150,6 +168,26 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
     if (!startDate) return null;
 
     return getCurrentWeekInfo(startDate, plan.milestones.length, props.simulatedDate);
+  });
+
+  // Calculate which weeks receive monthly savings
+  const savingsWeeks = createMemo<Map<number, MonthlySavingsInfo>>(() => {
+    const plan = retroplan();
+    if (!plan?.milestones?.length) return new Map();
+    if (!props.monthlyMargin || props.monthlyMargin <= 0) return new Map();
+
+    const startDate = plan.milestones[0]?.capacity.weekStartDate;
+    const endDate = props.goal.deadline;
+    if (!startDate || !endDate) return new Map();
+
+    const incomeDay = props.incomeDay ?? 15;
+    const savings = calculateSavingsWeeks(startDate, endDate, incomeDay, props.monthlyMargin);
+
+    // Bug 1 Fix: Apply savings adjustments from followup.savingsAdjustments
+    const withAdjustments = applySavingsAdjustments(savings, props.savingsAdjustments || {});
+
+    // Convert to Map for O(1) lookup
+    return new Map(withAdjustments.map((s) => [s.weekNumber, s]));
   });
 
   // Generate week data from retroplan
@@ -441,6 +479,78 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
                     </Show>
                   </div>
 
+                  {/* Monthly Savings Badge */}
+                  <Show when={savingsWeeks().get(week.weekNumber)}>
+                    {(savingsInfo) => {
+                      const effectiveAmount = () =>
+                        savingsInfo().isAdjusted && savingsInfo().adjustedAmount !== undefined
+                          ? savingsInfo().adjustedAmount!
+                          : savingsInfo().amount;
+
+                      // Calculate percentage: effectiveAmount / expectedAmount
+                      const savingsPercent = () => {
+                        const expected = savingsInfo().amount;
+                        if (expected <= 0) return 100;
+                        return (effectiveAmount() / expected) * 100;
+                      };
+
+                      // Color based on percentage: 0-50% red, 50-80% orange, 80%+ green
+                      const savingsColor = () => {
+                        const pct = savingsPercent();
+                        if (pct < 50) {
+                          return {
+                            bg: 'bg-red-500/15',
+                            border: 'border-red-500/30',
+                            text: 'text-red-700 dark:text-red-300',
+                            icon: 'text-red-600',
+                            hover: 'hover:bg-red-500/20',
+                          };
+                        }
+                        if (pct < 80) {
+                          return {
+                            bg: 'bg-orange-500/15',
+                            border: 'border-orange-500/30',
+                            text: 'text-orange-700 dark:text-orange-300',
+                            icon: 'text-orange-600',
+                            hover: 'hover:bg-orange-500/20',
+                          };
+                        }
+                        return {
+                          bg: 'bg-green-500/15',
+                          border: 'border-green-500/30',
+                          text: 'text-green-700 dark:text-green-300',
+                          icon: 'text-green-600',
+                          hover: 'hover:bg-green-500/20',
+                        };
+                      };
+
+                      return (
+                        <div
+                          class={`mt-1.5 flex items-center justify-between p-1 rounded border ${savingsColor().bg} ${savingsColor().border}`}
+                        >
+                          <div class="flex items-center gap-1">
+                            <PiggyBank class={`h-3 w-3 ${savingsColor().icon}`} />
+                            <span class={`text-[9px] font-medium ${savingsColor().text}`}>
+                              +{formatCurrency(effectiveAmount(), currency())}
+                            </span>
+                          </div>
+                          <Show when={props.onAdjustSavings}>
+                            <button
+                              class={`p-0.5 ${savingsColor().hover} rounded`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                props.onAdjustSavings?.(week.weekNumber, effectiveAmount());
+                              }}
+                              title="Adjust savings"
+                            >
+                              <Wrench class={`h-2.5 w-2.5 ${savingsColor().icon}`} />
+                            </button>
+                          </Show>
+                        </div>
+                      );
+                    }}
+                  </Show>
+
                   {/* 7-day progress bar (bricks) for current week */}
                   <Show when={isCurrentWeek}>
                     <div class="flex gap-0.5 mt-2">
@@ -483,6 +593,11 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
         <span>⚠ Behind</span>
         <span>🔴 Critical</span>
         <span>○ Future</span>
+        <Show when={savingsWeeks().size > 0}>
+          <span class="border-l border-border pl-3 flex items-center gap-1">
+            <PiggyBank class="h-3 w-3 text-green-600" /> Savings
+          </span>
+        </Show>
         <span class="border-l border-border pl-3">
           Capacity: 🟢 High 🟡 Med 🟠 Low 🔴 Protected
         </span>
