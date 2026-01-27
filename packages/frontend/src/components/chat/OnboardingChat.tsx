@@ -32,9 +32,19 @@ import { hasStepForm } from '~/lib/chat/stepForms';
 
 // Message type imported from ~/types/chat
 
+// Must match the retroplan API types
+type AcademicEventType =
+  | 'exam_period'
+  | 'class_intensive'
+  | 'vacation'
+  | 'vacation_rest'
+  | 'vacation_available'
+  | 'internship'
+  | 'project_deadline';
+
 interface AcademicEvent {
   name: string;
-  type: 'exam' | 'vacation' | 'busy';
+  type: AcademicEventType;
   startDate?: string;
   endDate?: string;
 }
@@ -76,6 +86,9 @@ interface ProfileData {
   certifications?: string[]; // Professional certifications (BAFA, PSC1, TEFL, etc.)
   city: string;
   citySize: string;
+  latitude?: number; // Location coordinates from geolocation/map picker
+  longitude?: number;
+  address?: string; // Full address from reverse geocoding
   incomes: { source: string; amount: number }[];
   expenses: { category: string; amount: number }[];
   maxWorkHours: number;
@@ -1113,6 +1126,13 @@ export function OnboardingChat() {
     if (data.diploma) updates.diploma = String(data.diploma);
     if (data.field) updates.field = String(data.field);
     if (data.city) updates.city = String(data.city);
+    // Extract coordinates from form data (captured by MapPicker in OnboardingFormStep)
+    if (data.coordinates && typeof data.coordinates === 'object') {
+      const coords = data.coordinates as { latitude?: number; longitude?: number };
+      if (coords.latitude != null) updates.latitude = Number(coords.latitude);
+      if (coords.longitude != null) updates.longitude = Number(coords.longitude);
+    }
+    if (data.address) updates.address = String(data.address);
     if (data.maxWorkHours) updates.maxWorkHours = Number(data.maxWorkHours);
     if (data.minHourlyRate) updates.minHourlyRate = Number(data.minHourlyRate);
     if (data.currency) updates.currency = String(data.currency) as 'USD' | 'EUR' | 'GBP';
@@ -1421,6 +1441,9 @@ export function OnboardingChat() {
                   field: updatedProfile.field,
                   city: updatedProfile.city,
                   citySize: updatedProfile.citySize,
+                  latitude: updatedProfile.latitude,
+                  longitude: updatedProfile.longitude,
+                  address: updatedProfile.address,
                   skills: updatedProfile.skills,
                   incomeSources: updatedProfile.incomes,
                   expenses: updatedProfile.expenses,
@@ -1503,6 +1526,9 @@ export function OnboardingChat() {
           certifications: finalProfile.certifications, // Bug fix: certifications were missing
           city: finalProfile.city,
           citySize: finalProfile.citySize,
+          latitude: finalProfile.latitude, // Location coordinates from map picker
+          longitude: finalProfile.longitude,
+          address: finalProfile.address,
           incomeSources: finalProfile.incomes,
           expenses: finalProfile.expenses,
           maxWorkHoursWeekly: finalProfile.maxWorkHours,
@@ -1667,9 +1693,32 @@ export function OnboardingChat() {
 
     // Handle dynamic-list steps specially - directly update profile
     if (currentStep === 'academic_events' && Array.isArray(data.academicEvents)) {
+      // Map old types to new API types
+      const mapEventType = (type: string): AcademicEventType => {
+        switch (type) {
+          case 'exam':
+          case 'exam_period':
+            return 'exam_period';
+          case 'busy':
+          case 'class_intensive':
+            return 'class_intensive';
+          case 'vacation':
+          case 'vacation_available':
+            return 'vacation_available';
+          case 'vacation_rest':
+            return 'vacation_rest';
+          case 'internship':
+            return 'internship';
+          case 'project_deadline':
+            return 'project_deadline';
+          default:
+            return 'class_intensive'; // Default fallback
+        }
+      };
+
       const events = (data.academicEvents as Array<Record<string, unknown>>).map((item) => ({
         name: (item.name as string) || '',
-        type: (item.type as 'exam' | 'vacation' | 'busy') || 'busy',
+        type: mapEventType((item.type as string) || ''),
         startDate: item.startDate as string,
         endDate: item.endDate as string,
       }));
@@ -1728,6 +1777,25 @@ export function OnboardingChat() {
     switch (currentStep) {
       case 'greeting':
         message = data.city as string;
+        // BUG FIX: Save coordinates immediately from MapPicker form data
+        // Without this, coordinates from geolocation were being lost
+        if (data.coordinates && typeof data.coordinates === 'object') {
+          const coords = data.coordinates as { latitude?: number; longitude?: number };
+          if (coords.latitude != null && coords.longitude != null) {
+            setProfile((prev) => ({
+              ...prev,
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            }));
+          }
+        }
+        // Also save address if available from reverse geocoding
+        if (data.address && typeof data.address === 'string') {
+          setProfile((prev) => ({
+            ...prev,
+            address: data.address as string,
+          }));
+        }
         break;
       case 'currency_confirm':
         message = data.currency as string;

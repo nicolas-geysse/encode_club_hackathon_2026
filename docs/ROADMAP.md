@@ -17,193 +17,219 @@ Stride is a student financial health navigator that combines LLM-powered agents 
 | **Skill Arbitrage** | Production | Smart job matching: rate (30%) + demand (25%) + effort (25%) + rest (20%) |
 | **Energy Debt** | Production | 3+ weeks below 40% triggers target reduction + achievement |
 | **Comeback Mode** | Production | Detects recovery (>80% after <40%) and creates catch-up plans |
-| **Retroplanning** | Backend Ready | Capacity-aware planning with exam protection |
+| **Retroplanning** | Production | Capacity-aware planning with exam protection |
 | **Opik Tracing** | Full Coverage | Every recommendation traceable with user_id |
 
 ---
 
-## Implemented Quick Wins (Tier 1)
+## Completed (Tier 1)
 
-### 1. Retroplan UI Panel
-**Status**: Implemented
-**Files**:
-- `packages/frontend/src/components/RetroplanPanel.tsx` (NEW)
-- `packages/frontend/src/components/tabs/GoalsTab.tsx` (UPDATED)
-
-**Features**:
-- Week-by-week capacity bars (high/medium/low/protected)
-- Feasibility score with visual indicator
-- Risk factors display
-- Timeline table with adjusted targets
-- Modal view triggered from Goals tab
-
-### 2. Voice Input in Onboarding
-**Status**: Already Implemented
-**Files**: `packages/frontend/src/components/chat/ChatInput.tsx`
-
-The ChatInput component already includes:
-- Microphone button with recording indicator
-- Audio level visualization
-- Groq Whisper integration via `/api/voice`
-
-### 3. Swipe Feedback Toast
-**Status**: Implemented
-**Files**: `packages/frontend/src/components/tabs/SwipeTab.tsx` (UPDATED)
-
-**Features**:
-- Toast notification when preferences are validated
-- Displays scenario count in confirmation message
-- Visual preference display already existed (AI Profile pillars)
-
-### 4. Capacity Forecast Card
-**Status**: Implemented
-**Files**:
-- `packages/frontend/src/components/suivi/CapacityForecast.tsx` (NEW)
-- `packages/frontend/src/routes/suivi.tsx` (UPDATED)
-
-**Features**:
-- Current week capacity (HIGH/MEDIUM/LOW/PROTECTED)
-- Available hours display
-- Color-coded status with icons
-- Tooltip with academic/energy multipliers
+| Feature | Status | Files |
+|---------|--------|-------|
+| Retroplan UI Panel | Done | `RetroplanPanel.tsx`, `GoalsTab.tsx` |
+| Voice Input | Done | `ChatInput.tsx` (built-in) |
+| Swipe Feedback Toast | Done | `SwipeTab.tsx` |
+| Capacity Forecast Card | Done | `CapacityForecast.tsx`, `suivi.tsx` |
+| Capacity in Goal Cards | Done | `GoalTimeline.tsx` |
+| Simulation Data Reload | Done | `app.tsx` (eventBus.emit) |
+| Predictive Energy Alerts | Done | `PredictiveAlerts.tsx` (suivi) |
+| What-If Scenario Simulator | Done | `WhatIfSimulator.tsx` |
+| Jobs/Prospection Tab | Done | `ProspectionTab.tsx` + 10 sub-components |
+| Chat Persistence | Done | `chat-history.ts` API + DuckDB `chat_messages` table |
 
 ---
 
-## Remaining Quick Wins
+## Remaining Features - Consolidated
 
-### 5. Embed Trigger on Profile/Goal Save
-**Effort**: 30min | **Impact**: Activates RAG system
+### 1. Achievement Celebrations with Confetti [PARTIAL 80%]
+**Effort**: 1h | **Impact**: Wow factor (demo impressionnant)
 
-The `/api/embed` endpoint exists but is never called. Add triggers:
+#### Contexte
+- **Backend prêt** : `achievements.ts` avec 13 achievements (bronze/silver/gold)
+- **Confetti prêt** : `confetti.ts` avec 4 effets (`celebrateBig`, `celebrateGoalAchieved`, `celebrateComeback`, `celebrateGoldAchievement`)
+- **Manque** : Appeler `updateAchievements()` et `onAchievementUnlock()` aux bons endroits
 
+#### Cas d'usage
+| Achievement | Trigger | Effet |
+|-------------|---------|-------|
+| **Goal Achieved** (gold) | Progress = 100% sur page Suivi | `celebrateGoalAchieved()` + toast |
+| **Comeback King** (gold) | ComebackAlert complété | `celebrateGoldAchievement()` + toast |
+| **First Euro** (bronze) | Premier earning collecté | Toast only |
+| **Swipe Master** (bronze) | Fin session swipe | Toast (déjà fait partiellement) |
+| **Week Complete** (bronze) | Toutes missions semaine complétées | Toast |
+
+#### Intérêt Hackathon
+- **Effet visuel immédiat** pour les juges lors de la démo
+- Renforce le gamification loop (utilisateurs reviennent pour débloquer)
+- Différenciateur vs apps "sérieuses" sans fun factor
+
+#### Implémentation
 ```typescript
-// profileService.ts - after successful save
-fetch('/api/embed', {
-  method: 'POST',
-  body: JSON.stringify({ type: 'profile', id, data })
-});
-
-// goalService.ts - after goal creation
-fetch('/api/embed', {
-  method: 'POST',
-  body: JSON.stringify({ type: 'goal', id, data })
-});
+// suivi.tsx - après mise à jour progress
+const { newlyUnlocked } = updateAchievements(context);
+for (const achievement of newlyUnlocked) {
+  onAchievementUnlock(achievement, {
+    showToast: toastPopup.success,
+    celebrateGold: celebrateGoldAchievement,
+  });
+}
 ```
 
-**Note**: The embedding call in profileService is commented out due to DuckDB concurrency issues. Consider queueing or debouncing.
-
-### 6. Goal Components List UI
-**Effort**: 3-4h | **Impact**: Medium
-
-The `/api/goal-components` CRUD is complete. Add a visual component list in GoalsTab showing:
-- Exam prep milestones
-- Time allocation blocks
-- Purchase checkpoints
-
 ---
 
-## Strategic Features (Tier 2)
+### 2. RAG Context dans Tips [PARTIAL 50%]
+**Effort**: 2h | **Impact**: High (tips personnalisés)
 
-### 1. RAG Context in Tips
-**Effort**: 3h | **Impact**: High
+#### Contexte
+- **Backend prêt** : `rag.ts`, `rag-tools.ts` avec `findSimilarProfiles()`
+- **Embed API prête** : `/api/embed` avec `indexStudentProfile()`, `indexGoal()`
+- **Manque** :
+  1. Appeler `/api/embed` quand profile/goal sauvegardé
+  2. Utiliser RAG dans `tips-orchestrator.ts`
 
-Before generating tips, query similar profiles:
+#### Cas d'usage
+**Avant** (tips génériques):
+> "Pense à mettre de l'argent de côté chaque semaine"
+
+**Après** (tips contextuels avec social proof):
+> "3 étudiants en informatique comme toi ont économisé en moyenne 180€/mois en faisant du freelance React. Tu as cette compétence - veux-tu qu'on explore ?"
+
+#### Intérêt Hackathon
+- **Sponsor Comet/Opik** : Démontre utilisation avancée de la plateforme (embedding + retrieval tracés)
+- **Personnalisation** : Tips basés sur profils similaires = confiance utilisateur
+- **Différenciateur** : Aucune app budget étudiant ne fait du RAG
+
+#### Implémentation
 ```typescript
+// profileService.ts - après save réussi
+await fetch('/api/embed', {
+  method: 'POST',
+  body: JSON.stringify({ type: 'profile', id: profile.id, data: profile })
+});
+
 // tips-orchestrator.ts
-const similarProfiles = await ragService.findSimilar(currentProfile);
-const socialProof = `${similarProfiles.length} students with similar skills saved an average of...`;
+const similarProfiles = await ragService.findSimilar(currentProfile, 5);
+const avgSavings = similarProfiles.reduce((s, p) => s + p.monthlySavings, 0) / similarProfiles.length;
+const context = `${similarProfiles.length} étudiants similaires économisent ${avgSavings}€/mois en moyenne.`;
 ```
-
-### 2. Achievement Popup with Confetti
-**Effort**: 2h | **Impact**: Wow factor
-
-`canvas-confetti` is already installed. Add triggers for:
-- Comeback King (recovery after exam period)
-- Phoenix Rising (energy surge)
-- Debt Survivor (energy debt cleared)
-
-### 3. Retroplanning Tests
-**Effort**: 4h | **Impact**: Quality
-
-The retroplanning algorithm (773 lines) has **zero tests**. Priority coverage:
-- `calculateWeekCapacity()`
-- `generateDynamicMilestones()`
-- `assessFeasibility()`
 
 ---
 
-## Disruptive Ideas (Tier 3 - Pitch Material)
+### 3. Retroplanning Unit Tests
+**Effort**: 3-4h | **Impact**: Qualité (pas visible en demo)
 
-### 1. "Anti-Hustle" Positioning
-**Pitch**: "The first financial AI that tells you to take a nap"
+#### Contexte
+- **Code non testé** : `retroplan.ts` (500+ lignes), seul algorithme sans tests
+- **Fonctions critiques** :
+  - `calculateWeekCapacity()` - calcul heures effectives
+  - `generateDynamicMilestones()` - création targets ajustés
+  - `assessFeasibility()` - score de faisabilité
 
-Unlike productivity apps pushing "do more," Stride:
-- Detects exhaustion and **reduces** targets
-- Protects exam weeks automatically
-- Gamifies rest with Energy Debt achievements
+#### Cas de test prioritaires
+```typescript
+describe('calculateWeekCapacity', () => {
+  it('should return protected when exam period overlaps', () => {
+    const events = [{ type: 'exam_period', capacityImpact: 0.2 }];
+    const capacity = calculateWeekCapacity(weekStart, userId, events);
+    expect(capacity.capacityCategory).toBe('protected');
+  });
 
-### 2. Privacy-First Local Processing
-**Pitch**: "Your financial trauma is computed locally"
-
-DuckDB runs locally, keeping sensitive student budget data off the cloud. Strong differentiator vs cloud-only competitors.
-
-### 3. Predictive Energy Alerts
-Based on historical energy patterns, predict difficult weeks:
+  it('should reduce hours when energy is low', () => {
+    const energyLogs = [{ energyLevel: 2 }, { energyLevel: 2 }];
+    const capacity = calculateWeekCapacity(weekStart, userId, [], energyLogs);
+    expect(capacity.effectiveHours).toBeLessThan(baseHours);
+  });
+});
 ```
-"Attention: Week 12 looks intense (3 exams + project deadline)"
-```
 
-### 4. What-If Scenario Simulator
-Use existing `profile_type: 'simulation'` support:
-- Duplicate profile
-- Modify variables (new job, dropped course)
-- Compare outcomes side-by-side
-
-### 5. Voice-First Mobile Demo
-The Whisper integration enables 100% voice onboarding - impressive for live demos.
+#### Intérêt
+- **Sécurité refactoring** : Pouvoir modifier sans casser
+- **Confidence** : Algo financier = doit être fiable
+- **Non prioritaire hackathon** : Invisible en demo
 
 ---
 
-## Technical Debt (Not Prioritized for Hackathon)
+### 4. Goal Components Visual List [PARTIAL 50%]
+**Effort**: 2h | **Impact**: Medium
 
-| Item | Reason to Skip |
-|------|----------------|
-| TabPFN/ML burnout prediction | Energy Debt algorithm covers the use case |
-| Python backend | Too risky for hackathon timeline |
-| User authentication | Profile Selector with local DuckDB sufficient |
-| E2E Playwright tests | Algorithm tests provide enough coverage |
-| Console-to-Logger migration | Invisible in demo |
-| New pages | Existing 3-screen flow is complete |
+#### Contexte
+- **CRUD complet** : `/api/goal-components` existe avec create/read/update/delete
+- **Types définis** : `exam_prep`, `time_allocation`, `purchase`, `milestone`
+- **Manque** : Affichage visuel dans GoalsTab (actuellement seulement dans le form)
+
+#### Cas d'usage
+**Scénario** : Goal "Acheter MacBook 1500€" avec components :
+- Exam prep : "Réviser AWS cert" (20h)
+- Purchase : "Clavier mécanique" (80€)
+- Milestone : "Avoir 750€" (50%)
+- Time allocation : "4h freelance/semaine"
+
+**Affichage** :
+```
+[x] Réviser AWS cert (20h) - Completed
+[>] 4h freelance/semaine - In Progress
+[ ] Clavier mécanique (80€) - Pending (blocked by: Avoir 750€)
+[ ] Avoir 750€ - Pending
+```
+
+#### Intérêt
+- **Visualisation claire** des sous-étapes
+- **Motivation** : Cocher les petites victoires
+- **Dépendances** : Voir ce qui bloque quoi
+
+---
+
+## Priority Matrix (Remaining Work)
+
+| Feature | Status | Effort | Impact Demo | Impact User | Priority |
+|---------|--------|--------|-------------|-------------|----------|
+| Achievement Confetti | 80% done | 1h | Very High | High | 1 |
+| RAG in Tips | 50% done | 2h | High | Very High | 2 |
+| Goal Components UI | 50% done | 2h | Low | Medium | 3 |
+| Retroplan Tests | Not started | 3-4h | None | Medium | 4 |
+
+---
+
+## Not Doing (Confirmed)
+
+| Item | Reason |
+|------|--------|
+| TabPFN/ML burnout | Energy Debt covers use case |
+| Python backend | Too risky for timeline |
+| User authentication | Profile Selector sufficient |
+| E2E Playwright tests | Algorithm tests enough |
+| New pages | 3-screen flow complete |
 
 ---
 
 ## Verification Checklist
 
-### Manual Testing
+### Manual Testing (Current)
 ```bash
-# 1. Retroplan UI
 pnpm dev
-# Navigate: /plan -> Goals tab -> Active goal -> "View Capacity Retroplan"
-# Expected: Modal with capacity bars, feasibility score, milestones table
 
-# 2. Voice Input
-# Navigate: / (Onboarding)
-# Click microphone icon -> Speak -> Verify transcription
+# 1. Retroplan UI
+/plan -> Goals tab -> Goal card -> "View plan" button
+# Expected: Modal with capacity bars, feasibility, milestones
+
+# 2. Capacity Forecast
+/suivi -> Card "HIGH/MEDIUM/LOW CAPACITY"
+# Expected: Shows week number, hours available, "View plan" button
 
 # 3. Swipe Feedback
-# Navigate: /plan -> Swipe tab -> Roll dice -> Swipe cards -> Validate
+/plan -> Swipe tab -> Complete session -> Validate
 # Expected: Toast "Preferences saved! X scenarios added"
 
-# 4. Capacity Forecast
-# Navigate: /suivi (Dashboard)
-# Expected: Card showing current week capacity (HIGH/MEDIUM/LOW/PROTECTED)
+# 4. Simulation Reload
+Header -> Simulation -> +1 week
+# Expected: Page data reloads (not just notifications)
 ```
 
 ### Opik Dashboard
-Verify traces at: `https://www.comet.com/nickoolas/stride`
-- Check retroplan generation traces
-- Verify swipe session traces with preferences
-- Confirm user_id present on all spans
+`https://www.comet.com/nickoolas/stride`
+- Retroplan generation traces
+- Swipe session with learned preferences
+- user_id on all spans
 
 ---
 
@@ -213,32 +239,20 @@ Verify traces at: `https://www.comet.com/nickoolas/stride`
 packages/
 ├── frontend/          # SolidStart + SolidJS
 │   └── src/
-│       ├── routes/    # Pages + API endpoints
-│       │   └── api/   # Server functions (chat, goals, voice, retroplan)
+│       ├── routes/api/   # embed.ts, rag.ts, retroplan.ts
 │       ├── components/
-│       │   ├── tabs/  # GoalsTab, SwipeTab, etc.
-│       │   ├── suivi/ # Dashboard components
-│       │   └── ui/    # Shared UI (Card, Button, Toast)
-│       └── lib/       # Services (profile, goal, simulation)
+│       │   ├── RetroplanPanel.tsx    # NEW
+│       │   ├── suivi/CapacityForecast.tsx  # NEW
+│       │   └── GoalTimeline.tsx      # Capacity indicator
+│       └── lib/
+│           ├── achievements.ts  # 13 achievements, check logic
+│           └── confetti.ts      # 4 celebration effects
 │
-└── mcp-server/        # Model Context Protocol
+└── mcp-server/
     └── src/
-        ├── agents/    # Mastra agents (budget-coach, job-matcher, etc.)
-        ├── algorithms/# Core logic (retroplanning, skill-arbitrage)
-        └── services/  # DuckDB, Groq, Opik integrations
+        ├── tools/rag.ts         # findSimilarProfiles()
+        └── services/            # indexStudentProfile(), indexGoal()
 ```
-
----
-
-## Key Files Modified in This Sprint
-
-| File | Changes |
-|------|---------|
-| `RetroplanPanel.tsx` | **NEW** - Capacity visualization component |
-| `GoalsTab.tsx` | Added Retroplan button and modal |
-| `SwipeTab.tsx` | Added toast feedback on validation |
-| `CapacityForecast.tsx` | **NEW** - Week capacity card |
-| `suivi.tsx` | Integrated CapacityForecast component |
 
 ---
 
