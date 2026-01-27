@@ -15,6 +15,8 @@ import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { type LegacySkill, skillToLegacy } from '~/types/entities';
+import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
+import { toastPopup } from '~/components/ui/Toast';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
@@ -497,6 +499,20 @@ export function SkillsTab(props: SkillsTabProps) {
       if (updated) {
         await refreshSkills();
         props.onSkillsChange?.(contextSkills().map(skillToLegacy));
+
+        // Check for skill_arbitrage_pro achievement
+        const { newlyUnlocked } = updateAchievements({ skillArbitrageUsed: true });
+        for (const achievement of newlyUnlocked) {
+          onAchievementUnlock(achievement, {
+            showToast: (type, title, message) => {
+              if (type === 'success') {
+                toastPopup.success(title, message);
+              } else {
+                toastPopup.info(title, message);
+              }
+            },
+          });
+        }
       }
     } finally {
       setIsLoading(false);

@@ -36,48 +36,13 @@ Stride is a student financial health navigator that combines LLM-powered agents 
 | What-If Scenario Simulator | Done | `WhatIfSimulator.tsx` |
 | Jobs/Prospection Tab | Done | `ProspectionTab.tsx` + 10 sub-components |
 | Chat Persistence | Done | `chat-history.ts` API + DuckDB `chat_messages` table |
+| Achievement Celebrations | Done | `achievements.ts` + `confetti.ts` + triggers in suivi/swipe/skills |
 
 ---
 
 ## Remaining Features - Consolidated
 
-### 1. Achievement Celebrations with Confetti [PARTIAL 80%]
-**Effort**: 1h | **Impact**: Wow factor (demo impressionnant)
-
-#### Contexte
-- **Backend prêt** : `achievements.ts` avec 13 achievements (bronze/silver/gold)
-- **Confetti prêt** : `confetti.ts` avec 4 effets (`celebrateBig`, `celebrateGoalAchieved`, `celebrateComeback`, `celebrateGoldAchievement`)
-- **Manque** : Appeler `updateAchievements()` et `onAchievementUnlock()` aux bons endroits
-
-#### Cas d'usage
-| Achievement | Trigger | Effet |
-|-------------|---------|-------|
-| **Goal Achieved** (gold) | Progress = 100% sur page Suivi | `celebrateGoalAchieved()` + toast |
-| **Comeback King** (gold) | ComebackAlert complété | `celebrateGoldAchievement()` + toast |
-| **First Euro** (bronze) | Premier earning collecté | Toast only |
-| **Swipe Master** (bronze) | Fin session swipe | Toast (déjà fait partiellement) |
-| **Week Complete** (bronze) | Toutes missions semaine complétées | Toast |
-
-#### Intérêt Hackathon
-- **Effet visuel immédiat** pour les juges lors de la démo
-- Renforce le gamification loop (utilisateurs reviennent pour débloquer)
-- Différenciateur vs apps "sérieuses" sans fun factor
-
-#### Implémentation
-```typescript
-// suivi.tsx - après mise à jour progress
-const { newlyUnlocked } = updateAchievements(context);
-for (const achievement of newlyUnlocked) {
-  onAchievementUnlock(achievement, {
-    showToast: toastPopup.success,
-    celebrateGold: celebrateGoldAchievement,
-  });
-}
-```
-
----
-
-### 2. RAG Context dans Tips [PARTIAL 50%]
+### 1. RAG Context dans Tips [PARTIAL 50%]
 **Effort**: 2h | **Impact**: High (tips personnalisés)
 
 #### Contexte
@@ -115,7 +80,7 @@ const context = `${similarProfiles.length} étudiants similaires économisent ${
 
 ---
 
-### 3. Retroplanning Unit Tests
+### 2. Retroplanning Unit Tests
 **Effort**: 3-4h | **Impact**: Qualité (pas visible en demo)
 
 #### Contexte
@@ -149,7 +114,7 @@ describe('calculateWeekCapacity', () => {
 
 ---
 
-### 4. Goal Components Visual List [PARTIAL 50%]
+### 3. Goal Components Visual List [PARTIAL 50%]
 **Effort**: 2h | **Impact**: Medium
 
 #### Contexte
@@ -183,10 +148,9 @@ describe('calculateWeekCapacity', () => {
 
 | Feature | Status | Effort | Impact Demo | Impact User | Priority |
 |---------|--------|--------|-------------|-------------|----------|
-| Achievement Confetti | 80% done | 1h | Very High | High | 1 |
-| RAG in Tips | 50% done | 2h | High | Very High | 2 |
-| Goal Components UI | 50% done | 2h | Low | Medium | 3 |
-| Retroplan Tests | Not started | 3-4h | None | Medium | 4 |
+| RAG in Tips | 50% done | 2h | High | Very High | 1 |
+| Goal Components UI | 50% done | 2h | Low | Medium | 2 |
+| Retroplan Tests | Not started | 3-4h | None | Medium | 3 |
 
 ---
 

@@ -9,6 +9,7 @@ import { RollDice } from '../swipe/RollDice';
 import { SwipeSession, updatePreferences } from '../swipe/SwipeSession';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { celebrateBig } from '~/lib/confetti';
+import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
@@ -233,6 +234,20 @@ export function SwipeTab(props: SwipeTabProps) {
   const handleValidate = () => {
     // Trigger celebration
     celebrateBig();
+
+    // Check for swipe_master achievement
+    const { newlyUnlocked } = updateAchievements({ swipeSessionCompleted: true });
+    for (const achievement of newlyUnlocked) {
+      onAchievementUnlock(achievement, {
+        showToast: (type, title, message) => {
+          if (type === 'success') {
+            toastPopup.success(title, message);
+          } else {
+            toastPopup.info(title, message);
+          }
+        },
+      });
+    }
 
     // Show toast feedback
     const prefs = preferences();
