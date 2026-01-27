@@ -19,6 +19,7 @@ import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
 import { tradeService } from '~/lib/tradeService';
+import { simulationService } from '~/lib/simulationService';
 import { useProfile } from '~/lib/profileContext';
 import type {
   LegacySkill,
@@ -188,6 +189,26 @@ export default function PlanPage() {
   });
   const [isSaving] = createSignal(false);
   const [isSheetOpen, setIsSheetOpen] = createSignal(false);
+
+  // Sprint 13: Simulated date for timeline consistency
+  const [currentDate, setCurrentDate] = createSignal<Date>(new Date());
+
+  // Load simulated date on profile load
+  createEffect(() => {
+    const profile = activeProfile();
+    if (profile) {
+      // Wrap async call to avoid Solid reactivity warning
+      void (async () => {
+        try {
+          const simDate = await simulationService.getCurrentDate();
+          setCurrentDate(simDate);
+        } catch {
+          // Use real date if simulation fails
+          setCurrentDate(new Date());
+        }
+      })();
+    }
+  });
 
   // Dirty state tracking for unsaved changes warning when switching tabs
   const [isCurrentTabDirty, setIsCurrentTabDirty] = createSignal(false);
@@ -551,6 +572,7 @@ export default function PlanPage() {
                   initialData={planData().setup}
                   currency={activeProfile()?.currency}
                   onDirtyChange={setIsCurrentTabDirty}
+                  simulatedDate={currentDate()}
                 />
               </TabsContent>
 

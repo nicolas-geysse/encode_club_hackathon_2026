@@ -9,6 +9,8 @@ import { createSignal, Show, onMount, onCleanup } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
+import { WeeklyProgressCards } from '~/components/WeeklyProgressCards';
+import { getCurrentWeekInfo } from '~/lib/weekCalculator';
 import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
 import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
@@ -227,6 +229,30 @@ export default function SuiviPage() {
   // Compute total hours from missions
   const totalHours = () => {
     return followup().missions.reduce((sum, m) => sum + m.hoursCompleted, 0);
+  };
+
+  // Sprint 13: Calculate weekly earnings from completed missions
+  // TODO: In future, track by actual week when mission was completed
+  const weeklyEarningsFromMissions = (): Array<{ week: number; earned: number }> => {
+    const missions = followup().missions.filter((m) => m.status === 'completed');
+    if (missions.length === 0) return [];
+
+    // For now, attribute all earnings to current week
+    // (missions don't have explicit weekNumber, would need date calculation)
+    const currentWeek = followup().currentWeek || 1;
+    const totalEarned = missions.reduce((sum, m) => sum + m.earningsCollected, 0);
+
+    return totalEarned > 0 ? [{ week: currentWeek, earned: totalEarned }] : [];
+  };
+
+  // Sprint 13: Calculate current week number for EnergyHistory highlighting
+  const currentWeekNumber = (): number => {
+    const goal = currentGoal();
+    if (!goal?.deadline) return followup().currentWeek || 1;
+
+    const startDate = currentDate().toISOString();
+    const weekInfo = getCurrentWeekInfo(startDate, followup().totalWeeks, currentDate());
+    return weekInfo.weekNumber;
   };
 
   // Check if comeback conditions are met (for showing full ComebackAlert)
@@ -842,6 +868,19 @@ export default function SuiviPage() {
             />
           </Show>
 
+          {/* Sprint 13: Weekly Progress Timeline */}
+          <Show when={currentGoal()}>
+            <div class="mt-4">
+              <WeeklyProgressCards
+                goal={currentGoal()!}
+                currency={currency()}
+                weeklyEarnings={weeklyEarningsFromMissions()}
+                hourlyRate={activeProfile()?.minHourlyRate}
+                simulatedDate={currentDate()}
+              />
+            </div>
+          </Show>
+
           {/* Capacity Forecast Card */}
           <Show when={currentGoal()}>
             <CapacityForecast
@@ -861,7 +900,11 @@ export default function SuiviPage() {
           </Show>
 
           {/* Section 2: Energy (MOVED UP - leading indicator) */}
-          <EnergyHistory history={followup().energyHistory} onEnergyUpdate={handleEnergyUpdate} />
+          <EnergyHistory
+            history={followup().energyHistory}
+            onEnergyUpdate={handleEnergyUpdate}
+            currentWeek={currentWeekNumber()}
+          />
 
           {/* Full Comeback Alert (only when conditions met) - inline with Energy */}
           <Show when={showComebackAlert()}>
@@ -926,6 +969,7 @@ export default function SuiviPage() {
                     currency={currency()}
                     academicEvents={goalAcademicEvents}
                     hourlyRate={activeProfile()?.minHourlyRate}
+                    simulatedDate={currentDate()}
                     onClose={() => setShowRetroplan(false)}
                   />
                 </div>

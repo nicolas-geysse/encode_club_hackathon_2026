@@ -15,7 +15,6 @@ import { useProfile, type Goal, type GoalComponent } from '~/lib/profileContext'
 import { createCrudTab } from '~/hooks/createCrudTab';
 import { createDirtyState } from '~/hooks/createDirtyState';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
-import { toast } from '~/lib/notificationStore';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('GoalsTab');
@@ -46,7 +45,17 @@ import { WhatIfSimulator } from '~/components/WhatIfSimulator';
 import { WeeklyProgressCards } from '~/components/WeeklyProgressCards';
 import { EarningsChart } from '~/components/EarningsChart';
 import { FlaskConical } from 'lucide-solid';
-// Note: GoalComponentsList available at '~/components/GoalComponentsList' for future integration
+import GoalComponentsList from '~/components/GoalComponentsList';
+import type { Mission } from '~/components/suivi/MissionCard';
+
+// FollowupData structure from /suivi page (stored in profile.followupData)
+interface FollowupData {
+  currentAmount: number;
+  weeklyTarget: number;
+  currentWeek: number;
+  totalWeeks: number;
+  missions: Mission[];
+}
 
 interface AcademicEvent {
   id: string;
@@ -84,6 +93,8 @@ interface GoalsTabProps {
   currency?: Currency;
   /** Callback when dirty state changes (for parent to track unsaved changes) */
   onDirtyChange?: (isDirty: boolean) => void;
+  /** Sprint 13: Simulated date for testing (defaults to current date) */
+  simulatedDate?: Date;
 }
 
 // Component form item
@@ -115,6 +126,25 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // Combine context loading with local initialization
   const loading = () => context.loading();
+
+  // Get followup data from profile for weekly earnings (used by WeeklyProgressCards)
+  const followupData = () => profile()?.followupData as FollowupData | undefined;
+
+  // Transform completed missions to weekly earnings format for WeeklyProgressCards
+  const weeklyEarnings = createMemo(() => {
+    const data = followupData();
+    if (!data?.missions?.length) return [];
+
+    const completed = data.missions.filter((m) => m.status === 'completed');
+    if (!completed.length) return [];
+
+    // For now, attribute all earnings to current week
+    // (missions don't have explicit weekNumber, would need date calculation)
+    const currentWeek = data.currentWeek || 1;
+    const totalEarned = completed.reduce((sum, m) => sum + m.earningsCollected, 0);
+
+    return [{ week: currentWeek, earned: totalEarned }];
+  });
 
   // Use createCrudTab hook for common CRUD state management
   const crud = createCrudTab<Goal>({
@@ -285,29 +315,10 @@ export function GoalsTab(props: GoalsTabProps) {
     }
   });
 
-  // Feature K: Auto-complete goals when progress reaches 100%
-  // FIX: Track processed goal IDs to prevent duplicate auto-complete calls
-  // which could cause flickering when the effect re-runs after DATA_CHANGED
-  const processedAutoCompleteGoals = new Set<string>();
-
-  createEffect(() => {
-    const currentGoals = goals();
-    for (const goal of currentGoals) {
-      if (goal.progress >= 100 && goal.status === 'active') {
-        // Skip if already processed (prevents duplicate calls during refresh cycles)
-        if (processedAutoCompleteGoals.has(goal.id)) continue;
-        processedAutoCompleteGoals.add(goal.id);
-
-        // Auto-mark as completed and show celebration
-        // goalService.updateGoal emits DATA_CHANGED, ProfileContext handles refresh
-        goalService.updateGoal({ id: goal.id, status: 'completed' }).then(() => {
-          toast.success('Goal achieved!', `"${goal.name}" has been completed!`);
-        });
-      }
-    }
-  });
-
   // refreshGoals is now from ProfileContext (single source of truth)
+  // NOTE: Auto-completion (Feature K) was removed - it caused race conditions
+  // when navigating away and back (client-side Set was reset, causing re-completion).
+  // Users should manually mark goals as complete via the checkmark button.
 
   // Component handlers
   const addComponent = () => {
@@ -486,6 +497,7 @@ export function GoalsTab(props: GoalsTabProps) {
         amount: goalAmount(),
         deadline: goalDeadline(),
         planData,
+        components: apiComponents,
         parentGoalId: parentGoalId() || undefined,
         conditionType: conditionType(),
       });
@@ -1072,6 +1084,20 @@ export function GoalsTab(props: GoalsTabProps) {
                           </div>
                         </div>
 
+                        {/* Goal Components */}
+                        <Show when={(goal().components?.length ?? 0) > 0}>
+                          <div class="border-t border-border pt-4">
+                            <GoalComponentsList
+                              goalId={goal().id}
+                              currency={currency()}
+                              onProgressUpdate={() => {
+                                // Refresh goals list when component status changes
+                                refreshProfile();
+                              }}
+                            />
+                          </div>
+                        </Show>
+
                         {/* Weekly Progress Cards (horizontal scroll) */}
                         <Show when={goal().deadline}>
                           <div class="border-t border-border pt-4">
@@ -1084,6 +1110,8 @@ export function GoalsTab(props: GoalsTabProps) {
                                   goal={goals().find((g) => g.id === goalId)!}
                                   currency={currency()}
                                   hourlyRate={profile()?.minHourlyRate}
+                                  weeklyEarnings={weeklyEarnings()}
+                                  simulatedDate={props.simulatedDate}
                                 />
                               )}
                             </Show>
@@ -1145,6 +1173,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                   size="icon"
                                   onClick={() => handleEdit(goal)}
                                   class="h-8 w-8"
+                                  title="Edit goal"
                                 >
                                   <Pencil class="h-3 w-3" />
                                 </Button>
@@ -1153,6 +1182,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                   size="icon"
                                   onClick={() => handleToggleStatus(goal)}
                                   class="h-8 w-8 text-amber-600"
+                                  title="Reactivate goal"
                                 >
                                   <RotateCcw class="h-3 w-3" />
                                 </Button>
@@ -1161,6 +1191,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                   size="icon"
                                   onClick={() => handleDelete(goal.id)}
                                   class="h-8 w-8 text-destructive"
+                                  title="Delete goal"
                                 >
                                   <Trash2 class="h-3 w-3" />
                                 </Button>
@@ -1211,6 +1242,7 @@ export function GoalsTab(props: GoalsTabProps) {
                   currency={currency()}
                   academicEvents={goalAcademicEvents}
                   hourlyRate={profile()?.minHourlyRate}
+                  simulatedDate={props.simulatedDate}
                   onClose={() => setShowRetroplan(null)}
                 />
               </div>

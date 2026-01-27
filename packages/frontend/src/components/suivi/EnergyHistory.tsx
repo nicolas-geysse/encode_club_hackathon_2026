@@ -27,6 +27,8 @@ interface EnergyHistoryProps {
   history: EnergyEntry[];
   threshold?: number;
   onEnergyUpdate?: (week: number, level: number) => void;
+  /** Sprint 13: Current week number for visual highlighting */
+  currentWeek?: number;
 }
 
 // Energy Debt Detection Algorithm
@@ -271,22 +273,30 @@ export function EnergyHistory(props: EnergyHistoryProps) {
             {/* Mini bar chart */}
             <div class="flex items-end gap-1 h-20 pt-2">
               <For each={props.history.slice(-8)}>
-                {(entry) => (
-                  <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative">
-                    <div
-                      class={cn(
-                        'w-full rounded-t-sm transition-all hover:opacity-80',
-                        getEnergyColor(entry.level),
-                        entry.level < threshold() ? 'opacity-60' : ''
+                {(entry) => {
+                  const isCurrentWeek = entry.week === props.currentWeek;
+                  return (
+                    <div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group relative">
+                      <div
+                        class={cn(
+                          'w-full rounded-t-sm transition-all hover:opacity-80',
+                          getEnergyColor(entry.level),
+                          entry.level < threshold() ? 'opacity-60' : '',
+                          isCurrentWeek && 'ring-2 ring-green-500 ring-offset-1'
+                        )}
+                        style={{ height: `${Math.max(entry.level, 5)}%` }}
+                      />
+                      {/* Current week mascot */}
+                      {isCurrentWeek && (
+                        <span class="absolute -top-4 text-sm animate-bounce-slow">🚶</span>
                       )}
-                      style={{ height: `${Math.max(entry.level, 5)}%` }}
-                    />
-                    {/* Tooltip */}
-                    <div class="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-md whitespace-nowrap">
-                      Week {entry.week}: {entry.level}%
+                      {/* Tooltip */}
+                      <div class="absolute bottom-full mb-2 hidden group-hover:block z-10 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-md whitespace-nowrap">
+                        Week {entry.week}: {entry.level}%{isCurrentWeek ? ' (current)' : ''}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                }}
               </For>
               <Show when={props.history.length === 0}>
                 <div class="flex-1 text-center text-muted-foreground text-xs py-4 flex flex-col items-center justify-center h-full bg-muted/30 rounded">

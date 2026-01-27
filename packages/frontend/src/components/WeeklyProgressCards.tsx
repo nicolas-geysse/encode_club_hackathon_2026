@@ -8,6 +8,8 @@
 import { For, Show, createMemo, createSignal, createEffect, onMount, onCleanup } from 'solid-js';
 import type { Goal } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
+import { getCurrentWeekInfo } from '~/lib/weekCalculator';
+import { cn } from '~/lib/cn';
 
 interface WeekData {
   weekNumber: number;
@@ -39,6 +41,8 @@ interface WeeklyProgressCardsProps {
   weeklyEarnings?: Array<{ week: number; earned: number }>;
   /** Hourly rate for earnings calculations (from profile.minHourlyRate) */
   hourlyRate?: number;
+  /** Optional: simulated date for testing (defaults to current date) */
+  simulatedDate?: Date;
 }
 
 export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
@@ -136,59 +140,62 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
     }
   });
 
+  // Calculate current week info from simulated date
+  const weekInfo = createMemo(() => {
+    const plan = retroplan();
+    if (!plan?.milestones?.length) return null;
+
+    // Get start date from first milestone
+    const startDate = plan.milestones[0]?.capacity.weekStartDate;
+    if (!startDate) return null;
+
+    return getCurrentWeekInfo(startDate, plan.milestones.length, props.simulatedDate);
+  });
+
   // Generate week data from retroplan
   const weeks = createMemo<WeekData[]>(() => {
     const plan = retroplan();
     if (!plan?.milestones) return [];
 
-    // Use actual goal progress to calculate current saved amount
-    const currentSaved = Math.round((props.goal.amount * (props.goal.progress || 0)) / 100);
-    const now = new Date();
+    const now = props.simulatedDate || new Date();
+    // Only use explicit weekly earnings data - don't invent earnings from goal.progress
+    // goal.progress is unreliable and can show inflated values (e.g., 100% = 3000€ when only 87€ earned)
     const earningsMap = new Map(props.weeklyEarnings?.map((w) => [w.week, w.earned]) || []);
-
-    // Find weeks that have passed (not future) and calculate their total target
-    const passedWeeks = plan.milestones.filter((m) => new Date(m.capacity.weekStartDate) <= now);
-    const totalTargetForPassedWeeks = passedWeeks.reduce((sum, m) => sum + m.adjustedTarget, 0);
+    const hasExplicitEarnings = props.weeklyEarnings && props.weeklyEarnings.length > 0;
 
     return plan.milestones.map((m, idx) => {
       const weekStart = new Date(m.capacity.weekStartDate);
       const isFuture = weekStart > now;
 
-      // Calculate earned for this week based on actual progress distribution
-      // Distribute currentSaved proportionally to each week's target
+      // Only show earnings if we have explicit data - don't fabricate from goal.progress
       let earned = 0;
-      if (!isFuture && totalTargetForPassedWeeks > 0) {
-        // Check if we have explicit weekly earnings data
+      if (!isFuture && hasExplicitEarnings) {
         const explicitEarned = earningsMap.get(m.weekNumber);
         if (explicitEarned !== undefined) {
           earned = explicitEarned;
-        } else {
-          // Distribute saved amount proportionally based on week's target
-          earned = Math.round((m.adjustedTarget / totalTargetForPassedWeeks) * currentSaved);
         }
       }
 
-      // Calculate cumulative earnings up to this week
-      const cumulative = plan.milestones.slice(0, idx + 1).reduce((sum, p) => {
-        const pWeekStart = new Date(p.capacity.weekStartDate);
-        const pIsFuture = pWeekStart > now;
-        if (pIsFuture) return sum;
+      // Calculate cumulative earnings up to this week (only from explicit data)
+      const cumulative = hasExplicitEarnings
+        ? plan.milestones.slice(0, idx + 1).reduce((sum, p) => {
+            const pWeekStart = new Date(p.capacity.weekStartDate);
+            const pIsFuture = pWeekStart > now;
+            if (pIsFuture) return sum;
 
-        const pExplicit = earningsMap.get(p.weekNumber);
-        if (pExplicit !== undefined) {
-          return sum + pExplicit;
-        }
-        // Proportional distribution
-        if (totalTargetForPassedWeeks > 0) {
-          return sum + Math.round((p.adjustedTarget / totalTargetForPassedWeeks) * currentSaved);
-        }
-        return sum;
-      }, 0);
+            const pExplicit = earningsMap.get(p.weekNumber);
+            return sum + (pExplicit || 0);
+          }, 0)
+        : 0;
 
       // Determine status based on cumulative progress vs cumulative target
       let status: WeekData['status'];
       if (isFuture) {
         status = 'future';
+      } else if (!hasExplicitEarnings) {
+        // No earnings data - show as "on-track" (neutral) instead of misleading "critical"
+        // User hasn't logged earnings yet, we can't judge progress
+        status = 'on-track';
       } else if (cumulative >= m.cumulativeTarget * 1.05) {
         status = 'ahead';
       } else if (cumulative >= m.cumulativeTarget * 0.9) {
@@ -214,8 +221,11 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
   });
 
   // Stats summary
+  const hasExplicitEarningsData = () => props.weeklyEarnings && props.weeklyEarnings.length > 0;
+
   const stats = createMemo(() => {
     const weekData = weeks();
+    // Only count weeks with actual data (not 'future' status)
     const pastWeeks = weekData.filter((w) => w.status !== 'future');
     const aheadWeeks = pastWeeks.filter((w) => w.status === 'ahead').length;
     const behindWeeks = pastWeeks.filter((w) => w.status === 'behind').length;
@@ -225,7 +235,10 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
 
     // Determine overall status
     let overallStatus: WeekData['status'];
-    if (totalEarned >= totalTarget) {
+    if (!hasExplicitEarningsData()) {
+      // No earnings data - show neutral status
+      overallStatus = 'on-track';
+    } else if (totalEarned >= totalTarget) {
       overallStatus = 'ahead';
     } else if (totalEarned >= totalTarget * 0.9) {
       overallStatus = 'on-track';
@@ -244,6 +257,7 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
       totalEarned,
       totalTarget,
       overallStatus,
+      hasData: hasExplicitEarningsData(),
     };
   });
 
@@ -296,23 +310,33 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
       {/* Summary Stats */}
       <div class="flex items-center justify-between text-sm">
         <div class="flex items-center gap-4">
-          <span class="text-muted-foreground">
-            {stats().pastWeeks} / {stats().totalWeeks} weeks
-          </span>
-          <Show when={stats().aheadWeeks > 0}>
+          <span class="text-muted-foreground">{stats().totalWeeks} weeks total</span>
+          <Show when={stats().hasData && stats().aheadWeeks > 0}>
             <span class="text-green-600 dark:text-green-400">🚀 {stats().aheadWeeks} ahead</span>
           </Show>
-          <Show when={stats().behindWeeks > 0}>
+          <Show when={stats().hasData && stats().behindWeeks > 0}>
             <span class="text-amber-600 dark:text-amber-400">⚠ {stats().behindWeeks} behind</span>
           </Show>
-          <Show when={stats().criticalWeeks > 0}>
+          <Show when={stats().hasData && stats().criticalWeeks > 0}>
             <span class="text-red-600 dark:text-red-400">🔴 {stats().criticalWeeks} critical</span>
           </Show>
+          <Show when={!stats().hasData}>
+            <span class="text-muted-foreground italic">Log earnings on /suivi</span>
+          </Show>
         </div>
-        <div class={`font-medium ${statusConfig[stats().overallStatus].text}`}>
-          {formatCurrency(stats().totalEarned, currency())} /{' '}
-          {formatCurrency(stats().totalTarget, currency())}
-        </div>
+        <Show
+          when={stats().hasData}
+          fallback={
+            <span class="text-muted-foreground">
+              Target: {formatCurrency(props.goal.amount, currency())}
+            </span>
+          }
+        >
+          <div class={`font-medium ${statusConfig[stats().overallStatus].text}`}>
+            {formatCurrency(stats().totalEarned, currency())} /{' '}
+            {formatCurrency(stats().totalTarget, currency())}
+          </div>
+        </Show>
       </div>
 
       {/* Horizontal Scrollable Cards - native scroll with wheel support */}
@@ -322,11 +346,14 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
       >
         <div class="flex gap-2 pb-1 px-0.5" style={{ 'min-width': 'max-content' }}>
           <For each={weeks()}>
-            {(week, idx) => {
+            {(week) => {
               const config = statusConfig[week.status];
-              const isCurrentWeek =
-                idx() === 0 ||
-                (idx() > 0 && weeks()[idx() - 1].status !== 'future' && week.status === 'future');
+
+              // Check if this is the current week using weekCalculator
+              const currentWeekNum = weekInfo()?.weekNumber ?? 0;
+              const isCurrentWeek = week.weekNumber === currentWeekNum && week.status !== 'future';
+              const daysIntoWeek = weekInfo()?.daysIntoWeek ?? 0;
+
               const progressPercent =
                 week.target > 0 ? Math.min(100, Math.round((week.earned / week.target) * 100)) : 0;
 
@@ -338,10 +365,20 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
 
               return (
                 <div
-                  class={`flex-shrink-0 w-28 p-2 rounded-lg border-2 transition-all ${config.bg} ${config.border} ${
-                    isCurrentWeek ? 'ring-2 ring-primary/30' : ''
-                  }`}
+                  class={cn(
+                    'flex-shrink-0 w-28 p-2 rounded-lg border-2 transition-all relative',
+                    config.bg,
+                    config.border,
+                    isCurrentWeek && 'ring-2 ring-green-500 ring-offset-2 animate-pulse-subtle'
+                  )}
                 >
+                  {/* Mascot emoji for current week */}
+                  <Show when={isCurrentWeek}>
+                    <div class="absolute -top-3 left-1/2 animate-bounce-slow z-10">
+                      <span class="text-lg">🚶</span>
+                    </div>
+                  </Show>
+
                   {/* Week header with date */}
                   <div class="flex items-center justify-between mb-1">
                     <div class="flex flex-col">
@@ -387,22 +424,49 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
 
                   {/* Target & Earned */}
                   <div class="text-center">
-                    <Show when={week.status !== 'future'}>
+                    <Show
+                      when={week.status !== 'future'}
+                      fallback={
+                        <p class="text-[10px] text-muted-foreground">
+                          {formatCurrency(week.target, currency())}
+                        </p>
+                      }
+                    >
                       <p class={`text-xs font-bold ${config.text}`}>
-                        {formatCurrency(week.earned, currency())}
+                        {hasExplicitEarningsData() ? formatCurrency(week.earned, currency()) : '—'}
+                      </p>
+                      <p class="text-[10px] text-muted-foreground">
+                        / {formatCurrency(week.target, currency())}
                       </p>
                     </Show>
-                    <p class="text-[10px] text-muted-foreground">
-                      / {formatCurrency(week.target, currency())}
-                    </p>
                   </div>
 
-                  {/* Current week badge */}
-                  <Show when={isCurrentWeek && week.status !== 'future'}>
-                    <div class="mt-1 text-center">
-                      <span class="text-[9px] px-1 py-0.5 rounded bg-primary/20 text-primary font-medium">
-                        NOW
-                      </span>
+                  {/* 7-day progress bar (bricks) for current week */}
+                  <Show when={isCurrentWeek}>
+                    <div class="flex gap-0.5 mt-2">
+                      <For each={[0, 1, 2, 3, 4, 5, 6]}>
+                        {(dayIndex) => {
+                          const isPastDay = dayIndex < daysIntoWeek;
+                          const isToday = dayIndex === daysIntoWeek;
+                          return (
+                            <div
+                              class={cn(
+                                'flex-1 h-1.5 rounded-sm transition-all',
+                                isPastDay && 'bg-green-500',
+                                isToday && 'bg-green-400 animate-day-pulse',
+                                !isPastDay && !isToday && 'bg-muted'
+                              )}
+                              title={
+                                isPastDay
+                                  ? `Day ${dayIndex + 1}: completed`
+                                  : isToday
+                                    ? `Day ${dayIndex + 1}: today`
+                                    : `Day ${dayIndex + 1}: upcoming`
+                              }
+                            />
+                          );
+                        }}
+                      </For>
                     </div>
                   </Show>
                 </div>

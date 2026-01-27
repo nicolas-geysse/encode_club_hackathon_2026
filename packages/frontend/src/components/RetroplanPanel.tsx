@@ -5,8 +5,10 @@
  * Shows week-by-week capacity, feasibility score, and risk factors.
  */
 
-import { createSignal, createEffect, For, Show } from 'solid-js';
+import { createSignal, createEffect, createMemo, For, Show } from 'solid-js';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { getCurrentWeekInfo } from '~/lib/weekCalculator';
+import { cn } from '~/lib/cn';
 import { Button } from '~/components/ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import {
@@ -84,6 +86,8 @@ interface RetroplanPanelProps {
   academicEvents?: AcademicEvent[];
   /** Hourly rate for earnings calculations (from profile.minHourlyRate) */
   hourlyRate?: number;
+  /** Sprint 13: Simulated date for testing (defaults to current date) */
+  simulatedDate?: Date;
   onClose?: () => void;
 }
 
@@ -121,6 +125,19 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
   const [error, setError] = createSignal<string | null>(null);
 
   const currency = () => props.currency || 'USD';
+
+  // Sprint 13: Calculate current week number from simulated date
+  const currentWeekNumber = createMemo(() => {
+    const plan = retroplan();
+    if (!plan?.milestones?.length) return 0;
+
+    // Get start date from first milestone
+    const startDate = plan.milestones[0]?.capacity.weekStartDate;
+    if (!startDate) return 0;
+
+    const weekInfo = getCurrentWeekInfo(startDate, plan.milestones.length, props.simulatedDate);
+    return weekInfo.weekNumber;
+  });
 
   // Fetch or generate retroplan
   // Always regenerate to ensure latest goal parameters and academic events are used
@@ -339,31 +356,57 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
             <h4 class="text-sm font-medium text-foreground">Weekly Capacity</h4>
             <div class="flex gap-1 overflow-x-auto pb-2">
               <For each={retroplan()!.milestones}>
-                {(milestone) => (
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <div class="flex flex-col items-center min-w-[36px]">
+                {(milestone) => {
+                  const isCurrentWeek = milestone.weekNumber === currentWeekNumber();
+                  return (
+                    <Tooltip>
+                      <TooltipTrigger>
                         <div
-                          class={`w-7 rounded-t-md ${CAPACITY_COLORS[milestone.capacity.capacityCategory]}`}
-                          style={{
-                            height: `${Math.max(20, milestone.capacity.capacityScore * 0.8)}px`,
-                          }}
-                        />
-                        <div class="text-[10px] text-muted-foreground mt-1">
-                          W{milestone.weekNumber}
+                          class={cn(
+                            'flex flex-col items-center min-w-[36px] relative',
+                            isCurrentWeek && 'pt-4'
+                          )}
+                        >
+                          {/* Sprint 13: Mascot for current week */}
+                          {isCurrentWeek && (
+                            <span class="absolute -top-0 text-sm animate-bounce-slow">🚶</span>
+                          )}
+                          <div
+                            class={cn(
+                              'w-7 rounded-t-md',
+                              CAPACITY_COLORS[milestone.capacity.capacityCategory],
+                              isCurrentWeek && 'ring-2 ring-green-500 ring-offset-1'
+                            )}
+                            style={{
+                              height: `${Math.max(20, milestone.capacity.capacityScore * 0.8)}px`,
+                            }}
+                          />
+                          <div
+                            class={cn(
+                              'text-[10px] mt-1',
+                              isCurrentWeek
+                                ? 'font-bold text-green-600 dark:text-green-400'
+                                : 'text-muted-foreground'
+                            )}
+                          >
+                            W{milestone.weekNumber}
+                          </div>
                         </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div class="text-xs space-y-1">
-                        <div class="font-medium">Week {milestone.weekNumber}</div>
-                        <div>{CAPACITY_LABELS[milestone.capacity.capacityCategory]}</div>
-                        <div>{milestone.capacity.effectiveHours}h available</div>
-                        <div>Target: {formatCurrency(milestone.adjustedTarget, currency())}</div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div class="text-xs space-y-1">
+                          <div class="font-medium">
+                            Week {milestone.weekNumber}
+                            {isCurrentWeek && ' (current)'}
+                          </div>
+                          <div>{CAPACITY_LABELS[milestone.capacity.capacityCategory]}</div>
+                          <div>{milestone.capacity.effectiveHours}h available</div>
+                          <div>Target: {formatCurrency(milestone.adjustedTarget, currency())}</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                }}
               </For>
             </div>
           </div>
@@ -383,32 +426,47 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
                 </thead>
                 <tbody>
                   <For each={retroplan()!.milestones}>
-                    {(milestone) => (
-                      <tr class="border-t border-border hover:bg-muted/30">
-                        <td class="p-2">
-                          <span class="font-medium">W{milestone.weekNumber}</span>
-                          <span class="text-xs text-muted-foreground ml-1">
-                            {new Date(milestone.capacity.weekStartDate).toLocaleDateString(
-                              'en-US',
-                              { month: 'short', day: 'numeric' }
-                            )}
-                          </span>
-                        </td>
-                        <td class="p-2">
-                          <span
-                            class={`px-2 py-0.5 rounded-full text-xs ${CAPACITY_BG_COLORS[milestone.capacity.capacityCategory]} ${CAPACITY_TEXT_COLORS[milestone.capacity.capacityCategory]}`}
-                          >
-                            {milestone.capacity.capacityCategory.toUpperCase()}
-                          </span>
-                        </td>
-                        <td class="p-2 text-right font-mono">
-                          {formatCurrency(milestone.adjustedTarget, currency())}
-                        </td>
-                        <td class="p-2 text-right font-mono text-muted-foreground">
-                          {formatCurrency(milestone.cumulativeTarget, currency())}
-                        </td>
-                      </tr>
-                    )}
+                    {(milestone) => {
+                      const isCurrentWeek = milestone.weekNumber === currentWeekNumber();
+                      return (
+                        <tr
+                          class={cn(
+                            'border-t border-border hover:bg-muted/30',
+                            isCurrentWeek && 'bg-green-500/10 ring-1 ring-inset ring-green-500/30'
+                          )}
+                        >
+                          <td class="p-2">
+                            <span
+                              class={cn(
+                                'font-medium',
+                                isCurrentWeek && 'text-green-600 dark:text-green-400'
+                              )}
+                            >
+                              {isCurrentWeek && '🚶 '}W{milestone.weekNumber}
+                            </span>
+                            <span class="text-xs text-muted-foreground ml-1">
+                              {new Date(milestone.capacity.weekStartDate).toLocaleDateString(
+                                'en-US',
+                                { month: 'short', day: 'numeric' }
+                              )}
+                            </span>
+                          </td>
+                          <td class="p-2">
+                            <span
+                              class={`px-2 py-0.5 rounded-full text-xs ${CAPACITY_BG_COLORS[milestone.capacity.capacityCategory]} ${CAPACITY_TEXT_COLORS[milestone.capacity.capacityCategory]}`}
+                            >
+                              {milestone.capacity.capacityCategory.toUpperCase()}
+                            </span>
+                          </td>
+                          <td class="p-2 text-right font-mono">
+                            {formatCurrency(milestone.adjustedTarget, currency())}
+                          </td>
+                          <td class="p-2 text-right font-mono text-muted-foreground">
+                            {formatCurrency(milestone.cumulativeTarget, currency())}
+                          </td>
+                        </tr>
+                      );
+                    }}
                   </For>
                 </tbody>
               </table>
