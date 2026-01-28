@@ -164,11 +164,44 @@ export const SCHEMAS = {
       profile_id VARCHAR NOT NULL,
       name VARCHAR NOT NULL,
       type VARCHAR NOT NULL,
-      start_date TIMESTAMP,
-      end_date TIMESTAMP,
-      duration VARCHAR,
-      difficulty INTEGER,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      capacity_impact DECIMAL DEFAULT 1.0,
+      priority VARCHAR DEFAULT 'normal',
+      is_recurring BOOLEAN DEFAULT FALSE,
+      recurrence_pattern VARCHAR,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `,
+
+  commitments: `
+    CREATE TABLE IF NOT EXISTS commitments (
+      id VARCHAR PRIMARY KEY,
+      profile_id VARCHAR NOT NULL,
+      name VARCHAR NOT NULL,
+      type VARCHAR NOT NULL,
+      hours_per_week DECIMAL NOT NULL,
+      flexible_hours BOOLEAN DEFAULT TRUE,
+      day_preferences VARCHAR,
+      start_date DATE,
+      end_date DATE,
+      priority VARCHAR DEFAULT 'important',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `,
+
+  energy_logs: `
+    CREATE TABLE IF NOT EXISTS energy_logs (
+      id VARCHAR PRIMARY KEY,
+      profile_id VARCHAR NOT NULL,
+      log_date DATE NOT NULL,
+      energy_level INTEGER CHECK (energy_level BETWEEN 1 AND 5),
+      mood_score INTEGER CHECK (mood_score BETWEEN 1 AND 5),
+      stress_level INTEGER CHECK (stress_level BETWEEN 1 AND 5),
+      hours_slept DECIMAL,
+      notes VARCHAR,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(profile_id, log_date)
     )
   `,
 } as const;

@@ -148,6 +148,8 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
           simulatedDate: props.simulatedDate?.toISOString(),
           // Bug 2 Fix: Pass goal creation date to generate weeks from original start
           goalStartDate: goal.createdAt,
+          // Sprint 13.7: Pass monthly margin for combined feasibility calculation
+          monthlyMargin: props.monthlyMargin,
         }),
       })
         .then((res) => (res.ok ? res.json() : null))

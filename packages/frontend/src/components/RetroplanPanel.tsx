@@ -88,6 +88,8 @@ interface RetroplanPanelProps {
   hourlyRate?: number;
   /** Sprint 13: Simulated date for testing (defaults to current date) */
   simulatedDate?: Date;
+  /** Sprint 13.7: Monthly net margin (income - expenses) for feasibility */
+  monthlyMargin?: number;
   onClose?: () => void;
 }
 
@@ -181,6 +183,8 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
           academicEvents: props.academicEvents || [],
           // Pass hourlyRate from profile for consistent feasibility calculations
           hourlyRate: props.hourlyRate,
+          // Sprint 13.7: Pass monthly margin for combined feasibility calculation
+          monthlyMargin: props.monthlyMargin,
         }),
       });
 

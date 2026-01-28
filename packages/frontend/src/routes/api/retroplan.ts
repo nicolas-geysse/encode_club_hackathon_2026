@@ -8,15 +8,27 @@
  * - Log energy/mood levels
  * - Generate capacity-aware retroplans
  * - Get week capacity breakdowns
+ *
+ * Sprint 13.7 Fix: Now uses DuckDB for persistence instead of in-memory stores.
+ * This fixes the "always 100% achievable" bug where data was lost on restart.
  */
 
 import type { APIEvent } from '@solidjs/start/server';
+import { query, execute, escapeSQL } from './_db';
+import { ensureSchema, SCHEMAS } from '../../lib/api/schemaManager';
 
 // Types for retroplanning
 interface AcademicEvent {
   id: string;
   userId: string;
-  type: 'exam_period' | 'class_intensive' | 'vacation' | 'internship' | 'project_deadline';
+  type:
+    | 'exam_period'
+    | 'class_intensive'
+    | 'vacation'
+    | 'vacation_rest'
+    | 'vacation_available'
+    | 'internship'
+    | 'project_deadline';
   name: string;
   startDate: string;
   endDate: string;
@@ -49,11 +61,12 @@ interface WeekCapacity {
   weekNumber: number;
   weekStartDate: string;
   capacityScore: number;
-  capacityCategory: 'high' | 'medium' | 'low' | 'protected';
+  capacityCategory: 'high' | 'medium' | 'low' | 'protected' | 'boosted';
   effectiveHours: number;
   academicMultiplier: number;
   energyMultiplier: number;
   events: AcademicEvent[];
+  maxEarningPotential: number;
 }
 
 interface DynamicMilestone {
@@ -72,6 +85,7 @@ interface Retroplan {
   goalId: string;
   milestones: DynamicMilestone[];
   totalWeeks: number;
+  boostedWeeks: number;
   highCapacityWeeks: number;
   mediumCapacityWeeks: number;
   lowCapacityWeeks: number;
@@ -81,11 +95,90 @@ interface Retroplan {
   riskFactors: string[];
 }
 
-// In-memory storage (would be DuckDB in production)
-const academicEventsStore: Map<string, AcademicEvent> = new Map();
-const commitmentsStore: Map<string, Commitment> = new Map();
-const energyLogsStore: Map<string, EnergyLog> = new Map();
+// Sprint 13.7: Removed in-memory stores - now using DuckDB for persistence
+// This fixes the "always 100% achievable" bug where data was lost on restart.
+
+// Retroplan cache (regenerated per request, doesn't need DB persistence)
 const retroplansStore: Map<string, Retroplan> = new Map();
+
+// Ensure schemas are initialized
+async function ensureRetroplanSchemas(): Promise<void> {
+  await ensureSchema('academic_events', SCHEMAS.academic_events);
+  await ensureSchema('commitments', SCHEMAS.commitments);
+  await ensureSchema('energy_logs', SCHEMAS.energy_logs);
+}
+
+// Database row types
+interface AcademicEventRow {
+  id: string;
+  profile_id: string;
+  name: string;
+  type: string;
+  start_date: string;
+  end_date: string;
+  capacity_impact: number;
+  priority: string;
+}
+
+interface CommitmentRow {
+  id: string;
+  profile_id: string;
+  name: string;
+  type: string;
+  hours_per_week: number;
+  flexible_hours: boolean;
+  priority: string;
+}
+
+interface EnergyLogRow {
+  id: string;
+  profile_id: string;
+  log_date: string;
+  energy_level: number;
+  mood_score: number;
+  stress_level: number;
+  hours_slept: number | null;
+  notes: string | null;
+}
+
+// Helper to convert DB row to API type
+function rowToAcademicEvent(row: AcademicEventRow): AcademicEvent {
+  return {
+    id: row.id,
+    userId: row.profile_id,
+    type: row.type as AcademicEvent['type'],
+    name: row.name,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    capacityImpact: row.capacity_impact,
+    priority: row.priority as AcademicEvent['priority'],
+  };
+}
+
+function rowToCommitment(row: CommitmentRow): Commitment {
+  return {
+    id: row.id,
+    userId: row.profile_id,
+    type: row.type as Commitment['type'],
+    name: row.name,
+    hoursPerWeek: row.hours_per_week,
+    flexibleHours: row.flexible_hours,
+    priority: row.priority as Commitment['priority'],
+  };
+}
+
+function rowToEnergyLog(row: EnergyLogRow): EnergyLog {
+  return {
+    id: row.id,
+    userId: row.profile_id,
+    date: row.log_date,
+    energyLevel: row.energy_level as EnergyLog['energyLevel'],
+    moodScore: row.mood_score as EnergyLog['moodScore'],
+    stressLevel: row.stress_level as EnergyLog['stressLevel'],
+    hoursSlept: row.hours_slept ?? undefined,
+    notes: row.notes ?? undefined,
+  };
+}
 
 // Helper to generate UUID
 function generateId(prefix: string = 'id'): string {
@@ -93,45 +186,101 @@ function generateId(prefix: string = 'id'): string {
 }
 
 // Get default capacity impact by event type
-function getDefaultCapacityImpact(eventType: AcademicEvent['type']): number {
+function getDefaultCapacityImpact(eventType: AcademicEvent['type'] | string): number {
   switch (eventType) {
+    case 'exam':
     case 'exam_period':
-      return 0.2; // 80% reduction
+      return 0.2; // 80% reduction - protected
     case 'class_intensive':
-      return 0.5; // 50% reduction
+      return 0.5; // 50% reduction - low capacity
     case 'vacation':
-      return 1.5; // 50% boost
+    case 'vacation_available':
+      return 1.5; // 50% boost - more free time to work
+    case 'vacation_rest':
+      return 0.2; // 80% reduction - complete rest, not available
     case 'internship':
-      return 0.3; // 70% reduction
+      return 0.3; // 70% reduction - very busy
     case 'project_deadline':
-      return 0.4; // 60% reduction
+      return 0.4; // 60% reduction - crunch time
     default:
       return 1.0;
   }
 }
 
-// Calculate week capacity
-function calculateWeekCapacity(weekStart: Date, userId: string): WeekCapacity {
+// Default hourly rate for earning potential calculation (can be overridden)
+const DEFAULT_HOURLY_RATE = 15; // €15/hour
+
+// Sprint 13.7: Calculate week capacity using DuckDB-persisted data
+// This is now async because it queries the database
+async function calculateWeekCapacity(
+  weekStart: Date,
+  userId: string,
+  hourlyRate: number = DEFAULT_HOURLY_RATE,
+  // Optional: pass pre-fetched data to avoid repeated DB queries in loops
+  prefetchedEvents?: AcademicEvent[],
+  prefetchedCommitments?: Commitment[],
+  prefetchedEnergyLogs?: EnergyLog[]
+): Promise<WeekCapacity> {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
-  // Get events for this week
-  const events = Array.from(academicEventsStore.values()).filter(
-    (e) =>
-      e.userId === userId && new Date(e.startDate) <= weekEnd && new Date(e.endDate) >= weekStart
-  );
+  // Get events for this week (from prefetched or DB)
+  let allUserEvents: AcademicEvent[];
+  if (prefetchedEvents) {
+    allUserEvents = prefetchedEvents;
+  } else {
+    await ensureRetroplanSchemas();
+    const eventRows = await query<AcademicEventRow>(
+      `SELECT * FROM academic_events WHERE profile_id = ${escapeSQL(userId)}`
+    );
+    allUserEvents = eventRows.map(rowToAcademicEvent);
+  }
 
-  // Get commitments
-  const commitments = Array.from(commitmentsStore.values()).filter((c) => c.userId === userId);
+  const events = allUserEvents.filter((e) => {
+    const eventStart = new Date(e.startDate);
+    const eventEnd = new Date(e.endDate);
+    return eventStart <= weekEnd && eventEnd >= weekStart;
+  });
 
-  // Get recent energy logs
-  const energyLogs = Array.from(energyLogsStore.values())
-    .filter((e) => e.userId === userId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 7);
+  // Get commitments (from prefetched or DB)
+  let commitments: Commitment[];
+  if (prefetchedCommitments) {
+    commitments = prefetchedCommitments;
+  } else {
+    const commitmentRows = await query<CommitmentRow>(
+      `SELECT * FROM commitments WHERE profile_id = ${escapeSQL(userId)}`
+    );
+    commitments = commitmentRows.map(rowToCommitment);
+  }
+
+  // Get recent energy logs (from prefetched or DB)
+  let energyLogs: EnergyLog[];
+  if (prefetchedEnergyLogs) {
+    energyLogs = prefetchedEnergyLogs;
+  } else {
+    const energyRows = await query<EnergyLogRow>(
+      `SELECT * FROM energy_logs
+       WHERE profile_id = ${escapeSQL(userId)}
+       ORDER BY log_date DESC
+       LIMIT 7`
+    );
+    energyLogs = energyRows.map(rowToEnergyLog);
+  }
 
   // Calculate multipliers
-  const academicMultiplier = events.reduce((mult, e) => Math.min(mult, e.capacityImpact), 1.0);
+  // Separate restrictive events (< 1.0) from boost events (> 1.0)
+  const restrictiveEvents = events.filter((e) => e.capacityImpact < 1.0);
+  const boostEvents = events.filter((e) => e.capacityImpact > 1.0);
+
+  let academicMultiplier = 1.0;
+  if (restrictiveEvents.length > 0) {
+    // If there are restrictive events, use the most restrictive (lowest impact)
+    // Restrictive events take priority over boosts (can't work much during exams even on vacation)
+    academicMultiplier = Math.min(...restrictiveEvents.map((e) => e.capacityImpact));
+  } else if (boostEvents.length > 0) {
+    // If only boost events, use the highest boost
+    academicMultiplier = Math.max(...boostEvents.map((e) => e.capacityImpact));
+  }
 
   const avgEnergy =
     energyLogs.length > 0
@@ -153,6 +302,9 @@ function calculateWeekCapacity(weekStart: Date, userId: string): WeekCapacity {
   const baseHours = Math.max(0, 168 - 56 - totalCommitmentHours - 21);
   const effectiveHours = Math.round(baseHours * academicMultiplier * energyMultiplier * 0.3);
 
+  // Calculate earning potential (hours × hourly rate)
+  const maxEarningPotential = effectiveHours * hourlyRate;
+
   const capacityScore = Math.round(academicMultiplier * energyMultiplier * 100);
   const capacityCategory: WeekCapacity['capacityCategory'] =
     capacityScore < 30
@@ -161,7 +313,9 @@ function calculateWeekCapacity(weekStart: Date, userId: string): WeekCapacity {
         ? 'low'
         : capacityScore < 85
           ? 'medium'
-          : 'high';
+          : capacityScore > 110
+            ? 'boosted'
+            : 'high';
 
   return {
     weekNumber: 0, // Will be set by caller
@@ -172,36 +326,75 @@ function calculateWeekCapacity(weekStart: Date, userId: string): WeekCapacity {
     academicMultiplier,
     energyMultiplier,
     events,
+    maxEarningPotential,
   };
 }
 
-// Generate retroplan
-function generateRetroplanForGoal(
+// Generate retroplan - Sprint 13.7: Now async for DuckDB queries
+async function generateRetroplanForGoal(
   goalId: string,
   goalAmount: number,
   deadline: string,
-  userId: string
-): Retroplan {
+  userId: string,
+  hourlyRate: number = DEFAULT_HOURLY_RATE,
+  simulatedDate?: Date, // Sprint 13.8 Fix: Accept simulated date for testing
+  goalStartDate?: Date, // Bug 2 Fix: Accept goal start date for historical weeks
+  monthlyMargin?: number // Sprint 13.7: Add margin-based capacity factor
+): Promise<Retroplan> {
   const deadlineDate = new Date(deadline);
-  const now = new Date();
+  // Sprint 13.8 Fix: Use simulated date if provided, otherwise use real time
+  const now = simulatedDate || new Date();
+
+  // Bug 2 Fix: Use goalStartDate if provided to generate weeks from original start
+  // This ensures past weeks remain visible when simulating forward
+  const startDate = goalStartDate || now;
   const totalWeeks = Math.max(
     1,
-    Math.ceil((deadlineDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
+    Math.ceil((deadlineDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000))
   );
+
+  // Sprint 13.7: Pre-fetch all data from DuckDB to avoid N+1 queries
+  await ensureRetroplanSchemas();
+
+  const [eventRows, commitmentRows, energyRows] = await Promise.all([
+    query<AcademicEventRow>(
+      `SELECT * FROM academic_events WHERE profile_id = ${escapeSQL(userId)}`
+    ),
+    query<CommitmentRow>(`SELECT * FROM commitments WHERE profile_id = ${escapeSQL(userId)}`),
+    query<EnergyLogRow>(
+      `SELECT * FROM energy_logs WHERE profile_id = ${escapeSQL(userId)} ORDER BY log_date DESC LIMIT 7`
+    ),
+  ]);
+
+  const prefetchedEvents = eventRows.map(rowToAcademicEvent);
+  const prefetchedCommitments = commitmentRows.map(rowToCommitment);
+  const prefetchedEnergyLogs = energyRows.map(rowToEnergyLog);
 
   // Calculate capacity for each week
   const weekCapacities: WeekCapacity[] = [];
-  const currentWeekStart = new Date(now);
+  // Bug 2 Fix: Start from goalStartDate to include past weeks
+  const currentWeekStart = new Date(startDate);
   currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7)); // Monday
 
   for (let week = 1; week <= totalWeeks; week++) {
-    const capacity = calculateWeekCapacity(currentWeekStart, userId);
+    const capacity = await calculateWeekCapacity(
+      currentWeekStart,
+      userId,
+      hourlyRate,
+      prefetchedEvents,
+      prefetchedCommitments,
+      prefetchedEnergyLogs
+    );
     capacity.weekNumber = week;
     weekCapacities.push(capacity);
     currentWeekStart.setDate(currentWeekStart.getDate() + 7);
   }
 
-  // Calculate total capacity
+  // Calculate total earning potential
+  const maxTotalEarnings = weekCapacities.reduce((sum, w) => sum + w.maxEarningPotential, 0);
+  const recommendedEarnings = maxTotalEarnings * 0.7; // 70% is sustainable
+
+  // Calculate total capacity for distribution
   const totalCapacity = weekCapacities.reduce((sum, w) => sum + w.capacityScore, 0);
   const targetPerCapacityPoint =
     totalCapacity > 0 ? goalAmount / totalCapacity : goalAmount / totalWeeks;
@@ -234,38 +427,80 @@ function generateRetroplanForGoal(
   });
 
   // Count week categories
+  const boostedWeeks = weekCapacities.filter((w) => w.capacityCategory === 'boosted').length;
   const highCapacityWeeks = weekCapacities.filter((w) => w.capacityCategory === 'high').length;
   const mediumCapacityWeeks = weekCapacities.filter((w) => w.capacityCategory === 'medium').length;
   const lowCapacityWeeks = weekCapacities.filter((w) => w.capacityCategory === 'low').length;
   const protectedWeeks = weekCapacities.filter((w) => w.capacityCategory === 'protected').length;
 
-  // Calculate feasibility
-  let feasibilityScore = 0.8;
-  if (protectedWeeks > totalWeeks * 0.3) feasibilityScore -= 0.2;
-  if (lowCapacityWeeks > totalWeeks * 0.4) feasibilityScore -= 0.15;
-  feasibilityScore = Math.max(0.2, Math.min(1, feasibilityScore));
+  // ============================================
+  // Sprint 13.7: Calculate feasibility based on actual earning capacity + margin
+  // ============================================
+  const riskFactors: string[] = [];
+  let feasibilityScore: number;
+
+  // Sprint 13.7: Include monthly margin (savings) in capacity calculation
+  // Monthly margin represents passive savings from budget surplus
+  const totalMonths = Math.max(1, Math.ceil(totalWeeks / 4.33)); // ~4.33 weeks per month
+  const marginBasedCapacity = (monthlyMargin ?? 0) * totalMonths;
+  const effectiveMaxEarnings = maxTotalEarnings + marginBasedCapacity;
+  const effectiveRecommended = recommendedEarnings + marginBasedCapacity;
+
+  if (monthlyMargin && monthlyMargin > 0) {
+    riskFactors.push(
+      `Monthly savings: +${Math.round(monthlyMargin)}€/month (${Math.round(marginBasedCapacity)}€ total)`
+    );
+  }
+
+  if (goalAmount <= effectiveRecommended) {
+    // Goal is within comfortable earning range (including passive savings)
+    feasibilityScore = 1.0;
+  } else if (goalAmount <= effectiveMaxEarnings) {
+    // Goal is achievable but requires maximum effort
+    feasibilityScore = 0.6 + 0.4 * (effectiveRecommended / goalAmount);
+    riskFactors.push(
+      `Requires max effort: goal ${goalAmount}€ vs comfortable ${Math.round(effectiveRecommended)}€`
+    );
+  } else {
+    // Goal exceeds maximum possible earnings + margin - THIS IS THE KEY FIX
+    feasibilityScore = effectiveMaxEarnings / goalAmount;
+    const shortage = goalAmount - effectiveMaxEarnings;
+    riskFactors.push(`⚠️ Goal exceeds max capacity by ${Math.round(shortage)}€`);
+    riskFactors.push(
+      `Max possible: ${Math.round(effectiveMaxEarnings)}€ in ${totalWeeks} weeks (work: ${Math.round(maxTotalEarnings)}€ + savings: ${Math.round(marginBasedCapacity)}€)`
+    );
+  }
+
+  // Secondary factors (only if base is viable)
+  if (protectedWeeks > totalWeeks * 0.3) {
+    feasibilityScore *= 0.9;
+    riskFactors.push(`${protectedWeeks} protected week(s) (exams)`);
+  }
+  if (lowCapacityWeeks > totalWeeks * 0.4) {
+    feasibilityScore *= 0.95;
+    riskFactors.push(`${lowCapacityWeeks} low capacity weeks`);
+  }
+  if (totalWeeks < 4) {
+    feasibilityScore *= 0.9;
+    riskFactors.push('Very short timeline (< 4 weeks)');
+  }
+
+  // Clamp between 1% and 100%
+  feasibilityScore = Math.max(0.01, Math.min(1, feasibilityScore));
 
   // Calculate front-loading percentage
   const halfWay = Math.ceil(totalWeeks / 2);
   const firstHalfTarget = milestones
     .slice(0, halfWay)
     .reduce((sum, m) => sum + m.adjustedTarget, 0);
-  const frontLoadedPercentage = (firstHalfTarget / goalAmount) * 100;
-
-  // Identify risk factors
-  const riskFactors: string[] = [];
-  if (protectedWeeks > 0) {
-    riskFactors.push(`${protectedWeeks} protected week(s) (exams)`);
-  }
-  if (feasibilityScore < 0.5) {
-    riskFactors.push('Ambitious goal given constraints');
-  }
+  const frontLoadedPercentage = goalAmount > 0 ? (firstHalfTarget / goalAmount) * 100 : 50;
 
   const retroplan: Retroplan = {
     id: generateId('rp'),
     goalId,
     milestones,
     totalWeeks,
+    boostedWeeks,
     highCapacityWeeks,
     mediumCapacityWeeks,
     lowCapacityWeeks,
@@ -286,22 +521,30 @@ export async function POST(event: APIEvent) {
     const { action, userId = 'default' } = body;
 
     switch (action) {
-      // Academic Events
+      // Academic Events - Sprint 13.7: Now persisted in DuckDB
       case 'add_academic_event': {
         const { type, name, startDate, endDate, capacityImpact, priority = 'normal' } = body;
+        await ensureRetroplanSchemas();
+
+        const eventId = generateId('ae');
+        const impact = capacityImpact ?? getDefaultCapacityImpact(type);
+
+        await execute(`
+          INSERT INTO academic_events (id, profile_id, name, type, start_date, end_date, capacity_impact, priority)
+          VALUES (${escapeSQL(eventId)}, ${escapeSQL(userId)}, ${escapeSQL(name)}, ${escapeSQL(type)},
+                  ${escapeSQL(startDate)}, ${escapeSQL(endDate)}, ${impact}, ${escapeSQL(priority)})
+        `);
 
         const event: AcademicEvent = {
-          id: generateId('ae'),
+          id: eventId,
           userId,
           type,
           name,
           startDate,
           endDate,
-          capacityImpact: capacityImpact ?? getDefaultCapacityImpact(type),
+          capacityImpact: impact,
           priority,
         };
-
-        academicEventsStore.set(event.id, event);
 
         return new Response(JSON.stringify({ success: true, event }), {
           status: 200,
@@ -310,7 +553,11 @@ export async function POST(event: APIEvent) {
       }
 
       case 'list_academic_events': {
-        const events = Array.from(academicEventsStore.values()).filter((e) => e.userId === userId);
+        await ensureRetroplanSchemas();
+        const rows = await query<AcademicEventRow>(
+          `SELECT * FROM academic_events WHERE profile_id = ${escapeSQL(userId)} ORDER BY start_date`
+        );
+        const events = rows.map(rowToAcademicEvent);
 
         return new Response(JSON.stringify({ events }), {
           status: 200,
@@ -320,7 +567,8 @@ export async function POST(event: APIEvent) {
 
       case 'delete_academic_event': {
         const { eventId } = body;
-        academicEventsStore.delete(eventId);
+        await ensureRetroplanSchemas();
+        await execute(`DELETE FROM academic_events WHERE id = ${escapeSQL(eventId)}`);
 
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
@@ -328,12 +576,21 @@ export async function POST(event: APIEvent) {
         });
       }
 
-      // Commitments
+      // Commitments - Sprint 13.7: Now persisted in DuckDB
       case 'add_commitment': {
         const { type, name, hoursPerWeek, flexibleHours = true, priority = 'important' } = body;
+        await ensureRetroplanSchemas();
+
+        const commitmentId = generateId('cm');
+
+        await execute(`
+          INSERT INTO commitments (id, profile_id, name, type, hours_per_week, flexible_hours, priority)
+          VALUES (${escapeSQL(commitmentId)}, ${escapeSQL(userId)}, ${escapeSQL(name)}, ${escapeSQL(type)},
+                  ${hoursPerWeek}, ${flexibleHours}, ${escapeSQL(priority)})
+        `);
 
         const commitment: Commitment = {
-          id: generateId('cm'),
+          id: commitmentId,
           userId,
           type,
           name,
@@ -342,8 +599,6 @@ export async function POST(event: APIEvent) {
           priority,
         };
 
-        commitmentsStore.set(commitment.id, commitment);
-
         return new Response(JSON.stringify({ success: true, commitment }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -351,9 +606,11 @@ export async function POST(event: APIEvent) {
       }
 
       case 'list_commitments': {
-        const commitments = Array.from(commitmentsStore.values()).filter(
-          (c) => c.userId === userId
+        await ensureRetroplanSchemas();
+        const rows = await query<CommitmentRow>(
+          `SELECT * FROM commitments WHERE profile_id = ${escapeSQL(userId)}`
         );
+        const commitments = rows.map(rowToCommitment);
         const totalHours = commitments.reduce((sum, c) => sum + c.hoursPerWeek, 0);
 
         return new Response(JSON.stringify({ commitments, totalHours }), {
@@ -364,7 +621,8 @@ export async function POST(event: APIEvent) {
 
       case 'delete_commitment': {
         const { commitmentId } = body;
-        commitmentsStore.delete(commitmentId);
+        await ensureRetroplanSchemas();
+        await execute(`DELETE FROM commitments WHERE id = ${escapeSQL(commitmentId)}`);
 
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
@@ -372,18 +630,38 @@ export async function POST(event: APIEvent) {
         });
       }
 
-      // Energy Logs
+      // Energy Logs - Sprint 13.7: Now persisted in DuckDB
       case 'log_energy': {
         const { date, energyLevel, moodScore, stressLevel, hoursSlept, notes } = body;
         const logDate = date || new Date().toISOString().split('T')[0];
+        await ensureRetroplanSchemas();
 
         // Check for existing log on this date
-        const existingLog = Array.from(energyLogsStore.values()).find(
-          (l) => l.userId === userId && l.date === logDate
+        const existingRows = await query<{ id: string }>(
+          `SELECT id FROM energy_logs WHERE profile_id = ${escapeSQL(userId)} AND log_date = ${escapeSQL(logDate)}`
         );
+        const existingId = existingRows.length > 0 ? existingRows[0].id : null;
+        const logId = existingId || generateId('el');
+
+        if (existingId) {
+          // Update existing log
+          await execute(`
+            UPDATE energy_logs
+            SET energy_level = ${energyLevel}, mood_score = ${moodScore}, stress_level = ${stressLevel},
+                hours_slept = ${hoursSlept ?? 'NULL'}, notes = ${escapeSQL(notes ?? '')}
+            WHERE id = ${escapeSQL(existingId)}
+          `);
+        } else {
+          // Insert new log
+          await execute(`
+            INSERT INTO energy_logs (id, profile_id, log_date, energy_level, mood_score, stress_level, hours_slept, notes)
+            VALUES (${escapeSQL(logId)}, ${escapeSQL(userId)}, ${escapeSQL(logDate)},
+                    ${energyLevel}, ${moodScore}, ${stressLevel}, ${hoursSlept ?? 'NULL'}, ${escapeSQL(notes ?? '')})
+          `);
+        }
 
         const log: EnergyLog = {
-          id: existingLog?.id || generateId('el'),
+          id: logId,
           userId,
           date: logDate,
           energyLevel,
@@ -392,8 +670,6 @@ export async function POST(event: APIEvent) {
           hoursSlept,
           notes,
         };
-
-        energyLogsStore.set(log.id, log);
 
         // Calculate composite score
         const compositeScore = Math.round(
@@ -408,10 +684,14 @@ export async function POST(event: APIEvent) {
 
       case 'list_energy_logs': {
         const { limit = 30 } = body;
-        const logs = Array.from(energyLogsStore.values())
-          .filter((l) => l.userId === userId)
-          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, limit);
+        await ensureRetroplanSchemas();
+        const rows = await query<EnergyLogRow>(
+          `SELECT * FROM energy_logs
+           WHERE profile_id = ${escapeSQL(userId)}
+           ORDER BY log_date DESC
+           LIMIT ${limit}`
+        );
+        const logs = rows.map(rowToEnergyLog);
 
         return new Response(JSON.stringify({ logs }), {
           status: 200,
@@ -419,7 +699,7 @@ export async function POST(event: APIEvent) {
         });
       }
 
-      // Week Capacity
+      // Week Capacity - Sprint 13.7: Now async for DuckDB queries
       case 'get_week_capacity': {
         const { weekDate } = body;
         const targetDate = weekDate ? new Date(weekDate) : new Date();
@@ -428,7 +708,7 @@ export async function POST(event: APIEvent) {
         const weekStart = new Date(targetDate);
         weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
 
-        const capacity = calculateWeekCapacity(weekStart, userId);
+        const capacity = await calculateWeekCapacity(weekStart, userId);
 
         // Calculate week number relative to goal start or current year
         const yearStart = new Date(targetDate.getFullYear(), 0, 1);
@@ -443,9 +723,18 @@ export async function POST(event: APIEvent) {
         });
       }
 
-      // Retroplan
+      // Retroplan - Sprint 13.7: Now async with DuckDB persistence
       case 'generate_retroplan': {
-        const { goalId, goalAmount, deadline } = body;
+        const {
+          goalId,
+          goalAmount,
+          deadline,
+          academicEvents,
+          hourlyRate,
+          simulatedDate,
+          goalStartDate,
+          monthlyMargin,
+        } = body;
 
         if (!goalId || !goalAmount || !deadline) {
           return new Response(
@@ -457,7 +746,54 @@ export async function POST(event: APIEvent) {
           );
         }
 
-        const retroplan = generateRetroplanForGoal(goalId, goalAmount, deadline, userId);
+        await ensureRetroplanSchemas();
+
+        // Sprint 13.7: If academic events are provided, save them to DuckDB
+        if (academicEvents && Array.isArray(academicEvents)) {
+          for (const event of academicEvents) {
+            if (event.id && event.type && event.startDate && event.endDate) {
+              const impact = getDefaultCapacityImpact(event.type);
+              const priority = event.type === 'exam_period' ? 'critical' : 'normal';
+              const name = event.name || event.type;
+
+              // Upsert: try insert, on conflict update
+              try {
+                await execute(`
+                  INSERT INTO academic_events (id, profile_id, name, type, start_date, end_date, capacity_impact, priority)
+                  VALUES (${escapeSQL(event.id)}, ${escapeSQL(userId)}, ${escapeSQL(name)}, ${escapeSQL(event.type)},
+                          ${escapeSQL(event.startDate)}, ${escapeSQL(event.endDate)}, ${impact}, ${escapeSQL(priority)})
+                  ON CONFLICT (id) DO UPDATE SET
+                    name = ${escapeSQL(name)},
+                    type = ${escapeSQL(event.type)},
+                    start_date = ${escapeSQL(event.startDate)},
+                    end_date = ${escapeSQL(event.endDate)},
+                    capacity_impact = ${impact},
+                    priority = ${escapeSQL(priority)}
+                `);
+              } catch {
+                // Event might already exist, ignore
+              }
+            }
+          }
+        }
+
+        // Use provided hourly rate or default
+        const effectiveHourlyRate = hourlyRate && hourlyRate > 0 ? hourlyRate : DEFAULT_HOURLY_RATE;
+        // Sprint 13.8 Fix: Parse simulated date if provided
+        const effectiveSimulatedDate = simulatedDate ? new Date(simulatedDate) : undefined;
+        // Bug 2 Fix: Parse goal start date if provided
+        const effectiveGoalStartDate = goalStartDate ? new Date(goalStartDate) : undefined;
+        // Sprint 13.7: Pass monthlyMargin for margin-based feasibility
+        const retroplan = await generateRetroplanForGoal(
+          goalId,
+          goalAmount,
+          deadline,
+          userId,
+          effectiveHourlyRate,
+          effectiveSimulatedDate,
+          effectiveGoalStartDate,
+          monthlyMargin
+        );
 
         return new Response(JSON.stringify({ success: true, retroplan }), {
           status: 200,
@@ -477,6 +813,74 @@ export async function POST(event: APIEvent) {
         }
 
         return new Response(JSON.stringify({ retroplan }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Predictive Alerts - Get upcoming difficult weeks
+      case 'get_predictions': {
+        const { goalId, lookahead = 4 } = body;
+
+        // Get or generate retroplan
+        const retroplan = Array.from(retroplansStore.values()).find((rp) => rp.goalId === goalId);
+
+        if (!retroplan) {
+          // Return empty alerts if no retroplan exists yet
+          return new Response(JSON.stringify({ alerts: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Get current week number
+        const now = new Date();
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        const currentWeek = Math.ceil(
+          ((now.getTime() - yearStart.getTime()) / 86400000 + yearStart.getDay() + 1) / 7
+        );
+
+        // Find difficult weeks within lookahead period
+        const alerts = retroplan.milestones
+          .filter((m) => {
+            const weekDiff = m.weekNumber - currentWeek;
+            return (
+              weekDiff > 0 &&
+              weekDiff <= lookahead &&
+              (m.capacity.capacityCategory === 'low' || m.capacity.capacityCategory === 'protected')
+            );
+          })
+          .map((m) => {
+            // Build reason string based on events
+            let reason = '';
+            if (m.capacity.events.length > 0) {
+              const eventTypes = m.capacity.events.map((e) => e.name).join(', ');
+              reason = `${eventTypes} scheduled this week.`;
+            } else if (m.capacity.capacityCategory === 'protected') {
+              reason = 'Exam period or critical deadline.';
+            } else {
+              reason = 'Low energy trend detected.';
+            }
+
+            // Suggest action based on situation
+            let suggestedAction: 'front-load' | 'add-protection' | 'reduce-target' = 'front-load';
+            if (m.capacity.capacityCategory === 'protected') {
+              suggestedAction = 'add-protection';
+            } else if (m.capacity.effectiveHours < 10) {
+              suggestedAction = 'reduce-target';
+            }
+
+            return {
+              weekNumber: m.weekNumber,
+              weekStartDate: m.capacity.weekStartDate,
+              capacityCategory: m.capacity.capacityCategory,
+              effectiveHours: m.capacity.effectiveHours,
+              reason,
+              suggestedAction,
+            };
+          });
+
+        return new Response(JSON.stringify({ alerts }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });

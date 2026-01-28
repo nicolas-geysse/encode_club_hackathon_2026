@@ -73,6 +73,8 @@ interface GoalTimelineProps {
   academicEvents?: AcademicEvent[];
   /** Hourly rate for earnings calculations (from profile.minHourlyRate) */
   hourlyRate?: number;
+  /** Sprint 13.7: Monthly net margin (income - expenses) for feasibility */
+  monthlyMargin?: number;
   onComponentUpdate?: (
     goalId: string,
     componentId: string,
@@ -151,6 +153,8 @@ export function GoalTimeline(props: GoalTimelineProps) {
           academicEvents: props.academicEvents || [],
           // Pass hourlyRate from profile for consistent feasibility calculations
           hourlyRate: props.hourlyRate,
+          // Sprint 13.7: Pass monthly margin for combined feasibility calculation
+          monthlyMargin: props.monthlyMargin,
         }),
       })
         .then((res) => (res.ok ? res.json() : null))

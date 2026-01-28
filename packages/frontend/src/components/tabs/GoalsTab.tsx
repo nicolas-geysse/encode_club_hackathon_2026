@@ -857,6 +857,8 @@ export function GoalsTab(props: GoalsTabProps) {
                   createEffect(() => {
                     const g = goal();
                     const currentProfile = profile();
+                    // Sprint 13.7: Include monthlyMargin for margin-based feasibility calculation
+                    const currentMargin = monthlyMargin();
                     if (g.status === 'active' && g.deadline && g.amount) {
                       // Get hourly rate from profile or use default
                       const hourlyRate = currentProfile?.minHourlyRate || 15;
@@ -870,6 +872,9 @@ export function GoalsTab(props: GoalsTabProps) {
                           deadline: g.deadline,
                           academicEvents: goalAcademicEvents,
                           hourlyRate,
+                          // Sprint 13.7: Pass monthly margin for combined feasibility calculation
+                          monthlyMargin: currentMargin,
+                          userId: currentProfile?.id,
                         }),
                       })
                         .then((res) => (res.ok ? res.json() : null))
