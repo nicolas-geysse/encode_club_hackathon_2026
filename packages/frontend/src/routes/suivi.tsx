@@ -5,7 +5,7 @@
  * Uses profileService and simulationService for DuckDB persistence.
  */
 
-import { createSignal, createMemo, Show, onMount, onCleanup } from 'solid-js';
+import { createSignal, createMemo, createEffect, Show, onMount, onCleanup, on } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
@@ -613,24 +613,14 @@ export default function SuiviPage() {
       debouncedReload();
     });
 
-    // Sprint 13.9: Listen for simulation time changes
-    // When user advances simulation, recalculate week and check for auto-credits
-    const unsubSimulation = eventBus.on('SIMULATION_UPDATED', async () => {
-      logger.info('SIMULATION_UPDATED received, recalculating week and checking auto-credit...');
-
-      // Recalculate currentWeek based on new simulated date
-      await recalculateCurrentWeek();
-
-      // Check if any income days have passed and credit savings
-      await checkAndApplyAutoCredit();
-    });
+    // Sprint 13.10: Removed eventBus listener for SIMULATION_UPDATED due to race condition
+    // The reactive createEffect(on(currentDate, ...)) handles this correctly now
 
     onCleanup(() => {
       clearTimeout(reloadTimeout);
       unsubReset();
       unsubProfile();
       unsubData();
-      unsubSimulation();
     });
   });
 
@@ -836,6 +826,38 @@ export default function SuiviPage() {
       );
     }
   };
+
+  // Sprint 13.10: Reactive effect for simulation time changes
+  // Uses SolidJS `on` helper with defer:true to skip initial run
+  // This runs ONLY when currentDate() actually changes (not on mount)
+  // Fixes race condition: eventBus listener ran before SimulationContext updated currentDate()
+  createEffect(
+    on(
+      currentDate,
+      async (simDate, prevDate) => {
+        // Skip if no previous date (handled by defer:true, but extra safety)
+        if (!prevDate) return;
+
+        // Skip if date didn't actually change
+        if (simDate.getTime() === prevDate.getTime()) return;
+
+        const goal = currentGoal();
+        const profile = activeProfile();
+
+        if (!goal?.deadline || !profile) return;
+
+        logger.info('Simulation date changed via createEffect', {
+          from: prevDate.toISOString(),
+          to: simDate.toISOString(),
+        });
+
+        // Recalculate week and check auto-credits
+        await recalculateCurrentWeek();
+        await checkAndApplyAutoCredit();
+      },
+      { defer: true }
+    )
+  );
 
   const handleEnergyUpdate = (week: number, level: number) => {
     const history = [...followup().energyHistory];
