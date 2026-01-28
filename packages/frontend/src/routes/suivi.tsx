@@ -5,7 +5,7 @@
  * Uses profileService and simulationService for DuckDB persistence.
  */
 
-import { createSignal, Show, onMount, onCleanup } from 'solid-js';
+import { createSignal, createMemo, Show, onMount, onCleanup } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
@@ -19,10 +19,12 @@ import { BrunoTips } from '~/components/suivi/BrunoTips';
 import { CapacityForecast } from '~/components/suivi/CapacityForecast';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
 import { PredictiveAlerts } from '~/components/suivi/PredictiveAlerts';
+import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { simulationService } from '~/lib/simulationService';
 import { goalService, type Goal } from '~/lib/goalService';
+import { useProfile } from '~/lib/profileContext';
 import { eventBus } from '~/lib/eventBus';
 import { createLogger } from '~/lib/logger';
 import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
@@ -37,9 +39,11 @@ import {
   toISO,
   formatDate,
   defaultDeadline90Days,
+  formatCurrency,
   type Currency,
 } from '~/lib/dateUtils';
 import { PageLoader } from '~/components/PageLoader';
+import { checkAutoCredit } from '~/lib/savingsHelper';
 
 const logger = createLogger('SuiviPage');
 
@@ -122,49 +126,6 @@ function extractSkills(planData: Record<string, unknown> | null | undefined): st
   return skills.length > 0 ? skills : undefined;
 }
 
-/**
- * Calculate monthly margin from planData (income - expenses)
- */
-function calculateMonthlyMargin(
-  planData: Record<string, unknown> | null | undefined
-): number | undefined {
-  if (!planData) return undefined;
-
-  let totalIncome = 0;
-  let totalExpenses = 0;
-
-  // Sum income from various sources
-  if (typeof planData.monthlyIncome === 'number') {
-    totalIncome += planData.monthlyIncome;
-  }
-  if (Array.isArray(planData.incomes)) {
-    for (const income of planData.incomes) {
-      if (typeof income === 'object' && income !== null && 'amount' in income) {
-        totalIncome += Number(income.amount) || 0;
-      }
-    }
-  }
-
-  // Sum expenses
-  if (typeof planData.monthlyExpenses === 'number') {
-    totalExpenses += planData.monthlyExpenses;
-  }
-  if (Array.isArray(planData.expenses)) {
-    for (const expense of planData.expenses) {
-      if (typeof expense === 'object' && expense !== null && 'amount' in expense) {
-        totalExpenses += Number(expense.amount) || 0;
-      }
-    }
-  }
-
-  // Return margin if we have data
-  if (totalIncome > 0 || totalExpenses > 0) {
-    return totalIncome - totalExpenses;
-  }
-
-  return undefined;
-}
-
 // Types
 interface SetupData {
   goalName: string;
@@ -178,6 +139,12 @@ interface EnergyEntry {
   date: string;
 }
 
+interface SavingsAdjustment {
+  amount: number;
+  note?: string;
+  adjustedAt: string;
+}
+
 interface FollowupData {
   currentAmount: number;
   weeklyTarget: number;
@@ -185,6 +152,9 @@ interface FollowupData {
   totalWeeks: number;
   energyHistory: EnergyEntry[];
   missions: Mission[];
+  // Sprint 13.8: Monthly savings tracking
+  savingsCredits?: Record<string, number>; // monthKey "2026-01" -> amount credited
+  savingsAdjustments?: Record<number, SavingsAdjustment>; // weekNumber -> adjustment
 }
 
 /**
@@ -198,6 +168,8 @@ const normalizeFollowup = (data: Partial<FollowupData> | null | undefined): Foll
   totalWeeks: data?.totalWeeks ?? 8,
   energyHistory: Array.isArray(data?.energyHistory) ? data.energyHistory : [],
   missions: Array.isArray(data?.missions) ? data.missions : [],
+  savingsCredits: data?.savingsCredits ?? {},
+  savingsAdjustments: data?.savingsAdjustments ?? {},
 });
 
 export default function SuiviPage() {
@@ -216,12 +188,41 @@ export default function SuiviPage() {
     missions: [],
   });
 
+  // Sprint 13.8 Fix: Use profile context for income/lifestyle data
+  const { income: contextIncome, lifestyle: contextLifestyle } = useProfile();
+
+  // Sprint 13.8 Fix: Calculate monthly margin from actual DB data (income_items + lifestyle_items)
+  // This replaces calculateMonthlyMargin(planData) which was unreliable
+  const monthlyMargin = createMemo(() => {
+    const incomeItems = contextIncome();
+    const lifestyleItems = contextLifestyle();
+
+    const incomeTotal = incomeItems.reduce((sum, item) => sum + item.amount, 0);
+    const expensesTotal = lifestyleItems
+      .filter((item) => item.pausedMonths === 0) // Only count active expenses
+      .reduce((sum, item) => sum + item.currentCost, 0);
+
+    // Return undefined if no data (to preserve fallback behavior)
+    if (incomeTotal === 0 && expensesTotal === 0) {
+      return undefined;
+    }
+
+    return incomeTotal - expensesTotal;
+  });
+
   // Sprint 3 Bug B fix: Track current goal for progress sync
   const [currentGoal, setCurrentGoal] = createSignal<Goal | null>(null);
 
   // Sprint 9.5: Track completed goals for "all goals completed" message
   const [completedGoalsCount, setCompletedGoalsCount] = createSignal(0);
   const [showRetroplan, setShowRetroplan] = createSignal(false);
+
+  // Sprint 13.8: Savings adjustment modal state
+  const [showSavingsAdjust, setShowSavingsAdjust] = createSignal(false);
+  const [adjustingWeek, setAdjustingWeek] = createSignal<{
+    weekNumber: number;
+    amount: number;
+  } | null>(null);
 
   // Get currency from profile
   const currency = (): Currency => (activeProfile()?.currency as Currency) || 'USD';
@@ -246,12 +247,14 @@ export default function SuiviPage() {
   };
 
   // Sprint 13: Calculate current week number for EnergyHistory highlighting
+  // Sprint 13.6 Fix: Use goal.createdAt as start date, not currentDate()
   const currentWeekNumber = (): number => {
     const goal = currentGoal();
     if (!goal?.deadline) return followup().currentWeek || 1;
 
-    const startDate = currentDate().toISOString();
-    const weekInfo = getCurrentWeekInfo(startDate, followup().totalWeeks, currentDate());
+    // Use goal creation date as the start, not the current date
+    const goalStartDate = goal.createdAt || currentDate().toISOString();
+    const weekInfo = getCurrentWeekInfo(goalStartDate, followup().totalWeeks, currentDate());
     return weekInfo.weekNumber;
   };
 
@@ -323,12 +326,21 @@ export default function SuiviPage() {
           });
           setHasData(true);
 
-          // Calculate weeks and targets using simulated date (dayjs)
-          // Sprint 2.3 Fix: Use primaryGoal data, not planData.setup
-          const startDate = simDate;
+          // Calculate weeks and targets
+          // Sprint 13.6 Fix: Use goal.createdAt as start date for consistent week tracking
+          // totalWeeks = weeks from goal creation to deadline (fixed)
+          // currentWeek = dynamically calculated based on days since goal creation
           const goalDeadline = primaryGoal.deadline || defaultDeadline90Days();
-          const totalWeeks = weeksBetween(startDate, goalDeadline);
+          const goalStartDate = primaryGoal.createdAt ? new Date(primaryGoal.createdAt) : simDate;
+          const totalWeeks = weeksBetween(goalStartDate, goalDeadline);
           const weeklyTarget = Math.ceil(primaryGoal.amount / Math.max(1, totalWeeks));
+
+          // Calculate current week number dynamically
+          const weekInfo = getCurrentWeekInfo(goalStartDate.toISOString(), totalWeeks, simDate);
+          const calculatedCurrentWeek = weekInfo.weekNumber;
+
+          // For mission start dates, use current simulated date (when mission is created)
+          const startDate = simDate;
 
           // Load followup data from profile ONLY (no localStorage fallback to prevent cross-profile contamination)
           let existingFollowup = profile.followupData
@@ -382,7 +394,14 @@ export default function SuiviPage() {
             existingFollowup.missions.length === 0;
 
           if (existingFollowup && !needsMissionGeneration) {
-            setFollowup(normalizeFollowup(existingFollowup));
+            // Sprint 13.6 Fix: Always update currentWeek dynamically
+            const updatedFollowup = {
+              ...normalizeFollowup(existingFollowup),
+              currentWeek: calculatedCurrentWeek,
+              totalWeeks, // Also update totalWeeks in case it changed
+              weeklyTarget, // Also update weeklyTarget
+            };
+            setFollowup(updatedFollowup);
           } else {
             // Track if we generate initial data (to persist and avoid flickering on refresh)
             let generatedInitialData = false;
@@ -395,7 +414,7 @@ export default function SuiviPage() {
                 energyHistory.push({
                   week: i,
                   level: 50 + Math.floor(Math.random() * 40),
-                  date: toISO(addWeeks(startDate, i - 1)),
+                  date: toISO(addWeeks(goalStartDate, i - 1)),
                 });
               }
             }
@@ -518,7 +537,8 @@ export default function SuiviPage() {
             const newFollowupData = {
               currentAmount: existingFollowup?.currentAmount ?? 0,
               weeklyTarget,
-              currentWeek: existingFollowup?.currentWeek ?? 1,
+              // Sprint 13.6 Fix: Use dynamically calculated week, not stored value
+              currentWeek: calculatedCurrentWeek,
               totalWeeks,
               energyHistory,
               missions,
@@ -558,6 +578,12 @@ export default function SuiviPage() {
   onMount(async () => {
     // Initial load
     await loadData();
+
+    // Sprint 13.8: Check for auto-credit after data loads
+    // Small delay to ensure followup data is set
+    setTimeout(() => {
+      checkAndApplyAutoCredit();
+    }, 100);
 
     // Debounce DATA_CHANGED to prevent rapid-fire reloads
     let reloadTimeout: ReturnType<typeof setTimeout>;
@@ -657,6 +683,78 @@ export default function SuiviPage() {
           activeMissions: updated.missions.filter((m) => m.status === 'active'),
         });
       }
+    }
+  };
+
+  // Sprint 13.8: Handle savings adjustment
+  const handleOpenSavingsAdjust = (weekNumber: number, currentAmount: number) => {
+    setAdjustingWeek({ weekNumber, amount: currentAmount });
+    setShowSavingsAdjust(true);
+  };
+
+  const handleSavingsAdjust = async (amount: number, note?: string) => {
+    const week = adjustingWeek();
+    if (!week) return;
+
+    const currentAdjustments = followup().savingsAdjustments || {};
+    const updatedAdjustments = {
+      ...currentAdjustments,
+      [week.weekNumber]: {
+        amount,
+        note,
+        adjustedAt: new Date().toISOString(),
+      },
+    };
+
+    // Calculate the difference from original amount
+    const originalAmount = week.amount;
+    const difference = amount - originalAmount;
+
+    // Update followup with new adjustment and adjusted currentAmount
+    await updateFollowup({
+      savingsAdjustments: updatedAdjustments,
+      currentAmount: followup().currentAmount + difference,
+    });
+
+    setShowSavingsAdjust(false);
+    setAdjustingWeek(null);
+
+    toastPopup.success(
+      'Savings adjusted',
+      `Week ${week.weekNumber} savings updated to ${formatCurrency(amount, currency())}`
+    );
+  };
+
+  // Sprint 13.8: Check for auto-credit on page load
+  const checkAndApplyAutoCredit = async () => {
+    const profile = activeProfile();
+    if (!profile) return;
+
+    // Use reactive monthlyMargin from context (income_items - lifestyle_items)
+    const margin = monthlyMargin();
+    if (!margin || margin <= 0) return;
+
+    const incomeDay = profile.incomeDay ?? 15;
+    const savingsCredits = followup().savingsCredits || {};
+
+    const creditInfo = checkAutoCredit(currentDate(), incomeDay, savingsCredits, margin);
+
+    if (creditInfo) {
+      // Auto-credit the savings
+      const updatedCredits = {
+        ...savingsCredits,
+        [creditInfo.monthKey]: creditInfo.amount,
+      };
+
+      await updateFollowup({
+        savingsCredits: updatedCredits,
+        currentAmount: followup().currentAmount + creditInfo.amount,
+      });
+
+      toastPopup.success(
+        'Monthly savings added!',
+        `+${formatCurrency(creditInfo.amount, currency())} automatically added to your progress`
+      );
     }
   };
 
@@ -848,7 +946,7 @@ export default function SuiviPage() {
                 : undefined
             }
             skills={extractSkills(activeProfile()?.planData)}
-            monthlyMargin={calculateMonthlyMargin(activeProfile()?.planData)}
+            monthlyMargin={monthlyMargin()}
           />
 
           {/* Section 1: Goal Hero + Key Metrics */}
@@ -857,7 +955,8 @@ export default function SuiviPage() {
               goalName={setup()!.goalName}
               goalAmount={setup()!.goalAmount}
               currentAmount={followup().currentAmount}
-              startDate={currentDate().toISOString()}
+              // Sprint 13.6 Fix: Use goal creation date as start, not current date
+              startDate={currentGoal()?.createdAt || currentDate().toISOString()}
               endDate={setup()!.goalDeadline}
               weeklyTarget={followup().weeklyTarget}
               currentWeek={followup().currentWeek}
@@ -877,6 +976,10 @@ export default function SuiviPage() {
                 weeklyEarnings={weeklyEarningsFromMissions()}
                 hourlyRate={activeProfile()?.minHourlyRate}
                 simulatedDate={currentDate()}
+                incomeDay={activeProfile()?.incomeDay}
+                monthlyMargin={monthlyMargin()}
+                savingsAdjustments={followup().savingsAdjustments}
+                onAdjustSavings={handleOpenSavingsAdjust}
               />
             </div>
           </Show>
@@ -976,6 +1079,22 @@ export default function SuiviPage() {
               </div>
             );
           })()}
+        </Show>
+
+        {/* Sprint 13.8: Savings Adjust Modal */}
+        <Show when={adjustingWeek()}>
+          <SavingsAdjustModal
+            isOpen={showSavingsAdjust()}
+            weekNumber={adjustingWeek()!.weekNumber}
+            expectedAmount={monthlyMargin() || 0}
+            currentAmount={adjustingWeek()!.amount}
+            currency={currency()}
+            onSave={handleSavingsAdjust}
+            onClose={() => {
+              setShowSavingsAdjust(false);
+              setAdjustingWeek(null);
+            }}
+          />
         </Show>
       </Show>
     </Show>
