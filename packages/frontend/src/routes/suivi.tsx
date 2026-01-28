@@ -43,7 +43,7 @@ import {
   type Currency,
 } from '~/lib/dateUtils';
 import { PageLoader } from '~/components/PageLoader';
-import { checkAutoCredit } from '~/lib/savingsHelper';
+// Note: checkAutoCredit replaced by inline multi-month logic in Sprint 13.9
 
 const logger = createLogger('SuiviPage');
 
@@ -613,11 +613,24 @@ export default function SuiviPage() {
       debouncedReload();
     });
 
+    // Sprint 13.9: Listen for simulation time changes
+    // When user advances simulation, recalculate week and check for auto-credits
+    const unsubSimulation = eventBus.on('SIMULATION_UPDATED', async () => {
+      logger.info('SIMULATION_UPDATED received, recalculating week and checking auto-credit...');
+
+      // Recalculate currentWeek based on new simulated date
+      await recalculateCurrentWeek();
+
+      // Check if any income days have passed and credit savings
+      await checkAndApplyAutoCredit();
+    });
+
     onCleanup(() => {
       clearTimeout(reloadTimeout);
       unsubReset();
       unsubProfile();
       unsubData();
+      unsubSimulation();
     });
   });
 
@@ -727,7 +740,43 @@ export default function SuiviPage() {
     );
   };
 
-  // Sprint 13.8: Check for auto-credit on page load
+  // Sprint 13.9: Recalculate currentWeek when simulation time changes
+  const recalculateCurrentWeek = async () => {
+    const goal = currentGoal();
+    if (!goal?.deadline) return;
+
+    const simDate = currentDate();
+    const goalStartDate = goal.createdAt ? new Date(goal.createdAt) : simDate;
+    const totalWeeks = weeksBetween(goalStartDate, goal.deadline);
+
+    const weekInfo = getCurrentWeekInfo(goalStartDate.toISOString(), totalWeeks, simDate);
+    const weeklyTarget = Math.ceil(goal.amount / Math.max(1, totalWeeks));
+
+    // Update followup with new week calculation
+    const updatedFollowup = {
+      ...followup(),
+      currentWeek: weekInfo.weekNumber,
+      totalWeeks,
+      weeklyTarget,
+    };
+
+    setFollowup(updatedFollowup);
+
+    // Persist to DuckDB
+    await updateFollowup({
+      currentWeek: weekInfo.weekNumber,
+      totalWeeks,
+      weeklyTarget,
+    });
+
+    logger.info('Week recalculated on simulation change', {
+      week: weekInfo.weekNumber,
+      totalWeeks,
+      simulatedDate: simDate.toISOString(),
+    });
+  };
+
+  // Sprint 13.9: Check for auto-credit - handles multiple months when simulating large time jumps
   const checkAndApplyAutoCredit = async () => {
     const profile = activeProfile();
     if (!profile) return;
@@ -736,26 +785,54 @@ export default function SuiviPage() {
     const margin = monthlyMargin();
     if (!margin || margin <= 0) return;
 
+    const goal = currentGoal();
+    if (!goal) return;
+
     const incomeDay = profile.incomeDay ?? 15;
     const savingsCredits = followup().savingsCredits || {};
+    const simDate = currentDate();
 
-    const creditInfo = checkAutoCredit(currentDate(), incomeDay, savingsCredits, margin);
+    // Sprint 13.9 Fix: Check all months from goal creation to simulated date
+    const goalStartDate = new Date(goal.createdAt || new Date().toISOString());
+    let totalCredited = 0;
+    const updatedCredits = { ...savingsCredits };
 
-    if (creditInfo) {
-      // Auto-credit the savings
-      const updatedCredits = {
-        ...savingsCredits,
-        [creditInfo.monthKey]: creditInfo.amount,
-      };
+    // Iterate through each month from goal start to simulated date
+    const currentMonth = new Date(goalStartDate.getFullYear(), goalStartDate.getMonth(), 1);
+    const endMonth = new Date(simDate.getFullYear(), simDate.getMonth(), 1);
 
+    while (currentMonth <= endMonth) {
+      const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+
+      // Check if income day has passed in this month relative to simDate
+      const incomeDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), incomeDay);
+
+      // Only credit if:
+      // 1. This month hasn't been credited yet
+      // 2. The income day has passed (simDate >= incomeDate)
+      // 3. The income date is after or equal to goal start date
+      const hasPassedIncomeDay = simDate >= incomeDate;
+      const isAfterGoalStart = incomeDate >= goalStartDate;
+
+      if (hasPassedIncomeDay && isAfterGoalStart && !updatedCredits[monthKey]) {
+        updatedCredits[monthKey] = margin;
+        totalCredited += margin;
+        logger.info('Auto-crediting month', { monthKey, amount: margin });
+      }
+
+      // Move to next month
+      currentMonth.setMonth(currentMonth.getMonth() + 1);
+    }
+
+    if (totalCredited > 0) {
       await updateFollowup({
         savingsCredits: updatedCredits,
-        currentAmount: followup().currentAmount + creditInfo.amount,
+        currentAmount: followup().currentAmount + totalCredited,
       });
 
       toastPopup.success(
-        'Monthly savings added!',
-        `+${formatCurrency(creditInfo.amount, currency())} automatically added to your progress`
+        'Savings added!',
+        `+${formatCurrency(totalCredited, currency())} automatically credited to your progress`
       );
     }
   };
