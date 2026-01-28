@@ -545,48 +545,78 @@ function assessFeasibility(
   goalAmount: number
 ): FeasibilityResult {
   const riskFactors: string[] = [];
-  let score = 1.0;
+
+  // ============================================
+  // CRITICAL: Calculate total earning potential
+  // This is the PRIMARY factor for feasibility
+  // ============================================
+  const maxTotalEarnings = capacities.reduce((sum, c) => sum + c.maxEarningPotential, 0);
+  const recommendedTotalEarnings = capacities.reduce((sum, c) => sum + c.recommendedTarget, 0);
+
+  // Base score: ratio of what's achievable vs goal
+  // If goal = 120,000€ and max earnings = 2,000€, base score = 2000/120000 = 0.017
+  let score: number;
+  if (goalAmount <= recommendedTotalEarnings) {
+    // Goal is within comfortable earning range
+    score = 1.0;
+  } else if (goalAmount <= maxTotalEarnings) {
+    // Goal is achievable but requires maximum effort
+    score = 0.6 + 0.4 * (recommendedTotalEarnings / goalAmount);
+    riskFactors.push(
+      `Requires max effort: goal ${goalAmount}€ vs comfortable ${Math.round(recommendedTotalEarnings)}€`
+    );
+  } else {
+    // Goal exceeds maximum possible earnings
+    score = maxTotalEarnings / goalAmount;
+    const shortage = goalAmount - maxTotalEarnings;
+    riskFactors.push(`⚠️ Goal exceeds max earnings by ${Math.round(shortage)}€`);
+    riskFactors.push(
+      `Max possible: ${Math.round(maxTotalEarnings)}€ in ${capacities.length} weeks`
+    );
+  }
+
+  // ============================================
+  // SECONDARY FACTORS (only apply if base is viable)
+  // ============================================
 
   // Check for too many protected weeks
   const protectedWeeks = capacities.filter((c) => c.isProtectedWeek).length;
   const protectedRatio = protectedWeeks / capacities.length;
   if (protectedRatio > 0.3) {
-    score -= 0.2;
-    riskFactors.push(`${protectedWeeks} semaines protegees (examens)`);
+    score *= 0.9;
+    riskFactors.push(`${protectedWeeks} protected weeks (exams)`);
   }
 
   // Check for challenging weeks
   const challengingWeeks = milestones.filter((m) => m.difficulty === 'challenging').length;
   if (challengingWeeks > capacities.length * 0.4) {
-    score -= 0.15;
-    riskFactors.push(`${challengingWeeks} semaines difficiles`);
-  }
-
-  // Check average weekly target vs capacity
-  const avgTarget = goalAmount / capacities.length;
-  const avgCapacity =
-    capacities.reduce((sum, c) => sum + c.recommendedTarget, 0) / capacities.length;
-  if (avgTarget > avgCapacity) {
-    score -= 0.2;
-    riskFactors.push('Objectif hebdo > capacite moyenne');
+    score *= 0.95;
+    riskFactors.push(`${challengingWeeks} challenging weeks`);
   }
 
   // Check for very short timeline
   if (capacities.length < 4) {
-    score -= 0.15;
-    riskFactors.push('Delai tres court (< 4 semaines)');
+    score *= 0.9;
+    riskFactors.push('Very short timeline (< 4 weeks)');
+  }
+
+  // Check for very long timeline (motivation risk)
+  if (capacities.length > 20) {
+    score *= 0.95;
+    riskFactors.push('Long timeline - motivation risk');
   }
 
   // Confidence interval based on variance
   const variance = calculateVariance(milestones.map((m) => m.adjustedTarget));
   const stdDev = Math.sqrt(variance);
 
-  score = Math.max(0.1, Math.min(1.0, score));
+  // Clamp score between 0.01 (1%) and 1.0 (100%)
+  score = Math.max(0.01, Math.min(1.0, score));
 
   return {
     score,
     confidenceInterval: {
-      low: Math.round(goalAmount * (score - stdDev / 100)),
+      low: Math.round(goalAmount * Math.max(0, score - stdDev / 100)),
       high: Math.round(goalAmount * Math.min(1.2, score + stdDev / 100)),
     },
     riskFactors,

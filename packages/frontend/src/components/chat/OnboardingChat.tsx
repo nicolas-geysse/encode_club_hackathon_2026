@@ -13,6 +13,7 @@ import { MCPUIRenderer, type ActionCallback } from './MCPUIRenderer';
 import type { ChatMessage as Message, UIResource } from '~/types/chat';
 import { Repeat } from 'lucide-solid';
 import { profileService, type FullProfile } from '~/lib/profileService';
+import { lifestyleService } from '~/lib/lifestyleService';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('OnboardingChat');
@@ -93,6 +94,7 @@ interface ProfileData {
   expenses: { category: string; amount: number }[];
   maxWorkHours: number;
   minHourlyRate: number;
+  incomeDay?: number; // Day of month when income arrives (1-31)
   hasLoan: boolean;
   loanAmount: number;
   // New fields for extended onboarding
@@ -114,6 +116,7 @@ type OnboardingStep =
   | 'skills'
   | 'certifications'
   | 'budget'
+  | 'income_timing' // When income arrives (day of month)
   | 'work_preferences'
   | 'goal'
   | 'academic_events'
@@ -332,16 +335,35 @@ export function OnboardingChat() {
       // Save all messages to DuckDB
       for (const msg of msgs) {
         try {
+          // Sprint 13.12: Cast to access optional fields that may have been stored
+          const msgWithData = msg as Message & {
+            extractedData?: Record<string, unknown>;
+          };
+
+          // Sprint 13.15 Fix: Regenerate ID for static messages like 'greeting' to prevent PK collisions
+          // Also regenerate strictly temp IDs to ensure global uniqueness in DB
+          let safeId = msg.id;
+          if (
+            safeId === 'greeting' ||
+            safeId.startsWith('welcome-') ||
+            safeId.startsWith('temp_')
+          ) {
+            safeId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          }
+
           await fetch('/api/chat-history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: msg.id,
+              id: safeId,
               profile_id: newProfileId,
               thread_id: tid,
               role: msg.role,
               content: msg.content,
               source: msg.source,
+              // Sprint 13.12: Include all message fields for complete migration
+              extracted_data: msgWithData.extractedData || null,
+              ui_resource: msg.uiResource || null,
             }),
           });
         } catch (e) {
@@ -527,6 +549,133 @@ export function OnboardingChat() {
         break;
       }
 
+      case 'confirm': {
+        // Handle HITL confirmation (e.g. adding Netflix)
+        const confirmData = data as Record<string, unknown>;
+        const currentProfileId = profileId();
+
+        if (currentProfileId && confirmData) {
+          // 1. Update Profile directly
+          (async () => {
+            try {
+              const fullProfile = await profileService.loadProfile(currentProfileId);
+              if (fullProfile) {
+                const updatedProfile = { ...fullProfile };
+
+                // Merge subscriptions (Save as Lifestyle Items for Budget Tab)
+                if (confirmData.subscriptions && Array.isArray(confirmData.subscriptions)) {
+                  const currentSubs = fullProfile.subscriptions || [];
+                  const newSubs = confirmData.subscriptions as {
+                    name: string;
+                    currentCost?: number;
+                  }[];
+
+                  const merged = [...currentSubs];
+
+                  // Use Promise.all to create items in parallel
+                  await Promise.all(
+                    newSubs.map(async (newSub) => {
+                      const exists = merged.some(
+                        (s) => s.name.toLowerCase() === newSub.name.toLowerCase()
+                      );
+                      if (!exists) {
+                        merged.push({
+                          name: newSub.name,
+                          currentCost: newSub.currentCost || 10,
+                        });
+
+                        // CRITICAL: Create as LifestyleItem so it appears in Budget Tab
+                        try {
+                          await lifestyleService.createItem({
+                            profileId: currentProfileId,
+                            name: newSub.name,
+                            category: 'subscriptions',
+                            currentCost: newSub.currentCost || 10,
+                          });
+                          logger.info('Created lifestyle item for subscription', {
+                            name: newSub.name,
+                          });
+                        } catch (err) {
+                          logger.error('Failed to create lifestyle item', { error: err });
+                        }
+                      }
+                    })
+                  );
+
+                  updatedProfile.subscriptions = merged;
+                }
+
+                // Merge inventory
+                if (confirmData.inventoryItems && Array.isArray(confirmData.inventoryItems)) {
+                  const currentInv = fullProfile.inventoryItems || [];
+                  const newInv = confirmData.inventoryItems as {
+                    name: string;
+                    category?: string;
+                  }[];
+                  const merged = [...currentInv];
+                  newInv.forEach((newItem) => {
+                    if (!merged.some((i) => i.name.toLowerCase() === newItem.name.toLowerCase())) {
+                      merged.push({
+                        name: newItem.name,
+                        category: newItem.category || 'other',
+                        estimatedValue: 0,
+                      });
+                    }
+                  });
+                  updatedProfile.inventoryItems = merged;
+                }
+
+                await profileService.saveProfile(updatedProfile, { immediate: true });
+
+                // 2. Add visual feedback in chat
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: `user-confirm-${Date.now()}`,
+                    role: 'user',
+                    content: 'Yes, add it.',
+                    source: 'fallback',
+                  },
+                  {
+                    id: `assistant-confirm-${Date.now()}`,
+                    role: 'assistant',
+                    content: `Done! I've added it to your profile. ✅\n\nIs there anything else?`,
+                    source: 'fallback',
+                  },
+                ]);
+
+                if (confirmData.subscriptions) refreshLifestyle();
+                if (confirmData.inventoryItems) refreshInventory();
+              }
+            } catch (err) {
+              logger.error('Failed to confirm action', { error: err });
+              toastPopup.error('Error', 'Failed to update profile');
+            }
+          })();
+        }
+        break;
+      }
+
+      case 'cancel': {
+        // User rejected the suggestion
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-cancel-${Date.now()}`,
+            role: 'user',
+            content: "No, that's not it.",
+            source: 'fallback',
+          },
+          {
+            id: `assistant-cancel-${Date.now()}`,
+            role: 'assistant',
+            content: `Got it. What would you like to do instead?`,
+            source: 'fallback',
+          },
+        ]);
+        break;
+      }
+
       default:
         logger.info('Unhandled UI action', { action });
     }
@@ -687,6 +836,7 @@ export function OnboardingChat() {
       skills: `${greeting} Let's continue.\n\nWhat are your skills? (coding, languages, design, sports...)`,
       certifications: `${greeting}\n\nDo you have any professional certifications? (BAFA, First Aid, TEFL, etc.) Say 'none' if not.`,
       budget: `${greeting} Let's talk about your budget.\n\nHow much do you earn and spend per month roughly?`,
+      income_timing: `${greeting}\n\nWhen does your income arrive? (beginning, mid-month, or end of month)`,
       work_preferences: `${greeting}\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`,
       goal: `${greeting} Almost there!\n\nWhat's your savings goal? What do you want to save for, how much, and by when?`,
       academic_events: `${greeting}\n\nAny important academic events coming up? (exams, vacations, busy periods)`,
@@ -1116,6 +1266,7 @@ export function OnboardingChat() {
       skills: `Cool!\n\nWhat are your skills? (coding, languages, design, sports...)`,
       certifications: `Nice skills!\n\nDo you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
       budget: `Got it!\n\nLet's talk budget: how much do you earn and spend per month roughly?`,
+      income_timing: `Nice!\n\nWhen does your income usually arrive each month? (beginning, mid-month, or end)`,
       work_preferences: `OK for the budget!\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`,
       goal: `Great work preferences!\n\nNow, what's your savings goal? What do you want to save for, how much, and by when?`,
       academic_events: `Great goal!\n\nAny important academic events coming up? (exams, vacations, busy periods)`,
@@ -1671,6 +1822,7 @@ export function OnboardingChat() {
           expenses: finalProfile.expenses,
           maxWorkHoursWeekly: finalProfile.maxWorkHours,
           minHourlyRate: finalProfile.minHourlyRate,
+          incomeDay: finalProfile.incomeDay || 15, // Day of month when income arrives
           hasLoan: finalProfile.hasLoan,
           loanAmount: finalProfile.loanAmount,
           profileType: 'main',
@@ -1958,6 +2110,18 @@ export function OnboardingChat() {
       case 'budget':
         message = `income ${data.income || 0}, expenses ${data.expenses || 0}`;
         break;
+      case 'income_timing': {
+        // Directly update profile with incomeDay and advance
+        const parsedIncomeDay = parseInt(data.incomeDay as string) || 15;
+        setProfile((prev) => ({ ...prev, incomeDay: parsedIncomeDay }));
+        message =
+          parsedIncomeDay <= 5
+            ? 'beginning of month'
+            : parsedIncomeDay >= 25
+              ? 'end of month'
+              : 'mid-month';
+        break;
+      }
       case 'work_preferences':
         message = `${data.maxWorkHours || 15} hours per week, minimum ${data.minHourlyRate || 12}/h`;
         break;

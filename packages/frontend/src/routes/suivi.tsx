@@ -587,15 +587,6 @@ export default function SuiviPage() {
       checkAndApplyAutoCredit();
     }, 100);
 
-    // Debounce DATA_CHANGED to prevent rapid-fire reloads
-    let reloadTimeout: ReturnType<typeof setTimeout>;
-    const debouncedReload = () => {
-      clearTimeout(reloadTimeout);
-      reloadTimeout = setTimeout(() => {
-        loadData({ silent: true }); // Silent refresh - no loading spinner
-      }, 200); // 200ms debounce
-    };
-
     // Event Bus Subscriptions
     const unsubReset = eventBus.on('DATA_RESET', async () => {
       logger.info('DATA_RESET received, reloading...');
@@ -607,20 +598,14 @@ export default function SuiviPage() {
       await loadData(); // Full reload with spinner for profile switch
     });
 
-    // Also listen for general data changes (e.g. goal updates)
-    // Use debounce + silent mode to prevent flickering
-    const unsubData = eventBus.on('DATA_CHANGED', () => {
-      debouncedReload();
-    });
-
-    // Sprint 13.10: Removed eventBus listener for SIMULATION_UPDATED due to race condition
-    // The reactive createEffect(on(currentDate, ...)) handles this correctly now
+    // Sprint 13.14 Fix: Removed DATA_CHANGED listener to prevent race conditions
+    // The reactive createEffect(on(currentDate, ...)) at line ~820 handles simulation changes
+    // DATA_CHANGED was causing parallel async operations that led to state inconsistency
+    // ProfileContext already handles DATA_CHANGED for goal/profile updates
 
     onCleanup(() => {
-      clearTimeout(reloadTimeout);
       unsubReset();
       unsubProfile();
-      unsubData();
     });
   });
 
@@ -767,6 +752,7 @@ export default function SuiviPage() {
   };
 
   // Sprint 13.9: Check for auto-credit - handles multiple months when simulating large time jumps
+  // Sprint 13.15 Fix: Also handles removing credits when simulation is reset or time goes backward
   const checkAndApplyAutoCredit = async () => {
     const profile = activeProfile();
     if (!profile) return;
@@ -782,48 +768,75 @@ export default function SuiviPage() {
     const savingsCredits = followup().savingsCredits || {};
     const simDate = currentDate();
 
-    // Sprint 13.9 Fix: Check all months from goal creation to simulated date
+    // Fix: Check all months from goal creation to simulated date
     const goalStartDate = new Date(goal.createdAt || new Date().toISOString());
-    let totalCredited = 0;
+    let netChange = 0;
     const updatedCredits = { ...savingsCredits };
 
-    // Iterate through each month from goal start to simulated date
+    // 1. Identify all months that SHOULD be credited based on current simulation date
+    const expectedCreditedMonths = new Set<string>();
+
+    // Iterate from goal start to current simulated date
     const currentMonth = new Date(goalStartDate.getFullYear(), goalStartDate.getMonth(), 1);
     const endMonth = new Date(simDate.getFullYear(), simDate.getMonth(), 1);
 
     while (currentMonth <= endMonth) {
       const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
 
-      // Check if income day has passed in this month relative to simDate
       const incomeDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), incomeDay);
 
-      // Only credit if:
-      // 1. This month hasn't been credited yet
-      // 2. The income day has passed (simDate >= incomeDate)
-      // 3. The income date is after or equal to goal start date
+      // Credit condition: simDate must be past incomeDate for this month, AND incomeDate must be valid relative to goal start
       const hasPassedIncomeDay = simDate >= incomeDate;
       const isAfterGoalStart = incomeDate >= goalStartDate;
 
-      if (hasPassedIncomeDay && isAfterGoalStart && !updatedCredits[monthKey]) {
-        updatedCredits[monthKey] = margin;
-        totalCredited += margin;
-        logger.info('Auto-crediting month', { monthKey, amount: margin });
+      if (hasPassedIncomeDay && isAfterGoalStart) {
+        expectedCreditedMonths.add(monthKey);
       }
 
-      // Move to next month
       currentMonth.setMonth(currentMonth.getMonth() + 1);
     }
 
-    if (totalCredited > 0) {
+    // 2. Add missing credits
+    for (const monthKey of expectedCreditedMonths) {
+      if (!updatedCredits[monthKey]) {
+        updatedCredits[monthKey] = margin;
+        netChange += margin;
+        logger.info('Auto-crediting month', { monthKey, amount: margin });
+      }
+    }
+
+    // 3. Remove invalid credits (future months or not-yet-reached income days)
+    // This handles the Simulation Reset case where we go back in time
+    for (const monthKey of Object.keys(updatedCredits)) {
+      if (!expectedCreditedMonths.has(monthKey)) {
+        const removedAmount = updatedCredits[monthKey];
+        delete updatedCredits[monthKey];
+        netChange -= removedAmount;
+        logger.info('Removing credit for invalid month (time rewind)', {
+          monthKey,
+          amount: removedAmount,
+        });
+      }
+    }
+
+    // Only update if changes occurred
+    if (netChange !== 0) {
+      logger.info('Applying auto-credit changes', { netChange });
+
       await updateFollowup({
         savingsCredits: updatedCredits,
-        currentAmount: followup().currentAmount + totalCredited,
+        currentAmount: followup().currentAmount + netChange,
       });
 
-      toastPopup.success(
-        'Savings added!',
-        `+${formatCurrency(totalCredited, currency())} automatically credited to your progress`
-      );
+      if (netChange > 0) {
+        toastPopup.success(
+          'Month Completed!',
+          `+${formatCurrency(netChange, currency())} added to savings`
+        );
+      } else {
+        // Optional: toast for rollback? Maybe too noisy.
+        logger.info('Savings rolled back due to simulation reset');
+      }
     }
   };
 

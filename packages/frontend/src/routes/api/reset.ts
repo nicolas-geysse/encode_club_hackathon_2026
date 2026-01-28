@@ -59,12 +59,34 @@ export async function DELETE(_event: APIEvent) {
       // Table might not exist
     }
 
-    // 6. Delete all simulation state
+    // 6. Reset simulation state to today (UPDATE, not DELETE)
+    // Sprint 13.14 Fix: UPDATE instead of DELETE to preserve the 'global' row
+    // Deleting causes the simulation to not have a row, which breaks the context
     try {
-      await execute(`DELETE FROM simulation_state`);
-      logger.info('Deleted all simulation state');
+      await execute(`
+        UPDATE simulation_state SET
+          simulated_date = CURRENT_DATE,
+          real_date = CURRENT_DATE,
+          offset_days = 0,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = 'global'
+      `);
+      logger.info('Reset simulation state to today');
     } catch {
-      // Table might not exist
+      // Table might not exist or no 'global' row yet
+    }
+
+    // 6b. Reset followup data in profiles (savings credits, adjustments, currentAmount)
+    // Sprint 13.14 Fix: Clear accumulated savings data when resetting
+    try {
+      await execute(`
+        UPDATE profiles SET
+          followup_data = '{}'
+        WHERE followup_data IS NOT NULL AND followup_data != '{}'
+      `);
+      logger.info('Reset all profile followup data');
+    } catch {
+      // Table or column might not exist
     }
 
     // 7. Delete all profiles (last, as other tables reference it)

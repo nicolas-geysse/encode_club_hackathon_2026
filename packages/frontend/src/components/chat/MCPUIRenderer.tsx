@@ -14,18 +14,9 @@
 import { Show, createSignal, createMemo, For, Switch, Match } from 'solid-js';
 import { createLogger } from '~/lib/logger';
 
-const logger = createLogger('MCPUIRenderer');
+import { UIResource } from '~/types/chat';
 
-/**
- * UI Resource type from MCP tool responses
- */
-export interface UIResource {
-  type: 'text' | 'form' | 'table' | 'chart' | 'metric' | 'grid' | 'link' | 'action' | 'composite';
-  id?: string;
-  params?: Record<string, unknown>;
-  components?: UIResource[];
-  metadata?: Record<string, unknown>;
-}
+const logger = createLogger('MCPUIRenderer');
 
 /**
  * Action callback type
@@ -63,31 +54,38 @@ function ResourceRenderer(props: { resource: UIResource; onAction?: ActionCallba
       }
     >
       <Match when={props.resource.type === 'text'}>
-        <TextResource params={props.resource.params} />
+        <TextResource params={(props.resource as any).params} />
       </Match>
       <Match when={props.resource.type === 'table'}>
-        <TableResource params={props.resource.params} />
+        <TableResource params={(props.resource as any).params} />
       </Match>
       <Match when={props.resource.type === 'metric'}>
-        <MetricResource params={props.resource.params} />
+        <MetricResource params={(props.resource as any).params} />
       </Match>
       <Match when={props.resource.type === 'grid'}>
-        <GridResource params={props.resource.params} onAction={props.onAction} />
+        <GridResource params={(props.resource as any).params} onAction={props.onAction} />
       </Match>
       <Match when={props.resource.type === 'link'}>
-        <LinkResource params={props.resource.params} />
+        <LinkResource params={(props.resource as any).params} />
       </Match>
       <Match when={props.resource.type === 'action'}>
-        <ActionResource params={props.resource.params} onAction={props.onAction} />
+        <ActionResource params={(props.resource as any).params} onAction={props.onAction} />
       </Match>
       <Match when={props.resource.type === 'composite'}>
-        <CompositeResource components={props.resource.components} onAction={props.onAction} />
+        <CompositeResource
+          components={(props.resource as any).components}
+          onAction={props.onAction}
+        />
       </Match>
-      <Match when={props.resource.type === 'form'}>
-        <FormResource params={props.resource.params} onAction={props.onAction} />
+      {/* Handle both legacy 'form' and new 'input_form' */}
+      <Match when={props.resource.type === 'form' || props.resource.type === 'input_form'}>
+        <FormResource params={(props.resource as any).params} onAction={props.onAction} />
       </Match>
       <Match when={props.resource.type === 'chart'}>
-        <ChartPlaceholder params={props.resource.params} />
+        <ChartPlaceholder params={(props.resource as any).params} />
+      </Match>
+      <Match when={props.resource.type === 'confirmation'}>
+        <ConfirmationResource params={(props.resource as any).params} onAction={props.onAction} />
       </Match>
     </Switch>
   );
@@ -304,6 +302,7 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
       type: string;
       required?: boolean;
       value?: unknown;
+      options?: string[];
     }>) || [];
   const submitLabel = () => (props.params?.submitLabel as string) || 'Submit';
 
@@ -393,17 +392,60 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
               {field.label}
               {field.required && <span class="text-red-500 ml-0.5">*</span>}
             </label>
-            <input
-              type={field.type || 'text'}
-              name={field.name}
-              required={field.required}
-              value={getFieldValue(field.name)}
-              class="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              classList={{
-                'border-red-500 focus:ring-red-500': !!errors()[field.name],
-              }}
-              onInput={(e) => handleChange(field.name, e.currentTarget.value)}
-            />
+
+            <Switch
+              fallback={
+                <input
+                  type={field.type || 'text'}
+                  name={field.name}
+                  required={field.required}
+                  value={getFieldValue(field.name)}
+                  class="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  classList={{
+                    'border-red-500 focus:ring-red-500': !!errors()[field.name],
+                  }}
+                  onInput={(e) => handleChange(field.name, e.currentTarget.value)}
+                />
+              }
+            >
+              <Match when={field.type === 'select'}>
+                <select
+                  name={field.name}
+                  required={field.required}
+                  value={getFieldValue(field.name)}
+                  class="w-full px-3 py-2 border border-input bg-background text-foreground rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                  classList={{
+                    'border-red-500 focus:ring-red-500': !!errors()[field.name],
+                  }}
+                  onInput={(e) => handleChange(field.name, e.currentTarget.value)}
+                >
+                  <option value="" disabled>
+                    Select an option
+                  </option>
+                  <For each={field.options || []}>
+                    {(option) => <option value={option}>{option}</option>}
+                  </For>
+                </select>
+              </Match>
+              <Match when={field.type === 'duration'}>
+                <div class="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min="1"
+                    max="12"
+                    step="1"
+                    name={field.name}
+                    value={getFieldValue(field.name) || '1'}
+                    class="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                    onInput={(e) => handleChange(field.name, e.currentTarget.value)}
+                  />
+                  <span class="w-16 text-center text-sm font-medium border border-border rounded px-2 py-1 bg-muted/50">
+                    {getFieldValue(field.name) || '1'} mo
+                  </span>
+                </div>
+              </Match>
+            </Switch>
+
             <Show when={submitted() && errors()[field.name]}>
               <p class="text-red-500 text-xs mt-1">{errors()[field.name]}</p>
             </Show>
@@ -431,6 +473,51 @@ function ChartPlaceholder(props: { params?: Record<string, unknown> }) {
     <div class="chart-placeholder bg-card rounded-lg p-4 text-center border border-border">
       <div class="text-sm text-foreground">{title()}</div>
       <div class="text-xs text-muted-foreground mt-1">({type()} chart)</div>
+    </div>
+  );
+}
+
+/**
+ * Confirmation Resource (HITL)
+ */
+function ConfirmationResource(props: {
+  params?: Record<string, unknown>;
+  onAction?: ActionCallback;
+}) {
+  const message = () => (props.params?.message as string) || 'Are you sure?';
+  const confirmLabel = () => (props.params?.confirmLabel as string) || 'Yes';
+  const cancelLabel = () => (props.params?.cancelLabel as string) || 'No';
+  const data = () => props.params?.data as unknown;
+
+  const handleConfirm = () => {
+    if (props.onAction) {
+      props.onAction('confirm', data());
+    }
+  };
+
+  const handleCancel = () => {
+    if (props.onAction) {
+      props.onAction('cancel', null);
+    }
+  };
+
+  return (
+    <div class="confirmation-resource bg-card border border-border rounded-lg p-4 max-w-sm shadow-sm animate-in fade-in slide-in-from-bottom-2">
+      <p class="text-sm font-medium text-foreground mb-4">{message()}</p>
+      <div class="flex gap-2 justify-end">
+        <button
+          onClick={handleCancel}
+          class="px-3 py-1.5 text-sm rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors"
+        >
+          {cancelLabel()}
+        </button>
+        <button
+          onClick={handleConfirm}
+          class="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+        >
+          {confirmLabel()}
+        </button>
+      </div>
     </div>
   );
 }

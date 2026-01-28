@@ -374,7 +374,9 @@ async function generateRetroplanForGoal(
   const weekCapacities: WeekCapacity[] = [];
   // Bug 2 Fix: Start from goalStartDate to include past weeks
   const currentWeekStart = new Date(startDate);
-  currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7)); // Monday
+  // Sprint 13.15 Fix: Do NOT align to Monday. Start week exactly on goal start date.
+  // This ensures "Day 1" is actually the first day of the goal, not "Day 3" (if starting Wed)
+  // currentWeekStart.setDate(currentWeekStart.getDate() - ((currentWeekStart.getDay() + 6) % 7)); // Monday
 
   for (let week = 1; week <= totalWeeks; week++) {
     const capacity = await calculateWeekCapacity(

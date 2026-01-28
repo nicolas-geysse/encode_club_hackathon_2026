@@ -33,6 +33,12 @@ import {
   type Skill,
   SKILL_TEMPLATES,
 } from '../algorithms/skill-arbitrage.js';
+import {
+  getRAGContext,
+  formatRAGContextForPrompt,
+  indexAdvice,
+  type RAGContext,
+} from '../tools/rag.js';
 
 // Type alias for algorithm results
 type EnergyDebtResult = EnergyDebt;
@@ -527,7 +533,7 @@ async function runParallelAnalysis(
             });
           }
         },
-        { tags: ['budget-coach', 'tips'] }
+        { tags: ['budget-coach', 'tips'], type: 'tool' }
       )
     );
   }
@@ -566,7 +572,7 @@ async function runParallelAnalysis(
             });
           }
         },
-        { tags: ['job-matcher', 'tips'] }
+        { tags: ['job-matcher', 'tips'], type: 'tool' }
       )
     );
   }
@@ -674,7 +680,7 @@ async function runStrategyComparison(
         return null;
       }
     },
-    { tags: ['strategy-comparator', 'tips'] }
+    { tags: ['strategy-comparator', 'tips'], type: 'tool' }
   );
 }
 
@@ -733,7 +739,7 @@ async function runGuardianValidation(
         return { passed: true, confidence: 0.5, issues: [] };
       }
     },
-    { tags: ['guardian', 'tips'] }
+    { tags: ['guardian', 'tips'], type: 'guardrail' }
   );
 }
 
@@ -749,6 +755,7 @@ interface TipGenerationContext {
   stage2: Stage2Result | null;
   input: TipsOrchestratorInput;
   regionalHints?: string[];
+  ragContext?: RAGContext;
 }
 
 /**
@@ -840,13 +847,23 @@ async function generateTipWithLLM(
   return createSpan(
     'tips.llm_generation',
     async (llmSpan) => {
-      const { energyDebt, comeback, topPriority, stage1, stage2, input, regionalHints } = context;
+      const {
+        energyDebt,
+        comeback,
+        topPriority,
+        stage1,
+        stage2,
+        input,
+        regionalHints,
+        ragContext,
+      } = context;
 
       llmSpan.setInput({
         topPriority,
         hasAgentRecommendations: !!(stage1.budgetAnalysis || stage1.jobMatches),
         hasStrategyComparison: !!stage2,
         hasLocation: !!input.location,
+        hasRAGContext: !!ragContext && ragContext.stats.profilesFound > 0,
       });
 
       // Build context for LLM
@@ -896,6 +913,18 @@ async function generateTipWithLLM(
       if (regionalHints && regionalHints.length > 0) {
         contextParts.push(`Regional Tips for ${input.location?.region || input.location?.city}:
 ${regionalHints.map((h) => `- ${h}`).join('\n')}`);
+      }
+
+      // Add RAG context from similar students (social proof)
+      if (ragContext && ragContext.stats.profilesFound > 0) {
+        const ragContextStr = formatRAGContextForPrompt(ragContext);
+        if (ragContextStr) {
+          contextParts.push(`Similar Students Context (Social Proof):
+${ragContextStr}
+Use this context to make recommendations more personalized and credible.
+E.g., "${ragContext.stats.profilesFound} students with similar profiles saved an average of X€/month by..."
+DO NOT make up statistics - only use data from the context above.`);
+        }
       }
 
       const systemPrompt = `You are Bruno, a friendly and motivating financial coach for students.
@@ -1206,6 +1235,50 @@ export async function orchestrateTips(
           ? REGIONAL_HINTS[input.location.region] || REGIONAL_HINTS['europe']
           : undefined;
 
+        // === Get RAG Context (similar students for social proof) ===
+        let ragContext: RAGContext | undefined;
+        if (enableFull && input.skills && input.skills.length > 0) {
+          try {
+            ragContext = await createSpan(
+              'tips.rag_context',
+              async (ragSpan) => {
+                const queryText = [
+                  `Student with skills: ${input.skills?.join(', ')}`,
+                  input.goalAmount ? `Goal: save ${input.goalAmount}` : '',
+                  input.monthlyMargin !== undefined ? `Monthly margin: ${input.monthlyMargin}` : '',
+                ]
+                  .filter(Boolean)
+                  .join('. ');
+
+                const ctx = await getRAGContext({
+                  queryText,
+                  currentUserId: input.profileId,
+                  maxProfiles: 3,
+                  maxAdvice: 3,
+                  maxGoals: 2,
+                  minScore: 0.5,
+                });
+
+                ragSpan.setOutput({
+                  profilesFound: ctx.stats.profilesFound,
+                  adviceFound: ctx.stats.adviceFound,
+                  goalsFound: ctx.stats.goalsFound,
+                });
+
+                return ctx;
+              },
+              { tags: ['rag', 'tips'] }
+            );
+
+            if (ragContext.stats.profilesFound > 0) {
+              agentsUsed.push('rag-retriever');
+            }
+          } catch {
+            // RAG is non-critical, continue without it
+            rootSpan.setAttributes({ 'rag.error': true });
+          }
+        }
+
         // === Stage 4: Generate Tip ===
         const tipContext: TipGenerationContext = {
           energyDebt,
@@ -1215,6 +1288,7 @@ export async function orchestrateTips(
           stage2,
           input,
           regionalHints,
+          ragContext,
         };
 
         let tip: TipsOrchestratorOutput['tip'];
@@ -1225,6 +1299,15 @@ export async function orchestrateTips(
           fallbackLevel = 3;
           orchestrationType = 'static';
           tip = STATIC_TIPS[Math.floor(Math.random() * STATIC_TIPS.length)];
+        }
+
+        // Index generated advice for RAG feedback loop (fire-and-forget)
+        if (tip && input.profileId && fallbackLevel < 3) {
+          indexAdvice(`tip-${Date.now()}`, {
+            text: tip.message,
+            profileId: input.profileId,
+            goalType: topPriority,
+          }).catch(() => {}); // Non-blocking
         }
 
         // === Build Agent Recommendations ===

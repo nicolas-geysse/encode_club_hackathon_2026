@@ -198,12 +198,14 @@ export const POPULAR_SKILLS = [
 // Academic Event Types
 // =============================================================================
 
+// Values must match retroplan API types
 export const ACADEMIC_EVENT_TYPES: FieldOption[] = [
-  { value: 'exam', label: 'Exam / Finals' },
-  { value: 'vacation', label: 'Vacation / Break' },
-  { value: 'busy', label: 'Busy Period' },
+  { value: 'exam_period', label: 'Exam / Finals' },
+  { value: 'vacation_rest', label: 'Vacation (rest - not available)' },
+  { value: 'vacation_available', label: 'Vacation (available to work)' },
+  { value: 'class_intensive', label: 'Busy Period' },
   { value: 'internship', label: 'Internship' },
-  { value: 'project', label: 'Project Deadline' },
+  { value: 'project_deadline', label: 'Project Deadline' },
 ];
 
 // =============================================================================
@@ -367,6 +369,23 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
     ],
     helpText:
       'Include all regular income (job, allowance, aid) and expenses (rent, food, subscriptions).',
+  },
+
+  income_timing: {
+    fields: [
+      {
+        name: 'incomeDay',
+        type: 'select',
+        label: 'When does your income arrive?',
+        required: false,
+        options: [
+          { value: '1', label: 'Beginning of month (1st-5th)' },
+          { value: '15', label: 'Mid-month (15th)' },
+          { value: '25', label: 'End of month (25th-31st)' },
+        ],
+      },
+    ],
+    helpText: 'This helps us track your monthly savings in the right week.',
   },
 
   work_preferences: {

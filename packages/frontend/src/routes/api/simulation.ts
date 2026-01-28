@@ -170,7 +170,15 @@ export async function POST(event: APIEvent) {
           isSimulating: true,
           insightsTriggered: !!insightsResult,
           insights: insightsResult,
-        } as SimulationState & { insightsTriggered?: boolean; insights?: unknown }),
+          _debug: {
+            step: 'advance',
+            prevOffset: currentOffset,
+            newOffset,
+            daysAdded: days,
+            simDate: simulatedDate.toISOString(),
+            realDateStr: realDate.toISOString(),
+          },
+        } as SimulationState & { insightsTriggered?: boolean; insights?: unknown; _debug?: any }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }

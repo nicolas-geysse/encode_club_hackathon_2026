@@ -37,50 +37,14 @@ Stride is a student financial health navigator that combines LLM-powered agents 
 | Jobs/Prospection Tab | Done | `ProspectionTab.tsx` + 10 sub-components |
 | Chat Persistence | Done | `chat-history.ts` API + DuckDB `chat_messages` table |
 | Achievement Celebrations | Done | `achievements.ts` + `confetti.ts` + triggers in suivi/swipe/skills |
+| RAG in Tips | Done | `profileService.ts` → `/api/embed` + `tips-orchestrator.ts` with `indexAdvice()` |
+| Goal Components UI | Done | `GoalComponentsList.tsx` rendered in `GoalsTab.tsx` active goal section |
 
 ---
 
 ## Remaining Features - Consolidated
 
-### 1. RAG Context dans Tips [PARTIAL 50%]
-**Effort**: 2h | **Impact**: High (tips personnalisés)
-
-#### Contexte
-- **Backend prêt** : `rag.ts`, `rag-tools.ts` avec `findSimilarProfiles()`
-- **Embed API prête** : `/api/embed` avec `indexStudentProfile()`, `indexGoal()`
-- **Manque** :
-  1. Appeler `/api/embed` quand profile/goal sauvegardé
-  2. Utiliser RAG dans `tips-orchestrator.ts`
-
-#### Cas d'usage
-**Avant** (tips génériques):
-> "Pense à mettre de l'argent de côté chaque semaine"
-
-**Après** (tips contextuels avec social proof):
-> "3 étudiants en informatique comme toi ont économisé en moyenne 180€/mois en faisant du freelance React. Tu as cette compétence - veux-tu qu'on explore ?"
-
-#### Intérêt Hackathon
-- **Sponsor Comet/Opik** : Démontre utilisation avancée de la plateforme (embedding + retrieval tracés)
-- **Personnalisation** : Tips basés sur profils similaires = confiance utilisateur
-- **Différenciateur** : Aucune app budget étudiant ne fait du RAG
-
-#### Implémentation
-```typescript
-// profileService.ts - après save réussi
-await fetch('/api/embed', {
-  method: 'POST',
-  body: JSON.stringify({ type: 'profile', id: profile.id, data: profile })
-});
-
-// tips-orchestrator.ts
-const similarProfiles = await ragService.findSimilar(currentProfile, 5);
-const avgSavings = similarProfiles.reduce((s, p) => s + p.monthlySavings, 0) / similarProfiles.length;
-const context = `${similarProfiles.length} étudiants similaires économisent ${avgSavings}€/mois en moyenne.`;
-```
-
----
-
-### 2. Retroplanning Unit Tests
+### 1. Retroplanning Unit Tests
 **Effort**: 3-4h | **Impact**: Qualité (pas visible en demo)
 
 #### Contexte
@@ -114,43 +78,11 @@ describe('calculateWeekCapacity', () => {
 
 ---
 
-### 3. Goal Components Visual List [PARTIAL 50%]
-**Effort**: 2h | **Impact**: Medium
-
-#### Contexte
-- **CRUD complet** : `/api/goal-components` existe avec create/read/update/delete
-- **Types définis** : `exam_prep`, `time_allocation`, `purchase`, `milestone`
-- **Manque** : Affichage visuel dans GoalsTab (actuellement seulement dans le form)
-
-#### Cas d'usage
-**Scénario** : Goal "Acheter MacBook 1500€" avec components :
-- Exam prep : "Réviser AWS cert" (20h)
-- Purchase : "Clavier mécanique" (80€)
-- Milestone : "Avoir 750€" (50%)
-- Time allocation : "4h freelance/semaine"
-
-**Affichage** :
-```
-[x] Réviser AWS cert (20h) - Completed
-[>] 4h freelance/semaine - In Progress
-[ ] Clavier mécanique (80€) - Pending (blocked by: Avoir 750€)
-[ ] Avoir 750€ - Pending
-```
-
-#### Intérêt
-- **Visualisation claire** des sous-étapes
-- **Motivation** : Cocher les petites victoires
-- **Dépendances** : Voir ce qui bloque quoi
-
----
-
 ## Priority Matrix (Remaining Work)
 
 | Feature | Status | Effort | Impact Demo | Impact User | Priority |
 |---------|--------|--------|-------------|-------------|----------|
-| RAG in Tips | 50% done | 2h | High | Very High | 1 |
-| Goal Components UI | 50% done | 2h | Low | Medium | 2 |
-| Retroplan Tests | Not started | 3-4h | None | Medium | 3 |
+| Retroplan Tests | Not started | 3-4h | None | Medium | 1 |
 
 ---
 

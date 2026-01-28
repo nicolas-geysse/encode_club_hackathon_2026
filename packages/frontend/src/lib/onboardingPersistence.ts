@@ -12,13 +12,23 @@ import { incomeService } from '~/lib/incomeService';
 import { tradeService } from '~/lib/tradeService';
 import { createLogger } from '~/lib/logger';
 import { eventBus } from '~/lib/eventBus';
+import { simulationService } from '~/lib/simulationService';
 
 const logger = createLogger('OnboardingPersistence');
 
-// Types matching OnboardingChat.tsx
+// Types matching retroplan API
+export type AcademicEventType =
+  | 'exam_period'
+  | 'class_intensive'
+  | 'vacation'
+  | 'vacation_rest'
+  | 'vacation_available'
+  | 'internship'
+  | 'project_deadline';
+
 export interface AcademicEvent {
   name: string;
-  type: 'exam' | 'vacation' | 'busy';
+  type: AcademicEventType;
   startDate?: string;
   endDate?: string;
 }
@@ -123,8 +133,16 @@ export async function persistGoal(profileId: string, goalData: GoalData): Promis
       }));
     }
 
+    // Sprint 13.13: Use simulated date so Week 1 Day 1 starts immediately
+    // This ensures consistency with currentDate() used in /suivi
+    // If simulation has an offset, using real date would cause Day mismatch
+    const simState = await simulationService.getSimulationState();
+    // Sprint 13.15: Handle both YYYY-MM-DD and ISO strings safely to avoid "000ZT000Z" error
+    const datePart = simState.simulatedDate.split('T')[0];
+    const createdAt = `${datePart}T00:00:00.000Z`;
+
     // Create the new goal with planData
-    await fetch('/api/goals', {
+    const response = await fetch('/api/goals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -135,8 +153,16 @@ export async function persistGoal(profileId: string, goalData: GoalData): Promis
         priority: 1,
         status: 'active',
         planData: Object.keys(goalPlanData).length > 0 ? goalPlanData : undefined,
+        createdAt,
       }),
     });
+
+    // Sprint 13.12: Validate response status - don't silently fail
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error('Failed to create goal', { status: response.status, error: errorText });
+      return false;
+    }
 
     return true;
   } catch (error) {

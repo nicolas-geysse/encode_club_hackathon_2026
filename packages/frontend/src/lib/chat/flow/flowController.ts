@@ -74,6 +74,8 @@ export function getStepQuestion(step: OnboardingStep, ctx: Record<string, unknow
     certifications:
       "Do you have any professional certifications? (BAFA, lifeguard, CPR, TEFL, etc.) Say 'none' if you don't have any.",
     budget: 'How much do you earn and spend per month roughly?',
+    income_timing:
+      'When does your income usually arrive each month? (beginning, mid-month, or end)',
     work_preferences:
       "How many hours max per week can you work? And what's your minimum hourly rate?",
     goal: "What's your savings goal? What do you want to save for, how much, and by when?",
@@ -101,6 +103,8 @@ export function getClarificationMessage(step: OnboardingStep): string {
     certifications:
       "Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')",
     budget: 'How much do you earn and spend per month? (two numbers, like "800 and 600")',
+    income_timing:
+      'When does your income usually arrive each month? (beginning, mid-month, or end)',
     work_preferences: "How many hours can you work per week? And what's your minimum hourly rate?",
     goal: "What's your savings goal? What are you saving for, how much, and by when?",
     academic_events: "Any upcoming exams or busy periods? Or say 'none' to continue.",
@@ -130,6 +134,7 @@ export function getAdvanceMessage(nextStep: OnboardingStep, profile: ProfileData
     skills: `Great${name ? `, ${name}` : ''}! What skills do you have? (coding, languages, tutoring, music...)`,
     certifications: `Awesome skills! Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
     budget: `Got it! Now about your budget - how much do you earn and spend per month? (in ${currencySymbol})`,
+    income_timing: `Nice! When does your income usually arrive each month? (beginning, mid-month, or end)`,
     work_preferences: `Thanks! How many hours per week can you work, and what's your minimum hourly rate? (in ${currencySymbol}/h)`,
     goal: `Perfect! What's your savings goal? (what, how much in ${currencySymbol}, by when)`,
     academic_events: `Great goal! Any upcoming exams or busy periods to plan around? (or say 'none')`,

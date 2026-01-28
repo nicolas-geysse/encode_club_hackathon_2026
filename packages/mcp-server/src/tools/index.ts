@@ -65,6 +65,7 @@ import { SIMULATION_TOOLS, handleSimulationTool } from './simulation.js';
 import { RAG_TOOLS, handleRAGTool } from './rag-tools.js';
 import { BROWSER_TOOLS, handleBrowserTool } from './browser.js';
 import { DUCKDB_MCP_TOOLS, handleDuckDBMCPTool } from './duckdb-mcp.js';
+import { PROSPECTION_TOOLS, handleProspectionTool } from './prospection.js';
 
 // Types
 interface IncomeSource {
@@ -416,6 +417,9 @@ export const TOOLS = {
 
   // === DuckDB MCP Tools (NEW) ===
   ...DUCKDB_MCP_TOOLS,
+
+  // === Prospection Tools (NEW) ===
+  ...PROSPECTION_TOOLS,
 };
 
 // Tool handlers
@@ -460,6 +464,11 @@ export async function handleTool(name: string, args: unknown): Promise<unknown> 
   // Check if it's a DuckDB MCP tool
   if (name in DUCKDB_MCP_TOOLS) {
     return handleDuckDBMCPTool(name, typedArgs);
+  }
+
+  // Check if it's a prospection tool
+  if (name in PROSPECTION_TOOLS) {
+    return handleProspectionTool(name, typedArgs);
   }
 
   switch (name) {

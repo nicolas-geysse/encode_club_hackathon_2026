@@ -16,6 +16,8 @@ export interface GeolocationResult {
   city: string;
   country: string;
   countryCode: string;
+  /** Full address from reverse geocoding */
+  address?: string;
   /** Auto-detected currency based on location */
   currency?: 'USD' | 'EUR' | 'GBP';
   /** Raw coordinates */
@@ -103,7 +105,11 @@ interface NominatimResponse {
     state?: string;
     country?: string;
     country_code?: string;
+    road?: string;
+    house_number?: string;
+    postcode?: string;
   };
+  display_name?: string;
 }
 
 /**
@@ -118,10 +124,12 @@ async function reverseGeocode(
   city: string;
   country: string;
   countryCode: string;
+  address?: string;
 } | null> {
   try {
+    // Use zoom=18 for more precise address details
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
       {
         headers: {
           'Accept-Language': 'en',
@@ -151,10 +159,20 @@ async function reverseGeocode(
       data.address.state ||
       'Unknown';
 
+    // Build address string from components
+    const addressParts: string[] = [];
+    if (data.address.house_number) addressParts.push(data.address.house_number);
+    if (data.address.road) addressParts.push(data.address.road);
+    if (data.address.postcode) addressParts.push(data.address.postcode);
+    if (city !== 'Unknown') addressParts.push(city);
+
+    const address = addressParts.length > 0 ? addressParts.join(', ') : data.display_name;
+
     return {
       city,
       country: data.address.country || 'Unknown',
       countryCode: (data.address.country_code || '').toUpperCase(),
+      address,
     };
   } catch (error) {
     console.warn('[Geolocation] Reverse geocoding failed:', error);
@@ -208,6 +226,7 @@ export function getCurrentLocation(): Promise<GeolocationResult> {
           city: location.city,
           country: location.country,
           countryCode: location.countryCode,
+          address: location.address,
           currency,
           coordinates: { latitude, longitude },
         });

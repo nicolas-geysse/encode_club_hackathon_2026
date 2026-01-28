@@ -6,6 +6,7 @@
  */
 
 import type { DetectedIntent } from '../types';
+import { SERVICE_NAMES, SUBSCRIPTION_PATTERNS } from '../extraction/patterns';
 
 /**
  * Detect user intent from message
@@ -116,7 +117,12 @@ export function detectIntent(message: string, _context: Record<string, unknown>)
       /(?:je (?:suis|m'appelle)|my name is|i'm|i am|call me)?\s*([a-zA-ZÀ-ÿ]+)$/i
     );
     const extractedName = nameMatch ? nameMatch[1].trim() : message.trim();
-    if (extractedName.match(/^[A-ZÀ-ÿ][a-zà-ÿ]+$/)) {
+
+    // Check if name is actually a service (e.g. "Netflix") or invalid
+    const isService = SERVICE_NAMES.includes(extractedName.toLowerCase());
+    const isValidName = extractedName.match(/^[A-ZÀ-ÿ][a-zà-ÿ]+$/) && !isService;
+
+    if (isValidName) {
       return {
         mode: 'profile-edit',
         action: 'update_name',
@@ -125,6 +131,26 @@ export function detectIntent(message: string, _context: Record<string, unknown>)
         _matchedPattern: 'short_name_message',
       };
     }
+  }
+
+  // ==========================================================================
+  // ADD RESOURCE (Proactive Subscription/Item detection)
+  // ==========================================================================
+  // Check if message is JUST a service name (e.g. "Netflix", "Spotify") to propose adding it
+  const lowerTrimmed = lower.trim();
+  const matchedService =
+    SERVICE_NAMES.find((s) => s === lowerTrimmed) ||
+    SUBSCRIPTION_PATTERNS.find((p) => p[0].test(lowerTrimmed))?.[1].name;
+
+  if (matchedService) {
+    const serviceName = typeof matchedService === 'string' ? matchedService : matchedService;
+    return {
+      mode: 'conversation',
+      action: 'add_resource',
+      field: 'subscriptions',
+      extractedValue: serviceName, // Normalized name if possible
+      _matchedPattern: 'service_name_only',
+    };
   }
 
   // ==========================================================================

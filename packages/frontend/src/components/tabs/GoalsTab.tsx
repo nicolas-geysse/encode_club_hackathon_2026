@@ -344,10 +344,16 @@ export function GoalsTab(props: GoalsTabProps) {
     }
   });
 
-  // Show new goal form if no goals and we have initial data
+  // Show new goal form if no goals and we have initial data (only after loading completes)
   createEffect(() => {
     const currentGoals = goals();
-    if (currentGoals.length === 0 && props.initialData?.goalName && !showNewGoalForm()) {
+    const isLoading = loading();
+    if (
+      !isLoading &&
+      currentGoals.length === 0 &&
+      props.initialData?.goalName &&
+      !showNewGoalForm()
+    ) {
       openNewGoalForm();
     }
   });
@@ -1324,6 +1330,7 @@ export function GoalsTab(props: GoalsTabProps) {
                   academicEvents={goalAcademicEvents}
                   hourlyRate={profile()?.minHourlyRate}
                   simulatedDate={props.simulatedDate}
+                  monthlyMargin={monthlyMargin()}
                   onClose={() => setShowRetroplan(null)}
                 />
               </div>

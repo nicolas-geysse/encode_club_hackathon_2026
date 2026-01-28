@@ -9,7 +9,66 @@
  * @see api/chat.ts - API route using ChatResponse/ChatRequest
  */
 
-import type { UIResource } from '../components/chat/MCPUIRenderer';
+// Define UIResource here as the single source of truth
+export type UIResource =
+  | {
+      type: 'text';
+      params: { content: string; markdown?: boolean };
+    }
+  | {
+      type: 'confirmation';
+      params: {
+        message: string;
+        confirmLabel?: string;
+        cancelLabel?: string;
+        data?: Record<string, unknown>;
+      };
+    }
+  | {
+      type: 'input_form'; // Generative UI Form (Agentic)
+      params: {
+        actionId: string;
+        actionType: string;
+        fields: {
+          name: string;
+          label: string;
+          type: string;
+          options?: string[];
+          currentValue?: any;
+          required?: boolean;
+        }[];
+        title?: string;
+        submitLabel?: string;
+      };
+    }
+  | {
+      type: 'form'; // Legacy Form
+      params: Record<string, unknown>;
+    }
+  | {
+      type: 'selector';
+      params: { title?: string; options: string[] };
+    }
+  | {
+      type: 'table' | 'metric' | 'chart';
+      params: any;
+    }
+  | {
+      type: 'grid';
+      params: { columns?: number; children: UIResource[] };
+    }
+  | {
+      type: 'link';
+      params: { label: string; url: string; description?: string };
+    }
+  | {
+      type: 'action';
+      params: { type?: string; label?: string; variant?: string; action?: string; params?: any };
+    }
+  | {
+      type: 'composite';
+      components: UIResource[];
+    };
 
 /**
  * Chat message displayed in the UI
@@ -98,6 +157,3 @@ export interface ChatRequest {
   /** Recent conversation history for context awareness */
   conversationHistory?: Array<{ role: string; content: string }>;
 }
-
-// Re-export UIResource for convenience
-export type { UIResource };

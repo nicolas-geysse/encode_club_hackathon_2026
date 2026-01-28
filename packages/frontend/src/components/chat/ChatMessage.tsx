@@ -19,6 +19,7 @@ interface ChatMessageProps {
 
 // Safe text parser - no innerHTML needed
 function parseFormattedText(text: string): JSX.Element[] {
+  if (!text) return [];
   const elements: JSX.Element[] = [];
   const lines = text.split('\n');
 

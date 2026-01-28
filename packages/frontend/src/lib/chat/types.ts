@@ -20,6 +20,7 @@ export type OnboardingStep =
   | 'skills'
   | 'certifications' // Professional certifications (BAFA, lifeguard, etc.)
   | 'budget'
+  | 'income_timing' // When income arrives (day of month)
   | 'work_preferences'
   | 'goal' // Savings goal
   | 'academic_events' // Exams, vacations
@@ -78,6 +79,7 @@ export interface ProfileData {
   certifications?: string[];
   income?: number;
   expenses?: number;
+  incomeDay?: number; // Day of month when income arrives (1-31)
   maxWorkHours?: number;
   minHourlyRate?: number;
   goalName?: string;
@@ -88,6 +90,8 @@ export interface ProfileData {
   tradeOpportunities?: TradeOpportunity[];
   subscriptions?: Subscription[];
   missingInfo?: string[];
+  /** Fields that were mentioned but don't match the current step context (HITL candidates) */
+  ambiguousFields?: Record<string, unknown>;
 }
 
 // =============================================================================
@@ -159,6 +163,7 @@ export interface OnboardingOutput {
   isComplete: boolean;
   profileData: ProfileData;
   source: 'groq' | 'fallback';
+  uiResource?: unknown;
 }
 
 // =============================================================================
@@ -187,6 +192,7 @@ export const STEP_TO_TAB: Record<string, string> = {
   skills: 'skills',
   certifications: 'skills',
   budget: 'profile',
+  income_timing: 'budget',
   work_preferences: 'profile',
   goal: 'setup',
   academic_events: 'setup',
@@ -207,6 +213,7 @@ export const ONBOARDING_FLOW: OnboardingStep[] = [
   'skills',
   'certifications',
   'budget',
+  'income_timing',
   'work_preferences',
   'goal',
   'academic_events',
@@ -227,6 +234,7 @@ export const REQUIRED_FIELDS: Record<OnboardingStep, string[]> = {
   skills: ['skills'],
   certifications: ['certifications'],
   budget: ['income', 'expenses'],
+  income_timing: [], // optional - defaults to 15
   work_preferences: ['maxWorkHours', 'minHourlyRate'],
   goal: ['goalName', 'goalAmount', 'goalDeadline'],
   academic_events: [], // optional

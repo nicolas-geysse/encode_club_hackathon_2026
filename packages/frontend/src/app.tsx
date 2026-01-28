@@ -5,7 +5,7 @@ import './app.css';
 import { ProfileSelector } from '~/components/ProfileSelector';
 import { SimulationControls, type SimulationState } from '~/components/SimulationControls';
 import { NotificationBell } from '~/components/NotificationBell';
-import { ProgressMini } from '~/components/ProgressMini';
+
 import { ThemeProvider } from '~/lib/themeContext';
 import { ProfileProvider } from '~/lib/profileContext';
 import { SimulationProvider } from '~/lib/simulationContext';
@@ -107,30 +107,6 @@ export default function App() {
                 onDebugOpen={() => setDebugOpen(true)}
                 headerContent={
                   <>
-                    <div class="hidden md:flex items-center gap-3 pl-3 border-l border-border/50">
-                      <ProgressMini
-                        percent={progressPercent()}
-                        goalAmount={500}
-                        currentAmount={Math.round(progressPercent() * 5)}
-                        breakdown={[
-                          {
-                            label: 'Jobs',
-                            value: Math.round(progressPercent() * 2),
-                            color: '#3b82f6',
-                          },
-                          {
-                            label: 'Sales',
-                            value: Math.round(progressPercent() * 2),
-                            color: '#22c55e',
-                          },
-                          {
-                            label: 'Savings',
-                            value: Math.round(progressPercent()),
-                            color: '#f59e0b',
-                          },
-                        ]}
-                      />
-                    </div>
                     <SimulationControls
                       compact={true}
                       onSimulationChange={handleSimulationChange}

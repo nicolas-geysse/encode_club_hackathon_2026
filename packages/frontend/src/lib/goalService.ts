@@ -75,6 +75,7 @@ export interface UpdateGoalInput {
   status?: 'active' | 'waiting' | 'completed' | 'paused';
   progress?: number;
   planData?: Record<string, unknown>;
+  components?: Omit<GoalComponent, 'id' | 'goalId' | 'createdAt'>[];
   parentGoalId?: string;
   conditionType?: 'none' | 'after_completion' | 'after_date';
 }

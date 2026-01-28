@@ -87,6 +87,7 @@ export interface FullProfile {
   monthlyIncome?: number;
   monthlyExpenses?: number;
   monthlyMargin?: number;
+  incomeDay?: number; // Day of month when income arrives (1-31), default 15
   profileType: string;
   parentProfileId?: string;
   goalName?: string;
@@ -97,6 +98,8 @@ export interface FullProfile {
   achievements?: string[];
   isActive: boolean;
   swipePreferences?: SwipePreferences; // BUG J FIX: Add swipe preferences
+  subscriptions?: { name: string; currentCost?: number }[];
+  inventoryItems?: { name: string; category?: string; estimatedValue?: number }[];
 }
 
 export interface ProfileSummary {
@@ -248,11 +251,13 @@ export async function saveProfile(
       const result = await response.json();
       logger.info('Profile saved to API');
 
-      // BUG FIX: Disable auto-embedding to prevent DuckDB concurrency conflicts during rapid saves
-      // const profileWithId = { ...profile, id: result.profileId || profile.id };
-      // triggerProfileEmbedding(profileWithId).catch(() => {
-      //   // Already logged in triggerProfileEmbedding
-      // });
+      // Trigger embedding only after successful API save (with delay to avoid DuckDB concurrency)
+      if (result.profileId) {
+        setTimeout(() => {
+          const profileWithId = { ...profile, id: result.profileId };
+          triggerProfileEmbedding(profileWithId).catch(() => {});
+        }, 500);
+      }
 
       eventBus.emit('DATA_CHANGED');
       return { success: true, profileId: result.profileId, apiSaved: true }; // apiSaved: true

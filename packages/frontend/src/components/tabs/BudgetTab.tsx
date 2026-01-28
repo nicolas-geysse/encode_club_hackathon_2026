@@ -56,6 +56,8 @@ interface BudgetTabProps {
   goalDeadline?: string;
   /** Callback when dirty state changes (for parent to track unsaved changes) */
   onDirtyChange?: (isDirty: boolean) => void;
+  /** Callback when income day changes */
+  onIncomeDayChange?: (day: number) => void;
 }
 
 interface CategoryInfo {
@@ -87,11 +89,15 @@ export function BudgetTab(props: BudgetTabProps) {
     income: contextIncome,
     refreshLifestyle,
     refreshIncome,
+    refreshProfile,
   } = useProfile();
 
   // Feature M: Get primary goal amount for savings progress calculation
   const primaryGoal = () => goals().find((g) => g.status === 'active' && !g.parentGoalId);
   const goalAmount = () => primaryGoal()?.amount || 0;
+
+  // Income day from profile (default to 15)
+  const incomeDay = () => profile()?.incomeDay || 15;
 
   // Use createCrudTab hook for common CRUD state management
   // We use a generic type since we manage both LifestyleItem and IncomeItem
@@ -465,6 +471,29 @@ export function BudgetTab(props: BudgetTabProps) {
   const getCategoryInfo = (id: string) => CATEGORIES.find((c) => c.id === id);
   const isIncomeCategory = () => activeCategory() === 'income';
 
+  // Handle income day change
+  const handleIncomeDayChange = async (newDay: number) => {
+    const currentProfile = profile();
+    if (!currentProfile?.id) return;
+
+    setIsLoading(true);
+    try {
+      await fetch('/api/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...currentProfile,
+          incomeDay: newDay,
+          setActive: false, // Don't change active state
+        }),
+      });
+      await refreshProfile();
+      props.onIncomeDayChange?.(newDay);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div class="p-6 space-y-6">
       {/* Summary Cards */}
@@ -534,6 +563,36 @@ export function BudgetTab(props: BudgetTabProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Income Day Selector - when savings are added to progress */}
+      <Show when={netMargin() > 0}>
+        <Card class="border-green-500/20 bg-green-500/5">
+          <CardContent class="p-4">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div class="flex items-center gap-3">
+                <PiggyBank class="h-5 w-5 text-green-600" />
+                <span class="text-sm text-green-700 dark:text-green-300">
+                  <strong>Savings arrive on:</strong>
+                </span>
+              </div>
+              <select
+                class="px-3 py-1.5 text-sm rounded-lg border border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                value={incomeDay()}
+                onChange={(e) => handleIncomeDayChange(parseInt(e.currentTarget.value))}
+                disabled={isLoading()}
+              >
+                <option value="1">Beginning of month (1st-5th)</option>
+                <option value="15">Mid-month (15th)</option>
+                <option value="25">End of month (25th-31st)</option>
+              </select>
+            </div>
+            <p class="text-xs text-green-600/80 dark:text-green-400/80 mt-2">
+              Your monthly savings of {formatCurrency(netMargin(), currency())} will be
+              automatically added to your progress on this date.
+            </p>
+          </CardContent>
+        </Card>
+      </Show>
 
       {/* Feature M: Cumulative Savings From Net Margin */}
       <Show when={cumulativeSavingsFromMargin() > 0}>

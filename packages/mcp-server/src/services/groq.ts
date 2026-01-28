@@ -141,6 +141,9 @@ export async function chat(
         prompt_tokens: promptTokens,
         estimated_cost_usd: cost,
       });
+    } else {
+      console.warn(`[Groq] No usage data returned for model ${MODEL}`);
+      span.setAttributes({ usage_missing: true });
     }
 
     return content;

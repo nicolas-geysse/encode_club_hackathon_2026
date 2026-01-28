@@ -26,6 +26,9 @@ import {
 } from '../../lib/opik';
 import { processWithGroqExtractor, type ProfileData } from '../../lib/chat/extraction';
 import { createLogger } from '../../lib/logger';
+import { ActionDispatcher } from '../../lib/chat/ActionDispatcher';
+import { ActionExecutor } from '../../lib/chat/ActionExecutor';
+import { ACTIONS, type ActionType } from '../../types/actions';
 import type { UIResource } from '../../types/chat';
 
 // Import from refactored modules
@@ -677,9 +680,18 @@ async function extractDataFromMessage(
       });
 
       const content = completion.choices[0]?.message?.content || '{}';
+
+      // Set usage for Opik
+      if (completion.usage) {
+        span.setUsage({
+          prompt_tokens: completion.usage.prompt_tokens,
+          completion_tokens: completion.usage.completion_tokens,
+          total_tokens: completion.usage.total_tokens,
+        });
+      }
+
       span.setAttributes({
         'extraction.response_length': content.length,
-        'extraction.tokens_used': completion.usage?.total_tokens ?? 0,
       });
 
       // Try to parse JSON from response
@@ -753,9 +765,18 @@ async function generateStepResponse(
       });
 
       const response = completion.choices[0]?.message?.content || "Let's continue!";
+
+      // Set usage for Opik
+      if (completion.usage) {
+        span.setUsage({
+          prompt_tokens: completion.usage.prompt_tokens,
+          completion_tokens: completion.usage.completion_tokens,
+          total_tokens: completion.usage.total_tokens,
+        });
+      }
+
       span.setAttributes({
         'generation.response_length': response.length,
-        'generation.tokens_used': completion.usage?.total_tokens ?? 0,
         'generation.method': 'llm',
       });
 
@@ -948,6 +969,74 @@ async function handleConversationMode(
       // Generate response based on intent
       let response: string;
       const extractedData: Record<string, unknown> = {};
+
+      // -----------------------------------------------------------------------
+      // Agentic Action Dispatcher (Sprint 15)
+      // -----------------------------------------------------------------------
+      if (intent.action && intent.action in ACTIONS) {
+        try {
+          const actionStats = ActionDispatcher.dispatch(
+            intent.action,
+            { ...context, ...(intent.field ? { [intent.field]: intent.extractedValue } : {}) },
+            traceIdForFeedback || 'unknown-trace'
+          );
+
+          if (actionStats.status === 'missing_info' && actionStats.uiResource) {
+            const actionDef = ACTIONS[intent.action as ActionType];
+            response = `I can help with that. Please provide the details for **${actionDef.description}**.`;
+
+            const actionTraceId = traceIdForFeedback;
+
+            ctx.setOutput({
+              action: intent.action,
+              status: 'missing_info',
+              missing: actionStats.missingFields,
+            });
+            return {
+              response,
+              extractedData: {},
+              nextStep: 'complete' as OnboardingStep,
+              intent,
+              traceId: actionTraceId || undefined,
+              traceUrl: actionTraceId ? getTraceUrl(actionTraceId) : undefined,
+              source: 'groq' as const,
+              uiResource: actionStats.uiResource,
+            };
+          }
+
+          // If status is 'ready', we allow it to fall through to specific handlers or default execution
+          // For now, we'll let specific cases handle execution, or add a generic executor later.
+          if (actionStats.status === 'ready') {
+            const executionResult = await ActionExecutor.execute(
+              intent.action as ActionType,
+              actionStats.data,
+              profileId || 'anonymous'
+            );
+
+            const actionTraceId = traceIdForFeedback;
+            const traceUrl = actionTraceId ? getTraceUrl(actionTraceId) : undefined;
+
+            ctx.setOutput({
+              action: intent.action,
+              status: executionResult.success ? 'executed' : 'failed',
+              result: executionResult.message,
+            });
+
+            return {
+              response: executionResult.message,
+              extractedData: {},
+              nextStep: 'complete' as OnboardingStep,
+              intent,
+              traceId: actionTraceId || undefined,
+              traceUrl,
+              source: 'groq' as const,
+            };
+          }
+        } catch (err) {
+          console.error('[ActionDispatcher] Error:', err);
+        }
+      }
+      // -----------------------------------------------------------------------
 
       switch (intent.action) {
         case 'restart_new_profile': {
@@ -1268,6 +1357,42 @@ async function handleConversationMode(
           response = `Your plan is ready in **My Plan**! There you can:\n\n- View your savings timeline\n- Track weekly progress\n- See job recommendations\n- Explore "what if" scenarios\n\nClick on "My Plan" to get started!`;
           break;
 
+        case 'add_resource': {
+          // HITL: Proactive subscription/item confirmation
+          const resourceName = intent.extractedValue || 'this item';
+          const field = intent.field || 'subscriptions';
+
+          const confirmMessage = `Did you mean to add "${resourceName}" as a subscription?`;
+          let dataToConfirm: Record<string, unknown> = {};
+
+          if (field === 'subscriptions') {
+            dataToConfirm = { subscriptions: [{ name: resourceName }] };
+          }
+
+          // Return confirmation UI
+          const confirmationResource: UIResource = {
+            type: 'confirmation',
+            params: {
+              message: confirmMessage,
+              confirmLabel: 'Yes, add it',
+              cancelLabel: 'No, ignore',
+              data: dataToConfirm,
+            },
+          };
+
+          const result: ChatResponse = {
+            response: confirmMessage,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep, // Stay in conversation mode
+            intent,
+            source: 'groq' as const,
+            uiResource: confirmationResource,
+          };
+
+          ctx.setOutput({ action: 'add_resource_confirmation', resource: resourceName });
+          return result;
+        }
+
         default: {
           // Span 3: LLM Generation (type: llm with model and provider)
           response = await ctx.createChildSpan(
@@ -1329,6 +1454,11 @@ Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed 
                       completion_tokens: completion.usage.completion_tokens || 0,
                       total_tokens: completion.usage.total_tokens || 0,
                     });
+                  } else {
+                    console.warn(
+                      `[chat.llm_generation] No usage data returned from Groq for model ${GROQ_MODEL}`
+                    );
+                    span.setAttributes({ usage_missing: true });
                   }
 
                   span.setOutput({ response: llmResponse.substring(0, 200) });

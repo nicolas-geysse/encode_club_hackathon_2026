@@ -6,11 +6,26 @@ export interface ScrollAreaProps extends ArkScrollArea.RootProps {
   class?: string;
   viewportClass?: string;
   viewportRef?: (el: HTMLDivElement) => void;
+  /** Show horizontal scrollbar */
+  horizontal?: boolean;
+  /** Show vertical scrollbar (default: true) */
+  vertical?: boolean;
 }
 
 export const ScrollArea: Component<ScrollAreaProps> = (props) => {
-  const [local, rest] = splitProps(props, ['class', 'children', 'viewportClass', 'viewportRef']);
+  const [local, rest] = splitProps(props, [
+    'class',
+    'children',
+    'viewportClass',
+    'viewportRef',
+    'horizontal',
+    'vertical',
+  ]);
   const [mounted, setMounted] = createSignal(false);
+
+  // Default to vertical only if not specified
+  const showVertical = () => local.vertical !== false && !local.horizontal;
+  const showHorizontal = () => local.horizontal === true;
 
   onMount(() => {
     setMounted(true);
@@ -29,21 +44,45 @@ export const ScrollArea: Component<ScrollAreaProps> = (props) => {
         </div>
       }
     >
-      <ArkScrollArea.Root class={cn('relative overflow-hidden group', local.class)} {...rest}>
+      <ArkScrollArea.Root class={cn('relative overflow-hidden', local.class)} {...rest}>
         <ArkScrollArea.Viewport
           ref={local.viewportRef}
-          class={cn('h-full w-full rounded-[inherit] scroll-smooth', local.viewportClass)}
+          class={cn('h-full w-full rounded-[inherit]', local.viewportClass)}
         >
           {local.children}
         </ArkScrollArea.Viewport>
-        <ArkScrollArea.Scrollbar
-          class="flex select-none touch-none p-0.5 bg-transparent transition-colors duration-150 ease-out hover:bg-black/5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:h-2.5 sm:data-[orientation=vertical]:w-3"
-          orientation="vertical"
-        >
-          <ArkScrollArea.Thumb class="flex-1 bg-muted-foreground/30 rounded-[10px] relative before:content-[''] before:absolute before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:w-full before:h-full before:min-w-[44px] before:min-h-[44px]" />
-        </ArkScrollArea.Scrollbar>
+
+        {/* Vertical Scrollbar - minimal style */}
+        <Show when={showVertical()}>
+          <ArkScrollArea.Scrollbar
+            orientation="vertical"
+            class="flex select-none touch-none w-1.5 p-px transition-opacity data-[state=hidden]:opacity-0"
+          >
+            <ArkScrollArea.Thumb class="flex-1 rounded-full bg-[#27272A] dark:bg-[#52525B]" />
+          </ArkScrollArea.Scrollbar>
+        </Show>
+
+        {/* Horizontal Scrollbar - minimal style */}
+        <Show when={showHorizontal()}>
+          <ArkScrollArea.Scrollbar
+            orientation="horizontal"
+            class="flex select-none touch-none flex-col h-1.5 p-px transition-opacity data-[state=hidden]:opacity-0"
+          >
+            <ArkScrollArea.Thumb class="flex-1 rounded-full bg-[#27272A] dark:bg-[#52525B]" />
+          </ArkScrollArea.Scrollbar>
+        </Show>
+
         <ArkScrollArea.Corner />
       </ArkScrollArea.Root>
     </Show>
   );
+};
+
+/**
+ * Horizontal-only ScrollArea variant for convenience
+ */
+export const HorizontalScrollArea: Component<Omit<ScrollAreaProps, 'horizontal' | 'vertical'>> = (
+  props
+) => {
+  return <ScrollArea {...props} horizontal vertical={false} />;
 };

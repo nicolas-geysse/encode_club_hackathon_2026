@@ -166,6 +166,7 @@ async function initSchema(): Promise<void> {
   }
 
   const schemaPath = path.join(__dirname, '../graph/student-knowledge-graph.sql');
+  const prospectionGraphPath = path.join(__dirname, '../graph/prospection-graph.sql');
 
   // Check if tables already exist
   const tablesExist = await query<{ count: number }>(
@@ -174,11 +175,28 @@ async function initSchema(): Promise<void> {
   );
 
   if (tablesExist[0]?.count === 0) {
-    // Load and execute schema
+    // Load and execute base schema
     if (fs.existsSync(schemaPath)) {
       const schema = fs.readFileSync(schemaPath, 'utf-8');
       await executeInternal(schema);
       console.error('[DuckDB-MCP] Knowledge graph schema initialized');
+    }
+  }
+
+  // Load prospection graph data (extends the base graph)
+  // Check if prospection nodes exist before loading
+  const prospectionNodesExist = await query<{ count: number }>(
+    `SELECT COUNT(*) as count FROM student_nodes WHERE domain = 'prospection_category'`
+  );
+
+  if (prospectionNodesExist[0]?.count === 0 && fs.existsSync(prospectionGraphPath)) {
+    try {
+      const prospectionSchema = fs.readFileSync(prospectionGraphPath, 'utf-8');
+      await executeInternal(prospectionSchema);
+      console.error('[DuckDB-MCP] Prospection graph data loaded successfully');
+    } catch (error) {
+      console.error('[DuckDB-MCP] Warning: Could not load prospection graph:', error);
+      // Continue without prospection graph data
     }
   }
 

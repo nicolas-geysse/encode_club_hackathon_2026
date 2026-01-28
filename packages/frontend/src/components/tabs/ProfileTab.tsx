@@ -128,6 +128,7 @@ export function ProfileTab(props: ProfileTabProps) {
         latitude: result.coordinates.latitude,
         longitude: result.coordinates.longitude,
         city: result.city,
+        address: result.address,
         // Currency can also be updated based on location
         currency: result.currency || editedProfile().currency,
       });

@@ -80,6 +80,11 @@ Tell them to say "none" if they don't have any.`,
   budget: `The user has \${income} income and \${expenses} expenses per month (margin: \${margin}).
 Generate a response of 2-3 sentences that:
 1. Briefly comments on their budget (positive if margin >0, encouraging otherwise)
+2. Asks when their income usually arrives each month (beginning, mid-month, or end)`,
+
+  income_timing: `The user's income arrives {incomeDay} of the month.
+Generate a response of 2-3 sentences that:
+1. Acknowledges when their income arrives
 2. Asks about their work preferences (max hours per week, minimum hourly rate)`,
 
   work_preferences: `The user can work {maxWorkHours}h/week, minimum \${minHourlyRate}/h.
@@ -198,7 +203,16 @@ Be generous with extraction. Accept common variations:
 IMPORTANT: Remove trailing punctuation (!?.,-;:) from names.
 Example: "Kiki !" → name: "Kiki"
 
-IMPORTANT: Netflix, Spotify, Amazon are subscriptions, NOT names.`;
+AMBIGUOUS FIELDS (HITL):
+- If the user mentions a valid field (like "subscriptions" or "inventoryItems") but it does NOT match the current step context (e.g., mentioning "Netflix" while in "name" step):
+- DO NOT extract it into the main field.
+- DO extract it into "ambiguousFields" object.
+- Example: Step "name", User says "Netflix" -> { "ambiguousFields": { "subscriptions": [{ "name": "Netflix" }] } }
+
+STRICT RULES FOR NAMES:
+- ONLY extract 'name' if the user explicitly says "My name is..." or "I am..." OR if the current step is "name".
+- If the current step is "lifestyle", "budget", "skills", etc., DO NOT assume a single capitalized word is a name. It is likely a value for that step (e.g. "Netflix" is a subscription).
+- "Netflix", "Spotify", "Amazon", "Gym" are NEVER names.`;
 
 // =============================================================================
 // Step-Specific Extraction Contexts

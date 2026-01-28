@@ -172,12 +172,12 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
           const mergedProfile = { ...input.existingProfile, ...extractedData };
 
           // Determine next step using the flow controller
-          let nextStep = hasExtracted
-            ? getNextStep(
-                input.currentStep as OnboardingStep,
-                extractedData as Record<string, unknown>
-              )
-            : (input.currentStep as OnboardingStep);
+          // ALWAYS call getNextStep - it handles optional steps (empty REQUIRED_FIELDS)
+          // that should advance even without extracted data
+          let nextStep = getNextStep(
+            input.currentStep as OnboardingStep,
+            extractedData as Record<string, unknown>
+          );
 
           // BUG FIX: Skip 'currency_confirm' if currency was auto-detected from city
           if (nextStep === 'currency_confirm' && mergedProfile.currency) {
@@ -202,6 +202,53 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
           input: { extracted_keys: Object.keys(extractedData).join(',') },
         }
       );
+
+      // HITL CHECK: If ambiguous fields are detected, block progress and ask for confirmation
+      if (extractedData.ambiguousFields && Object.keys(extractedData.ambiguousFields).length > 0) {
+        // We found something out of context (e.g. Netflix during 'name' step)
+        // Create a confirmation UI resource
+        const ambiguous = extractedData.ambiguousFields;
+        let confirmMessage = 'I noticed you mentioned something else. Did you mean to add this?';
+        let dataToConfirm = {};
+
+        // Tailored message for common cases
+        if (ambiguous.subscriptions) {
+          const subs = ambiguous.subscriptions as { name: string }[];
+          confirmMessage = `Did you mean to add "${subs[0].name}" as a subscription?`;
+          dataToConfirm = { subscriptions: subs };
+        } else if (ambiguous.inventoryItems) {
+          const items = ambiguous.inventoryItems as { name: string }[];
+          confirmMessage = `Did you mean to add "${items[0].name}" to your inventory?`;
+          dataToConfirm = { inventoryItems: items };
+        }
+
+        const confirmationResource = {
+          type: 'confirmation',
+          params: {
+            message: confirmMessage,
+            confirmLabel: 'Yes, add it',
+            cancelLabel: 'No, ignore',
+            data: dataToConfirm,
+          },
+        };
+
+        const result: OnboardingOutput = {
+          response: confirmMessage, // Fallback text
+          extractedData: {}, // Don't misuse extracted data yet
+          nextStep: input.currentStep, // Stay on same step
+          isComplete: false,
+          profileData: input.existingProfile, // No changes yet
+          source: source,
+          uiResource: confirmationResource,
+        };
+
+        ctx.setOutput({
+          hitl_triggered: true,
+          ambiguous_fields: JSON.stringify(ambiguous),
+        });
+
+        return result;
+      }
 
       // Child span 3: Response Generation (type: general)
       const response = await ctx.createChildSpan(
