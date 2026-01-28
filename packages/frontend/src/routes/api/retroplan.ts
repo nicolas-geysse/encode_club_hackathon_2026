@@ -221,8 +221,11 @@ async function calculateWeekCapacity(
   prefetchedCommitments?: Commitment[],
   prefetchedEnergyLogs?: EnergyLog[]
 ): Promise<WeekCapacity> {
+  // Sprint 13.17 Fix: Properly calculate weekEnd with end-of-day time
+  // Week is 7 days: weekStart (day 0) to weekStart + 6 days (day 6)
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999); // End of the last day of the week
 
   // Get events for this week (from prefetched or DB)
   let allUserEvents: AcademicEvent[];
@@ -236,10 +239,21 @@ async function calculateWeekCapacity(
     allUserEvents = eventRows.map(rowToAcademicEvent);
   }
 
+  // Sprint 13.17 Fix: Improved overlap detection for single-day events
+  // An event overlaps a week if: eventStart <= weekEnd AND eventEnd >= weekStart
+  // For single-day events (startDate == endDate), we need to compare dates correctly
   const events = allUserEvents.filter((e) => {
+    // Parse dates and normalize to start-of-day for proper comparison
     const eventStart = new Date(e.startDate);
+    eventStart.setHours(0, 0, 0, 0);
     const eventEnd = new Date(e.endDate);
-    return eventStart <= weekEnd && eventEnd >= weekStart;
+    eventEnd.setHours(23, 59, 59, 999); // End of day for the event end date
+
+    const weekStartNormalized = new Date(weekStart);
+    weekStartNormalized.setHours(0, 0, 0, 0);
+
+    // Check overlap: event must actually intersect with this week
+    return eventStart <= weekEnd && eventEnd >= weekStartNormalized;
   });
 
   // Get commitments (from prefetched or DB)
@@ -394,7 +408,6 @@ async function generateRetroplanForGoal(
 
   // Calculate total earning potential
   const maxTotalEarnings = weekCapacities.reduce((sum, w) => sum + w.maxEarningPotential, 0);
-  const recommendedEarnings = maxTotalEarnings * 0.7; // 70% is sustainable
 
   // Calculate total capacity for distribution
   const totalCapacity = weekCapacities.reduce((sum, w) => sum + w.capacityScore, 0);
@@ -436,17 +449,14 @@ async function generateRetroplanForGoal(
   const protectedWeeks = weekCapacities.filter((w) => w.capacityCategory === 'protected').length;
 
   // ============================================
-  // Sprint 13.7: Calculate feasibility based on actual earning capacity + margin
+  // Sprint 13.17: Improved feasibility with urgency and intensity factors
   // ============================================
   const riskFactors: string[] = [];
-  let feasibilityScore: number;
 
-  // Sprint 13.7: Include monthly margin (savings) in capacity calculation
-  // Monthly margin represents passive savings from budget surplus
+  // Include monthly margin (savings) in capacity calculation
   const totalMonths = Math.max(1, Math.ceil(totalWeeks / 4.33)); // ~4.33 weeks per month
   const marginBasedCapacity = (monthlyMargin ?? 0) * totalMonths;
   const effectiveMaxEarnings = maxTotalEarnings + marginBasedCapacity;
-  const effectiveRecommended = recommendedEarnings + marginBasedCapacity;
 
   if (monthlyMargin && monthlyMargin > 0) {
     riskFactors.push(
@@ -454,26 +464,60 @@ async function generateRetroplanForGoal(
     );
   }
 
-  if (goalAmount <= effectiveRecommended) {
-    // Goal is within comfortable earning range (including passive savings)
-    feasibilityScore = 1.0;
-  } else if (goalAmount <= effectiveMaxEarnings) {
-    // Goal is achievable but requires maximum effort
-    feasibilityScore = 0.6 + 0.4 * (effectiveRecommended / goalAmount);
-    riskFactors.push(
-      `Requires max effort: goal ${goalAmount}€ vs comfortable ${Math.round(effectiveRecommended)}€`
-    );
-  } else {
-    // Goal exceeds maximum possible earnings + margin - THIS IS THE KEY FIX
-    feasibilityScore = effectiveMaxEarnings / goalAmount;
-    const shortage = goalAmount - effectiveMaxEarnings;
-    riskFactors.push(`⚠️ Goal exceeds max capacity by ${Math.round(shortage)}€`);
-    riskFactors.push(
-      `Max possible: ${Math.round(effectiveMaxEarnings)}€ in ${totalWeeks} weeks (work: ${Math.round(maxTotalEarnings)}€ + savings: ${Math.round(marginBasedCapacity)}€)`
-    );
+  // 1. Urgency Factor - penalize as deadline approaches
+  // 1.0 at 8+ weeks, scales down to 0.5 at 1 week
+  const urgencyFactor = Math.min(1.0, 0.5 + 0.5 * Math.min(1, totalWeeks / 8));
+  if (totalWeeks < 4) {
+    riskFactors.push(`Short timeline: only ${totalWeeks} week(s) remaining`);
   }
 
-  // Secondary factors (only if base is viable)
+  // 2. Intensity Penalty - penalize when weekly load is high
+  const avgWeeklyRequired = goalAmount / totalWeeks;
+  const avgWeeklyCapacity = maxTotalEarnings / totalWeeks;
+  const intensityRatio = avgWeeklyCapacity > 0 ? avgWeeklyRequired / avgWeeklyCapacity : 1;
+
+  let intensityPenalty = 1.0;
+  if (intensityRatio > 0.7) {
+    // Penalty increases from 1.0 to 0.8 as intensity goes from 70% to 100%
+    intensityPenalty = Math.max(0.8, 1.0 - 0.2 * ((intensityRatio - 0.7) / 0.3));
+    riskFactors.push(
+      `High weekly intensity: ${Math.round(intensityRatio * 100)}% of weekly capacity`
+    );
+  }
+  if (intensityRatio > 1.0) {
+    // Exceeds capacity - severe penalty
+    intensityPenalty = 0.6;
+  }
+
+  // 3. Progressive base score (vs binary 70% threshold)
+  const capacityRatio = effectiveMaxEarnings > 0 ? goalAmount / effectiveMaxEarnings : 1;
+
+  let baseScore: number;
+  if (capacityRatio <= 0.5) {
+    // Very comfortable - goal is less than half of max capacity
+    baseScore = 1.0;
+  } else if (capacityRatio <= 0.7) {
+    // Comfortable to moderate: 0.95 → 0.85
+    baseScore = 0.95 - 0.1 * ((capacityRatio - 0.5) / 0.2);
+  } else if (capacityRatio <= 1.0) {
+    // Challenging: 0.85 → 0.50
+    baseScore = 0.85 - 0.35 * ((capacityRatio - 0.7) / 0.3);
+    if (capacityRatio > 0.85) {
+      riskFactors.push(
+        `Requires max effort: goal ${goalAmount}€ vs comfortable ${Math.round(effectiveMaxEarnings * 0.7)}€`
+      );
+    }
+  } else {
+    // Exceeds capacity
+    baseScore = effectiveMaxEarnings / goalAmount;
+    const shortage = goalAmount - effectiveMaxEarnings;
+    riskFactors.push(`⚠️ Goal exceeds max capacity by ${Math.round(shortage)}€`);
+  }
+
+  // Apply all factors
+  let feasibilityScore = baseScore * urgencyFactor * intensityPenalty;
+
+  // Secondary factors
   if (protectedWeeks > totalWeeks * 0.3) {
     feasibilityScore *= 0.9;
     riskFactors.push(`${protectedWeeks} protected week(s) (exams)`);
@@ -481,10 +525,6 @@ async function generateRetroplanForGoal(
   if (lowCapacityWeeks > totalWeeks * 0.4) {
     feasibilityScore *= 0.95;
     riskFactors.push(`${lowCapacityWeeks} low capacity weeks`);
-  }
-  if (totalWeeks < 4) {
-    feasibilityScore *= 0.9;
-    riskFactors.push('Very short timeline (< 4 weeks)');
   }
 
   // Clamp between 1% and 100%
