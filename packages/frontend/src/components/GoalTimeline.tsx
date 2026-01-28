@@ -137,6 +137,8 @@ export function GoalTimeline(props: GoalTimelineProps) {
     const status = props.goal.status;
     const deadline = props.goal.deadline;
     const amount = props.goal.amount;
+    // Sprint 13.8 Fix: Track simulatedDate for reactivity - re-fetch when date changes
+    const simDate = props.simulatedDate;
     // Track academicEvents for reactivity
     void (props.academicEvents?.length || 0);
 
@@ -155,6 +157,9 @@ export function GoalTimeline(props: GoalTimelineProps) {
           hourlyRate: props.hourlyRate,
           // Sprint 13.7: Pass monthly margin for combined feasibility calculation
           monthlyMargin: props.monthlyMargin,
+          // Sprint 13.8 Fix: Pass simulated date and goal start date for correct week calculations
+          simulatedDate: simDate?.toISOString(),
+          goalStartDate: props.goal.createdAt,
         }),
       })
         .then((res) => (res.ok ? res.json() : null))

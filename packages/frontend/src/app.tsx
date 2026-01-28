@@ -8,6 +8,7 @@ import { NotificationBell } from '~/components/NotificationBell';
 import { ProgressMini } from '~/components/ProgressMini';
 import { ThemeProvider } from '~/lib/themeContext';
 import { ProfileProvider } from '~/lib/profileContext';
+import { SimulationProvider } from '~/lib/simulationContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { AppLayout } from '~/components/layout/AppLayout';
 import { ToastContainer } from '~/components/ui/Toast';
@@ -45,6 +46,10 @@ export default function App() {
   const handleSimulationChange = (state: SimulationState) => {
     const prevState = simulationState();
     setSimulationState(state);
+
+    // Sprint 13.8 Fix: Emit SIMULATION_UPDATED so SimulationContext refreshes
+    // This ensures plan.tsx and suivi.tsx get the updated currentDate
+    eventBus.emit('SIMULATION_UPDATED');
 
     // Generate notifications based on simulation changes
     if (state.isSimulating && state.offsetDays !== prevState.offsetDays) {
@@ -94,65 +99,70 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <ProfileProvider>
-        <Router
-          root={(props) => (
-            <AppLayout
-              onDebugOpen={() => setDebugOpen(true)}
-              headerContent={
-                <>
-                  <div class="hidden md:flex items-center gap-3 pl-3 border-l border-border/50">
-                    <ProgressMini
-                      percent={progressPercent()}
-                      goalAmount={500}
-                      currentAmount={Math.round(progressPercent() * 5)}
-                      breakdown={[
-                        {
-                          label: 'Jobs',
-                          value: Math.round(progressPercent() * 2),
-                          color: '#3b82f6',
-                        },
-                        {
-                          label: 'Sales',
-                          value: Math.round(progressPercent() * 2),
-                          color: '#22c55e',
-                        },
-                        {
-                          label: 'Savings',
-                          value: Math.round(progressPercent()),
-                          color: '#f59e0b',
-                        },
-                      ]}
+      <SimulationProvider>
+        <ProfileProvider>
+          <Router
+            root={(props) => (
+              <AppLayout
+                onDebugOpen={() => setDebugOpen(true)}
+                headerContent={
+                  <>
+                    <div class="hidden md:flex items-center gap-3 pl-3 border-l border-border/50">
+                      <ProgressMini
+                        percent={progressPercent()}
+                        goalAmount={500}
+                        currentAmount={Math.round(progressPercent() * 5)}
+                        breakdown={[
+                          {
+                            label: 'Jobs',
+                            value: Math.round(progressPercent() * 2),
+                            color: '#3b82f6',
+                          },
+                          {
+                            label: 'Sales',
+                            value: Math.round(progressPercent() * 2),
+                            color: '#22c55e',
+                          },
+                          {
+                            label: 'Savings',
+                            value: Math.round(progressPercent()),
+                            color: '#f59e0b',
+                          },
+                        ]}
+                      />
+                    </div>
+                    <SimulationControls
+                      compact={true}
+                      onSimulationChange={handleSimulationChange}
                     />
-                  </div>
-                  <SimulationControls compact={true} onSimulationChange={handleSimulationChange} />
-                  <ProfileSelector onProfileChange={handleProfileChange} />
-                  <ThemeToggle />
-                  <NotificationBell
-                    notifications={notifications()}
-                    onMarkAsRead={handleMarkNotificationAsRead}
-                    onClearAll={handleClearAllNotifications}
-                  />
-                </>
-              }
-            >
-              <Suspense
-                fallback={
-                  <div class="flex items-center justify-center py-12">
-                    <div class="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-                  </div>
+                    <ProfileSelector onProfileChange={handleProfileChange} />
+                    <ThemeToggle />
+                    <NotificationBell
+                      notifications={notifications()}
+                      onMarkAsRead={handleMarkNotificationAsRead}
+                      onClearAll={handleClearAllNotifications}
+                    />
+                  </>
                 }
               >
-                {props.children}
-              </Suspense>
-            </AppLayout>
-          )}
-        >
-          <FileRoutes />
-        </Router>
-        <ToastContainer />
-        <DebugPanel isOpen={debugOpen()} onClose={() => setDebugOpen(false)} />
-      </ProfileProvider>
+                <Suspense
+                  fallback={
+                    <div class="flex items-center justify-center py-12">
+                      <div class="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                    </div>
+                  }
+                >
+                  {props.children}
+                </Suspense>
+              </AppLayout>
+            )}
+          >
+            <FileRoutes />
+          </Router>
+          <ToastContainer />
+          <DebugPanel isOpen={debugOpen()} onClose={() => setDebugOpen(false)} />
+        </ProfileProvider>
+      </SimulationProvider>
     </ThemeProvider>
   );
 }

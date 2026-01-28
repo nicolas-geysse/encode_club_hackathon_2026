@@ -22,9 +22,9 @@ import { PredictiveAlerts } from '~/components/suivi/PredictiveAlerts';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
-import { simulationService } from '~/lib/simulationService';
 import { goalService, type Goal } from '~/lib/goalService';
 import { useProfile } from '~/lib/profileContext';
+import { useSimulation } from '~/lib/simulationContext';
 import { eventBus } from '~/lib/eventBus';
 import { createLogger } from '~/lib/logger';
 import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
@@ -178,7 +178,6 @@ export default function SuiviPage() {
   const [hasData, setHasData] = createSignal(false);
   const [setup, setSetup] = createSignal<SetupData | null>(null);
   const [activeProfile, setActiveProfile] = createSignal<FullProfile | null>(null);
-  const [currentDate, setCurrentDate] = createSignal<Date>(new Date());
   const [followup, setFollowup] = createSignal<FollowupData>({
     currentAmount: 0,
     weeklyTarget: 0,
@@ -190,6 +189,9 @@ export default function SuiviPage() {
 
   // Sprint 13.8 Fix: Use profile context for income/lifestyle data
   const { income: contextIncome, lifestyle: contextLifestyle } = useProfile();
+
+  // Sprint 13.8 Fix: Use SimulationContext for reactive date updates
+  const { currentDate } = useSimulation();
 
   // Sprint 13.8 Fix: Calculate monthly margin from actual DB data (income_items + lifestyle_items)
   // This replaces calculateMonthlyMargin(planData) which was unreliable
@@ -274,9 +276,9 @@ export default function SuiviPage() {
       setIsLoading(true);
     }
     try {
-      // Get the current (possibly simulated) date
-      const simDate = await simulationService.getCurrentDate();
-      setCurrentDate(simDate);
+      // Sprint 13.8 Fix: Use currentDate from SimulationContext (reactive)
+      // The context updates automatically when SIMULATION_UPDATED is emitted
+      const simDate = currentDate();
 
       // Load profile from DuckDB
       const profile = await profileService.loadActiveProfile();

@@ -19,8 +19,8 @@ import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
 import { tradeService } from '~/lib/tradeService';
-import { simulationService } from '~/lib/simulationService';
 import { useProfile } from '~/lib/profileContext';
+import { useSimulation } from '~/lib/simulationContext';
 import type {
   LegacySkill,
   LegacyLifestyleItem,
@@ -190,25 +190,9 @@ export default function PlanPage() {
   const [isSaving] = createSignal(false);
   const [isSheetOpen, setIsSheetOpen] = createSignal(false);
 
-  // Sprint 13: Simulated date for timeline consistency
-  const [currentDate, setCurrentDate] = createSignal<Date>(new Date());
-
-  // Load simulated date on profile load
-  createEffect(() => {
-    const profile = activeProfile();
-    if (profile) {
-      // Wrap async call to avoid Solid reactivity warning
-      void (async () => {
-        try {
-          const simDate = await simulationService.getCurrentDate();
-          setCurrentDate(simDate);
-        } catch {
-          // Use real date if simulation fails
-          setCurrentDate(new Date());
-        }
-      })();
-    }
-  });
+  // Sprint 13.8 Fix: Use SimulationContext for reactive date updates
+  // This replaces the local signal + createEffect that never updated when simulation changed
+  const { currentDate } = useSimulation();
 
   // Dirty state tracking for unsaved changes warning when switching tabs
   const [isCurrentTabDirty, setIsCurrentTabDirty] = createSignal(false);

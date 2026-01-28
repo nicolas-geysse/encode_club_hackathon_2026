@@ -185,6 +185,8 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
           hourlyRate: props.hourlyRate,
           // Sprint 13.7: Pass monthly margin for combined feasibility calculation
           monthlyMargin: props.monthlyMargin,
+          // Sprint 13.8 Fix: Pass simulated date for correct week calculations
+          simulatedDate: props.simulatedDate?.toISOString(),
         }),
       });
 
@@ -208,6 +210,8 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
     const goalId = props.goalId;
     const goalAmount = props.goalAmount;
     const goalDeadline = props.goalDeadline;
+    // Sprint 13.8 Fix: Track simulatedDate for reactivity - re-fetch when date changes
+    void (props.simulatedDate?.toISOString() || '');
     // Track academicEvents for reactivity (void to silence unused warning)
     void (props.academicEvents?.length || 0);
 
