@@ -7,7 +7,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
-import { query, execute, executeSchema, escapeSQL } from './_db';
+import { query, execute, executeSchema, escapeSQL, escapeJSON } from './_db';
 
 // Logger type from createLogger return type
 type Logger = {
@@ -18,7 +18,7 @@ type Logger = {
 };
 
 // Re-export database functions for convenience
-export { query, execute, executeSchema, escapeSQL };
+export { query, execute, executeSchema, escapeSQL, escapeJSON };
 export { uuidv4 };
 
 // ============================================================================
@@ -311,7 +311,8 @@ export function buildUpdateFields(options: BuildUpdateFieldsOptions): string[] {
     if (mapping.isNumeric) {
       fields.push(`${mapping.dbField} = ${value ?? 'NULL'}`);
     } else if (mapping.isJson) {
-      fields.push(`${mapping.dbField} = ${value ? escapeSQL(JSON.stringify(value)) : 'NULL'}`);
+      // Sprint 13.15: Use escapeJSON for JSON columns (no backslash escaping)
+      fields.push(`${mapping.dbField} = ${value ? escapeJSON(value) : 'NULL'}`);
     } else if (mapping.isBoolean) {
       fields.push(`${mapping.dbField} = ${value ? 'TRUE' : 'FALSE'}`);
     } else if (mapping.nullable && value === null) {

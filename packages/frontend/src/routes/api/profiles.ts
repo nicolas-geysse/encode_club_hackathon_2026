@@ -14,6 +14,7 @@ import {
   execute,
   executeSchema,
   escapeSQL,
+  escapeJSON,
   uuidv4,
 } from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
@@ -70,6 +71,7 @@ const MIGRATIONS = [
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS latitude DOUBLE`,
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS longitude DOUBLE`,
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address VARCHAR`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS income_day INTEGER DEFAULT 15`,
 ];
 
 /**
@@ -196,6 +198,7 @@ interface ProfileRow {
   monthly_income: number | null;
   monthly_expenses: number | null;
   monthly_margin: number | null;
+  income_day: number | null;
   profile_type: string;
   parent_profile_id: string | null;
   goal_name: string | null;
@@ -233,6 +236,7 @@ function rowToProfile(row: ProfileRow) {
     monthlyIncome: row.monthly_income || undefined,
     monthlyExpenses: row.monthly_expenses || undefined,
     monthlyMargin: row.monthly_margin || undefined,
+    incomeDay: row.income_day ?? 15, // Default to 15 (mid-month)
     profileType: row.profile_type || 'main',
     parentProfileId: row.parent_profile_id || undefined,
     goalName: row.goal_name || undefined,
@@ -372,8 +376,8 @@ export async function POST(event: APIEvent) {
           latitude = ${body.latitude != null ? body.latitude : 'NULL'},
           longitude = ${body.longitude != null ? body.longitude : 'NULL'},
           address = ${escapeSQL(body.address)},
-          income_sources = ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
-          expenses = ${body.expenses ? escapeSQL(JSON.stringify(body.expenses)) : 'NULL'},
+          income_sources = ${body.incomeSources ? escapeJSON(body.incomeSources) : 'NULL'},
+          expenses = ${body.expenses ? escapeJSON(body.expenses) : 'NULL'},
           max_work_hours_weekly = ${body.maxWorkHoursWeekly || 'NULL'},
           min_hourly_rate = ${body.minHourlyRate || 'NULL'},
           has_loan = ${body.hasLoan ? 'TRUE' : 'FALSE'},
@@ -381,15 +385,16 @@ export async function POST(event: APIEvent) {
           monthly_income = ${monthlyIncome},
           monthly_expenses = ${monthlyExpenses},
           monthly_margin = ${monthlyIncome - monthlyExpenses},
+          income_day = ${body.incomeDay != null ? body.incomeDay : 15},
           profile_type = ${escapeSQL(body.profileType || 'main')},
           parent_profile_id = ${escapeSQL(body.parentProfileId)},
           goal_name = ${escapeSQL(body.goalName)},
           goal_amount = ${body.goalAmount || 'NULL'},
           goal_deadline = ${body.goalDeadline ? escapeSQL(body.goalDeadline) : 'NULL'},
-          plan_data = ${body.planData ? escapeSQL(JSON.stringify(body.planData)) : 'NULL'},
-          followup_data = ${body.followupData ? escapeSQL(JSON.stringify(body.followupData)) : 'NULL'},
-          achievements = ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'},
-          swipe_preferences = ${body.swipePreferences ? escapeSQL(JSON.stringify(body.swipePreferences)) : 'NULL'}${isActiveClause}
+          plan_data = ${body.planData ? escapeJSON(body.planData) : 'NULL'},
+          followup_data = ${body.followupData ? escapeJSON(body.followupData) : 'NULL'},
+          achievements = ${body.achievements ? escapeJSON(body.achievements) : 'NULL'},
+          swipe_preferences = ${body.swipePreferences ? escapeJSON(body.swipePreferences) : 'NULL'}${isActiveClause}
         WHERE id = ${escapedProfileId}
       `);
     } else {
@@ -398,7 +403,7 @@ export async function POST(event: APIEvent) {
           id, name, diploma, field, currency, skills, certifications, city, city_size,
           latitude, longitude, address, income_sources, expenses,
           max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
-          monthly_income, monthly_expenses, monthly_margin,
+          monthly_income, monthly_expenses, monthly_margin, income_day,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
           plan_data, followup_data, achievements, swipe_preferences, is_active
         ) VALUES (
@@ -414,8 +419,8 @@ export async function POST(event: APIEvent) {
           ${body.latitude != null ? body.latitude : 'NULL'},
           ${body.longitude != null ? body.longitude : 'NULL'},
           ${escapeSQL(body.address)},
-          ${body.incomeSources ? escapeSQL(JSON.stringify(body.incomeSources)) : 'NULL'},
-          ${body.expenses ? escapeSQL(JSON.stringify(body.expenses)) : 'NULL'},
+          ${body.incomeSources ? escapeJSON(body.incomeSources) : 'NULL'},
+          ${body.expenses ? escapeJSON(body.expenses) : 'NULL'},
           ${body.maxWorkHoursWeekly || 'NULL'},
           ${body.minHourlyRate || 'NULL'},
           ${body.hasLoan ? 'TRUE' : 'FALSE'},
@@ -423,15 +428,16 @@ export async function POST(event: APIEvent) {
           ${monthlyIncome},
           ${monthlyExpenses},
           ${monthlyIncome - monthlyExpenses},
+          ${body.incomeDay != null ? body.incomeDay : 15},
           ${escapeSQL(body.profileType || 'main')},
           ${escapeSQL(body.parentProfileId)},
           ${escapeSQL(body.goalName)},
           ${body.goalAmount || 'NULL'},
           ${body.goalDeadline ? escapeSQL(body.goalDeadline) : 'NULL'},
-          ${body.planData ? escapeSQL(JSON.stringify(body.planData)) : 'NULL'},
-          ${body.followupData ? escapeSQL(JSON.stringify(body.followupData)) : 'NULL'},
-          ${body.achievements ? escapeSQL(JSON.stringify(body.achievements)) : 'NULL'},
-          ${body.swipePreferences ? escapeSQL(JSON.stringify(body.swipePreferences)) : 'NULL'},
+          ${body.planData ? escapeJSON(body.planData) : 'NULL'},
+          ${body.followupData ? escapeJSON(body.followupData) : 'NULL'},
+          ${body.achievements ? escapeJSON(body.achievements) : 'NULL'},
+          ${body.swipePreferences ? escapeJSON(body.swipePreferences) : 'NULL'},
           ${setActive ? 'TRUE' : 'FALSE'}
         )
       `);

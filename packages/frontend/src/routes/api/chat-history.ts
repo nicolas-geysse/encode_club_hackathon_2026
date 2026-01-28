@@ -6,7 +6,7 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import { initDatabase, execute, query } from './_db';
+import { initDatabase, execute, query, escapeSQL, escapeJSON } from './_db';
 
 // Initialize chat_messages table
 async function initChatTable() {
@@ -68,11 +68,11 @@ export async function GET({ request }: APIEvent) {
     let sql = `
       SELECT id, profile_id, thread_id, role, content, source, extracted_data, ui_resource, created_at
       FROM chat_messages
-      WHERE profile_id = '${profileId.replace(/'/g, "''")}'
+      WHERE profile_id = ${escapeSQL(profileId)}
     `;
 
     if (threadId) {
-      sql += ` AND thread_id = '${threadId.replace(/'/g, "''")}'`;
+      sql += ` AND thread_id = ${escapeSQL(threadId)}`;
     }
 
     sql += ` ORDER BY created_at ASC LIMIT ${limit}`;
@@ -132,27 +132,24 @@ export async function POST({ request }: APIEvent) {
     }
 
     const id = body.id || `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const escapedContent = body.content.replace(/'/g, "''");
-    const extractedDataJson = body.extracted_data
-      ? `'${JSON.stringify(body.extracted_data).replace(/'/g, "''")}'`
-      : 'NULL';
-    const uiResourceJson = body.ui_resource
-      ? `'${JSON.stringify(body.ui_resource).replace(/'/g, "''")}'`
-      : 'NULL';
+    // Sprint 13.15: Use escapeJSON for JSON columns (no backslash escaping needed)
+    const extractedDataJson = body.extracted_data ? escapeJSON(body.extracted_data) : 'NULL';
+    const uiResourceJson = body.ui_resource ? escapeJSON(body.ui_resource) : 'NULL';
 
-    await execute(`
+    const sql = `
       INSERT INTO chat_messages (id, profile_id, thread_id, role, content, source, extracted_data, ui_resource)
       VALUES (
-        '${id}',
-        '${body.profile_id.replace(/'/g, "''")}',
-        ${body.thread_id ? `'${body.thread_id.replace(/'/g, "''")}'` : 'NULL'},
-        '${body.role}',
-        '${escapedContent}',
-        ${body.source ? `'${body.source}'` : 'NULL'},
+        ${escapeSQL(id)},
+        ${escapeSQL(body.profile_id)},
+        ${body.thread_id ? escapeSQL(body.thread_id) : 'NULL'},
+        ${escapeSQL(body.role)},
+        ${escapeSQL(body.content)},
+        ${body.source ? escapeSQL(body.source) : 'NULL'},
         ${extractedDataJson},
         ${uiResourceJson}
       )
-    `);
+    `;
+    await execute(sql);
 
     return new Response(JSON.stringify({ id, success: true }), {
       status: 201,
@@ -186,10 +183,10 @@ export async function DELETE({ request }: APIEvent) {
       });
     }
 
-    let sql = `DELETE FROM chat_messages WHERE profile_id = '${profileId.replace(/'/g, "''")}'`;
+    let sql = `DELETE FROM chat_messages WHERE profile_id = ${escapeSQL(profileId)}`;
 
     if (threadId) {
-      sql += ` AND thread_id = '${threadId.replace(/'/g, "''")}'`;
+      sql += ` AND thread_id = ${escapeSQL(threadId)}`;
     }
 
     await execute(sql);

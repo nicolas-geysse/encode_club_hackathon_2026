@@ -287,13 +287,32 @@ export async function queryWrite<T = Record<string, unknown>>(sql: string): Prom
 }
 
 /**
- * Escape SQL string values
+ * Escape SQL string values for VARCHAR columns
+ * Sprint 13.13: Escape backslashes BEFORE single quotes for DuckDB
+ * This handles JSON strings like {"name":"Laptop \"Pro\""} which stringify to
+ * "{\"name\":\"Laptop \\\"Pro\\\"\"}" - the backslashes must be escaped first.
  */
 export function escapeSQL(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return 'NULL';
   // Convert to string if not already
   const str = typeof value === 'string' ? value : String(value);
-  return `'${str.replace(/'/g, "''")}'`;
+  // Order matters: escape backslashes first, then single quotes
+  return `'${str.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
+}
+
+/**
+ * Escape JSON string for DuckDB JSON columns
+ * Sprint 13.15: For JSON columns, do NOT escape backslashes - only single quotes.
+ * DuckDB's JSON parser interprets backslash escapes (like \") directly,
+ * so JSON.stringify output should be preserved as-is, only escaping single quotes.
+ */
+export function escapeJSON(value: unknown): string {
+  if (value === null || value === undefined) return 'NULL';
+  // JSON.stringify handles all the escaping for JSON format
+  const jsonStr = typeof value === 'string' ? value : JSON.stringify(value);
+  // Sprint 13.15 Fix: Use Dollar Quoting ($$ string $$) to avoid escaping hell.
+  // This passes the exact JSON string to DuckDB without SQL parser interfering with backslashes or quotes.
+  return `$STRIDE_JSON$${jsonStr}$STRIDE_JSON$`;
 }
 
 /**

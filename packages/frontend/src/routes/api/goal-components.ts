@@ -17,6 +17,7 @@ import {
   query,
   execute,
   escapeSQL,
+  escapeJSON,
   uuidv4,
 } from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
@@ -67,10 +68,18 @@ function rowToComponent(row: GoalComponentRow): GoalComponent {
 }
 
 /**
- * Update parent goal's progress based on component completion.
- * Progress = (completed components / total components) * 100
+ * Log component completion stats (for debugging).
+ *
+ * NOTE: We intentionally do NOT update goal.progress from component completion.
+ *
+ * Reason: goal.progress represents FINANCIAL progress (% of amount saved),
+ * not task completion. Component completion is tracked separately in the
+ * GoalComponentsList UI. Mixing these caused confusion where completing
+ * 1 component would show 3000€ earned when only 87€ was actually saved.
+ *
+ * The actual financial progress is updated from /suivi when missions are completed.
  */
-async function updateGoalProgressFromComponents(goalId: string): Promise<void> {
+async function logComponentStats(goalId: string): Promise<void> {
   try {
     const escapedGoalId = escapeSQL(goalId);
 
@@ -85,25 +94,9 @@ async function updateGoalProgressFromComponents(goalId: string): Promise<void> {
     const total = Number(stats[0]?.total || 0);
     const completed = Number(stats[0]?.completed || 0);
 
-    if (total > 0) {
-      const progress = Math.round((completed / total) * 100);
-      await execute(`
-        UPDATE goals
-        SET progress = ${progress}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${escapedGoalId}
-      `);
-
-      // If all components are completed, mark goal as completed
-      if (completed === total) {
-        await execute(`
-          UPDATE goals
-          SET status = 'completed', updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${escapedGoalId} AND status = 'active'
-        `);
-      }
-    }
+    logger.debug('Component stats', { goalId, completed, total });
   } catch (error) {
-    logger.error('Failed to update goal progress from components', { error, goalId });
+    logger.error('Failed to get component stats', { error, goalId });
   }
 }
 
@@ -170,7 +163,7 @@ export async function POST(event: APIEvent) {
         ${estimatedHours || 'NULL'},
         ${estimatedCost || 'NULL'},
         ${escapeSQL(status)},
-        ${dependsOn ? escapeSQL(JSON.stringify(dependsOn)) : 'NULL'}
+        ${dependsOn ? escapeJSON(dependsOn) : 'NULL'}
       )
     `);
 
@@ -245,7 +238,7 @@ export async function PATCH(event: APIEvent) {
 
     // Update parent goal progress if status changed
     if (updates.status !== undefined) {
-      await updateGoalProgressFromComponents(component.goalId);
+      await logComponentStats(component.goalId);
     }
 
     return successResponse(component);
@@ -294,7 +287,7 @@ export async function DELETE(event: APIEvent) {
     await execute(`DELETE FROM goal_components WHERE id = ${escapeSQL(componentId)}`);
 
     // Update parent goal progress
-    await updateGoalProgressFromComponents(goalIdToUpdate);
+    await logComponentStats(goalIdToUpdate);
 
     return successResponse({ success: true, deleted: component[0].name });
   } catch (error) {

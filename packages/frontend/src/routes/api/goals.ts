@@ -18,6 +18,7 @@ import {
   query,
   execute,
   escapeSQL,
+  escapeJSON,
   uuidv4,
 } from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
@@ -184,12 +185,29 @@ export interface GoalComponent {
 }
 
 function rowToGoal(row: GoalRow, components?: GoalComponent[]): Goal {
+  // Format deadline to YYYY-MM-DD for HTML date input compatibility
+  let formattedDeadline: string | undefined;
+  if (row.deadline) {
+    try {
+      // Handle various date formats from DuckDB
+      const date = new Date(row.deadline);
+      if (!isNaN(date.getTime())) {
+        formattedDeadline = date.toISOString().split('T')[0];
+      } else {
+        // If it's already in YYYY-MM-DD format, use as-is
+        formattedDeadline = row.deadline;
+      }
+    } catch {
+      formattedDeadline = row.deadline;
+    }
+  }
+
   return {
     id: row.id,
     profileId: row.profile_id,
     name: row.name,
     amount: row.amount,
-    deadline: row.deadline || undefined,
+    deadline: formattedDeadline,
     priority: row.priority,
     parentGoalId: row.parent_goal_id || undefined,
     conditionType: (row.condition_type || 'none') as Goal['conditionType'],
@@ -306,6 +324,7 @@ export async function POST(event: APIEvent) {
       status = 'active',
       planData,
       components = [],
+      createdAt, // Sprint 13.11: Accept explicit createdAt for accurate Week 1 Day 1
     } = body;
 
     if (!profileId || !name || amount === undefined) {
@@ -314,10 +333,11 @@ export async function POST(event: APIEvent) {
 
     const goalId = uuidv4();
 
+    // Sprint 13.11: Use explicit createdAt if provided, otherwise CURRENT_TIMESTAMP
     await execute(`
       INSERT INTO goals (
         id, profile_id, name, amount, deadline, priority,
-        parent_goal_id, condition_type, status, plan_data
+        parent_goal_id, condition_type, status, plan_data, created_at
       ) VALUES (
         ${escapeSQL(goalId)},
         ${escapeSQL(profileId)},
@@ -328,7 +348,8 @@ export async function POST(event: APIEvent) {
         ${parentGoalId ? escapeSQL(parentGoalId) : 'NULL'},
         ${escapeSQL(conditionType)},
         ${escapeSQL(status)},
-        ${planData ? escapeSQL(JSON.stringify(planData)) : 'NULL'}
+        ${planData ? escapeJSON(planData) : 'NULL'},
+        ${createdAt ? escapeSQL(createdAt) : 'CURRENT_TIMESTAMP'}
       )
     `);
 
@@ -346,7 +367,7 @@ export async function POST(event: APIEvent) {
           ${comp.estimatedHours || 'NULL'},
           ${comp.estimatedCost || 'NULL'},
           ${escapeSQL(comp.status || 'pending')},
-          ${comp.dependsOn ? escapeSQL(JSON.stringify(comp.dependsOn)) : 'NULL'}
+          ${comp.dependsOn ? escapeJSON(comp.dependsOn) : 'NULL'}
         )
       `);
     }
@@ -409,9 +430,7 @@ export async function PUT(event: APIEvent) {
       updateFields.push(`progress = ${updates.progress}`);
     }
     if (updates.planData !== undefined) {
-      updateFields.push(
-        `plan_data = ${updates.planData ? escapeSQL(JSON.stringify(updates.planData)) : 'NULL'}`
-      );
+      updateFields.push(`plan_data = ${updates.planData ? escapeJSON(updates.planData) : 'NULL'}`);
     }
     if (updates.parentGoalId !== undefined) {
       updateFields.push(
@@ -423,6 +442,47 @@ export async function PUT(event: APIEvent) {
     }
 
     await execute(`UPDATE goals SET ${updateFields.join(', ')} WHERE id = ${escapedId}`);
+
+    // Handle components update if provided
+    if (updates.components !== undefined) {
+      // Delete existing components
+      await execute(`DELETE FROM goal_components WHERE goal_id = ${escapedId}`);
+
+      // Insert new components
+      for (const comp of updates.components || []) {
+        const componentId = uuidv4();
+        await execute(`
+          INSERT INTO goal_components (
+            id, goal_id, name, type, estimated_hours, estimated_cost, status, depends_on
+          ) VALUES (
+            ${escapeSQL(componentId)},
+            ${escapedId},
+            ${escapeSQL(comp.name)},
+            ${escapeSQL(comp.type || 'other')},
+            ${comp.estimatedHours || 'NULL'},
+            ${comp.estimatedCost || 'NULL'},
+            ${escapeSQL(comp.status || 'pending')},
+            ${comp.dependsOn ? escapeJSON(comp.dependsOn) : 'NULL'}
+          )
+        `);
+      }
+      logger.info('Goal components updated', {
+        goalId: id,
+        count: updates.components?.length || 0,
+      });
+
+      // Fix: Reset orphaned 100% progress when goal has no components
+      // This prevents the auto-completion bug from re-triggering
+      if (updates.components.length === 0 && updates.progress === undefined) {
+        const currentGoal = await query<{ progress: number }>(
+          `SELECT progress FROM goals WHERE id = ${escapedId}`
+        );
+        if (currentGoal[0]?.progress >= 100) {
+          await execute(`UPDATE goals SET progress = 0 WHERE id = ${escapedId}`);
+          logger.info('Reset orphaned 100% progress', { goalId: id });
+        }
+      }
+    }
 
     // Activate waiting child goals when parent is completed
     if (updates.status === 'completed') {

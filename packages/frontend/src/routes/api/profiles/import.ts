@@ -7,7 +7,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { v4 as uuidv4 } from 'uuid';
-import { execute, escapeSQL } from '../_db';
+import { execute, escapeSQL, escapeJSON } from '../_db';
 import { createLogger } from '../../../lib/logger';
 
 const logger = createLogger('ProfileImport');
@@ -106,8 +106,8 @@ export async function POST(event: APIEvent) {
         ${skillsSQL},
         ${escapeSQL(profile.city)},
         ${escapeSQL(profile.citySize)},
-        ${profile.incomeSources ? escapeSQL(JSON.stringify(profile.incomeSources)) : 'NULL'},
-        ${profile.expenses ? escapeSQL(JSON.stringify(profile.expenses)) : 'NULL'},
+        ${profile.incomeSources ? escapeJSON(profile.incomeSources) : 'NULL'},
+        ${profile.expenses ? escapeJSON(profile.expenses) : 'NULL'},
         ${profile.maxWorkHoursWeekly || 'NULL'},
         ${profile.minHourlyRate || 'NULL'},
         ${profile.hasLoan || false},
@@ -120,9 +120,9 @@ export async function POST(event: APIEvent) {
         ${escapeSQL(profile.goalName)},
         ${profile.goalAmount || 'NULL'},
         ${profile.goalDeadline ? escapeSQL(profile.goalDeadline) : 'NULL'},
-        ${profile.planData ? escapeSQL(JSON.stringify(profile.planData)) : 'NULL'},
-        ${profile.followupData ? escapeSQL(JSON.stringify(profile.followupData)) : 'NULL'},
-        ${profile.achievements ? escapeSQL(JSON.stringify(profile.achievements)) : 'NULL'},
+        ${profile.planData ? escapeJSON(profile.planData) : 'NULL'},
+        ${profile.followupData ? escapeJSON(profile.followupData) : 'NULL'},
+        ${profile.achievements ? escapeJSON(profile.achievements) : 'NULL'},
         ${setActive}
       )
     `);
