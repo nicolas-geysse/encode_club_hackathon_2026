@@ -57,6 +57,8 @@ interface WeeklyProgressCardsProps {
   savingsAdjustments?: Record<number, { amount: number; note?: string; adjustedAt: string }>;
   /** Callback when adjust button is clicked for a week's savings */
   onAdjustSavings?: (weekNumber: number, currentAmount: number) => void;
+  /** Sprint 13.19: User profile ID (required for academic events lookup) */
+  userId?: string;
 }
 
 export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
@@ -132,7 +134,8 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
   // Fetch retroplan data
   createEffect(() => {
     const goal = props.goal;
-    if (goal.status === 'active' && goal.deadline && goal.amount) {
+    // Sprint 13.19: Don't fetch if userId not loaded yet (prevents "default" bug)
+    if (goal.status === 'active' && goal.deadline && goal.amount && props.userId) {
       fetch('/api/retroplan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,6 +153,8 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
           goalStartDate: goal.createdAt,
           // Sprint 13.7: Pass monthly margin for combined feasibility calculation
           monthlyMargin: props.monthlyMargin,
+          // Sprint 13.19: Pass userId for academic events lookup
+          userId: props.userId,
         }),
       })
         .then((res) => (res.ok ? res.json() : null))

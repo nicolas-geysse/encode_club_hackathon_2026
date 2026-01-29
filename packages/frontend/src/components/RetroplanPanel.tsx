@@ -156,8 +156,13 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
           body: JSON.stringify({
             action: 'get_retroplan',
             goalId: props.goalId,
-            userId: props.userId || 'default',
+            userId: props.userId, // Sprint 13.19: Must be defined (guard in createEffect)
           }),
+        });
+
+        logger.debug('Fetching existing retroplan', {
+          userId: props.userId,
+          status: getResponse.status,
         });
 
         if (getResponse.ok) {
@@ -178,7 +183,7 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
           goalId: props.goalId,
           goalAmount: props.goalAmount,
           deadline: props.goalDeadline,
-          userId: props.userId || 'default',
+          userId: props.userId, // Sprint 13.19: Must be defined (guard in createEffect)
           // Pass academic events for protected weeks calculation
           academicEvents: props.academicEvents || [],
           // Pass hourlyRate from profile for consistent feasibility calculations
@@ -214,8 +219,11 @@ export function RetroplanPanel(props: RetroplanPanelProps) {
     void (props.simulatedDate?.toISOString() || '');
     // Track academicEvents for reactivity (void to silence unused warning)
     void (props.academicEvents?.length || 0);
+    // Bug Fix: Explicitly track userId to ensure re-fetch when profile loads
+    void props.userId;
 
-    if (goalId && goalAmount && goalDeadline) {
+    // Sprint 13.19: Don't fetch if userId not loaded yet (prevents "default" bug)
+    if (goalId && goalAmount && goalDeadline && props.userId) {
       // Always regenerate - the backend retroplan might have been generated with different params
       // This ensures the displayed data always matches the current goal configuration
       fetchRetroplan(true);

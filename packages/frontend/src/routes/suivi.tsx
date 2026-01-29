@@ -1094,6 +1094,7 @@ export default function SuiviPage() {
                 monthlyMargin={monthlyMargin()}
                 savingsAdjustments={followup().savingsAdjustments}
                 onAdjustSavings={handleOpenSavingsAdjust}
+                userId={activeProfile()?.id}
               />
             </div>
           </Show>

@@ -865,6 +865,12 @@ export function GoalsTab(props: GoalsTabProps) {
                     const currentProfile = profile();
                     // Sprint 13.7: Include monthlyMargin for margin-based feasibility calculation
                     const currentMargin = monthlyMargin();
+                    // Sprint 13.17: Track simulatedDate to re-fetch when simulation changes
+                    const simDate = props.simulatedDate;
+                    // Sprint 13.19: Don't fetch if profile not loaded yet (prevents userId="default" bug)
+                    if (!currentProfile?.id) {
+                      return;
+                    }
                     if (g.status === 'active' && g.deadline && g.amount) {
                       // Get hourly rate from profile or use default
                       const hourlyRate = currentProfile?.minHourlyRate || 15;
@@ -881,6 +887,8 @@ export function GoalsTab(props: GoalsTabProps) {
                           // Sprint 13.7: Pass monthly margin for combined feasibility calculation
                           monthlyMargin: currentMargin,
                           userId: currentProfile?.id,
+                          // Sprint 13.17: Pass simulated date for time-aware feasibility calculation
+                          simulatedDate: simDate?.toISOString(),
                         }),
                       })
                         .then((res) => (res.ok ? res.json() : null))
@@ -922,10 +930,11 @@ export function GoalsTab(props: GoalsTabProps) {
                   });
 
                   // Calculate days remaining
+                  // Sprint 13.17: Use simulatedDate for time-aware days remaining calculation
                   const daysRemaining = () => {
                     if (!goal().deadline) return null;
                     const deadline = new Date(goal().deadline!);
-                    const now = new Date();
+                    const now = props.simulatedDate || new Date();
                     const diffTime = deadline.getTime() - now.getTime();
                     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                   };
@@ -1198,6 +1207,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                   monthlyMargin={monthlyMargin()}
                                   savingsAdjustments={followupData()?.savingsAdjustments}
                                   onAdjustSavings={handleOpenSavingsAdjust}
+                                  userId={profileId() || undefined}
                                 />
                               )}
                             </Show>

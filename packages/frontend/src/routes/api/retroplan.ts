@@ -109,13 +109,14 @@ async function ensureRetroplanSchemas(): Promise<void> {
 }
 
 // Database row types
+// Sprint 13.19: DuckDB may return DATE columns as Date objects, not strings
 interface AcademicEventRow {
   id: string;
   profile_id: string;
   name: string;
   type: string;
-  start_date: string;
-  end_date: string;
+  start_date: unknown; // DuckDB DATE type - may be Date object, string, or BigInt
+  end_date: unknown; // DuckDB DATE type - may be Date object, string, or BigInt
   capacity_impact: number;
   priority: string;
 }
@@ -133,7 +134,7 @@ interface CommitmentRow {
 interface EnergyLogRow {
   id: string;
   profile_id: string;
-  log_date: string;
+  log_date: unknown; // DuckDB DATE type - may be Date object, string, or BigInt
   energy_level: number;
   mood_score: number;
   stress_level: number;
@@ -141,15 +142,50 @@ interface EnergyLogRow {
   notes: string | null;
 }
 
+// Sprint 13.19: Normalize date from DuckDB to YYYY-MM-DD string
+// DuckDB may return Date objects, BigInt timestamps, or strings depending on driver version
+function normalizeDate(d: unknown): string {
+  if (d === null || d === undefined) {
+    return '';
+  }
+  if (d instanceof Date) {
+    // Date object - convert to YYYY-MM-DD in UTC (DuckDB stores dates as UTC)
+    return d.toISOString().split('T')[0];
+  }
+  if (typeof d === 'string') {
+    // Already a string - extract date part (handles "2025-02-15" and "2025-02-15T00:00:00Z")
+    return d.split('T')[0];
+  }
+  if (typeof d === 'bigint' || typeof d === 'number') {
+    // Timestamp (milliseconds or seconds) - convert to Date then to string
+    const ms = typeof d === 'bigint' ? Number(d) : d;
+    // If value is small, it's likely seconds not milliseconds
+    const date = new Date(ms < 1e12 ? ms * 1000 : ms);
+    return date.toISOString().split('T')[0];
+  }
+  // Fallback: convert to string
+  console.warn('[Sprint 13.19] Unexpected date type:', typeof d, d);
+  return String(d);
+}
+
 // Helper to convert DB row to API type
 function rowToAcademicEvent(row: AcademicEventRow): AcademicEvent {
+  // Sprint 13.19: Normalize dates to ensure consistent YYYY-MM-DD format
+  const startDate = normalizeDate(row.start_date);
+  let endDate = normalizeDate(row.end_date);
+
+  // Fallback: If end date is missing (empty string after normalization), use start date (1-day event)
+  if (!endDate) {
+    endDate = startDate;
+  }
+
   return {
     id: row.id,
     userId: row.profile_id,
     type: row.type as AcademicEvent['type'],
     name: row.name,
-    startDate: row.start_date,
-    endDate: row.end_date,
+    startDate,
+    endDate,
     capacityImpact: row.capacity_impact,
     priority: row.priority as AcademicEvent['priority'],
   };
@@ -171,7 +207,7 @@ function rowToEnergyLog(row: EnergyLogRow): EnergyLog {
   return {
     id: row.id,
     userId: row.profile_id,
-    date: row.log_date,
+    date: normalizeDate(row.log_date), // Sprint 13.19: Normalize date
     energyLevel: row.energy_level as EnergyLog['energyLevel'],
     moodScore: row.mood_score as EnergyLog['moodScore'],
     stressLevel: row.stress_level as EnergyLog['stressLevel'],
@@ -221,11 +257,27 @@ async function calculateWeekCapacity(
   prefetchedCommitments?: Commitment[],
   prefetchedEnergyLogs?: EnergyLog[]
 ): Promise<WeekCapacity> {
-  // Sprint 13.17 Fix: Properly calculate weekEnd with end-of-day time
-  // Week is 7 days: weekStart (day 0) to weekStart + 6 days (day 6)
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999); // End of the last day of the week
+  // Sprint 13.18 Fix: Use date-only comparison to avoid timezone issues
+  // When comparing dates, we only care about the calendar day, not the time.
+  // new Date("2025-02-15") parses as UTC midnight, but setHours() applies in local time,
+  // causing asymmetric comparisons that break overlap detection.
+  const getDateOnly = (d: Date | string): string => {
+    if (typeof d === 'string') {
+      // Already a string like "2025-02-15" or "2025-02-15T00:00:00Z" - extract date part
+      return d.split('T')[0];
+    }
+    // Convert Date object to YYYY-MM-DD in local timezone
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Calculate week boundaries as date strings
+  const weekStartStr = getDateOnly(weekStart);
+  const weekEndDate = new Date(weekStart);
+  weekEndDate.setDate(weekEndDate.getDate() + 6);
+  const weekEndStr = getDateOnly(weekEndDate);
 
   // Get events for this week (from prefetched or DB)
   let allUserEvents: AcademicEvent[];
@@ -239,21 +291,13 @@ async function calculateWeekCapacity(
     allUserEvents = eventRows.map(rowToAcademicEvent);
   }
 
-  // Sprint 13.17 Fix: Improved overlap detection for single-day events
+  // Sprint 13.18 Fix: Filter events using date-only string comparison
   // An event overlaps a week if: eventStart <= weekEnd AND eventEnd >= weekStart
-  // For single-day events (startDate == endDate), we need to compare dates correctly
+  // String comparison "2025-02-10" <= "2025-02-15" works correctly for YYYY-MM-DD format
   const events = allUserEvents.filter((e) => {
-    // Parse dates and normalize to start-of-day for proper comparison
-    const eventStart = new Date(e.startDate);
-    eventStart.setHours(0, 0, 0, 0);
-    const eventEnd = new Date(e.endDate);
-    eventEnd.setHours(23, 59, 59, 999); // End of day for the event end date
-
-    const weekStartNormalized = new Date(weekStart);
-    weekStartNormalized.setHours(0, 0, 0, 0);
-
-    // Check overlap: event must actually intersect with this week
-    return eventStart <= weekEnd && eventEnd >= weekStartNormalized;
+    const eventStartStr = getDateOnly(e.startDate);
+    const eventEndStr = getDateOnly(e.endDate);
+    return eventStartStr <= weekEndStr && eventEndStr >= weekStartStr;
   });
 
   // Get commitments (from prefetched or DB)
@@ -562,7 +606,44 @@ export async function POST(event: APIEvent) {
     const body = await event.request.json();
     const { action, userId = 'default' } = body;
 
+    // Sprint 13.19: Warn when using 'default' userId - this often indicates a bug
+    if (userId === 'default') {
+      console.warn(
+        `[WARN Sprint 13.19] Action "${action}" using userId="default". ` +
+          'This may cause events to not appear for the actual profile.'
+      );
+    }
+
     switch (action) {
+      // Sprint 13.19: Cleanup action to remove zombie events
+      case 'cleanup_events': {
+        const { targetUserId } = body;
+        if (!targetUserId) {
+          return new Response(
+            JSON.stringify({ error: true, message: 'targetUserId is required' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        await ensureRetroplanSchemas();
+
+        // Count before delete (convert BigInt to Number)
+        const countRows = await query<{ count: bigint }>(
+          `SELECT COUNT(*) as count FROM academic_events WHERE profile_id = ${escapeSQL(targetUserId)}`
+        );
+        const countBefore = Number(countRows[0]?.count || 0);
+
+        // Delete all events for this userId
+        await execute(`DELETE FROM academic_events WHERE profile_id = ${escapeSQL(targetUserId)}`);
+
+        console.log(
+          `[Sprint 13.19] Cleaned up ${countBefore} zombie events for profile_id="${targetUserId}"`
+        );
+
+        return new Response(JSON.stringify({ success: true, deletedCount: countBefore }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       // Academic Events - Sprint 13.7: Now persisted in DuckDB
       case 'add_academic_event': {
         const { type, name, startDate, endDate, capacityImpact, priority = 'normal' } = body;
