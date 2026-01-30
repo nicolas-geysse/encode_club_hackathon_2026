@@ -36,7 +36,19 @@ interface OnboardingFormStepProps {
   onSubmit: (data: Record<string, unknown>) => void;
   /** Called when user starts typing (for text-based input fallback) */
   onTextInput?: (text: string) => void;
+  /** Called when user clicks "Fill in later" to skip optional step */
+  onSkip?: () => void;
 }
+
+/** Steps that can be skipped with "Fill in later" */
+const SKIPPABLE_STEPS: OnboardingStep[] = [
+  'skills',
+  'certifications',
+  'academic_events',
+  'inventory',
+  'trade',
+  'lifestyle',
+];
 
 // =============================================================================
 // Helper Components
@@ -871,6 +883,17 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
           >
             Continue
           </button>
+
+          {/* Skip button for optional steps */}
+          <Show when={SKIPPABLE_STEPS.includes(props.step) && props.onSkip}>
+            <button
+              type="button"
+              onClick={() => props.onSkip?.()}
+              class="w-full px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-lg transition-colors text-sm"
+            >
+              Fill in later
+            </button>
+          </Show>
         </form>
       )}
     </Show>

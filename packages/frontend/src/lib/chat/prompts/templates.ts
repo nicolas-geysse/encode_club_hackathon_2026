@@ -62,7 +62,9 @@ Example prompt: "What are you studying? For example: 'Bachelor 2nd year Computer
   skills: `The user studies {diploma} {field}.
 Generate a response of 2-3 sentences that:
 1. Comments positively on their studies
-2. Asks about their skills (coding, languages, design, sports, etc.)`,
+2. Asks about their skills (coding, languages, design, sports, etc.)
+
+End with "(or fill in later)".`,
 
   certifications: `The user has these skills: {skills}.
 Generate a response of 2-3 sentences that:
@@ -75,7 +77,7 @@ Mention examples like:
 🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler
 🌍 International: PADI diving, TEFL teaching
 
-Tell them to say "none" if they don't have any.`,
+End with "(or fill in later)".`,
 
   budget: `The user has {currencySymbol}{income} income and {currencySymbol}{expenses} expenses per month (margin: {currencySymbol}{margin}).
 Generate a response of 2-3 sentences that:
@@ -96,12 +98,16 @@ Example goals: "emergency fund", "laptop", "vacation", "graduation security", et
   goal: `The user wants to save for "{goalName}" with a target of {currencySymbol}{goalAmount} by {goalDeadline}.
 Generate a response of 2-3 sentences that:
 1. Positively comments on their goal
-2. Asks about any upcoming academic events (exams, vacations, busy periods) to plan around`,
+2. Asks about any upcoming academic events (exams, vacations, busy periods) to plan around
+
+End with "(or fill in later)".`,
 
   academic_events: `The user mentioned academic events: {academicEvents}.
 Generate a response of 2-3 sentences that:
 1. Notes the important periods
-2. Asks if they have any items they could sell (old textbooks, electronics, clothes, etc.)`,
+2. Asks if they have any items they could sell (old textbooks, electronics, clothes, etc.)
+
+End with "(or fill in later)".`,
 
   inventory: `The user has items to potentially sell: {inventoryItems}.
 Generate a response of 2-3 sentences that:
@@ -116,7 +122,9 @@ Example: "Nice! Now, do you have any trade opportunities? For example:
   trade: `The user mentioned trade opportunities: {tradeOpportunities}.
 Generate a response of 2-3 sentences that:
 1. Acknowledges their trade ideas (if any) or that they don't have any
-2. Asks about their current subscriptions and recurring expenses (streaming, gym, phone plan, etc.)`,
+2. Asks about their current subscriptions and recurring expenses (streaming, gym, phone plan, etc.)
+
+End with "(or fill in later)".`,
 
   lifestyle: `The user has these subscriptions: {subscriptions}.
 Complete profile: {name}, {diploma} {field}, skills: {skills}, city: {city}, goal: {goalName} ({currencySymbol}{goalAmount}).

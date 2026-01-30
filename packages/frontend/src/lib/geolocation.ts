@@ -181,6 +181,90 @@ async function reverseGeocode(
 }
 
 // =============================================================================
+// Forward Geocoding (City Name → Coordinates)
+// =============================================================================
+
+interface NominatimSearchResult {
+  lat: string;
+  lon: string;
+  display_name: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    state?: string;
+    country?: string;
+    country_code?: string;
+    road?: string;
+    house_number?: string;
+    postcode?: string;
+  };
+}
+
+/**
+ * Forward geocode a city name to coordinates and address
+ * @param cityName City name to search for
+ */
+export async function forwardGeocode(cityName: string): Promise<GeolocationResult | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}&limit=1&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'en',
+          'User-Agent': 'Stride-Financial-Coach/1.0 (educational project)',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.warn('[Geolocation] Nominatim search failed:', response.status);
+      return null;
+    }
+
+    const data: NominatimSearchResult[] = await response.json();
+
+    if (!data || data.length === 0) {
+      console.warn('[Geolocation] No results for city:', cityName);
+      return null;
+    }
+
+    const result = data[0];
+    const latitude = parseFloat(result.lat);
+    const longitude = parseFloat(result.lon);
+
+    // Extract city name from address components
+    const city =
+      result.address?.city ||
+      result.address?.town ||
+      result.address?.village ||
+      result.address?.municipality ||
+      cityName;
+
+    const country = result.address?.country || 'Unknown';
+    const countryCode = (result.address?.country_code || '').toUpperCase();
+
+    // Build address string from display_name or components
+    const address = result.display_name;
+
+    const currency = detectCurrencyFromCountry(countryCode);
+
+    return {
+      city,
+      country,
+      countryCode,
+      address,
+      currency,
+      coordinates: { latitude, longitude },
+    };
+  } catch (error) {
+    console.warn('[Geolocation] Forward geocoding failed:', error);
+    return null;
+  }
+}
+
+// =============================================================================
 // Browser Geolocation API
 // =============================================================================
 

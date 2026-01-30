@@ -344,8 +344,7 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
         suggestions: POPULAR_CERTIFICATIONS.map((c) => c.label),
       },
     ],
-    helpText:
-      "Certifications can unlock higher-paying opportunities. Say 'none' if you don't have any.",
+    helpText: 'Certifications can unlock higher-paying opportunities. You can fill this in later.',
   },
 
   budget: {

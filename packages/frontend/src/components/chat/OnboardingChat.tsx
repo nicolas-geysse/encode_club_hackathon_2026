@@ -25,6 +25,7 @@ import { toastPopup } from '~/components/ui/Toast';
 import { GlassButton } from '~/components/ui/GlassButton';
 import { detectCityMetadata } from '~/lib/cityUtils';
 import { smartMergeArrays } from '~/lib/arrayMergeUtils';
+import { forwardGeocode } from '~/lib/geolocation';
 import { eventBus } from '~/lib/eventBus';
 import { OnboardingProgress } from './OnboardingProgress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
@@ -1638,6 +1639,20 @@ export function OnboardingChat() {
       if (!currentProfile.currency && currency) {
         updates.currency = currency;
       }
+
+      // Auto-fill address and coordinates via geocoding (non-blocking)
+      forwardGeocode(String(data.city)).then((geoResult) => {
+        if (geoResult) {
+          setProfile((prev) => ({
+            ...prev,
+            address: geoResult.address || prev.address,
+            latitude: geoResult.coordinates.latitude,
+            longitude: geoResult.coordinates.longitude,
+            // Also update currency from geocoding if more accurate
+            currency: prev.currency || geoResult.currency,
+          }));
+        }
+      });
     }
 
     setProfile({ ...currentProfile, ...updates });
@@ -2387,6 +2402,7 @@ export function OnboardingChat() {
                     initialValues={profile() as Record<string, unknown>}
                     currencySymbol={getCurrencySymbolForForm()}
                     onSubmit={handleFormSubmit}
+                    onSkip={() => handleSend('none')}
                   />
                 </div>
               </Show>
