@@ -23,6 +23,15 @@ interface PromptStep {
   max_tokens?: number;
 }
 
+interface AgentPrompt {
+  version: string;
+  instructions: string;
+}
+
+interface AgentsPrompts {
+  [agentId: string]: AgentPrompt;
+}
+
 interface OnboardingPrompts {
   system: string;
   greeting: string;
@@ -65,6 +74,7 @@ interface EvaluationPrompts {
 }
 
 interface PromptsConfig {
+  agents?: AgentsPrompts;
   onboarding: OnboardingPrompts;
   budget_analysis: BudgetAnalysisPrompts;
   job_suggestions: JobSuggestionsPrompts;
@@ -167,6 +177,32 @@ export function getMaxTokens(path: string): number {
 }
 
 /**
+ * Get agent instructions from YAML
+ * Returns undefined if agent not found in YAML
+ */
+export function getAgentInstructions(agentId: string): string | undefined {
+  const prompts = loadPrompts();
+  return prompts.agents?.[agentId]?.instructions;
+}
+
+/**
+ * Get agent prompt version from YAML
+ * Returns undefined if agent not found in YAML
+ */
+export function getAgentVersion(agentId: string): string | undefined {
+  const prompts = loadPrompts();
+  return prompts.agents?.[agentId]?.version;
+}
+
+/**
+ * Get all agent IDs defined in YAML
+ */
+export function getAgentIds(): string[] {
+  const prompts = loadPrompts();
+  return prompts.agents ? Object.keys(prompts.agents) : [];
+}
+
+/**
  * Get evaluation criteria
  */
 export function getEvaluationCriteria(): EvaluationCriteria[] {
@@ -265,6 +301,9 @@ export const promptsService = {
   get: getPrompt,
   getWithVars: getPromptWithVars,
   getMaxTokens,
+  getAgentInstructions,
+  getAgentVersion,
+  getAgentIds,
   getEvaluationCriteria,
   getGuardrails,
   containsForbiddenTopics,

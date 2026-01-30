@@ -7,11 +7,17 @@
  * This module replaces the old onboardingExtractor.ts
  */
 
-import { trace, type TraceOptions } from '../../opik';
+import { trace, type TraceOptions, registerPrompt } from '../../opik';
 import type { ProfileData, OnboardingInput, OnboardingOutput, OnboardingStep } from '../types';
 import { extractWithGroq, getGroqModel } from './groqExtractor';
 import { extractWithRegex } from './regexExtractor';
 import { getNextStep, getAdvanceMessage, getClarificationMessage } from '../flow';
+import { GROQ_EXTRACTION_SYSTEM_PROMPT } from '../prompts';
+
+// Register prompt for version tracking in Opik traces
+// This enables regression detection when the extraction prompt changes
+const AGENT_ID = 'onboarding-extractor';
+const PROMPT_METADATA = registerPrompt(AGENT_ID, GROQ_EXTRACTION_SYSTEM_PROMPT);
 
 // Re-export types for convenience (backward compatibility with old import paths)
 export type {
@@ -68,11 +74,20 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
       historyLength: input.conversationHistory?.length || 0,
     },
     tags: ['onboarding', 'agent', input.currentStep, `tab:${targetTab}`],
+    // Pass prompt metadata in initial trace config (workaround for SDK update() not persisting)
+    metadata: {
+      'prompt.name': PROMPT_METADATA.name,
+      'prompt.version': PROMPT_METADATA.version,
+      'prompt.hash': PROMPT_METADATA.hash,
+    },
   };
 
   return trace(
     'agent.onboarding',
     async (ctx) => {
+      // Note: prompt version attributes are now passed via traceOptions.metadata
+      // This is a workaround for SDK update() not persisting metadata correctly
+
       ctx.setAttributes({
         'agent.step': input.currentStep,
         'agent.message_length': input.message.length,
@@ -95,7 +110,8 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
             input.message,
             input.currentStep,
             input.existingProfile,
-            input.conversationHistory
+            input.conversationHistory,
+            input.workingMemory
           );
 
           if (groqResult && Object.keys(groqResult.data).length > 0) {

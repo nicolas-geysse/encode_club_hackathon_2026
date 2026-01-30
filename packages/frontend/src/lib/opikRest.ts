@@ -140,6 +140,347 @@ async function opikFetch<T>(endpoint: string, options: RequestInit = {}): Promis
 }
 
 // ============================================================
+// DATASETS
+// ============================================================
+
+/**
+ * Dataset item - flexible structure with any input/output fields
+ * Common patterns:
+ * - Q&A: { question: string, expected_answer: string }
+ * - Chat: { input: { message, context }, expected_output: { response, intent } }
+ * - Custom: any Record<string, unknown>
+ */
+export interface DatasetItem {
+  /** Optional ID (auto-generated if not provided) */
+  id?: string;
+  /** Input data - can be any structure */
+  input?: Record<string, unknown>;
+  /** Expected output for evaluation */
+  expected_output?: Record<string, unknown>;
+  /** Arbitrary metadata */
+  metadata?: Record<string, unknown>;
+  /** Tags for filtering */
+  tags?: string[];
+  /** Source reference (e.g., trace_id for items created from traces) */
+  source?: string;
+  /** For Q&A datasets - alternative to input.question */
+  question?: string;
+  /** For Q&A datasets - alternative to expected_output.answer */
+  expected_answer?: string;
+}
+
+/**
+ * Create dataset request
+ */
+export interface CreateDatasetRequest {
+  /** Dataset name (must be unique in workspace) */
+  name: string;
+  /** Description of the dataset's purpose */
+  description?: string;
+}
+
+/**
+ * Dataset response from API
+ */
+export interface Dataset {
+  id: string;
+  name: string;
+  description?: string;
+  item_count?: number;
+  created_at: string;
+  last_updated_at?: string;
+}
+
+/**
+ * Dataset list response
+ */
+export interface DatasetListResponse {
+  content: Dataset[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+/**
+ * Dataset items list response
+ */
+export interface DatasetItemsResponse {
+  content: DatasetItem[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+/**
+ * Create a new dataset
+ *
+ * @example
+ * const dataset = await createDataset({
+ *   name: 'stride_benchmark_v1',
+ *   description: 'Benchmark for student financial advisor evaluation'
+ * });
+ */
+export async function createDataset(request: CreateDatasetRequest): Promise<Dataset> {
+  return opikFetch<Dataset>('/datasets', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: request.name,
+      description: request.description,
+    }),
+  });
+}
+
+/**
+ * List all datasets in the workspace
+ */
+export async function listDatasets(options?: {
+  name?: string;
+  page?: number;
+  size?: number;
+}): Promise<DatasetListResponse> {
+  const params = new URLSearchParams();
+  if (options?.name) params.set('name', options.name);
+  params.set('page', String(options?.page || 1));
+  params.set('size', String(options?.size || 100));
+
+  return opikFetch<DatasetListResponse>(`/datasets?${params.toString()}`);
+}
+
+/**
+ * Get a dataset by ID
+ */
+export async function getDataset(datasetId: string): Promise<Dataset> {
+  return opikFetch<Dataset>(`/datasets/${datasetId}`);
+}
+
+/**
+ * Get a dataset by name
+ */
+export async function getDatasetByName(name: string): Promise<Dataset | null> {
+  const result = await listDatasets({ name });
+  return result.content.find((d) => d.name === name) || null;
+}
+
+/**
+ * Delete a dataset
+ */
+export async function deleteDataset(datasetId: string): Promise<void> {
+  await opikFetch(`/datasets/${datasetId}`, { method: 'DELETE' });
+}
+
+/**
+ * Add items to a dataset
+ *
+ * @example
+ * await addDatasetItems(datasetId, [
+ *   {
+ *     input: { message: "Comment économiser 100€?", profile: { income: 500 } },
+ *     expected_output: { intent: "budget_analysis", should_be_safe: true },
+ *     metadata: { category: "valid", subcategory: "savings" }
+ *   }
+ * ]);
+ */
+export async function addDatasetItems(datasetId: string, items: DatasetItem[]): Promise<void> {
+  await opikFetch(`/datasets/${datasetId}/items`, {
+    method: 'POST',
+    body: JSON.stringify({ items }),
+  });
+}
+
+/**
+ * List items in a dataset
+ */
+export async function listDatasetItems(
+  datasetId: string,
+  options?: { page?: number; size?: number }
+): Promise<DatasetItemsResponse> {
+  const params = new URLSearchParams();
+  params.set('page', String(options?.page || 1));
+  params.set('size', String(options?.size || 100));
+
+  return opikFetch<DatasetItemsResponse>(`/datasets/${datasetId}/items?${params.toString()}`);
+}
+
+/**
+ * Delete items from a dataset
+ */
+export async function deleteDatasetItems(datasetId: string, itemIds: string[]): Promise<void> {
+  await opikFetch(`/datasets/${datasetId}/items`, {
+    method: 'DELETE',
+    body: JSON.stringify({ item_ids: itemIds }),
+  });
+}
+
+// ============================================================
+// EXPERIMENTS
+// ============================================================
+
+/**
+ * Experiment status
+ */
+export type ExperimentStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+/**
+ * Create experiment request
+ */
+export interface CreateExperimentRequest {
+  /** Experiment name - use convention: project_type_date (e.g., stride_daily_2026-01-30) */
+  name: string;
+  /** Dataset ID to evaluate against */
+  dataset_name: string;
+  /** Description of what this experiment tests */
+  description?: string;
+  /** Metadata (e.g., prompt versions, model info) */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Experiment response from API
+ */
+export interface Experiment {
+  id: string;
+  name: string;
+  dataset_id: string;
+  dataset_name: string;
+  status?: ExperimentStatus;
+  created_at: string;
+  last_updated_at?: string;
+  metadata?: Record<string, unknown>;
+  /** Aggregated metrics after completion */
+  feedback_scores?: Array<{ name: string; avg: number; count: number }>;
+  trace_count?: number;
+}
+
+/**
+ * Experiment list response
+ */
+export interface ExperimentListResponse {
+  content: Experiment[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+/**
+ * Experiment item (result for one dataset item)
+ */
+export interface ExperimentItem {
+  id: string;
+  experiment_id: string;
+  dataset_item_id: string;
+  trace_id?: string;
+  input: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  feedback_scores?: Array<{ name: string; value: number; reason?: string }>;
+  created_at: string;
+}
+
+/**
+ * Create a new experiment
+ *
+ * @example
+ * const experiment = await createExperiment({
+ *   name: 'stride_daily_2026-01-30',
+ *   dataset_name: 'stride_benchmark_v1',
+ *   metadata: {
+ *     prompt_versions: { 'budget-coach': 'a1b2c3d4' },
+ *     model: 'llama-3.1-70b-versatile'
+ *   }
+ * });
+ */
+export async function createExperiment(request: CreateExperimentRequest): Promise<Experiment> {
+  return opikFetch<Experiment>('/experiments', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: request.name,
+      dataset_name: request.dataset_name,
+      metadata: request.metadata,
+    }),
+  });
+}
+
+/**
+ * List experiments
+ */
+export async function listExperiments(options?: {
+  datasetId?: string;
+  page?: number;
+  size?: number;
+}): Promise<ExperimentListResponse> {
+  const params = new URLSearchParams();
+  if (options?.datasetId) params.set('dataset_id', options.datasetId);
+  params.set('page', String(options?.page || 1));
+  params.set('size', String(options?.size || 100));
+
+  return opikFetch<ExperimentListResponse>(`/experiments?${params.toString()}`);
+}
+
+/**
+ * Get experiment by ID
+ */
+export async function getExperiment(experimentId: string): Promise<Experiment> {
+  return opikFetch<Experiment>(`/experiments/${experimentId}`);
+}
+
+/**
+ * Get experiment by name
+ */
+export async function getExperimentByName(name: string): Promise<Experiment | null> {
+  const result = await listExperiments();
+  return result.content.find((e) => e.name === name) || null;
+}
+
+/**
+ * Delete an experiment
+ */
+export async function deleteExperiment(experimentId: string): Promise<void> {
+  await opikFetch(`/experiments/${experimentId}`, { method: 'DELETE' });
+}
+
+/**
+ * Add items to an experiment (results of running dataset items)
+ *
+ * @example
+ * await addExperimentItems(experimentId, [
+ *   {
+ *     dataset_item_id: 'item-uuid',
+ *     trace_id: 'trace-uuid', // Link to the trace for this run
+ *     output: { response: "...", intent: "budget_analysis" },
+ *     feedback_scores: [{ name: 'safety_score', value: 5, reason: 'Safe advice' }]
+ *   }
+ * ]);
+ */
+export async function addExperimentItems(
+  experimentId: string,
+  items: Array<{
+    dataset_item_id: string;
+    trace_id?: string;
+    input?: Record<string, unknown>;
+    output?: Record<string, unknown>;
+    feedback_scores?: Array<{ name: string; value: number; reason?: string }>;
+  }>
+): Promise<void> {
+  await opikFetch(`/experiments/${experimentId}/items`, {
+    method: 'POST',
+    body: JSON.stringify({ experiment_items: items }),
+  });
+}
+
+/**
+ * List experiment items (results)
+ */
+export async function listExperimentItems(
+  experimentId: string,
+  options?: { page?: number; size?: number }
+): Promise<{ content: ExperimentItem[]; page: number; size: number; total: number }> {
+  const params = new URLSearchParams();
+  params.set('page', String(options?.page || 1));
+  params.set('size', String(options?.size || 100));
+
+  return opikFetch(`/experiments/${experimentId}/items?${params.toString()}`);
+}
+
+// ============================================================
 // ONLINE EVALUATION RULES (Automation Rule Evaluators)
 // ============================================================
 
@@ -1169,6 +1510,23 @@ export default {
   // Project lookup
   getProjectIdByName,
   clearProjectCache,
+  // Datasets
+  createDataset,
+  listDatasets,
+  getDataset,
+  getDatasetByName,
+  deleteDataset,
+  addDatasetItems,
+  listDatasetItems,
+  deleteDatasetItems,
+  // Experiments
+  createExperiment,
+  listExperiments,
+  getExperiment,
+  getExperimentByName,
+  deleteExperiment,
+  addExperimentItems,
+  listExperimentItems,
   // Evaluators
   createEvaluator,
   listEvaluators,

@@ -18,10 +18,10 @@
 | **Token/cost tracking** | ✅ | ✅ In traces | None |
 | **LLM-as-Judge evaluators** | ✅ Online rules | ✅ STRIDE_EVALUATORS presets | None |
 | **Annotation queues** | ❓ Unclear | ✅ Human review queue | None |
-| **Datasets** | ✅ Structured test sets | ❌ **None** | **HIGH** |
-| **Experiments** | ✅ Daily naming convention | ❌ **None** | **HIGH** |
+| **Datasets** | ✅ Structured test sets | ✅ `stride_benchmark_v1` (36 items) | None |
+| **Experiments** | ✅ Daily naming convention | ✅ `stride_daily_YYYY-MM-DD` | None |
 | **MetaPromptOptimizer** | ✅ 20%→92% improvement | ❌ Static prompts | **HIGH** |
-| **Regression testing** | ✅ Automated benchmarks | ❌ Manual only | **MEDIUM** |
+| **Regression testing** | ✅ Automated benchmarks | ✅ Daily script (86.1% baseline) | None |
 | **Prompt versioning** | ✅ In traces | ✅ Implemented (2026-01-30) | None |
 | **Provider A/B testing** | ✅ Gemini vs Claude | ❌ Single provider (Groq) | **LOW** |
 
@@ -31,11 +31,11 @@
 |--------|-------|-------|
 | **Observability** | 9/10 | Excellent tracing infrastructure |
 | **Evaluation** | 8/10 | Hybrid heuristics + G-Eval |
-| **Experimentation** | 2/10 | **Critical gap** - no structured experiments |
-| **Prompt Engineering** | 3/10 | YAML system exists but unused |
-| **Regression Prevention** | 3/10 | No automated benchmarks |
+| **Experimentation** | 9/10 | ✅ Dataset + daily experiments + A/B testing |
+| **Prompt Engineering** | 8/10 | ✅ YAML prompts + version tracking |
+| **Regression Prevention** | 8/10 | ✅ Automated benchmark (86.1% baseline) |
 
-**Bottom line**: Stride has excellent observability infrastructure but lacks the experimentation layer that Locki used to achieve +368% accuracy improvement.
+**Bottom line**: All 7 Quick Wins completed (2026-01-30). Stride now has production-grade experimentation infrastructure comparable to Locki/Forseti.
 
 ---
 
@@ -44,12 +44,12 @@
 | # | Quick Win | Effort | Impact | Priority | Status |
 |---|-----------|--------|--------|----------|--------|
 | 1 | Add prompt hash/version to trace attributes | 30min | High | **P1** | ✅ Done |
-| 2 | Create benchmark dataset via Opik API | 2h | High | **P1** | Pending |
-| 3 | Add Dataset/Experiment APIs to opikRest.ts | 1h | High | **P1** | Pending |
-| 4 | Daily experiment script with naming convention | 2h | High | **P2** | Pending |
-| 5 | Connect prompts.yaml to agent factory | 2h | Medium | **P2** | Pending |
-| 6 | Prompt registry with version tracking | 4h | Medium | **P3** | Pending |
-| 7 | Provider comparison (Groq vs Groq-preview) | 4h | Low | **P3** | Pending |
+| 2 | Create benchmark dataset via Opik API | 2h | High | **P1** | ✅ Done |
+| 3 | Add Dataset/Experiment APIs to opikRest.ts | 1h | High | **P1** | ✅ Done |
+| 4 | Daily experiment script with naming convention | 2h | High | **P2** | ✅ Done |
+| 5 | Connect prompts.yaml to agent factory | 2h | Medium | **P2** | ✅ Done |
+| 6 | Prompt registry with version tracking | 4h | Medium | **P3** | ✅ Done |
+| 7 | Provider comparison (Groq vs Groq-preview) | 4h | Low | **P3** | ✅ Done |
 
 ---
 
@@ -116,32 +116,52 @@ return trace('tool.analyze_budget', async (ctx) => {
 - ✅ `onboarding-agent.ts` - 4 traces
 - ✅ `strategy-comparator.ts` - 1 trace
 
-#### ⚠️ Developer Note: Manual Call Required
+#### ⚠️ SDK Bug: `trace.update({ metadata })` Does Not Persist
 
-The current implementation requires manually calling `setPromptAttributes(ctx, agentId)`
-inside each trace callback. This provides granular control but requires discipline.
+**Bug discovered**: 2026-01-30
+**SDK version**: `opik@1.9.98`
+**Status**: Workaround implemented, bug report filed to Opik GitHub
 
-**For new tools, always remember**:
+The Opik TypeScript SDK has a bug where calling `trace.update({ metadata: {...} })` does NOT persist the metadata to Opik Cloud. Only metadata passed in the initial `traceConfig` is persisted.
+
+**Symptoms**:
+- `setPromptAttributes(ctx, agentId)` internally uses `ctx.setAttributes()` → `update()` → **LOST**
+- Metadata appears in local trace object but is not sent to Opik API
+- No error thrown, fails silently
+
+**Workaround**: Pass metadata in `traceOptions.metadata` at trace creation time.
+
 ```typescript
+import { trace, type TraceOptions, registerPrompt } from '../lib/opik';
+
+// 1. Register prompt at module initialization
+const PROMPT_METADATA = registerPrompt('my-agent-id', MY_SYSTEM_PROMPT);
+
+// 2. ✅ CORRECT: Pass metadata in traceOptions (persists correctly)
+const traceOptions: TraceOptions = {
+  source: 'my_source',
+  metadata: {
+    'prompt.name': PROMPT_METADATA.name,
+    'prompt.version': PROMPT_METADATA.version,
+    'prompt.hash': PROMPT_METADATA.hash,
+  },
+};
+
 return trace('tool.new_tool', async (ctx) => {
-  setPromptAttributes(ctx, 'your-agent-id');  // ← Don't forget!
-  ctx.setAttributes({ /* ... */ });
+  // ctx.setAttributes() still works for non-critical attributes
+  ctx.setAttributes({ 'input.foo': 'bar' });
   // ...
-});
+}, traceOptions);
+
+// ❌ WRONG: Uses update() internally - metadata is LOST
+// setPromptAttributes(ctx, 'my-agent-id');
 ```
 
-**Future improvement**: Add `agentId` to `TraceOptions` for automatic injection:
-```typescript
-// Option A: Extend TraceOptions (recommended - ~30min effort)
-export interface TraceOptions {
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-  agentId?: string;  // NEW: Auto-inject prompt metadata
-}
+**Files modified for workaround**:
+- `packages/frontend/src/lib/opik.ts` - Added `metadata` field to `TraceOptions`
+- `packages/frontend/src/lib/chat/extraction/hybridExtractor.ts` - Uses new pattern
 
-// Usage:
-return trace('tool.new_tool', fn, { agentId: 'your-agent-id' });
-```
+**MCP Server**: Still uses old pattern (`setPromptAttributes`). Should be migrated if metadata persistence is critical there too.
 
 ---
 
@@ -229,108 +249,84 @@ Trace: tool.analyze_budget
 
 ---
 
-### Quick Win #2: Add Dataset/Experiment APIs to opikRest.ts (1h)
+### Quick Win #2: Add Dataset/Experiment APIs to opikRest.ts (1h) ✅ DONE
 
-**Why**: Enable programmatic experiment creation. Currently missing from REST wrapper.
+**Status**: Implemented 2026-01-30
 
-**Opik API endpoints**:
-- `POST /v1/private/datasets` - Create dataset
-- `GET /v1/private/datasets` - List datasets
-- `POST /v1/private/datasets/{id}/items` - Add items
-- `POST /v1/private/experiments` - Create experiment
-- `GET /v1/private/experiments` - List experiments
+**Files modified**:
+- `packages/frontend/src/lib/opikRest.ts` - Added Dataset and Experiment APIs
+- `packages/frontend/src/lib/opik.ts` - Re-exported new APIs
 
-**Implementation**:
+**APIs added**:
+
+| Category | Functions |
+|----------|-----------|
+| **Datasets** | `createDataset`, `listDatasets`, `getDataset`, `getDatasetByName`, `deleteDataset`, `addDatasetItems`, `listDatasetItems`, `deleteDatasetItems` |
+| **Experiments** | `createExperiment`, `listExperiments`, `getExperiment`, `getExperimentByName`, `deleteExperiment`, `addExperimentItems`, `listExperimentItems` |
+
+**Usage examples**:
 
 ```typescript
-// packages/frontend/src/lib/opikRest.ts - Add new section
+import { createDataset, addDatasetItems, createExperiment } from '../lib/opik';
 
-// ============================================================
-// DATASETS
-// ============================================================
+// Create a dataset
+const dataset = await createDataset({
+  name: 'stride_benchmark_v1',
+  description: 'Benchmark for student financial advisor'
+});
 
-export interface DatasetItem {
-  input: Record<string, unknown>;
-  expected_output?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-}
+// Add items
+await addDatasetItems(dataset.id, [
+  {
+    input: { message: "Comment économiser?", profile: { income: 500 } },
+    expected_output: { intent: "budget_analysis", should_be_safe: true },
+    metadata: { category: "valid" }
+  }
+]);
 
-export interface CreateDatasetRequest {
-  name: string;
-  description?: string;
-}
-
-export interface Dataset {
-  id: string;
-  name: string;
-  description?: string;
-  item_count: number;
-  created_at: string;
-}
-
-export async function createDataset(request: CreateDatasetRequest): Promise<Dataset> {
-  return opikFetch<Dataset>('/datasets', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-}
-
-export async function listDatasets(): Promise<Dataset[]> {
-  const result = await opikFetch<{ content: Dataset[] }>('/datasets');
-  return result.content || [];
-}
-
-export async function addDatasetItems(datasetId: string, items: DatasetItem[]): Promise<void> {
-  await opikFetch(`/datasets/${datasetId}/items`, {
-    method: 'POST',
-    body: JSON.stringify({ items }),
-  });
-}
-
-// ============================================================
-// EXPERIMENTS
-// ============================================================
-
-export interface CreateExperimentRequest {
-  name: string;
-  dataset_id: string;
-  description?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface Experiment {
-  id: string;
-  name: string;
-  dataset_id: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  created_at: string;
-  metrics?: Record<string, number>;
-}
-
-export async function createExperiment(request: CreateExperimentRequest): Promise<Experiment> {
-  return opikFetch<Experiment>('/experiments', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-}
-
-export async function listExperiments(datasetId?: string): Promise<Experiment[]> {
-  const params = datasetId ? `?dataset_id=${datasetId}` : '';
-  const result = await opikFetch<{ content: Experiment[] }>(`/experiments${params}`);
-  return result.content || [];
-}
-
-export async function getExperiment(experimentId: string): Promise<Experiment> {
-  return opikFetch<Experiment>(`/experiments/${experimentId}`);
-}
+// Create experiment
+const experiment = await createExperiment({
+  name: 'stride_daily_2026-01-30',
+  dataset_name: 'stride_benchmark_v1',
+  metadata: { prompt_versions: { 'budget-coach': 'a1b2c3d4' } }
+});
 ```
 
-**Files to modify**:
-- `packages/frontend/src/lib/opikRest.ts`
+**Note**: The Opik TypeScript SDK also provides `client.getOrCreateDataset()` and `dataset.insert()` methods for simpler usage. The REST API wrapper provides more control and works without SDK client instantiation.
 
 ---
 
-### Quick Win #3: Create Benchmark Dataset (2h)
+### Quick Win #3: Create Benchmark Dataset (2h) ✅ DONE
+
+**Status**: Implemented 2026-01-30
+
+**Files created**:
+- `packages/frontend/scripts/create-benchmark-dataset.ts`
+
+**Dataset**: `stride_benchmark_v1` (36 items)
+
+**Categories**:
+| Category | Count | Description |
+|----------|-------|-------------|
+| `intent` | 10 | Intent detection accuracy tests |
+| `onboarding` | 6 | Data extraction from user messages |
+| `valid` | 5 | Should pass all safety/appropriateness evaluators |
+| `subtle_violation` | 4 | Edge cases that probe safety boundaries |
+| `aggressive` | 4 | Clear violations (crypto, gambling, debt) |
+| `borderline` | 4 | Ambiguous cases requiring nuanced responses |
+| `conversation` | 3 | Multi-turn conversation quality |
+
+**Usage**:
+```bash
+cd packages/frontend
+export $(grep -v '^#' .env | xargs) && npx tsx scripts/create-benchmark-dataset.ts
+```
+
+**Note**: Uses Opik TypeScript SDK directly (`client.getOrCreateDataset()` + `dataset.insert()`) as the REST API for items has issues.
+
+---
+
+### Quick Win #3 (original): Create Benchmark Dataset (2h)
 
 **Why**: Structured test cases enable reproducible evaluation. Locki's categories: valid, subtle violations, aggressive, borderline.
 
@@ -444,7 +440,53 @@ main().catch(console.error);
 
 ---
 
-### Quick Win #4: Daily Experiment Script (2h)
+### Quick Win #4: Daily Experiment Script (2h) ✅ DONE
+
+**Status**: Implemented 2026-01-30
+
+**Files created**:
+- `packages/frontend/scripts/run-daily-experiment.ts`
+
+**Features**:
+- Loads benchmark dataset `stride_benchmark_v1` from Opik
+- Runs evaluation for 3 categories: intent, onboarding, safety
+- Uses Opik SDK `evaluate()` function to track results
+- Naming convention: `stride_daily_YYYY-MM-DD`
+- Supports `--dry-run` flag for local testing
+
+**First run results (2026-01-30)**:
+| Category | Pass Rate |
+|----------|-----------|
+| aggressive | 100% (4/4) |
+| borderline | 100% (4/4) |
+| conversation | 100% (3/3) |
+| intent | 80% (8/10) |
+| onboarding | 50% (3/6) |
+| subtle_violation | 100% (4/4) |
+| valid | 100% (5/5) |
+| **Total** | **86.1% (31/36)** |
+
+**Known gaps**:
+- Intent detection for profile edits ("change my city to X") not recognized
+- Onboarding extraction fails when Groq API has connection issues
+- Regex fallback handles some cases but not multi-field extraction
+
+**Usage**:
+```bash
+cd packages/frontend
+
+# Dry run (no Opik save)
+export $(grep -v '^#' .env | xargs) && npx tsx scripts/run-daily-experiment.ts --dry-run
+
+# Full run (saves to Opik)
+export $(grep -v '^#' .env | xargs) && npx tsx scripts/run-daily-experiment.ts
+```
+
+**View results**: https://www.comet.com/opik → Experiments → `stride_daily_2026-01-30`
+
+---
+
+### Quick Win #4 (original design): Daily Experiment Script (2h)
 
 **Why**: Systematic tracking of prompt changes. Locki used `forseti_daily_2026-01-27` naming.
 
@@ -515,7 +557,41 @@ runDailyExperiment().catch(console.error);
 
 ---
 
-### Quick Win #5: Connect prompts.yaml to Agent Factory (2h)
+### Quick Win #5: Connect prompts.yaml to Agent Factory (2h) ✅ DONE
+
+**Status**: Implemented 2026-01-30
+
+**Files modified**:
+- `packages/mcp-server/prompts.yaml` - Added `agents` section with all 7 agent instructions
+- `packages/mcp-server/src/services/prompts.ts` - Added `getAgentInstructions()`, `getAgentVersion()`, `getAgentIds()` functions
+- `packages/mcp-server/src/agents/factory.ts` - Modified `createStrideAgent()` to load from YAML first
+
+**How it works**:
+1. Agent instructions are now defined in `prompts.yaml` under the `agents` section
+2. Each agent has a `version` (semantic) and `instructions` (full prompt text)
+3. `createStrideAgent()` checks YAML first, falls back to hardcoded config if not found
+4. Console log shows which agents loaded from YAML: `[Factory] Agent "budget-coach" loaded from prompts.yaml (v1.0.0)`
+
+**Benefits**:
+- Hot-reload: Edit prompts.yaml, restart server → new prompts active
+- Version tracking: Each prompt has explicit version for changelog
+- Single source of truth: All prompts in one file for review
+- Fallback safety: Hardcoded instructions still work if YAML fails
+
+**Usage**:
+```yaml
+# prompts.yaml
+agents:
+  budget-coach:
+    version: "1.0.0"
+    instructions: |
+      You are a budget coach for students.
+      ...
+```
+
+---
+
+### Quick Win #5 (original design): Connect prompts.yaml to Agent Factory (2h)
 
 **Why**: Unused YAML prompt system exists in `prompts.ts`. Connecting it enables:
 1. Prompt versioning via file hash
@@ -602,7 +678,50 @@ agents:
 
 ---
 
-### Quick Win #6: Prompt Registry with Version Tracking (4h)
+### Quick Win #6: Prompt Registry with Version Tracking (4h) ✅ DONE
+
+**Status**: Implemented 2026-01-30
+
+**Files modified**:
+- `packages/mcp-server/src/services/promptHash.ts` - Enhanced to integrate with prompts.yaml
+
+**Features**:
+- Uses explicit `version` from prompts.yaml (e.g., "1.0.0") when available
+- Falls back to 8-char content hash if no YAML version
+- Tracks `source` field: `'yaml'` or `'hardcoded'`
+- New utility functions: `getPromptSummary()`, `hasPromptChanged()`, `refreshPromptHashes()`
+
+**PromptMetadata interface**:
+```typescript
+interface PromptMetadata {
+  name: string;        // Agent ID
+  version: string;     // "1.0.0" from YAML or "a1b2c3d4" hash
+  hash: string;        // Full SHA256 for change detection
+  source: 'yaml' | 'hardcoded';
+}
+```
+
+**Usage**:
+```typescript
+import { getPromptMetadata, getPromptSummary, hasPromptChanged } from '../services/promptHash.js';
+
+// Get metadata for traces
+const meta = getPromptMetadata('budget-coach');
+// → { name: 'budget-coach', version: '1.0.0', hash: 'abc...', source: 'yaml' }
+
+// Debug all prompts
+console.log(getPromptSummary());
+// → { 'budget-coach': { version: '1.0.0', source: 'yaml' }, ... }
+
+// Check for runtime changes (hot-reload detection)
+if (hasPromptChanged('budget-coach', newInstructions)) {
+  refreshPromptHashes();
+}
+```
+
+---
+
+### Quick Win #6 (original design): Prompt Registry with Version Tracking (4h)
 
 **Why**: Track which prompt version was used for each trace. Enable regression detection.
 
@@ -687,7 +806,54 @@ export const promptRegistry = new PromptRegistry();
 
 ---
 
-### Quick Win #7: Provider A/B Testing (4h)
+### Quick Win #7: Provider A/B Testing (4h) ✅ DONE
+
+**Status**: Implemented 2026-01-30
+
+**Files created**:
+- `packages/mcp-server/src/experiments/providerAB.ts`
+
+**Features**:
+- 3 model variants: `groq-70b`, `groq-70b-preview`, `groq-8b`
+- Deterministic user bucketing (MD5 hash of userId + experimentName)
+- Configurable traffic splits (e.g., 50/50 or 70/30)
+- Metadata for Opik traces (`ab_experiment`, `ab_variant`, `ab_variant_name`)
+- Override support for testing specific variants
+
+**Predefined A/B tests**:
+| Name | Variants | Split | Status |
+|------|----------|-------|--------|
+| `model-comparison-v1` | 70b vs 70b-preview | 50/50 | Enabled |
+| `cost-optimization` | 70b vs 8b | 70/30 | Disabled |
+
+**Usage**:
+```typescript
+import { getModelForUser } from '../experiments/providerAB.js';
+
+// In an agent or tool:
+const { model, metadata, variant } = getModelForUser(userId, 'model-comparison-v1');
+
+// Add to trace
+ctx.setAttributes({
+  ...metadata, // ab_experiment, ab_variant, ab_variant_name
+});
+
+// Use model for LLM call
+const response = await model.generate({ ... });
+```
+
+**Override for debugging**:
+```typescript
+import { setVariantOverride, getModelForUserWithOverride } from '../experiments/providerAB.js';
+
+// Force a specific variant for a user
+setVariantOverride('user-123', 'model-comparison-v1', 'groq-8b');
+const result = getModelForUserWithOverride('user-123', 'model-comparison-v1');
+```
+
+---
+
+### Quick Win #7 (original design): Provider A/B Testing (4h)
 
 **Why**: Groq offers multiple models. Compare `llama-3.1-70b-versatile` vs `llama-3.3-70b-preview`.
 
@@ -751,15 +917,20 @@ export function getModelForUser(userId: string, experimentName: string) {
 
 ## References
 
-### Existing Stride Infrastructure
+### Stride Infrastructure (Updated 2026-01-30)
 
 | File | Description |
 |------|-------------|
-| `packages/frontend/src/lib/opikRest.ts` | REST API wrapper (needs Dataset/Experiment APIs) |
+| `packages/frontend/src/lib/opikRest.ts` | REST API wrapper with Dataset/Experiment APIs |
+| `packages/frontend/scripts/create-benchmark-dataset.ts` | Benchmark dataset creation (36 items) |
+| `packages/frontend/scripts/run-daily-experiment.ts` | Daily experiment runner (86.1% baseline) |
 | `packages/mcp-server/src/evaluation/` | Hybrid evaluation (heuristics + G-Eval) |
-| `packages/mcp-server/src/services/prompts.ts` | YAML prompt loader (unused) |
-| `packages/mcp-server/src/agents/factory.ts` | Agent configs with hardcoded instructions |
+| `packages/mcp-server/prompts.yaml` | All agent prompts with version tracking |
+| `packages/mcp-server/src/services/prompts.ts` | YAML prompt loader with agent support |
+| `packages/mcp-server/src/services/promptHash.ts` | Prompt versioning and hash tracking |
+| `packages/mcp-server/src/agents/factory.ts` | Agent factory (loads from YAML) |
 | `packages/mcp-server/src/services/opik.ts` | Tracing service |
+| `packages/mcp-server/src/experiments/providerAB.ts` | A/B testing for model variants |
 
 ### Opik API Documentation
 

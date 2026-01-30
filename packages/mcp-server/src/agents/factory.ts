@@ -4,9 +4,14 @@
  * Creates Stride agents from configuration objects.
  * Pattern from THE-BRAIN architecture for config-driven agent creation.
  * Uses Opik tracing directly for observability.
+ *
+ * Quick Win #5: Agent instructions can now be loaded from prompts.yaml
+ * If an agent ID exists in prompts.yaml, its instructions are used instead
+ * of the hardcoded ones. This enables hot-reload and version tracking.
  */
 
 import { Agent } from '@mastra/core/agent';
+import { promptsService } from '../services/prompts.js';
 
 /**
  * Agent configuration interface
@@ -71,15 +76,27 @@ async function getDefaultModel(): Promise<unknown> {
 /**
  * Create a Stride agent from configuration
  * Note: Uses lazy model loading to avoid import issues
+ *
+ * Quick Win #5: Instructions are loaded from prompts.yaml if available,
+ * otherwise falls back to hardcoded instructions in config.
  */
 export async function createStrideAgent(config: AgentConfig): Promise<Agent> {
   const tools = getToolsByNames(config.toolNames);
   const model = await getDefaultModel();
 
+  // Try to load instructions from YAML first (Quick Win #5)
+  const yamlInstructions = promptsService.getAgentInstructions(config.id);
+  const instructions = yamlInstructions || config.instructions;
+
+  if (yamlInstructions) {
+    const version = promptsService.getAgentVersion(config.id) || 'unknown';
+    console.error(`[Factory] Agent "${config.id}" loaded from prompts.yaml (v${version})`);
+  }
+
   return new Agent({
     id: config.id,
     name: config.name,
-    instructions: config.instructions,
+    instructions,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     model: model as any,
     tools,

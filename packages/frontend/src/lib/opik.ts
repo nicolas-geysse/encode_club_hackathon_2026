@@ -173,6 +173,8 @@ export interface TraceOptions {
   input?: Record<string, unknown>;
   /** Tags for filtering in dashboard */
   tags?: string[];
+  /** Additional metadata to attach to the trace (merged with source) */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -191,11 +193,20 @@ export async function trace<T>(
   // Normalize options (support legacy metadata format)
   const traceOptions: TraceOptions =
     options &&
-    ('threadId' in options || 'input' in options || 'tags' in options || 'source' in options)
+    ('threadId' in options ||
+      'input' in options ||
+      'tags' in options ||
+      'source' in options ||
+      'metadata' in options)
       ? (options as TraceOptions)
       : { source: (options as Record<string, unknown>)?.source as string };
 
-  const metadata = traceOptions.source ? { source: traceOptions.source } : {};
+  // Merge source and custom metadata into initial trace metadata
+  // This ensures metadata is set at trace creation time (workaround for SDK update() issues)
+  const metadata = {
+    ...(traceOptions.source ? { source: traceOptions.source } : {}),
+    ...(traceOptions.metadata || {}),
+  };
   const startTime = new Date();
   const collectedAttrs: Record<string, unknown> = { ...metadata };
   let outputData: Record<string, unknown> | null = null;
@@ -732,6 +743,23 @@ export {
   // Project lookup
   getProjectIdByName,
   clearProjectCache,
+  // Datasets
+  createDataset,
+  listDatasets,
+  getDataset,
+  getDatasetByName,
+  deleteDataset,
+  addDatasetItems,
+  listDatasetItems,
+  deleteDatasetItems,
+  // Experiments
+  createExperiment,
+  listExperiments,
+  getExperiment,
+  getExperimentByName,
+  deleteExperiment,
+  addExperimentItems,
+  listExperimentItems,
   // Evaluators (Online Evaluation Rules)
   createEvaluator,
   listEvaluators,
@@ -762,6 +790,19 @@ export {
 } from './opikRest';
 
 export type {
+  // Datasets
+  DatasetItem,
+  CreateDatasetRequest,
+  Dataset,
+  DatasetListResponse,
+  DatasetItemsResponse,
+  // Experiments
+  ExperimentStatus,
+  CreateExperimentRequest,
+  Experiment,
+  ExperimentListResponse,
+  ExperimentItem,
+  // Evaluators
   EvaluatorType,
   LLMAsJudgeConfig,
   CreateEvaluatorRequest,
@@ -779,3 +820,75 @@ export type {
   SpanSummary,
   SpanListResponse,
 } from './opikRest';
+
+// ============================================================
+// PROMPT VERSION TRACKING
+// ============================================================
+
+import { createHash } from 'crypto';
+
+export interface PromptMetadata {
+  name: string;
+  version: string; // 8-char short hash
+  hash: string; // Full SHA256
+}
+
+// Cache hashes (prompts don't change at runtime)
+const promptHashCache = new Map<string, PromptMetadata>();
+
+/**
+ * Register a prompt and generate its hash for version tracking.
+ * Call this once at module initialization for each agent/prompt.
+ *
+ * @param agentId - Unique identifier for the agent/prompt (e.g., 'onboarding-extractor')
+ * @param instructions - The full prompt/instructions string
+ * @returns PromptMetadata with name, version (8-char), and full hash
+ */
+export function registerPrompt(agentId: string, instructions: string): PromptMetadata {
+  const hash = createHash('sha256').update(instructions).digest('hex');
+  const metadata: PromptMetadata = {
+    name: agentId,
+    version: hash.slice(0, 8),
+    hash,
+  };
+  promptHashCache.set(agentId, metadata);
+  return metadata;
+}
+
+/**
+ * Get prompt metadata for an agent by ID.
+ *
+ * @param agentId - The agent ID to look up
+ * @returns PromptMetadata or undefined if not registered
+ */
+export function getPromptMetadata(agentId: string): PromptMetadata | undefined {
+  return promptHashCache.get(agentId);
+}
+
+/**
+ * Set prompt version attributes on a span/trace context.
+ * Call this at the start of any trace that uses an agent.
+ *
+ * @param ctx - The Span or TraceContext to set attributes on
+ * @param agentId - The agent ID to look up metadata for
+ *
+ * @example
+ * ```typescript
+ * return trace('agent.onboarding', async (ctx) => {
+ *   setPromptAttributes(ctx, 'onboarding-extractor');
+ *   // ... rest of function
+ * });
+ * ```
+ */
+export function setPromptAttributes(ctx: Span | TraceContext, agentId: string): void {
+  const meta = getPromptMetadata(agentId);
+  if (!meta) {
+    console.warn(`[Opik] No prompt metadata registered for agent '${agentId}'`);
+    return;
+  }
+  ctx.setAttributes({
+    'prompt.name': meta.name,
+    'prompt.version': meta.version,
+    'prompt.hash': meta.hash,
+  });
+}
