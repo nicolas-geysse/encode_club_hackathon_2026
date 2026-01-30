@@ -6,6 +6,7 @@
  */
 
 import type { OnboardingStep } from './types';
+import { getSkillSuggestions } from '../data/skillsByField';
 
 // =============================================================================
 // Field Types
@@ -618,3 +619,24 @@ export function getStepFormConfig(step: OnboardingStep): StepFormConfig | undefi
 export function hasStepForm(step: OnboardingStep): boolean {
   return step in STEP_FORMS;
 }
+
+/**
+ * Get skill suggestions based on user's field of study.
+ * Returns field-specific skills + skills from connected fields.
+ * Falls back to generic POPULAR_SKILLS if field is unknown.
+ *
+ * @param field - The user's field of study (optional)
+ * @returns Array of suggested skill names
+ */
+export function getSkillsForField(field: string | undefined): string[] {
+  const suggestions = getSkillSuggestions(field);
+  // If we got suggestions from the knowledge graph, use them
+  if (suggestions.length > 0) {
+    return suggestions;
+  }
+  // Fallback to generic popular skills
+  return POPULAR_SKILLS;
+}
+
+// Re-export for convenience
+export { getAllSkills } from '../data/skillsByField';

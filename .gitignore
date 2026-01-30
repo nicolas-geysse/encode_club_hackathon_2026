@@ -37,7 +37,8 @@ coverage/
 
 # Local DuckDB data
 packages/frontend/data/
-data/
+/data/
+packages/mcp-server/data/
 *.duckdb
 *.duckdb.wal
 

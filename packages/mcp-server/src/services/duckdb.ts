@@ -167,6 +167,7 @@ async function initSchema(): Promise<void> {
 
   const schemaPath = path.join(__dirname, '../graph/student-knowledge-graph.sql');
   const prospectionGraphPath = path.join(__dirname, '../graph/prospection-graph.sql');
+  const skillsGraphPath = path.join(__dirname, '../graph/skills-knowledge-graph.sql');
 
   // Check if tables already exist
   const tablesExist = await query<{ count: number }>(
@@ -197,6 +198,22 @@ async function initSchema(): Promise<void> {
     } catch (error) {
       console.error('[DuckDB-MCP] Warning: Could not load prospection graph:', error);
       // Continue without prospection graph data
+    }
+  }
+
+  // Load skills knowledge graph data (fields of study + monetizable skills)
+  const skillsNodesExist = await query<{ count: number }>(
+    `SELECT COUNT(*) as count FROM student_nodes WHERE domain = 'field_of_study'`
+  );
+
+  if (skillsNodesExist[0]?.count === 0 && fs.existsSync(skillsGraphPath)) {
+    try {
+      const skillsSchema = fs.readFileSync(skillsGraphPath, 'utf-8');
+      await executeInternal(skillsSchema);
+      console.error('[DuckDB-MCP] Skills knowledge graph data loaded successfully');
+    } catch (error) {
+      console.error('[DuckDB-MCP] Warning: Could not load skills knowledge graph:', error);
+      // Continue without skills graph data
     }
   }
 

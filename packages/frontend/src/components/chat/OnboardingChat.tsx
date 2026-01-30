@@ -1313,6 +1313,10 @@ export function OnboardingChat() {
 
     // Reset profile to defaults
     setProfile({
+      name: undefined,
+      diploma: undefined,
+      field: undefined, // Reset field to get fresh skill suggestions
+      city: undefined,
       skills: [],
       certifications: [],
       incomes: [],
@@ -1351,6 +1355,10 @@ export function OnboardingChat() {
     // Reset profile state to defaults (like new profile)
     // This ensures old data is completely replaced, not merged
     setProfile({
+      name: undefined,
+      diploma: undefined,
+      field: undefined, // Reset field to get fresh skill suggestions
+      city: undefined,
       skills: [],
       certifications: [],
       incomes: [],
@@ -2257,6 +2265,10 @@ export function OnboardingChat() {
               // eslint-disable-next-line solid/reactivity
               onClick={async () => {
                 setProfile({
+                  name: undefined,
+                  diploma: undefined,
+                  field: undefined, // Reset field to get fresh skill suggestions
+                  city: undefined,
                   skills: [],
                   certifications: [],
                   incomes: [],
@@ -2401,6 +2413,7 @@ export function OnboardingChat() {
                     step={step()}
                     initialValues={profile() as Record<string, unknown>}
                     currencySymbol={getCurrencySymbolForForm()}
+                    fieldContext={profile().field}
                     onSubmit={handleFormSubmit}
                     onSkip={() => handleSend('none')}
                   />

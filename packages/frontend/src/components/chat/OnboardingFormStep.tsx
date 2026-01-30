@@ -10,6 +10,7 @@ import { createStore, produce } from 'solid-js/store';
 import type { OnboardingStep } from '../../lib/chat/types';
 import {
   getStepFormConfig,
+  getSkillsForField,
   type FormField,
   type DynamicListFieldConfig,
 } from '../../lib/chat/stepForms';
@@ -32,6 +33,8 @@ interface OnboardingFormStepProps {
   initialValues?: Record<string, unknown>;
   /** Currency symbol for displaying amounts */
   currencySymbol?: string;
+  /** User's field of study - used for contextual skill suggestions */
+  fieldContext?: string;
   /** Called when form is submitted */
   onSubmit: (data: Record<string, unknown>) => void;
   /** Called when user starts typing (for text-based input fallback) */
@@ -132,12 +135,17 @@ function MultiSelectPills(props: {
   field: FormField;
   selected: string[];
   onChange: (selected: string[]) => void;
+  /** Optional reactive suggestions getter - takes precedence over field.suggestions */
+  getSuggestions?: () => string[];
 }) {
   const [inputValue, setInputValue] = createSignal('');
   const [showSuggestions, setShowSuggestions] = createSignal(false);
 
   const availableSuggestions = () => {
-    const suggestions = props.field.suggestions || [];
+    // Use reactive getter if provided, otherwise fall back to field.suggestions
+    const suggestions = props.getSuggestions
+      ? props.getSuggestions()
+      : props.field.suggestions || [];
     return suggestions.filter(
       (s) => !props.selected.includes(s) && s.toLowerCase().includes(inputValue().toLowerCase())
     );
@@ -806,14 +814,19 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
           />
         );
 
-      case 'multi-select-pills':
+      case 'multi-select-pills': {
+        // For skills field, use a reactive getter for field-specific suggestions
+        const isSkillsField = props.step === 'skills' && field.name === 'skills';
+
         return (
           <MultiSelectPills
             field={field}
             selected={(value() as string[]) || []}
             onChange={(v) => updateField(field.name, v)}
+            getSuggestions={isSkillsField ? () => getSkillsForField(props.fieldContext) : undefined}
           />
         );
+      }
 
       case 'dynamic-list':
         return (
