@@ -89,7 +89,7 @@ Frontend Components → Server Functions (routes/api/*.ts) → MCP Tools → Mas
 
 ### 3 Screens Navigation
 - **Screen 0** (`/`): Onboarding chat with Bruno avatar
-- **Screen 1** (`/plan`): 6 tabs (Setup, Skills, Inventory, Lifestyle, Trade, Swipe)
+- **Screen 1** (`/plan`): 7 tabs (Profile, Goals, Skills, Budget, Trade, Swipe, Jobs/Prospection)
 - **Screen 2** (`/suivi`): Dashboard with timeline, energy history, missions
 
 ## ESLint Rules
@@ -107,11 +107,33 @@ Every recommendation has traces with span hierarchy:
 
 Wrap new LLM operations with the trace function from `services/opik.ts`.
 
+### Prompt Versioning Pattern
+
+When creating new traced tools, include prompt metadata for regression detection:
+
+```typescript
+import { trace, setPromptAttributes } from '../services/opik.js';
+
+return trace('tool.my_new_tool', async (ctx) => {
+  setPromptAttributes(ctx, 'agent-id');  // Required for prompt versioning
+  ctx.setAttributes({ /* input/output attrs */ });
+  // ...
+});
+```
+
+This adds `prompt.name`, `prompt.version`, `prompt.hash` to the trace metadata, enabling:
+- Filtering traces by prompt version in Opik dashboard
+- Regression detection when prompts change
+- Correlation of quality metrics with specific prompt versions
+
 ## Environment Variables
 
 Required:
 - `GROQ_API_KEY` - LLM provider
 - `OPIK_API_KEY` + `OPIK_WORKSPACE` - For Opik Cloud (or `OPIK_BASE_URL` for self-hosted)
+
+Optional:
+- `GOOGLE_MAPS_API_KEY` - For Prospection tab (Google Places + Distance Matrix APIs)
 
 ## Native Modules in Vite SSR
 
