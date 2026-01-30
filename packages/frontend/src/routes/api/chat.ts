@@ -52,6 +52,7 @@ import {
 import { detectIntent, isIntentFallback } from '../../lib/chat/intent';
 import { parseSlashCommand, executeSlashCommand } from '../../lib/chat/commands';
 import { runResponseEvaluation } from '../../lib/chat/evaluation';
+import { WorkingMemory } from '../../lib/mastra/workingMemory';
 
 const logger = createLogger('ChatAPI');
 
@@ -280,8 +281,11 @@ interface ChatResponse {
 function generateUIResourceForResponse(
   extractedData: Record<string, unknown>,
   currentStep: OnboardingStep,
-  _response: string
+  _response: string,
+  context?: Record<string, unknown>
 ): UIResource | undefined {
+  // Get currency symbol from context (profile data) or default to $
+  const currencySymbol = getCurrencySymbol((context?.currency as string) || 'USD');
   // Note: Goal confirmation form removed - OnboardingFormStep already captures goal data
   // directly, making a second confirmation redundant and confusing for users.
 
@@ -290,7 +294,8 @@ function generateUIResourceForResponse(
     const summaryData: Record<string, string> = {};
     if (extractedData.name) summaryData['Name'] = String(extractedData.name);
     if (extractedData.goalName) summaryData['Goal'] = String(extractedData.goalName);
-    if (extractedData.goalAmount) summaryData['Target'] = `$${extractedData.goalAmount}`;
+    if (extractedData.goalAmount)
+      summaryData['Target'] = `${currencySymbol}${extractedData.goalAmount}`;
 
     // Only show summary if we have data
     if (Object.keys(summaryData).length > 0) {
@@ -336,7 +341,7 @@ function generateUIResourceForResponse(
             params: {
               title: 'Monthly Income',
               value: income,
-              unit: '$',
+              unit: currencySymbol,
             },
           },
           {
@@ -344,7 +349,7 @@ function generateUIResourceForResponse(
             params: {
               title: 'Monthly Expenses',
               value: expenses,
-              unit: '$',
+              unit: currencySymbol,
             },
           },
           {
@@ -352,7 +357,7 @@ function generateUIResourceForResponse(
             params: {
               title: 'Monthly Margin',
               value: margin,
-              unit: '$',
+              unit: currencySymbol,
               trend: { direction: margin >= 0 ? 'up' : 'down' },
             },
           },
@@ -402,6 +407,16 @@ export async function POST(event: APIEvent) {
         JSON.stringify({ error: true, message: 'message and step are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Load Working Memory (Scratchpad)
+    let currentWorkingMemory: string[] = [];
+    if (profileId) {
+      try {
+        currentWorkingMemory = await WorkingMemory.get(profileId);
+      } catch (e) {
+        console.error('Failed to load working memory:', e);
+      }
     }
 
     // Check for slash commands first (works in any mode)
@@ -468,6 +483,7 @@ export async function POST(event: APIEvent) {
           existingProfile: context as ProfileData,
           threadId, // Pass threadId for conversation grouping in Opik
           conversationHistory, // Pass history for context awareness
+          workingMemory: currentWorkingMemory, // Pass working memory for context
         });
 
         // Get trace ID for response
@@ -494,10 +510,32 @@ export async function POST(event: APIEvent) {
           ]).catch(() => {});
         }
 
+        // Save Working Memory Updates
+        const workingMemoryUpdates = groqResult.extractedData?.workingMemoryUpdates;
+        if (
+          workingMemoryUpdates &&
+          Array.isArray(workingMemoryUpdates) &&
+          workingMemoryUpdates.length > 0 &&
+          profileId
+        ) {
+          WorkingMemory.update(profileId, workingMemoryUpdates as string[])
+            .then(() => {
+              console.error(`[WorkingMemory] Updated for ${profileId}:`, workingMemoryUpdates);
+            })
+            .catch((err) => {
+              console.error('[WorkingMemory] Failed to save updates:', err);
+            });
+        }
+
         // Convert to ChatResponse format - use actual source from result
         const extractedData = groqResult.extractedData as Record<string, unknown>;
         const nextStep = groqResult.nextStep as OnboardingStep;
-        const uiResource = generateUIResourceForResponse(extractedData, step, groqResult.response);
+        const uiResource = generateUIResourceForResponse(
+          extractedData,
+          step,
+          groqResult.response,
+          context
+        );
 
         const result: ChatResponse = {
           response: groqResult.response,
@@ -528,7 +566,8 @@ export async function POST(event: APIEvent) {
       const fallbackUiResource = generateUIResourceForResponse(
         fallbackResult.extractedData,
         step,
-        fallbackResult.response
+        fallbackResult.response,
+        context
       );
       return new Response(
         JSON.stringify({ ...fallbackResult, source: 'fallback', uiResource: fallbackUiResource }),
@@ -618,7 +657,12 @@ export async function POST(event: APIEvent) {
         }
 
         // Generate UI resource for legacy path
-        const legacyUiResource = generateUIResourceForResponse(extractedData, step, response);
+        const legacyUiResource = generateUIResourceForResponse(
+          extractedData,
+          step,
+          response,
+          context
+        );
 
         return {
           response,

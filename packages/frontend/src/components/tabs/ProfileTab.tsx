@@ -367,9 +367,9 @@ export function ProfileTab(props: ProfileTabProps) {
                     </label>
                     <p
                       class="text-lg font-medium text-foreground mt-1 truncate"
-                      title={profile()?.address}
+                      title={profile()?.address || profile()?.city}
                     >
-                      {profile()?.address || 'Not set'}
+                      {profile()?.address || profile()?.city || 'Not set'}
                     </p>
                   </div>
                 </div>
