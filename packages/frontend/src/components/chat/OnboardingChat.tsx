@@ -2118,9 +2118,23 @@ export function OnboardingChat() {
       case 'name':
         message = data.name as string;
         break;
-      case 'studies':
-        message = `${data.diploma || ''} in ${data.field || ''}`.trim();
+      case 'studies': {
+        // Directly update profile with diploma and field for immediate use (e.g., skills suggestions)
+        const diploma = data.diploma as string | undefined;
+        const field = data.field as string | undefined;
+        const fieldOther = data.fieldOther as string | undefined;
+
+        setProfile((prev) => ({
+          ...prev,
+          diploma,
+          field,
+        }));
+
+        // Build message for LLM
+        const fieldDisplay = field === 'other' && fieldOther ? fieldOther : field;
+        message = `${diploma || ''} in ${fieldDisplay || ''}`.trim();
         break;
+      }
       case 'skills':
         message = Array.isArray(data.skills) ? (data.skills as string[]).join(', ') : 'none';
         break;
