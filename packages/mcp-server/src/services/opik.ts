@@ -614,7 +614,7 @@ async function createSpanInternal<T>(
 }
 
 /**
- * Log feedback for a trace
+ * Log feedback for a trace (simple thumbs up/down)
  */
 export async function logFeedback(
   traceId: string,
@@ -633,6 +633,86 @@ export async function logFeedback(
     }
   }
   console.error(`[Feedback] Trace ${traceId}: ${feedback}`);
+}
+
+/**
+ * Feedback score definition for detailed evaluation metrics
+ */
+export interface FeedbackScore {
+  /** Name of the metric (e.g., 'relevance', 'safety', 'heuristic_score') */
+  name: string;
+  /** Score value between 0 and 1 */
+  value: number;
+  /** Optional reason explaining the score */
+  reason?: string;
+}
+
+/**
+ * Log detailed feedback scores to a trace
+ * Used for evaluation and quality monitoring in Opik dashboard
+ *
+ * Uses REST API directly for immediate visibility in the Feedback Scores tab
+ * See: PUT /v1/private/traces/{id}/feedback-scores
+ */
+export async function logFeedbackScores(
+  traceId: string | null,
+  scores: FeedbackScore[]
+): Promise<boolean> {
+  const id = traceId || currentTraceId;
+  if (!id) {
+    console.error('[Opik] No trace ID available for feedback scores');
+    return false;
+  }
+
+  // Read env vars lazily at runtime
+  const apiKey = process.env.OPIK_API_KEY?.trim();
+  const workspace = process.env.OPIK_WORKSPACE?.trim();
+  const apiUrl = process.env.OPIK_BASE_URL?.trim() || 'https://www.comet.com/opik/api';
+
+  if (!apiKey) {
+    console.error('[Opik] OPIK_API_KEY not set, cannot log feedback scores');
+    return false;
+  }
+
+  try {
+    let allSucceeded = true;
+    let successCount = 0;
+
+    for (const score of scores) {
+      const response = await fetch(`${apiUrl}/v1/private/traces/${id}/feedback-scores`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: apiKey, // Opik API expects raw API key, not "Bearer" prefix
+          ...(workspace ? { 'Comet-Workspace': workspace } : {}),
+        },
+        body: JSON.stringify({
+          name: score.name,
+          value: score.value,
+          source: 'sdk',
+          reason: score.reason,
+        }),
+      });
+
+      if (!response.ok) {
+        allSucceeded = false;
+        const errorText = await response.text();
+        console.error(
+          `[Opik] Failed to log feedback score "${score.name}": ${response.status} - ${errorText}`
+        );
+      } else {
+        successCount++;
+      }
+    }
+
+    logDebug(
+      `[Opik] Logged ${successCount}/${scores.length} feedback scores to trace ${id}${allSucceeded ? '' : ' (some failed)'}`
+    );
+    return allSucceeded;
+  } catch (error) {
+    console.error('[Opik] Error logging feedback scores:', error);
+    return false;
+  }
 }
 
 /**
@@ -774,6 +854,42 @@ export async function maybeCreateSpan<T>(
   return createSpan(name, fn, options);
 }
 
+// ============================================================
+// PROMPT VERSION TRACKING
+// ============================================================
+
+import {
+  getPromptMetadata,
+  initPromptHashes,
+  registerPrompt,
+  type PromptMetadata,
+} from './promptHash.js';
+
+// Re-export for convenience
+export { initPromptHashes, getPromptMetadata, registerPrompt };
+export type { PromptMetadata };
+
+/**
+ * Set prompt version attributes on a span/trace context.
+ * Call this at the start of any trace that uses an agent.
+ *
+ * @example
+ * return trace('tool.analyze_budget', async (ctx) => {
+ *   setPromptAttributes(ctx, 'budget-coach');
+ *   // ... rest of function
+ * });
+ */
+export function setPromptAttributes(ctx: Span | TraceContext, agentId: string): void {
+  const meta = getPromptMetadata(agentId);
+  if (meta) {
+    ctx.setAttributes({
+      'prompt.name': meta.name,
+      'prompt.version': meta.version,
+      'prompt.hash': meta.hash,
+    });
+  }
+}
+
 // Export service
 export const opik = {
   init: initOpik,
@@ -782,12 +898,17 @@ export const opik = {
   maybeTrace,
   maybeCreateSpan,
   logFeedback,
+  logFeedbackScores,
   getTraceUrl,
   getCurrentTraceId,
   getCurrentTraceHandle,
   getCurrentThreadId,
   setThreadId,
   generateThreadId,
+  setPromptAttributes,
+  initPromptHashes,
+  getPromptMetadata,
+  registerPrompt,
 };
 
 export default opik;

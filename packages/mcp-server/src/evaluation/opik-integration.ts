@@ -2,9 +2,15 @@
  * Opik Integration for Hybrid Evaluation
  *
  * Provides rich logging of evaluation results with custom metrics.
+ * Also logs Feedback Scores for the Opik dashboard.
  */
 
-import { trace, getCurrentTraceId } from '../services/opik.js';
+import {
+  trace,
+  getCurrentTraceId,
+  logFeedbackScores,
+  type FeedbackScore,
+} from '../services/opik.js';
 import type {
   HybridEvaluationResult,
   HeuristicsResults,
@@ -12,6 +18,67 @@ import type {
   EvaluationInput,
 } from './types.js';
 import type { LLMGenerateFunction } from './geval/index.js';
+
+/**
+ * Convert HybridEvaluationResult to FeedbackScore[] for Opik dashboard
+ * These scores will appear in the "Feedback Scores" tab
+ */
+function convertToFeedbackScores(result: HybridEvaluationResult): FeedbackScore[] {
+  const scores: FeedbackScore[] = [];
+
+  // Main evaluation scores
+  scores.push({
+    name: 'evaluation.final_score',
+    value: result.finalScore,
+    reason: result.vetoed ? 'Vetoed: ' + result.vetoReason : undefined,
+  });
+
+  scores.push({
+    name: 'evaluation.heuristic_score',
+    value: result.heuristicScore,
+    reason:
+      result.issues.length > 0 ? `Issues: ${result.issues.slice(0, 3).join(', ')}` : undefined,
+  });
+
+  scores.push({
+    name: 'evaluation.llm_score',
+    value: result.llmScore,
+    reason: result.gEvalResult
+      ? `Confidence: ${Math.round(result.gEvalResult.averageConfidence * 100)}%`
+      : 'G-Eval skipped (vetoed)',
+  });
+
+  scores.push({
+    name: 'evaluation.passed',
+    value: result.passed ? 1 : 0,
+    reason: result.passed ? 'Evaluation passed' : 'Below threshold',
+  });
+
+  // Individual heuristic scores
+  for (const check of result.heuristicsResults.checks) {
+    scores.push({
+      name: `heuristic.${check.name}`,
+      value: check.score,
+      reason: check.passed ? undefined : check.message,
+    });
+  }
+
+  // G-Eval criterion scores (if available)
+  if (result.gEvalResult) {
+    for (const criterion of result.gEvalResult.criteriaResults) {
+      scores.push({
+        name: `geval.${criterion.criterion}`,
+        value: criterion.normalizedScore,
+        reason:
+          criterion.confidence < 0.6
+            ? `Low confidence: ${Math.round(criterion.confidence * 100)}%`
+            : undefined,
+      });
+    }
+  }
+
+  return scores;
+}
 
 /**
  * Run hybrid evaluation with full Opik tracing
@@ -49,7 +116,7 @@ export async function runHybridEvaluationWithTracing(
         'evaluation.passed': false,
       });
 
-      return {
+      const vetoedResult: HybridEvaluationResult = {
         passed: false,
         finalScore: heuristicsResults.aggregatedScore,
         heuristicScore: heuristicsResults.aggregatedScore,
@@ -61,6 +128,14 @@ export async function runHybridEvaluationWithTracing(
         issues: heuristicsResults.issues,
         suggestions: ['Corriger les problemes critiques avant reevaluation'],
         heuristicsResults,
+      };
+
+      // Log feedback scores to Opik dashboard
+      const feedbackScores = convertToFeedbackScores(vetoedResult);
+      await logFeedbackScores(getCurrentTraceId(), feedbackScores);
+
+      return {
+        ...vetoedResult,
         opikTraceId: getCurrentTraceId() || undefined,
       };
     }
@@ -100,7 +175,7 @@ export async function runHybridEvaluationWithTracing(
         .map((r) => `${r.criterion}: ${Math.round(r.normalizedScore * 100)}%`),
     ];
 
-    return {
+    const fullResult: HybridEvaluationResult = {
       passed,
       finalScore,
       heuristicScore: heuristicsResults.aggregatedScore,
@@ -110,6 +185,14 @@ export async function runHybridEvaluationWithTracing(
       suggestions: generateSuggestions(heuristicsResults, gEvalResult),
       heuristicsResults,
       gEvalResult,
+    };
+
+    // Log feedback scores to Opik dashboard
+    const feedbackScores = convertToFeedbackScores(fullResult);
+    await logFeedbackScores(getCurrentTraceId(), feedbackScores);
+
+    return {
+      ...fullResult,
       opikTraceId: getCurrentTraceId() || undefined,
     };
   });
