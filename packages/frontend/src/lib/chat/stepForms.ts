@@ -269,9 +269,17 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
         required: true,
         suggestions: POPULAR_CITIES,
       },
+      {
+        name: 'address',
+        type: 'text',
+        label: 'Address (optional)',
+        placeholder: 'Your street address',
+        required: false,
+      },
     ],
     derivedFields: ['currency'],
-    helpText: 'Your city helps us find local opportunities and set your currency.',
+    helpText:
+      'Your city helps us find local opportunities. Address is optional but helps for job proximity.',
   },
 
   currency_confirm: {

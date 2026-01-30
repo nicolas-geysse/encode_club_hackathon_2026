@@ -44,6 +44,7 @@ interface OnboardingFormStepProps {
 const SKIPPABLE_STEPS: OnboardingStep[] = [
   'skills',
   'certifications',
+  'work_preferences',
   'academic_events',
   'inventory',
   'trade',

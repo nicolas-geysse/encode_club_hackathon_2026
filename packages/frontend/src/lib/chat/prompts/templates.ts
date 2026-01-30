@@ -87,7 +87,9 @@ Generate a response of 2-3 sentences that:
   income_timing: `The user's income arrives {incomeDay} of the month.
 Generate a response of 2-3 sentences that:
 1. Acknowledges when their income arrives
-2. Asks about their work preferences (max hours per week, minimum hourly rate)`,
+2. Asks about their work preferences (max hours per week, minimum hourly rate)
+
+End with "(or fill in later)".`,
 
   work_preferences: `The user can work {maxWorkHours}h/week, minimum {currencySymbol}{minHourlyRate}/h.
 Generate a response of 2-3 sentences that:
