@@ -694,6 +694,10 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
   const handleLocationDetected = (result: GeolocationResult) => {
     setGeoError(null);
     updateField('city', result.city);
+    // Store address from reverse geocoding
+    if (result.address) {
+      updateField('address', result.address);
+    }
     if (result.currency) {
       updateField('currency', result.currency);
     }
@@ -707,6 +711,9 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
     });
     // Store coordinates in form data
     updateField('coordinates', result.coordinates);
+    // Store individual lat/lon for profile
+    updateField('latitude', result.coordinates.latitude);
+    updateField('longitude', result.coordinates.longitude);
     // Show the map picker
     setShowMapPicker(true);
   };
