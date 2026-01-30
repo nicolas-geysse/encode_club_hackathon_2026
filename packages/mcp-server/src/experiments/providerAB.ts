@@ -19,6 +19,7 @@ import { createGroq } from '@ai-sdk/groq';
 
 // Available model variants
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const PRODUCTION_MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
 
 const groqClient = createGroq({ apiKey: GROQ_API_KEY });
 
@@ -36,11 +37,17 @@ export interface ModelVariant {
  * Available model variants for A/B testing
  */
 export const MODEL_VARIANTS: Record<string, ModelVariant> = {
+  production: {
+    id: 'production',
+    name: `Production (${PRODUCTION_MODEL})`,
+    model: groqClient(PRODUCTION_MODEL),
+    description: 'Model from GROQ_MODEL env variable',
+  },
   'groq-70b': {
     id: 'groq-70b',
     name: 'Llama 3.1 70B',
     model: groqClient('llama-3.1-70b-versatile'),
-    description: 'Stable production model',
+    description: 'Stable baseline model',
   },
   'groq-70b-preview': {
     id: 'groq-70b-preview',
@@ -130,13 +137,13 @@ export function getModelForUser(userId: string, experimentName: string): ABTestR
   const config = AB_TESTS[experimentName];
 
   if (!config || !config.enabled) {
-    // Default to stable model if experiment not found or disabled
-    const defaultVariant = MODEL_VARIANTS['groq-70b'];
+    // Default to production model if experiment not found or disabled
+    const defaultVariant = MODEL_VARIANTS['production'];
     return {
       model: defaultVariant.model,
       metadata: {
         ab_experiment: 'none',
-        ab_variant: 'groq-70b',
+        ab_variant: 'production',
         ab_variant_name: defaultVariant.name,
       },
       variant: defaultVariant,
@@ -144,7 +151,7 @@ export function getModelForUser(userId: string, experimentName: string): ABTestR
   }
 
   const variantId = selectVariant(config, userId);
-  const variant = MODEL_VARIANTS[variantId] || MODEL_VARIANTS['groq-70b'];
+  const variant = MODEL_VARIANTS[variantId] || MODEL_VARIANTS['production'];
 
   return {
     model: variant.model,
@@ -159,9 +166,10 @@ export function getModelForUser(userId: string, experimentName: string): ABTestR
 
 /**
  * Get the default model (no A/B testing)
+ * Uses the production model from GROQ_MODEL env variable
  */
 export function getDefaultModel(): ReturnType<typeof groqClient> {
-  return MODEL_VARIANTS['groq-70b'].model;
+  return MODEL_VARIANTS['production'].model;
 }
 
 /**

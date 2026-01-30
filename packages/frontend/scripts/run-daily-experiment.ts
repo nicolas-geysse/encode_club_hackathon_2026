@@ -29,7 +29,7 @@ import { GROQ_EXTRACTION_SYSTEM_PROMPT } from '../src/lib/chat/prompts';
 
 // Constants
 const DATASET_NAME = 'stride_benchmark_v1';
-const MODEL = 'llama-3.1-70b-versatile';
+const MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
 const PROVIDER = 'groq';
 
 // Parse CLI args
