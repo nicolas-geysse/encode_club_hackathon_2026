@@ -838,19 +838,30 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
     }
   };
 
+  // Check if a field should be visible (for conditional fields like fieldOther)
+  const isFieldVisible = (field: FormField): boolean => {
+    // Show fieldOther only when field === 'other'
+    if (field.name === 'fieldOther') {
+      return formData().field === 'other';
+    }
+    return true;
+  };
+
   return (
     <Show when={config()} fallback={null}>
       {(cfg) => (
         <form onSubmit={handleSubmit} class="space-y-4 bg-card rounded-lg p-4 border border-border">
           <For each={cfg().fields}>
             {(field) => (
-              <div class="space-y-1">
-                <label class="block text-sm font-medium text-foreground">
-                  {field.label}
-                  {field.required && <span class="text-destructive ml-1">*</span>}
-                </label>
-                {renderField(field)}
-              </div>
+              <Show when={isFieldVisible(field)}>
+                <div class="space-y-1">
+                  <label class="block text-sm font-medium text-foreground">
+                    {field.label}
+                    {field.required && <span class="text-destructive ml-1">*</span>}
+                  </label>
+                  {renderField(field)}
+                </div>
+              </Show>
             )}
           </For>
 

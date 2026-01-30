@@ -135,16 +135,30 @@ export const POPULAR_CITIES = [
 // =============================================================================
 
 export const DIPLOMA_OPTIONS: FieldOption[] = [
-  { value: 'high_school', label: 'High School / Baccalauréat' },
-  { value: 'freshman', label: 'Freshman (1st year)' },
-  { value: 'sophomore', label: 'Sophomore (2nd year)' },
-  { value: 'junior', label: 'Junior (3rd year)' },
-  { value: 'senior', label: 'Senior (4th year)' },
+  { value: 'high_school', label: 'High School / Secondary' },
+  { value: 'vocational', label: 'Vocational / Short-cycle' },
   { value: 'bachelor', label: 'Bachelor / Licence' },
-  { value: 'master1', label: 'Master 1' },
-  { value: 'master2', label: 'Master 2' },
+  { value: 'master', label: 'Master' },
   { value: 'phd', label: 'PhD / Doctorate' },
-  { value: 'bts_dut', label: 'BTS / DUT / Vocational' },
+];
+
+// =============================================================================
+// Field of Study Options
+// =============================================================================
+
+export const FIELD_OF_STUDY_OPTIONS: FieldOption[] = [
+  { value: 'agriculture', label: 'Agriculture, Environment & Veterinary' },
+  { value: 'arts', label: 'Arts, Design & Media' },
+  { value: 'business', label: 'Business, Management & Law' },
+  { value: 'computer_science', label: 'Computer Science & IT' },
+  { value: 'education', label: 'Education & Training' },
+  { value: 'engineering', label: 'Engineering & Technology' },
+  { value: 'health', label: 'Health & Medicine' },
+  { value: 'humanities', label: 'Humanities & Languages' },
+  { value: 'sciences', label: 'Natural Sciences & Mathematics' },
+  { value: 'services', label: 'Services, Tourism & Hospitality' },
+  { value: 'social_sciences', label: 'Social Sciences & Psychology' },
+  { value: 'other', label: 'Other' },
 ];
 
 // =============================================================================
@@ -321,10 +335,19 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
       },
       {
         name: 'field',
-        type: 'text',
+        type: 'select',
         label: 'Field of study',
-        placeholder: 'e.g., Computer Science, Law, Business',
         required: true,
+        options: FIELD_OF_STUDY_OPTIONS,
+      },
+      {
+        name: 'fieldOther',
+        type: 'text',
+        label: 'Specify your field',
+        placeholder: 'e.g., Cybersecurity, Data Science, International Relations',
+        required: false,
+        // This field is conditionally shown when field === 'other'
+        derivedFrom: 'field',
       },
     ],
   },
@@ -334,12 +357,12 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
       {
         name: 'skills',
         type: 'multi-select-pills',
-        label: 'Your skills',
+        label: 'Skills you can monetize',
         placeholder: 'Type or select skills',
         suggestions: POPULAR_SKILLS,
       },
     ],
-    helpText: 'Select all skills you have - these help us find relevant jobs.',
+    helpText: 'Skills you can use to earn money: freelance, tutoring, services, creative work...',
   },
 
   certifications: {

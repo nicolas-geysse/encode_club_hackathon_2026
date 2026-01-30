@@ -59,10 +59,12 @@ Suggest examples of education levels:
 
 Example prompt: "What are you studying? For example: 'Bachelor 2nd year Computer Science' or 'Master 1 Business'"`,
 
-  skills: `The user studies {diploma} {field}.
+  skills: `The user studies {diploma} in {field}.
 Generate a response of 2-3 sentences that:
 1. Comments positively on their studies
-2. Asks about their skills (coding, languages, design, sports, etc.)
+2. Asks what skills they can monetize (freelance, tutoring, services, creative work, etc.)
+
+Make the question direct: "What skills can you monetize?"
 
 End with "(or fill in later)".`,
 
@@ -238,7 +240,8 @@ export const EXTRACTION_STEP_CONTEXT: Record<string, string> = {
     'We are asking for their CURRENCY preference (US/USD, UK/GBP, or Europe/EUR). Extract currency: USD, EUR, or GBP.',
   name: 'We are asking for their NAME.',
   studies: 'We are asking about their STUDIES (diploma level and field).',
-  skills: 'We are asking about their SKILLS (programming, languages, tutoring, etc.).',
+  skills:
+    'We are asking about MONETIZABLE SKILLS (freelance, tutoring, services, creative work, etc.).',
   certifications:
     'We are asking about their CERTIFICATIONS (BAFA, lifeguard, CPR, TEFL, etc.). "none" means empty array.',
   budget: 'We are asking about their BUDGET (monthly income and expenses).',
