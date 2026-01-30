@@ -77,7 +77,7 @@ Mention examples like:
 
 Tell them to say "none" if they don't have any.`,
 
-  budget: `The user has \${income} income and \${expenses} expenses per month (margin: \${margin}).
+  budget: `The user has {currencySymbol}{income} income and {currencySymbol}{expenses} expenses per month (margin: {currencySymbol}{margin}).
 Generate a response of 2-3 sentences that:
 1. Briefly comments on their budget (positive if margin >0, encouraging otherwise)
 2. Asks when their income usually arrives each month (beginning, mid-month, or end)`,
@@ -87,13 +87,13 @@ Generate a response of 2-3 sentences that:
 1. Acknowledges when their income arrives
 2. Asks about their work preferences (max hours per week, minimum hourly rate)`,
 
-  work_preferences: `The user can work {maxWorkHours}h/week, minimum \${minHourlyRate}/h.
+  work_preferences: `The user can work {maxWorkHours}h/week, minimum {currencySymbol}{minHourlyRate}/h.
 Generate a response of 2-3 sentences that:
 1. Acknowledges their work preferences
 2. Asks about their savings goal (what they want to save for, how much, and by when)
 Example goals: "emergency fund", "laptop", "vacation", "graduation security", etc.`,
 
-  goal: `The user wants to save for "{goalName}" with a target of \${goalAmount} by {goalDeadline}.
+  goal: `The user wants to save for "{goalName}" with a target of {currencySymbol}{goalAmount} by {goalDeadline}.
 Generate a response of 2-3 sentences that:
 1. Positively comments on their goal
 2. Asks about any upcoming academic events (exams, vacations, busy periods) to plan around`,
@@ -119,7 +119,7 @@ Generate a response of 2-3 sentences that:
 2. Asks about their current subscriptions and recurring expenses (streaming, gym, phone plan, etc.)`,
 
   lifestyle: `The user has these subscriptions: {subscriptions}.
-Complete profile: {name}, {diploma} {field}, skills: {skills}, city: {city}, goal: {goalName} (\${goalAmount}).
+Complete profile: {name}, {diploma} {field}, skills: {skills}, city: {city}, goal: {goalName} ({currencySymbol}{goalAmount}).
 Generate a response of 3-4 sentences that:
 1. Briefly summarizes their complete profile
 2. Mentions the key insights (budget margin, goal timeline, potential optimizations)
@@ -192,6 +192,9 @@ Available fields:
 - academicEvents: array of {name, type, startDate?, duration?, difficulty?} for exams/vacations
 - inventoryItems: array of {name, category, estimatedValue?} for items to sell
 - subscriptions: array of {name, currentCost} for subscriptions
+- workingMemoryUpdates: array of strings. IMPORTANT: Extract general facts, preferences, or context that doesn't fit other fields. 
+  Example: "I hate crypto" -> ["User dislikes cryptocurrency"]
+  Example: "I want to buy a car next year" -> ["Goal: buy car in 1 year"]
 
 Be generous with extraction. Accept common variations:
 - "Master's in CS" → diploma: "Master", field: "Computer Science"

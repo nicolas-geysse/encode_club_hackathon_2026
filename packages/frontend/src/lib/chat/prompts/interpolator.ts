@@ -19,8 +19,12 @@ import type { ProfileData } from '../types';
 export function interpolatePrompt(template: string, context: Record<string, unknown>): string {
   let result = template;
 
+  // Add currencySymbol based on currency if not already present
+  const currencySymbol = getCurrencySymbol(context.currency as string | undefined);
+  const enrichedContext = { ...context, currencySymbol };
+
   // Replace all {key} placeholders with context values
-  for (const [key, value] of Object.entries(context)) {
+  for (const [key, value] of Object.entries(enrichedContext)) {
     const placeholder = `{${key}}`;
     const stringValue = formatValue(value);
     result = result.split(placeholder).join(stringValue);
@@ -70,6 +74,7 @@ function cleanupPlaceholders(text: string): string {
     .replace(/\{certifications\}/g, 'your certifications')
     .replace(/\{city\}/g, 'your city')
     .replace(/\{currency\}/g, 'your currency')
+    .replace(/\{currencySymbol\}/g, '$')
     .replace(/\{income\}/g, 'your income')
     .replace(/\{expenses\}/g, 'your expenses')
     .replace(/\{margin\}/g, 'your margin')
