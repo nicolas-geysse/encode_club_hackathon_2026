@@ -9,11 +9,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Intent Detection
 
-- [ ] **INTD-01**: User message "swipe" triggers swipe intent
-- [ ] **INTD-02**: User message "actions" triggers swipe intent
-- [ ] **INTD-03**: User message "stratégies" triggers swipe intent
-- [ ] **INTD-04**: User message "que puis-je faire?" triggers swipe intent
-- [ ] **INTD-05**: User message "quelles options" triggers swipe intent
+- [x] **INTD-01**: User message "swipe" triggers swipe intent ✅
+- [x] **INTD-02**: User message "actions" triggers swipe intent ✅
+- [x] **INTD-03**: User message "stratégies" triggers swipe intent ✅
+- [x] **INTD-04**: User message "que puis-je faire?" triggers swipe intent ✅
+- [x] **INTD-05**: User message "quelles options" triggers swipe intent ✅
 
 ### UI Resource
 
@@ -71,11 +71,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Phase Name | Status |
 |-------------|-------|------------|--------|
-| INTD-01 | Phase 1 | Intent Detection | Pending |
-| INTD-02 | Phase 1 | Intent Detection | Pending |
-| INTD-03 | Phase 1 | Intent Detection | Pending |
-| INTD-04 | Phase 1 | Intent Detection | Pending |
-| INTD-05 | Phase 1 | Intent Detection | Pending |
+| INTD-01 | Phase 1 | Intent Detection | Complete |
+| INTD-02 | Phase 1 | Intent Detection | Complete |
+| INTD-03 | Phase 1 | Intent Detection | Complete |
+| INTD-04 | Phase 1 | Intent Detection | Complete |
+| INTD-05 | Phase 1 | Intent Detection | Complete |
 | UIRS-01 | Phase 2 | UI Resource | Pending |
 | UIRS-02 | Phase 2 | UI Resource | Pending |
 | UIRS-03 | Phase 2 | UI Resource | Pending |
