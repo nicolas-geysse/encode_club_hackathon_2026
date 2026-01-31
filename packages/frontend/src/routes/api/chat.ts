@@ -475,6 +475,38 @@ export async function POST(event: APIEvent) {
     }
 
     // =========================================================================
+    // DIRECT ACTION PARSING - Handle __action: prefix from quick links
+    // Bypasses intent detection for reliable chart rendering
+    // =========================================================================
+    if (message.startsWith('__action:')) {
+      const directAction = message.slice('__action:'.length);
+      logger.info('Direct action received', { action: directAction });
+
+      // Create a synthetic intent for the action
+      const syntheticIntent: DetectedIntent = {
+        mode: 'conversation',
+        action: directAction,
+        _matchedPattern: 'direct_action',
+      };
+
+      // Route to conversation mode handler with the direct action
+      const directResult = await handleConversationMode(
+        message,
+        'conversation',
+        context,
+        threadId,
+        profileId,
+        timeContext,
+        syntheticIntent // Pass intent directly to skip detection
+      );
+
+      return new Response(JSON.stringify(directResult), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // =========================================================================
     // CHART REQUESTS - Handle in ANY mode (Sprint Graphiques)
     // Phase 2: Now uses async detectIntent with LLM fallback
     // =========================================================================
@@ -941,6 +973,7 @@ function getFallbackResponse(
 
 /**
  * Handle conversation mode chat (after onboarding)
+ * @param providedIntent - Optional intent to skip detection (used by direct action routing)
  */
 async function handleConversationMode(
   message: string,
@@ -948,7 +981,8 @@ async function handleConversationMode(
   context: Record<string, unknown>,
   threadId?: string,
   profileId?: string,
-  timeContext?: TimeContext
+  timeContext?: TimeContext,
+  providedIntent?: DetectedIntent
 ): Promise<ChatResponse> {
   // Build time context for internal use (default to current date if not provided)
   const timeCtx: TimeContext = timeContext || {
@@ -957,12 +991,14 @@ async function handleConversationMode(
     offsetDays: 0,
   };
 
-  // Pre-detect intent for tags (Phase 2: async with LLM fallback)
-  const preIntent = await detectIntent(message, context, {
-    groqClient: getGroqClient() || undefined,
-    mode: currentMode,
-    currentStep: 'conversation', // In conversation mode, step is generic
-  });
+  // Use provided intent or detect from message (Phase 2: async with LLM fallback)
+  const preIntent =
+    providedIntent ||
+    (await detectIntent(message, context, {
+      groqClient: getGroqClient() || undefined,
+      mode: currentMode,
+      currentStep: 'conversation', // In conversation mode, step is generic
+    }));
 
   const traceOptions: TraceOptions = {
     source: 'frontend_api',

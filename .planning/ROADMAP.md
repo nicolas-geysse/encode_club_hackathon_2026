@@ -12,7 +12,7 @@ v2.1 Bugfixes — Fix critical bugs discovered during demo testing. Phases 11-15
 
 ### Milestone 3: v2.1 Bugfixes
 
-- [ ] **Phase 11: Chart Rendering** - Fix quick links to render actual charts
+- [x] **Phase 11: Chart Rendering** - Fix quick links to render actual charts
 - [ ] **Phase 12: Form Fixes** - Fix subscription object display and currency hardcoding
 - [ ] **Phase 13: State Persistence** - Fix onboarding state reset on navigation
 - [ ] **Phase 14: UI Fixes** - Fix button placement and dark mode visibility
@@ -86,7 +86,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 11. Chart Rendering | 0/1 | Planned | - |
+| 11. Chart Rendering | 1/1 | Complete | 2026-01-31 |
 | 12. Form Fixes | 0/? | Not started | - |
 | 13. State Persistence | 0/? | Not started | - |
 | 14. UI Fixes | 0/? | Not started | - |

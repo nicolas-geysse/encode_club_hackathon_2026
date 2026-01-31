@@ -11,7 +11,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { MCPUIRenderer, type ActionCallback } from './MCPUIRenderer';
 import type { ChatMessage as Message, UIResource } from '~/types/chat';
-import { Repeat, Wallet, Target, Zap } from 'lucide-solid';
+import { Repeat, Wallet, Target, Zap, PiggyBank } from 'lucide-solid';
 import type { Component } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { lifestyleService } from '~/lib/lifestyleService';
@@ -41,14 +41,16 @@ import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardin
 // Quick links shown after onboarding completion - trigger charts in chat
 const QUICK_LINKS = [
   { label: 'Budget', chartType: 'budget_breakdown', icon: 'wallet' },
-  { label: 'Goals', chartType: 'progress', icon: 'target' },
+  { label: 'Goals', chartType: 'projection', icon: 'target' },
   { label: 'Energy', chartType: 'energy', icon: 'zap' },
+  { label: 'Savings', chartType: 'progress', icon: 'piggy-bank' },
 ] as const;
 
 const quickLinkIcons: Record<string, Component<{ class?: string }>> = {
   wallet: Wallet,
   target: Target,
   zap: Zap,
+  'piggy-bank': PiggyBank,
 };
 
 // Must match the retroplan API types
@@ -705,43 +707,43 @@ export function OnboardingChat() {
       }
 
       case 'show_chart': {
-        // Handle chart gallery button clicks - send as user message to trigger chart handler
+        // Handle chart gallery button clicks - use direct action to bypass intent detection
         const chartData = data as { chartType?: string };
         const chartType = chartData?.chartType;
         if (chartType) {
           logger.info('Chart button clicked', { chartType });
 
-          // Map chart type to user-friendly request
-          const chartMessages: Record<string, string> = {
-            budget_breakdown: 'Show me my budget chart',
-            progress: 'Show me my progress',
-            projection: 'Show me my projections',
-            comparison: 'Show me a scenario comparison',
-            energy: 'Show me my energy history',
+          // Map chartType directly to chat API action
+          const chartActionMap: Record<string, string> = {
+            budget_breakdown: 'show_budget_chart',
+            progress: 'show_progress_chart',
+            projection: 'show_projection_chart',
+            energy: 'show_energy_chart',
+            comparison: 'show_comparison_chart',
           };
 
-          const userMessage = chartMessages[chartType] || `Show me the ${chartType} chart`;
+          const action = chartActionMap[chartType] || 'show_chart_gallery';
 
-          // Add user message to chat
+          // Add user message showing what was requested
           setMessages((prev) => [
             ...prev,
             {
               id: `user-chart-${Date.now()}`,
               role: 'user',
-              content: userMessage,
+              content: `Show me my ${chartType.replace('_', ' ')} chart`,
               source: 'fallback',
             },
           ]);
 
-          // Trigger the chat API with the chart request
+          // Call API with explicit action to bypass intent detection
           setLoading(true);
           fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message: userMessage,
+              message: `__action:${action}`, // Special prefix for direct action
               step: step(),
-              mode: chatMode(),
+              mode: 'conversation',
               context: profile(),
               threadId: threadId(),
               profileId: profileId(),
