@@ -308,9 +308,53 @@ export function SwipeSession(props: SwipeSessionProps) {
     <div class="flex flex-col md:flex-row items-center md:items-end justify-center py-4 w-full max-w-7xl mx-auto gap-6">
       {/* (Left Column content skipped - implies it is unchanged in this replacement block if I target correctly, but replace_file_content replaces the whole block. I will target the gap line first, then the buttons separately to avoid massive context.) */}
 
-      {/* Left Column: AI Context & Adjustments */}
+      {/* Left Column: Adjustments & AI Context */}
       <div class="w-full md:w-72 space-y-4 flex flex-col shrink-0 order-2 md:order-1">
-        {/* AI Context Block */}
+        {/* Adjustments Card - More important, now first */}
+        <Show when={currentIndex() < props.scenarios.length}>
+          <Card class="bg-muted/30 border-none shadow-none w-full">
+            <div class="p-3 space-y-3">
+              <div class="flex justify-between items-center text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                <span>Adjust Assumptions</span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                  <label class="text-[10px] text-muted-foreground">
+                    Rate ({currencySymbol()}/h)
+                  </label>
+                  <Input
+                    type="number"
+                    class="h-8 bg-background border-border text-xs"
+                    value={adjustments().customHourlyRate}
+                    onInput={(e) =>
+                      setAdjustments({
+                        ...adjustments(),
+                        customHourlyRate: Number(e.currentTarget.value),
+                      })
+                    }
+                  />
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] text-muted-foreground">Hours/week</label>
+                  <Input
+                    type="number"
+                    class="h-8 bg-background border-border text-xs"
+                    value={adjustments().customWeeklyHours}
+                    onInput={(e) =>
+                      setAdjustments({
+                        ...adjustments(),
+                        customWeeklyHours: Number(e.currentTarget.value),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+        </Show>
+
+        {/* AI Context Block - Less important, now second */}
         <div class="flex flex-col gap-2 p-3 bg-muted/20 rounded-xl border border-border/50 backdrop-blur-sm w-full">
           <div class="flex items-center gap-2 mb-1">
             <div class="p-1 bg-purple-500/10 rounded-md">
@@ -415,50 +459,6 @@ export function SwipeSession(props: SwipeSessionProps) {
             </Tooltip>
           </div>
         </div>
-
-        {/* Adjustments Card */}
-        <Show when={currentIndex() < props.scenarios.length}>
-          <Card class="bg-muted/30 border-none shadow-none w-full">
-            <div class="p-3 space-y-3">
-              <div class="flex justify-between items-center text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                <span>Adjust Assumptions</span>
-              </div>
-
-              <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                  <label class="text-[10px] text-muted-foreground">
-                    Rate ({currencySymbol()}/h)
-                  </label>
-                  <Input
-                    type="number"
-                    class="h-8 bg-background border-border text-xs"
-                    value={adjustments().customHourlyRate}
-                    onInput={(e) =>
-                      setAdjustments({
-                        ...adjustments(),
-                        customHourlyRate: Number(e.currentTarget.value),
-                      })
-                    }
-                  />
-                </div>
-                <div class="space-y-1">
-                  <label class="text-[10px] text-muted-foreground">Hours/week</label>
-                  <Input
-                    type="number"
-                    class="h-8 bg-background border-border text-xs"
-                    value={adjustments().customWeeklyHours}
-                    onInput={(e) =>
-                      setAdjustments({
-                        ...adjustments(),
-                        customWeeklyHours: Number(e.currentTarget.value),
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </Card>
-        </Show>
 
         {/* Spacer to align left column content with Card bottom (compensating for buttons on right) */}
         <div class="h-24 hidden md:block shrink-0" aria-hidden="true" />
@@ -593,7 +593,7 @@ export function SwipeSession(props: SwipeSessionProps) {
 
       {/* Right Column: Undo Button (positioned at card middle height) */}
       {/* pb-32 compensates for the action buttons + margins below the card to align with card center */}
-      <div class="w-full md:w-72 hidden md:flex shrink-0 order-3 items-center justify-start pl-4 pb-32">
+      <div class="w-full md:w-72 flex shrink-0 order-3 items-center justify-center md:justify-start pl-0 md:pl-4 pb-4 md:pb-32">
         {(() => {
           const showUndo = () => canUndo() && currentIndex() < props.scenarios.length;
           const lastDirection = () => swipeHistory()[swipeHistory().length - 1]?.direction;
