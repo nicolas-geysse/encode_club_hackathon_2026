@@ -25,13 +25,13 @@ Bug fixes for this milestone. Each maps to roadmap phases.
 
 ### UI Placement
 
-- [ ] **PLAC-01**: "Start my plan" button appears in chat area after completion
-- [ ] **PLAC-02**: "Start my plan" button removed from Bruno bar at bottom
+- [x] **PLAC-01**: "Start my plan" button appears in chat area after completion
+- [x] **PLAC-02**: "Start my plan" button removed from Bruno bar at bottom
 
 ### Dark Mode
 
-- [ ] **DARK-01**: Bruno avatar circle visible in dark mode (increase contrast/opacity)
-- [ ] **DARK-02**: Progress indicator pulse animation visible in dark mode
+- [x] **DARK-01**: Bruno avatar circle visible in dark mode (increase contrast/opacity)
+- [x] **DARK-02**: Progress indicator pulse animation visible in dark mode
 
 ### GridMultiSelect
 
@@ -62,10 +62,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FORM-02 | Phase 12 | Form Fixes | Complete |
 | STAT-01 | Phase 13 | State Persistence | Complete |
 | STAT-02 | Phase 13 | State Persistence | Complete |
-| PLAC-01 | Phase 14 | UI Fixes | Pending |
-| PLAC-02 | Phase 14 | UI Fixes | Pending |
-| DARK-01 | Phase 14 | UI Fixes | Pending |
-| DARK-02 | Phase 14 | UI Fixes | Pending |
+| PLAC-01 | Phase 14 | UI Fixes | Complete |
+| PLAC-02 | Phase 14 | UI Fixes | Complete |
+| DARK-01 | Phase 14 | UI Fixes | Complete |
+| DARK-02 | Phase 14 | UI Fixes | Complete |
 | GRID-01 | Phase 15 | GridMultiSelect Fixes | Pending |
 | GRID-02 | Phase 15 | GridMultiSelect Fixes | Pending |
 | GRID-03 | Phase 15 | GridMultiSelect Fixes | Pending |
@@ -77,4 +77,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-31*
-*Last updated: 2026-01-31 after Phase 13 completion*
+*Last updated: 2026-01-31 after Phase 14 completion*

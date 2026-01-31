@@ -15,7 +15,7 @@ v2.1 Bugfixes — Fix critical bugs discovered during demo testing. Phases 11-15
 - [x] **Phase 11: Chart Rendering** - Fix quick links to render actual charts
 - [x] **Phase 12: Form Fixes** - Fix subscription object display and currency hardcoding
 - [x] **Phase 13: State Persistence** - Fix onboarding state reset on navigation
-- [ ] **Phase 14: UI Fixes** - Fix button placement and dark mode visibility
+- [x] **Phase 14: UI Fixes** - Fix button placement and dark mode visibility
 - [ ] **Phase 15: GridMultiSelect Fixes** - Fix column widths and stability
 
 ## Phase Details
@@ -68,7 +68,9 @@ Plans:
   2. "Start my plan" button is NOT in the Bruno bar at bottom
   3. Bruno avatar "B" circle clearly visible in dark mode
   4. Progress indicator step circles and pulse visible in dark mode
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [x] 14-01-PLAN.md — Fix button placement and dark mode visibility
 
 ### Phase 15: GridMultiSelect Fixes
 **Goal**: Fix column widths and option stability
@@ -93,5 +95,5 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | 11. Chart Rendering | 1/1 | Complete | 2026-01-31 |
 | 12. Form Fixes | 1/1 | Complete | 2026-01-31 |
 | 13. State Persistence | 1/1 | Complete | 2026-01-31 |
-| 14. UI Fixes | 0/? | Not started | - |
+| 14. UI Fixes | 1/1 | Complete | 2026-01-31 |
 | 15. GridMultiSelect Fixes | 0/? | Not started | - |
