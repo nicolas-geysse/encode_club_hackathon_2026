@@ -22,7 +22,7 @@ This roadmap covers two milestones: (1) Swipe-in-Chat integration (Phases 1-5, c
 
 - [x] **Phase 6: Critical Fixes** - Start My Plan button positioning, localization to English
 - [x] **Phase 7: UX Improvements** - Skills/certifications grid selection, form simplifications
-- [ ] **Phase 8: Visual Polish** - Progress indicator, Bruno orbital pulse animation
+- [x] **Phase 8: Visual Polish** - Progress indicator, Bruno orbital pulse animation
 - [ ] **Phase 9: Navigation Flow** - Conditional nav visibility, post-onboarding shortcuts
 - [ ] **Phase 10: Debug** - Investigate runtime errors
 
@@ -138,8 +138,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md - Enhance progress indicator (lines, pulse, green state)
-- [ ] 08-02-PLAN.md - Add Bruno orbital pulse animation
+- [x] 08-01-PLAN.md - Enhance progress indicator (lines, pulse, green state)
+- [x] 08-02-PLAN.md - Add Bruno orbital pulse animation
 
 ### Phase 9: Navigation Flow
 **Goal**: Progressive disclosure of navigation based on onboarding state
@@ -188,6 +188,6 @@ Phases execute in numeric order: 1 -> 2 -> ... -> 10
 |-------|----------------|--------|-----------|
 | 6. Critical Fixes | 2/2 | Complete | 2026-01-31 |
 | 7. UX Improvements | 2/2 | Complete | 2026-01-31 |
-| 8. Visual Polish | 0/2 | Not Started | — |
+| 8. Visual Polish | 2/2 | Complete | 2026-01-31 |
 | 9. Navigation Flow | 0/2 | Not Started | — |
 | 10. Debug | 0/1 | Not Started | — |
