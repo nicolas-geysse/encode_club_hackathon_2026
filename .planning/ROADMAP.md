@@ -156,16 +156,16 @@ Plans:
 - [x] 09-02-PLAN.md - Quick link shortcuts below Bruno avatar
 
 ### Phase 10: Debug
-**Goal**: Investigate and fix runtime errors
+**Goal**: Investigate and document runtime.lastError warning (browser extension issue)
 **Depends on**: Phase 9
-**Requirements**: Fix async listener error in certifications
+**Requirements**: Investigate async listener error during certifications selection
 **Success Criteria** (what must be TRUE):
-  1. No runtime.lastError warnings during certification selection
-  2. No noticeable lag during selection interactions
-**Plans**: TBD
+  1. runtime.lastError documented as external browser extension issue
+  2. GridMultiSelect confirmed performant with no app-side lag
+**Plans**: 1 plan
 
 Plans:
-- [ ] 10-01-PLAN.md - Investigate and fix runtime errors
+- [ ] 10-01-PLAN.md - Investigate runtime errors and document findings
 
 ## Progress
 
