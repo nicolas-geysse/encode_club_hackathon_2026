@@ -1,0 +1,31 @@
+[
+  {
+    "id": "019beeb6-867e-7429-a48a-1d1b11b7fce6",
+    "name": "chat.context_lookup",
+    "start_time": "2026-01-24T06:34:58.046Z",
+    "end_time": "2026-01-24T06:34:58.507Z",
+    "input": {
+      "profileId": "1e9d331e-ca5e-4d94-bad4-659dac7a9330"
+    },
+    "output": {
+      "profile_id": "1e9d331e-ca5e-4d94-bad4-659dac7a9330",
+      "has_profile": true
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "profile_id": "1e9d331e-ca5e-4d94-bad4-659dac7a9330",
+      "has_name": true,
+      "has_goal": true,
+      "goal_amount": 500,
+      "context_keys": 12,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  }
+]

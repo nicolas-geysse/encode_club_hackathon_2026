@@ -12,14 +12,15 @@ Le codebase `Stride` est exceptionnellement propre pour un hackathon.
 - ✅ Architecture cohérente (SolidStart + Mastra + DuckDB + Opik)
 - ✅ 4 killer features implémentées (Skill Arbitrage, Swipe, Comeback, Energy Debt)
 - ✅ 114+ tests algorithms avec couverture complète
-- ✅ Opik traces sur tous les tools Mastra
+- ✅ Opik traces sur tous les workflows CRITIQUES (y compris Swipe & Chat)
+- ✅ User Feedback (Thumbs Up/Down) connecté à Opik
+- ✅ RAG System connecté au Chat (Budget Coach)
 - ✅ Demo script fonctionnel (`pnpm demo:opik`)
 - ✅ Guardian hybridEvaluation = LLM-as-Judge showcase
 
 **Gaps identifiés**:
-- 🔴 Swipe Preferences: 0% Opik tracing (interactions utilisateur invisibles)
-- 🔴 RAG System: 90% implémenté, 0% connecté aux agents
-- 🟡 User Feedback: Pas de thumbs up/down → opik.logFeedback()
+- 🟡 Projection ML: Agent défini mais logique principalement inline dans les workflows (pas bloquant)
+- 🟡 TabPFN: Evaluation faite (R&D) mais pas intégré en prod (trop lourd pour hackathon)
 
 ---
 
@@ -34,27 +35,23 @@ Le codebase `Stride` est exceptionnellement propre pour un hackathon.
 | guardian | 475 | ✅ Active | ✅ 100% |
 | onboarding | 455 | ✅ Active | ✅ 100% |
 | money-maker | 709 | ✅ Active | ✅ 100% |
-| projection-ml | 251 | ⚠️ Orphelin | - |
+| projection-ml | 251 | 🟡 Passive | - |
 
-**Finding**: `projection-ml` défini mais jamais instancié. Le workflow utilise des fonctions inline.
+**Finding**: `projection-ml` est accessible via `runStudentAnalysis` workflow qui utilise des fonctions pures tracées (`predictGraduation`). C'est une architecture valide "fonctionnelle" plutôt que "agentique" pour ce cas précis.
 
 ### ✅ Algorithms (100% Tested)
 - `skill-arbitrage.ts` - 471 tests, dinero.js precision
 - `comeback-detection.ts` - 434 tests, gamification
 - `energy-debt.ts` - 496 tests, severity levels
 
-### ⚠️ RAG System (90% Complete, 0% Wired)
-**Fichiers existants**:
-- `embeddings.ts` - BGE-M3 model (1024 dims) via @xenova/transformers
-- `vectorstore.ts` - @mastra/duckdb avec HNSW indexing
-- `rag.ts` + `rag-tools.ts` - 6 tools définis avec Opik tracing
+### ✅ RAG System (Connecté)
+- `rag.ts` + `rag-tools.ts` - 6 tools définis
+- **Wired**: Le chat onboarding utilise `fetchRAGContext` pour personnaliser les réponses (`Context similar users`).
 
-**Gap**: `RAG_TOOLS` importé mais jamais appelé par les agents.
-
-### ❌ Swipe Tracing (0% Coverage)
-- `SwipeTab.tsx` et `SwipeSession.tsx` fonctionnent
-- Preference learning via `adjustWeights()` fonctionne
-- **Aucun span Opik** pour les interactions swipe
+### ✅ Swipe Tracing (100% Coverage)
+- `SwipeTab.tsx` → `SwipeSession.tsx` → `/api/swipe-trace`
+- **Covered**: Chaque swipe génère une trace `swipe.preference_update` avec delta des poids.
+- **Feedback**: Thumbs Up/Down sur les messages chat loguent vers Opik.
 
 ---
 

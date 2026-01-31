@@ -695,6 +695,9 @@ export function OnboardingChat() {
       skills: newProfile.skills || [],
       city: newProfile.city || '',
       citySize: newProfile.citySize || '',
+      latitude: newProfile.latitude,
+      longitude: newProfile.longitude,
+      address: newProfile.address,
       incomes: newProfile.incomeSources || [],
       expenses: newProfile.expenses || [],
       maxWorkHours: newProfile.maxWorkHoursWeekly || 15,
@@ -884,8 +887,12 @@ export function OnboardingChat() {
         setProfile({
           name: apiProfile.name,
           diploma: apiProfile.diploma,
+          field: apiProfile.field,
           city: apiProfile.city,
           citySize: apiProfile.citySize,
+          latitude: apiProfile.latitude,
+          longitude: apiProfile.longitude,
+          address: apiProfile.address,
           skills: apiProfile.skills,
           incomes: apiProfile.incomeSources,
           expenses: apiProfile.expenses,
@@ -1649,14 +1656,17 @@ export function OnboardingChat() {
       }
 
       // Auto-fill address and coordinates via geocoding (non-blocking)
+      // Only fill MISSING data - don't overwrite existing address/coordinates from geolocation
       forwardGeocode(String(data.city)).then((geoResult) => {
         if (geoResult) {
           setProfile((prev) => ({
             ...prev,
-            address: geoResult.address || prev.address,
-            latitude: geoResult.coordinates.latitude,
-            longitude: geoResult.coordinates.longitude,
-            // Also update currency from geocoding if more accurate
+            // Keep existing address (from reverse geocoding) if available
+            address: prev.address || geoResult.address,
+            // Keep existing coordinates if available
+            latitude: prev.latitude ?? geoResult.coordinates.latitude,
+            longitude: prev.longitude ?? geoResult.coordinates.longitude,
+            // Also update currency from geocoding if not already set
             currency: prev.currency || geoResult.currency,
           }));
         }
@@ -2427,7 +2437,7 @@ export function OnboardingChat() {
                     step={step()}
                     initialValues={profile() as Record<string, unknown>}
                     currencySymbol={getCurrencySymbolForForm()}
-                    fieldContext={profile().field}
+                    fieldOfStudy={profile().field}
                     onSubmit={handleFormSubmit}
                     onSkip={() => handleSend('none')}
                   />

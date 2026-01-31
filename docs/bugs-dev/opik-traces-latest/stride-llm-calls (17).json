@@ -1,0 +1,28 @@
+[
+  {
+    "id": "019beeb6-b588-77ea-97b9-9a2492944602",
+    "name": "agent.job_matcher",
+    "start_time": "2026-01-24T06:35:10.088Z",
+    "end_time": "2026-01-24T06:35:10.092Z",
+    "input": "",
+    "output": {
+      "matchesCount": 3,
+      "topMatch": "Tutoring",
+      "energyAdjusted": false
+    },
+    "tags": [
+      "job-matcher",
+      "tips"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "duration_ms": 3,
+      "status": "success"
+    }
+  }
+]

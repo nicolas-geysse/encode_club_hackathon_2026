@@ -9,7 +9,13 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, createStrideAgent } from './factory.js';
-import { trace, createSpan, getCurrentTraceHandle, type Span } from '../services/opik.js';
+import {
+  trace,
+  createSpan,
+  getCurrentTraceHandle,
+  setPromptAttributes,
+  type Span,
+} from '../services/opik.js';
 
 /**
  * Strategy types
@@ -238,6 +244,7 @@ export async function compareStrategies(
 
   // Core comparison logic
   const executeComparison = async (span: Span): Promise<StrategyComparison> => {
+    setPromptAttributes(span, 'strategy-comparator');
     span.setInput(inputData);
     span.setAttributes({
       'comparison.strategies_count': strategies.length,

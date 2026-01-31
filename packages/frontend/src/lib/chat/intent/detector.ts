@@ -134,6 +134,38 @@ export function detectIntent(message: string, _context: Record<string, unknown>)
   }
 
   // ==========================================================================
+  // PAUSE SUBSCRIPTION (Specific Intent)
+  // ==========================================================================
+  // "Pause Spotify", "Stop Netflix", "Cancel subscription"
+  if (lower.match(/\b(pause|stop|cancel|end|terminate)\b/i)) {
+    // Check for specific service name
+    const serviceMatch =
+      SERVICE_NAMES.find((s) => lower.includes(s)) ||
+      SUBSCRIPTION_PATTERNS.find((p) => p[0].test(lower))?.[1].name;
+
+    if (serviceMatch) {
+      // serviceMatch is already a string (name) because of the .name access above
+      const serviceName = typeof serviceMatch === 'string' ? serviceMatch : String(serviceMatch);
+      return {
+        mode: 'conversation',
+        action: 'pause_subscription',
+        field: 'subscription',
+        extractedValue: serviceName,
+        _matchedPattern: 'pause_subscription_explicit',
+      };
+    }
+
+    // Generic pause intent if "subscription" is mentioned
+    if (lower.match(/\b(subscription|sub)\b/i)) {
+      return {
+        mode: 'conversation',
+        action: 'pause_subscription',
+        _matchedPattern: 'pause_subscription_generic',
+      };
+    }
+  }
+
+  // ==========================================================================
   // ADD RESOURCE (Proactive Subscription/Item detection)
   // ==========================================================================
   // Check if message is JUST a service name (e.g. "Netflix", "Spotify") to propose adding it

@@ -9,7 +9,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
-import { trace } from '../services/opik.js';
+import { trace, setPromptAttributes } from '../services/opik.js';
 
 // === Tool Definitions ===
 
@@ -34,8 +34,9 @@ export const analyzeBudgetTool = createTool({
     ),
   }),
   execute: async (input) => {
-    return trace('tool.analyze_budget', async (span) => {
-      span.setAttributes({
+    return trace('tool.analyze_budget', async (ctx) => {
+      setPromptAttributes(ctx, 'budget-coach');
+      ctx.setAttributes({
         'input.income_sources': input.incomes.length,
         'input.expense_categories': input.expenses.length,
       });
@@ -65,7 +66,7 @@ export const analyzeBudgetTool = createTool({
       const severity =
         margin < -100 ? 'critical' : margin < 0 ? 'warning' : margin < 50 ? 'tight' : 'comfortable';
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.margin': margin,
         'output.status': status,
         'output.severity': severity,
@@ -101,8 +102,9 @@ export const generateAdviceTool = createTool({
     context: z.string().optional().describe('Additional context'),
   }),
   execute: async (input) => {
-    return trace('tool.generate_advice', async (span) => {
-      span.setAttributes({
+    return trace('tool.generate_advice', async (ctx) => {
+      setPromptAttributes(ctx, 'budget-coach');
+      ctx.setAttributes({
         'input.margin': input.margin ?? null,
         'input.has_loan': input.hasLoan ?? false,
         'input.skills_count': input.skills?.length ?? 0,
@@ -146,7 +148,7 @@ export const generateAdviceTool = createTool({
 
       const priority = input.margin && input.margin < 0 ? 'urgent' : 'normal';
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.advice_count': advice.length,
         'output.priority': priority,
       });
@@ -179,8 +181,9 @@ export const findOptimizationsTool = createTool({
     constraints: z.array(z.string()).optional().describe('Constraints (e.g., "no roommate")'),
   }),
   execute: async (input) => {
-    return trace('tool.find_optimizations', async (span) => {
-      span.setAttributes({
+    return trace('tool.find_optimizations', async (ctx) => {
+      setPromptAttributes(ctx, 'budget-coach');
+      ctx.setAttributes({
         'input.categories_count': input.expenseCategories.length,
         'input.constraints_count': input.constraints?.length ?? 0,
       });
@@ -300,7 +303,7 @@ export const findOptimizationsTool = createTool({
 
       const totalPotentialSavings = results.reduce((sum, r) => sum + r.potentialSavings, 0);
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.optimizations_count': Math.min(results.length, 10),
         'output.total_potential_savings': totalPotentialSavings,
         'output.top_recommendation': results[0]?.solution ?? null,

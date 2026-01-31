@@ -139,7 +139,17 @@ async function initializeDatabaseInternal(state: DuckDBState): Promise<void> {
         state.initialized = true;
         // Start periodic checkpoint after successful init
         startPeriodicCheckpoint();
-        resolve();
+
+        // Load VSS extension for vector operations
+        conn.exec('INSTALL vss; LOAD vss;', (err) => {
+          if (err) {
+            console.warn('[DuckDB] Failed to load VSS extension:', err.message);
+            // Non-fatal for now, but vector functions won't work
+          } else {
+            console.log('[DuckDB] VSS extension loaded');
+          }
+          resolve();
+        });
       }
     });
   });

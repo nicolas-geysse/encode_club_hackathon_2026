@@ -92,6 +92,8 @@ export interface ProfileData {
   missingInfo?: string[];
   /** Fields that were mentioned but don't match the current step context (HITL candidates) */
   ambiguousFields?: Record<string, unknown>;
+  /** General facts extracted for Working Memory (Scratchpad) */
+  workingMemoryUpdates?: string[];
 }
 
 // =============================================================================
@@ -154,6 +156,7 @@ export interface OnboardingInput {
   existingProfile: ProfileData;
   threadId?: string;
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+  workingMemory?: string[];
 }
 
 export interface OnboardingOutput {

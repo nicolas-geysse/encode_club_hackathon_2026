@@ -1,0 +1,1068 @@
+[
+  {
+    "id": "019c0e4d-8e9e-74bc-a856-1e83b39c508d",
+    "name": "chat.llm_generation",
+    "start_time": "2026-01-30T09:48:09.758Z",
+    "end_time": "2026-01-30T09:48:10.496Z",
+    "input": {
+      "message": "Bonjour je suis étudiant"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4d-8e98-7702-bac9-90b50af394b8",
+    "name": "chat.budget_context",
+    "start_time": "2026-01-30T09:48:09.752Z",
+    "end_time": "2026-01-30T09:48:10.496Z",
+    "input": {
+      "profileId": "eec95aae-df41-445f-9a62-db308e565448"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "budget.available": false,
+      "budget.net_margin": 0,
+      "budget.adjusted_margin": 0,
+      "budget.goal_progress": 0,
+      "duration_ms": 5,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-8e98-7702-bac9-8fc5e4009b0f",
+    "name": "chat.context_lookup",
+    "start_time": "2026-01-30T09:48:09.752Z",
+    "end_time": "2026-01-30T09:48:10.496Z",
+    "input": {
+      "profileId": "eec95aae-df41-445f-9a62-db308e565448"
+    },
+    "output": {
+      "profile_id": "eec95aae-df41-445f-9a62-db308e565448",
+      "has_profile": true
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "profile_id": "eec95aae-df41-445f-9a62-db308e565448",
+      "has_name": true,
+      "has_goal": true,
+      "goal_amount": 1000,
+      "context_keys": 13,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-8e98-7702-bac9-88a8d1e09a43",
+    "name": "chat.intent_detection",
+    "start_time": "2026-01-30T09:48:09.752Z",
+    "end_time": "2026-01-30T09:48:10.496Z",
+    "input": {
+      "message": "Bonjour je suis étudiant"
+    },
+    "output": {
+      "intent": {
+        "mode": "conversation",
+        "_matchedPattern": "default_fallback"
+      },
+      "is_fallback": true
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "detected_mode": "conversation",
+      "detected_action": "general",
+      "detected_field": "none",
+      "message_length": 24,
+      "message_preview": "Bonjour je suis étudiant",
+      "is_fallback": true,
+      "matched_pattern": "default_fallback",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-3696-779a-aafa-2c553850a6db",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:47:47.222Z",
+    "end_time": "2026-01-30T09:47:47.223Z",
+    "input": "",
+    "output": {
+      "response_length": 86,
+      "response_preview": "Your profile is complete, Nico! Head to \"My Plan\" to see your personalized strategies."
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "complete",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-3696-779a-aafa-2824ebbaf565",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:47:47.222Z",
+    "end_time": "2026-01-30T09:47:47.223Z",
+    "input": {
+      "extracted_keys": "subscriptions"
+    },
+    "output": {
+      "next_step": "complete",
+      "did_advance": true,
+      "merged_fields": 14,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 1,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-3695-7221-943a-913faf2e4795",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:47:47.221Z",
+    "end_time": "2026-01-30T09:47:47.223Z",
+    "input": {
+      "message": "Netflix",
+      "step": "lifestyle"
+    },
+    "output": {
+      "method": "regex_fallback",
+      "reason": "groq_empty",
+      "extracted_fields": 1
+    },
+    "tags": "",
+    "usage.total_tokens": 0,
+    "usage.prompt_tokens": 0,
+    "usage.completion_tokens": 0,
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq",
+      "extraction.step": "lifestyle",
+      "extraction.message_preview": "Netflix",
+      "extraction.history_length": 8,
+      "duration_ms": 1,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-26f0-723b-8dac-bb973ef6c332",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:47:43.216Z",
+    "end_time": "2026-01-30T09:47:43.216Z",
+    "input": "",
+    "output": {
+      "response_length": 79,
+      "response_preview": "Got it! What subscriptions do you pay for? (Netflix, Spotify, gym... or 'none')"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "lifestyle",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-26f0-723b-8dac-b646976727b5",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:47:43.216Z",
+    "end_time": "2026-01-30T09:47:43.216Z",
+    "input": {
+      "extracted_keys": "workingMemoryUpdates"
+    },
+    "output": {
+      "next_step": "lifestyle",
+      "did_advance": true,
+      "merged_fields": 14,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 1,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-2475-772c-9828-c0d2aba40258",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:47:42.581Z",
+    "end_time": "2026-01-30T09:47:43.216Z",
+    "input": {
+      "message": "borrow tent from alex (saves $50)",
+      "step": "trade"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4c-fb88-7249-b71b-96f8a3cbb693",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:47:32.104Z",
+    "end_time": "2026-01-30T09:47:32.104Z",
+    "input": "",
+    "output": {
+      "response_length": 188,
+      "response_preview": "Thanks! Are there things you could borrow instead of buying, or skills you could trade with friends?"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "trade",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-fb87-70d6-99bc-47bc8c91a42a",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:47:32.103Z",
+    "end_time": "2026-01-30T09:47:32.104Z",
+    "input": {
+      "extracted_keys": "inventoryItems"
+    },
+    "output": {
+      "next_step": "trade",
+      "did_advance": true,
+      "merged_fields": 14,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 1,
+      "merge.has_data": true,
+      "duration_ms": 1,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-f8c6-710a-88b7-22c80c4003ed",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:47:31.398Z",
+    "end_time": "2026-01-30T09:47:32.104Z",
+    "input": {
+      "message": "iphone ($100)",
+      "step": "inventory"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4c-a79e-715a-80e2-204e690910c0",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:47:10.622Z",
+    "end_time": "2026-01-30T09:47:10.623Z",
+    "input": "",
+    "output": {
+      "response_length": 85,
+      "response_preview": "Noted! Any items you could sell for extra cash? (textbooks, electronics... or 'none')"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "inventory",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-a79e-715a-80e2-1caa803ed6cb",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:47:10.622Z",
+    "end_time": "2026-01-30T09:47:10.623Z",
+    "input": {
+      "extracted_keys": "name,diploma,field,city,skills,income,expenses,maxWorkHours,minHourlyRate,goalName,goalAmount,goalDeadline,currency,academicEvents"
+    },
+    "output": {
+      "next_step": "inventory",
+      "did_advance": true,
+      "merged_fields": 14,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 14,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-a32b-71de-b328-a0fd55c46655",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:47:09.483Z",
+    "end_time": "2026-01-30T09:47:10.623Z",
+    "input": {
+      "message": "exam (exam_period)",
+      "step": "academic_events"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4c-72e0-778e-a26b-49f6096e537e",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:57.120Z",
+    "end_time": "2026-01-30T09:46:57.120Z",
+    "input": "",
+    "output": {
+      "response_length": 78,
+      "response_preview": "Great goal! Any upcoming exams or busy periods to plan around? (or say 'none')"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "academic_events",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-72e0-778e-a26b-477a52638e87",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:57.120Z",
+    "end_time": "2026-01-30T09:46:57.120Z",
+    "input": {
+      "extracted_keys": "goalName,goalAmount,goalDeadline"
+    },
+    "output": {
+      "next_step": "academic_events",
+      "did_advance": true,
+      "merged_fields": 13,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 3,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-7166-70a8-988d-1cbd4bcf4d47",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:56.742Z",
+    "end_time": "2026-01-30T09:46:57.120Z",
+    "input": {
+      "message": "Vacation - 1000 by 2026-04-30",
+      "step": "goal"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4c-4252-739e-b580-4c836ce417a9",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:44.690Z",
+    "end_time": "2026-01-30T09:46:44.690Z",
+    "input": "",
+    "output": {
+      "response_length": 65,
+      "response_preview": "Perfect! What's your savings goal? (what, how much in €, by when)"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "goal",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-4252-739e-b580-494910d9183f",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:44.690Z",
+    "end_time": "2026-01-30T09:46:44.690Z",
+    "input": {
+      "extracted_keys": "maxWorkHours,minHourlyRate"
+    },
+    "output": {
+      "next_step": "goal",
+      "did_advance": true,
+      "merged_fields": 10,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 2,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-40a1-721a-a2aa-f30e0f73ff74",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:44.257Z",
+    "end_time": "2026-01-30T09:46:44.690Z",
+    "input": {
+      "message": "15 hours per week, minimum 12/h",
+      "step": "work_preferences"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4c-37da-7516-b624-7ea89b478e50",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:42.010Z",
+    "end_time": "2026-01-30T09:46:42.010Z",
+    "input": "",
+    "output": {
+      "response_length": 91,
+      "response_preview": "Thanks! How many hours per week can you work, and what's your minimum hourly rate? (in €/h)"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "work_preferences",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-37da-7516-b624-7b591e46c78b",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:42.010Z",
+    "end_time": "2026-01-30T09:46:42.010Z",
+    "input": {
+      "extracted_keys": "workingMemoryUpdates"
+    },
+    "output": {
+      "next_step": "work_preferences",
+      "did_advance": true,
+      "merged_fields": 11,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 1,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-3603-702c-88c4-32553c016986",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:41.539Z",
+    "end_time": "2026-01-30T09:46:42.010Z",
+    "input": {
+      "message": "beginning of month",
+      "step": "income_timing"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4c-2432-7229-b4ac-c3ccb4be0485",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:36.978Z",
+    "end_time": "2026-01-30T09:46:36.978Z",
+    "input": "",
+    "output": {
+      "response_length": 85,
+      "response_preview": "Nice! When does your income usually arrive each month? (beginning, mid-month, or end)"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "income_timing",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-2432-7229-b4ac-bfd2419f456c",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:36.978Z",
+    "end_time": "2026-01-30T09:46:36.978Z",
+    "input": {
+      "extracted_keys": "income,expenses"
+    },
+    "output": {
+      "next_step": "income_timing",
+      "did_advance": true,
+      "merged_fields": 10,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 2,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-2279-73bd-a9ad-13da9463fc96",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:36.537Z",
+    "end_time": "2026-01-30T09:46:36.978Z",
+    "input": {
+      "message": "income 1000, expenses 800",
+      "step": "budget"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4c-08f3-717b-b932-cf75d84e0285",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:30.003Z",
+    "end_time": "2026-01-30T09:46:30.003Z",
+    "input": "",
+    "output": {
+      "response_length": 80,
+      "response_preview": "Got it! Now about your budget - how much do you earn and spend per month? (in €)"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "budget",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-08f3-717b-b932-c836f8a70b86",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:30.003Z",
+    "end_time": "2026-01-30T09:46:30.003Z",
+    "input": {
+      "extracted_keys": "certifications"
+    },
+    "output": {
+      "next_step": "budget",
+      "did_advance": true,
+      "merged_fields": 10,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 1,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4c-07c3-701a-8ee6-f0e9a120ce97",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:29.699Z",
+    "end_time": "2026-01-30T09:46:30.003Z",
+    "input": {
+      "message": "BAFA (Animation)",
+      "step": "certifications"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4b-f9e9-75cf-b041-25809e94f8e5",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:26.153Z",
+    "end_time": "2026-01-30T09:46:26.153Z",
+    "input": "",
+    "output": {
+      "response_length": 256,
+      "response_preview": "Awesome skills! Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "certifications",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-f9e9-75cf-b041-2016531a8fd7",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:26.153Z",
+    "end_time": "2026-01-30T09:46:26.153Z",
+    "input": {
+      "extracted_keys": "skills"
+    },
+    "output": {
+      "next_step": "certifications",
+      "did_advance": true,
+      "merged_fields": 9,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 1,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-f7ff-704e-b023-fcbf13c34905",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:25.663Z",
+    "end_time": "2026-01-30T09:46:26.153Z",
+    "input": {
+      "message": "Python",
+      "step": "skills"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4b-ec92-7150-b865-670c413611ca",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:22.738Z",
+    "end_time": "2026-01-30T09:46:22.738Z",
+    "input": "",
+    "output": {
+      "response_length": 77,
+      "response_preview": "Great, Nico! What skills do you have? (coding, languages, tutoring, music...)"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "skills",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-ec92-7150-b865-60afa54c0d24",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:22.738Z",
+    "end_time": "2026-01-30T09:46:22.738Z",
+    "input": {
+      "extracted_keys": "diploma,field,workingMemoryUpdates"
+    },
+    "output": {
+      "next_step": "skills",
+      "did_advance": true,
+      "merged_fields": 10,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 3,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-ea88-7289-8852-654ffe2dd1e5",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:22.216Z",
+    "end_time": "2026-01-30T09:46:22.738Z",
+    "input": {
+      "message": "master2 in Eco",
+      "step": "studies"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4b-d12a-76ea-9d56-01c2508fd98f",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:46:15.722Z",
+    "end_time": "2026-01-30T09:46:15.722Z",
+    "input": "",
+    "output": {
+      "response_length": 152,
+      "response_preview": "Nice to meet you, Nico! What are you studying?\n\nTell me your education level and field (e.g., \"Bache"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "studies",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-d12a-76ea-9d55-fd58930b345c",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:46:15.722Z",
+    "end_time": "2026-01-30T09:46:15.722Z",
+    "input": {
+      "extracted_keys": "name"
+    },
+    "output": {
+      "next_step": "studies",
+      "did_advance": true,
+      "merged_fields": 7,
+      "currency_skipped": false
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 1,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-cf89-77e1-a16d-901ba90b1675",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:46:15.305Z",
+    "end_time": "2026-01-30T09:46:15.722Z",
+    "input": {
+      "message": "Nico",
+      "step": "name"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  },
+  {
+    "id": "019c0e4b-7076-737d-a0b6-763cc866f4ce",
+    "name": "agent.response_generation",
+    "start_time": "2026-01-30T09:45:50.966Z",
+    "end_time": "2026-01-30T09:45:50.966Z",
+    "input": "",
+    "output": {
+      "response_length": 49,
+      "response_preview": "Got it! I'll show amounts in €. What's your name?"
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "response.has_extracted": true,
+      "response.next_step": "name",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-7076-737d-a0b6-701a838ebdf9",
+    "name": "agent.data_merge",
+    "start_time": "2026-01-30T09:45:50.966Z",
+    "end_time": "2026-01-30T09:45:50.966Z",
+    "input": {
+      "extracted_keys": "city,currency"
+    },
+    "output": {
+      "next_step": "name",
+      "did_advance": true,
+      "merged_fields": 6,
+      "currency_skipped": true
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "merge.extracted_fields": 2,
+      "merge.has_data": true,
+      "duration_ms": 0,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4b-6e42-749b-84e3-16ce34a6b278",
+    "name": "agent.llm_extraction",
+    "start_time": "2026-01-30T09:45:50.401Z",
+    "end_time": "2026-01-30T09:45:50.966Z",
+    "input": {
+      "message": "Montpellier",
+      "step": "greeting"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  }
+]

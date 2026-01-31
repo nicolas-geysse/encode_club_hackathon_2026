@@ -12,7 +12,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, createStrideAgent } from './factory.js';
-import { trace } from '../services/opik.js';
+import { trace, setPromptAttributes } from '../services/opik.js';
 
 /**
  * Common sellable items categories with typical price ranges
@@ -183,8 +183,9 @@ async function analyzeImageForSale(
   }>;
   analysisMethod: string;
 }> {
-  return trace('vision_object_identification', async (span) => {
-    span.setAttributes({
+  return trace('vision_object_identification', async (ctx) => {
+    setPromptAttributes(ctx, 'money-maker');
+    ctx.setAttributes({
       'vision.image_type': imageType,
       'vision.has_data': !!imageData,
     });
@@ -202,7 +203,7 @@ async function analyzeImageForSale(
       },
     ];
 
-    span.setAttributes({
+    ctx.setAttributes({
       'vision.objects_found': mockObjects.length,
       'vision.method': 'mock_simulation',
     });
@@ -226,8 +227,9 @@ async function estimateItemPrice(
   platforms: Array<{ name: string; typicalPrice: number; url: string }>;
   priceFactors: string[];
 }> {
-  return trace('price_estimation', async (span) => {
-    span.setAttributes({
+  return trace('price_estimation', async (ctx) => {
+    setPromptAttributes(ctx, 'money-maker');
+    ctx.setAttributes({
       'price.item_name': itemName,
       'price.category': category,
       'price.condition': condition,
@@ -254,7 +256,7 @@ async function estimateItemPrice(
       url: `https://${name.toLowerCase().replace(/\s/g, '')}.fr`,
     }));
 
-    span.setAttributes({
+    ctx.setAttributes({
       'price.estimated_min': minPrice,
       'price.estimated_max': maxPrice,
       'price.estimated_avg': avgPrice,
@@ -437,8 +439,9 @@ export const budgetImpactTool = createTool({
     monthsRemaining: z.number().describe('Months of study remaining'),
   }),
   execute: async (input) => {
-    return trace('tool.calculate_sale_impact', async (span) => {
-      span.setAttributes({
+    return trace('tool.calculate_sale_impact', async (ctx) => {
+      setPromptAttributes(ctx, 'money-maker');
+      ctx.setAttributes({
         'input.items_value': input.itemsValue,
         'input.current_monthly_margin': input.currentMonthlyMargin,
         'input.months_remaining': input.monthsRemaining,
@@ -450,7 +453,7 @@ export const budgetImpactTool = createTool({
         input.monthsRemaining
       );
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.immediate_impact': result.immediateImpact,
         'output.equivalent_months': result.equivalentMonthsOfMargin,
         'output.projection_with_sale': result.projectionWithSale,
@@ -473,8 +476,9 @@ export const suggestHustlesTool = createTool({
     preferLowEffort: z.boolean().default(false).describe('Prefer low-effort options'),
   }),
   execute: async (input) => {
-    return trace('tool.suggest_side_hustles', async (span) => {
-      span.setAttributes({
+    return trace('tool.suggest_side_hustles', async (ctx) => {
+      setPromptAttributes(ctx, 'money-maker');
+      ctx.setAttributes({
         'input.skills_count': input.skills.length,
         'input.max_hours_weekly': input.maxHoursWeekly,
         'input.prefer_low_effort': input.preferLowEffort,
@@ -486,7 +490,7 @@ export const suggestHustlesTool = createTool({
         input.preferLowEffort ?? false
       );
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.hustles_count': result.length,
         'output.top_hustle': result[0]?.hustle.name ?? null,
         'output.top_match_score': result[0]?.matchScore ?? 0,
@@ -542,7 +546,8 @@ export const moneyMakerAnalysisTool = createTool({
     }),
   }),
   execute: async (input) => {
-    return trace('money_maker_full_analysis', async (span) => {
+    return trace('money_maker_full_analysis', async (ctx) => {
+      setPromptAttributes(ctx, 'money-maker');
       const results: {
         itemsAnalysis?: {
           items: Array<{
@@ -608,7 +613,7 @@ export const moneyMakerAnalysisTool = createTool({
           input.profile.monthsRemaining
         );
 
-        span.setAttributes({
+        ctx.setAttributes({
           'items.count': itemsToAnalyze.length,
           'items.total_value': totalAvg,
         });
@@ -621,7 +626,7 @@ export const moneyMakerAnalysisTool = createTool({
         input.profile.preferLowEffort ?? false
       );
 
-      span.setAttributes({
+      ctx.setAttributes({
         'hustles.suggested': results.sideHustles.length,
       });
 

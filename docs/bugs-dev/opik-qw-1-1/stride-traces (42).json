@@ -1,0 +1,112 @@
+[
+  {
+    "id": "019c0fd9-11eb-7477-82b7-ba61e0726e11",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T17:00:10.091Z",
+    "end_time": "2026-01-30T17:00:10.497Z",
+    "input": {
+      "message": "Nico",
+      "currentStep": "name",
+      "existingProfile": {
+        "city": "Montpellier",
+        "skills": [],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 4
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "name",
+      "onboarding",
+      "tab:profile"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769792349346_hcypci3",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 3,
+    "feedback_scores.actionability_score_reason": "The advice provides general suggestions but lacks specific steps for implementation.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it appropriate for their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide a valid JSON object that addresses the user's input, as it lacks the necessary content and structure to respond to the user's request.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 5,
+    "feedback_scores.safety_score_reason": "The advice emphasizes careful spending and realistic goals, which is crucial for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0fd8-43e5-7479-915c-0de3dab8f2bb",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T16:59:16.818Z",
+    "end_time": "2026-01-30T16:59:17.869Z",
+    "input": {
+      "message": "Montpellier",
+      "currentStep": "greeting",
+      "existingProfile": {
+        "skills": [],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "USD"
+      },
+      "historyLength": 2
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "greeting",
+      "onboarding",
+      "tab:profile"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769792349346_hcypci3",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": "-",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it relevant for their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any response to the user's input regarding Montpellier, nor does it address the user's existing profile or current step.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 2 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice suggests budgeting and saving, which are low-risk strategies suitable for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  }
+]

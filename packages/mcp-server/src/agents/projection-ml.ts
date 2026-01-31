@@ -9,7 +9,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, getAgentConfig, createStrideAgent } from './factory.js';
-import { trace } from '../services/opik.js';
+import { trace, setPromptAttributes } from '../services/opik.js';
 
 // === Tool Definitions ===
 
@@ -29,8 +29,9 @@ export const predictGraduationBalanceTool = createTool({
     currentSavings: z.number().optional().describe('Current savings'),
   }),
   execute: async (input) => {
-    return trace('tool.predict_graduation_balance', async (span) => {
-      span.setAttributes({
+    return trace('tool.predict_graduation_balance', async (ctx) => {
+      setPromptAttributes(ctx, 'projection-ml');
+      ctx.setAttributes({
         'input.monthly_income': input.monthlyIncome,
         'input.monthly_expenses': input.monthlyExpenses,
         'input.years_remaining': input.yearsRemaining,
@@ -87,7 +88,7 @@ export const predictGraduationBalanceTool = createTool({
         },
       };
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.final_balance': finalBalance,
         'output.probability_debt_free': Math.round(probabilityDebtFree * 100),
         'output.projected_monthly_margin': projectedMonthlyMargin,
@@ -147,10 +148,11 @@ export const simulateScenariosTool = createTool({
     ),
   }),
   execute: async (input) => {
-    return trace('tool.simulate_scenarios', async (span) => {
+    return trace('tool.simulate_scenarios', async (ctx) => {
+      setPromptAttributes(ctx, 'projection-ml');
       const { baseScenario, variations } = input;
 
-      span.setAttributes({
+      ctx.setAttributes({
         'input.base_monthly_income': baseScenario.monthlyIncome,
         'input.base_monthly_expenses': baseScenario.monthlyExpenses,
         'input.years_remaining': baseScenario.yearsRemaining,
@@ -202,7 +204,7 @@ export const simulateScenariosTool = createTool({
       // Sort by final balance
       const sortedByBalance = [...results].sort((a, b) => b.finalBalance - a.finalBalance);
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.scenarios_count': results.length,
         'output.best_scenario': sortedByBalance[0].name,
         'output.best_final_balance': sortedByBalance[0].finalBalance,

@@ -23,7 +23,8 @@ export const ACTIONS: Record<ActionType, ActionDefinition> = {
       {
         name: 'resourceName',
         label: 'Subscription Name',
-        type: 'text',
+        type: 'select', // Changed from text to select
+        options: ['dynamic:subscriptions'], // Marker for dynamic population
         required: true,
       },
       {
@@ -31,6 +32,7 @@ export const ACTIONS: Record<ActionType, ActionDefinition> = {
         label: 'Duration (Months)',
         type: 'duration',
         required: true,
+        // We'll handle default value injection in the dispatcher
       },
     ],
     uiComponent: 'DurationSelector',

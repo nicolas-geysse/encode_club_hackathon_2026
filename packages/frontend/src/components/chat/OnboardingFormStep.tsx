@@ -11,6 +11,7 @@ import type { OnboardingStep } from '../../lib/chat/types';
 import {
   getStepFormConfig,
   getSkillsForField,
+  getAllSkills,
   type FormField,
   type DynamicListFieldConfig,
 } from '../../lib/chat/stepForms';
@@ -33,8 +34,9 @@ interface OnboardingFormStepProps {
   initialValues?: Record<string, unknown>;
   /** Currency symbol for displaying amounts */
   currencySymbol?: string;
-  /** User's field of study - used for contextual skill suggestions */
-  fieldContext?: string;
+  /** User's field of study - used for contextual skill suggestions.
+   * Pass as a direct value (not getter) for proper reactivity. */
+  fieldOfStudy?: string;
   /** Called when form is submitted */
   onSubmit: (data: Record<string, unknown>) => void;
   /** Called when user starts typing (for text-based input fallback) */
@@ -142,10 +144,17 @@ function MultiSelectPills(props: {
   const [showSuggestions, setShowSuggestions] = createSignal(false);
 
   const availableSuggestions = () => {
-    // Use reactive getter if provided, otherwise fall back to field.suggestions
-    const suggestions = props.getSuggestions
-      ? props.getSuggestions()
-      : props.field.suggestions || [];
+    // Use reactive getter if provided, otherwise fall back to field.suggestions or getAllSkills
+    let suggestions: string[];
+    if (props.getSuggestions) {
+      suggestions = props.getSuggestions();
+      // If getter returns empty (e.g., field undefined), use all skills as fallback
+      if (suggestions.length === 0) {
+        suggestions = getAllSkills();
+      }
+    } else {
+      suggestions = props.field.suggestions || [];
+    }
     return suggestions.filter(
       (s) => !props.selected.includes(s) && s.toLowerCase().includes(inputValue().toLowerCase())
     );
@@ -213,7 +222,11 @@ function MultiSelectPills(props: {
               {(suggestion) => (
                 <button
                   type="button"
-                  onClick={() => addItem(suggestion)}
+                  onMouseDown={(e) => {
+                    // Prevent blur from closing dropdown before click registers
+                    e.preventDefault();
+                    addItem(suggestion);
+                  }}
                   class="w-full px-3 py-2 text-left text-foreground hover:bg-muted"
                 >
                   {suggestion}
@@ -815,7 +828,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
         );
 
       case 'multi-select-pills': {
-        // For skills field, use a reactive getter for field-specific suggestions
+        // For skills field, use field-specific suggestions based on user's field of study
         const isSkillsField = props.step === 'skills' && field.name === 'skills';
 
         return (
@@ -823,7 +836,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             field={field}
             selected={(value() as string[]) || []}
             onChange={(v) => updateField(field.name, v)}
-            getSuggestions={isSkillsField ? () => getSkillsForField(props.fieldContext) : undefined}
+            getSuggestions={isSkillsField ? () => getSkillsForField(props.fieldOfStudy) : undefined}
           />
         );
       }

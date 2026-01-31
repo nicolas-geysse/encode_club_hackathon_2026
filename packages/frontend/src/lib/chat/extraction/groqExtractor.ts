@@ -233,7 +233,8 @@ export async function extractWithGroq(
   message: string,
   step: string,
   existing: ProfileData,
-  conversationHistory?: { role: 'user' | 'assistant'; content: string }[]
+  conversationHistory?: { role: 'user' | 'assistant'; content: string }[],
+  workingMemory?: string[]
 ): Promise<ExtractionResult | null> {
   // Skip extraction for 'complete' and 'lifestyle' steps - nothing meaningful to extract
   if (step === 'complete' || step === 'lifestyle') {
@@ -253,6 +254,14 @@ export async function extractWithGroq(
     const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
       { role: 'system', content: GROQ_EXTRACTION_SYSTEM_PROMPT },
     ];
+
+    // Inject Working Memory (Agent Scratchpad)
+    if (workingMemory && workingMemory.length > 0) {
+      messages.push({
+        role: 'system',
+        content: `KNOWN FACTS (Working Memory):\n- ${workingMemory.join('\n- ')}\n\n(Do not re-extract these unless changed.)`,
+      });
+    }
 
     // Add recent conversation history (last 2 turns = 4 messages) for context
     if (conversationHistory && conversationHistory.length > 0) {

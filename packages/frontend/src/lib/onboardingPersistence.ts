@@ -340,17 +340,33 @@ export async function persistTrades(
   if (!trades || trades.length === 0) return true;
 
   try {
-    await tradeService.bulkCreateTrades(
-      profileId,
-      trades.map((trade) => ({
+    // Sprint 13.17: Filter out invalid trades and provide fallbacks
+    // The API requires name and partner to be non-empty strings
+    const validTrades = trades
+      .filter((trade) => {
+        // Must have at least a description or forWhat to create a meaningful trade
+        const hasContent = trade.description || trade.forWhat;
+        if (!hasContent) {
+          logger.warn('Skipping trade with no description', { trade });
+        }
+        return hasContent;
+      })
+      .map((trade) => ({
         type: trade.type === 'cut' ? 'sell' : trade.type,
-        name: trade.description,
-        partner: trade.withPerson || 'Unknown',
+        // Use description, fallback to forWhat, or generate from type
+        name: trade.description || trade.forWhat || `${trade.type} opportunity`,
+        partner: trade.withPerson || 'To be determined',
         value: trade.estimatedValue ?? 0,
         description: trade.forWhat,
         status: 'pending' as const,
-      }))
-    );
+      }));
+
+    if (validTrades.length === 0) {
+      logger.info('No valid trades to persist after filtering');
+      return true;
+    }
+
+    await tradeService.bulkCreateTrades(profileId, validTrades);
     return true;
   } catch (error) {
     logger.error('Failed to persist trades', { error });

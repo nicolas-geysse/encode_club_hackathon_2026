@@ -1,0 +1,75 @@
+[
+  {
+    "id": "019beeb6-b58c-7399-9acc-30b17a5f866d",
+    "name": "strategy_comparison",
+    "start_time": "2026-01-24T06:35:10.092Z",
+    "end_time": "2026-01-24T06:35:10.094Z",
+    "input": {
+      "strategies": [
+        {
+          "id": "job_tutoring",
+          "name": "Tutoring",
+          "type": "job",
+          "monthlyGain": 1000
+        },
+        {
+          "id": "job_freelance_dev",
+          "name": "Freelance Development",
+          "type": "job",
+          "monthlyGain": 1400
+        },
+        {
+          "id": "job_content_writing",
+          "name": "Content Writing",
+          "type": "job",
+          "monthlyGain": 800
+        },
+        {
+          "id": "opt_consider_a_roommate_or_shared_housing",
+          "name": "Consider a roommate or shared housing",
+          "type": "optimization",
+          "monthlyGain": 0
+        },
+        {
+          "id": "opt_meal_prep_and_cook_at_home_more",
+          "name": "Meal prep and cook at home more",
+          "type": "optimization",
+          "monthlyGain": 0
+        }
+      ],
+      "userContext": {
+        "monthlyMargin": 0,
+        "urgency": "medium",
+        "hoursAvailable": 10,
+        "goalAmount": 500
+      }
+    },
+    "output": {
+      "bestOverall": "Consider a roommate or shared housing",
+      "bestQuickWin": "Consider a roommate or shared housing",
+      "bestLongTerm": "Consider a roommate or shared housing",
+      "recommendation": "Consider a roommate or shared housing is your best option (~$200/month). ",
+      "strategiesCount": 5
+    },
+    "tags": [
+      "strategy-comparator",
+      "tips"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "comparison.strategies_count": 5,
+      "comparison.urgency": "medium",
+      "comparison.monthly_margin": 0,
+      "comparison.best_overall": "Consider a roommate or shared housing",
+      "comparison.best_quick": "Consider a roommate or shared housing",
+      "comparison.best_longterm": "Consider a roommate or shared housing",
+      "duration_ms": 2,
+      "status": "success"
+    }
+  }
+]

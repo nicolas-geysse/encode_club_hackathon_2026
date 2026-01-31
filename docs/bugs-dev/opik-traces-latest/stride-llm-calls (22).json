@@ -1,0 +1,22 @@
+[
+  {
+    "id": "019beeb6-8694-755b-a524-299474c60016",
+    "name": "chat.llm_generation",
+    "start_time": "2026-01-24T06:34:58.068Z",
+    "end_time": "2026-01-24T06:34:58.506Z",
+    "input": {
+      "message": "test"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "provider": "groq"
+    }
+  }
+]

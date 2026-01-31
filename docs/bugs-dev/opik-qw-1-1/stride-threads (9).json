@@ -1,0 +1,33 @@
+[
+  {
+    "id": "thread_1769792349346_hcypci3",
+    "first_message": {
+      "message": "Montpellier",
+      "currentStep": "greeting",
+      "existingProfile": {
+        "skills": [],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "USD"
+      },
+      "historyLength": 2
+    },
+    "last_message": "",
+    "number_of_messages": 4,
+    "status": "active",
+    "created_at": "2026-01-30T16:59:18.042488322Z",
+    "last_updated_at": "2026-01-30T17:00:10.810321Z",
+    "duration": 53679,
+    "tags": "",
+    "start_time": "2026-01-30T16:59:16.818Z",
+    "end_time": "2026-01-30T17:00:10.497Z",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "created_by": "nickoolas",
+    "comments": "",
+    "feedback_scores.User feedback": "-"
+  }
+]

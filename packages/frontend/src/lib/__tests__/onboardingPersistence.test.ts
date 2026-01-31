@@ -57,6 +57,22 @@ vi.mock('~/lib/tradeService', () => ({
   },
 }));
 
+// Sprint 13.17: Add missing mocks for simulationService and eventBus
+vi.mock('~/lib/simulationService', () => ({
+  simulationService: {
+    getSimulationState: vi.fn().mockResolvedValue({
+      simulatedDate: '2025-01-29T00:00:00.000Z',
+      offsetDays: 0,
+    }),
+  },
+}));
+
+vi.mock('~/lib/eventBus', () => ({
+  eventBus: {
+    emit: vi.fn(),
+  },
+}));
+
 vi.mock('~/lib/logger', () => ({
   createLogger: () => ({
     info: vi.fn(),
@@ -104,16 +120,28 @@ describe('onboardingPersistence', () => {
       deadline: '2025-06-01',
     };
 
-    it('deletes existing goals before creating new one', async () => {
+    it('archives existing goals before creating new one', async () => {
+      // Mock: no existing active goals
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([]), // No existing goals
+      });
+      // Mock: POST new goal succeeds
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'new-goal' }),
+      });
+
       const result = await persistGoal(profileId, goalData);
 
       expect(result).toBe(true);
       expect(mockFetch).toHaveBeenCalledTimes(2);
 
-      // First call: DELETE existing goals
-      expect(mockFetch).toHaveBeenNthCalledWith(1, `/api/goals?profileId=${profileId}`, {
-        method: 'DELETE',
-      });
+      // First call: GET existing active goals
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        `/api/goals?profileId=${profileId}&status=active`
+      );
 
       // Second call: POST new goal
       expect(mockFetch).toHaveBeenNthCalledWith(
@@ -127,15 +155,32 @@ describe('onboardingPersistence', () => {
     });
 
     it('includes academicEvents in planData when provided', async () => {
+      // Mock: no existing active goals
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([]),
+      });
+      // Mock: POST new goal succeeds
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: 'new-goal' }),
+      });
+
       const goalWithEvents: GoalData = {
         ...goalData,
         academicEvents: [
-          { name: 'Final Exams', type: 'exam', startDate: '2025-05-15', endDate: '2025-05-30' },
+          {
+            name: 'Final Exams',
+            type: 'exam_period',
+            startDate: '2025-05-15',
+            endDate: '2025-05-30',
+          },
         ],
       };
 
       await persistGoal(profileId, goalWithEvents);
 
+      // The POST call is the second one (after GET for existing goals)
       const postCall = mockFetch.mock.calls[1];
       const body = JSON.parse(postCall[1].body);
       expect(body.planData).toBeDefined();
@@ -371,14 +416,14 @@ describe('onboardingPersistence', () => {
       );
     });
 
-    it('uses default partner "Unknown" when withPerson is not provided', async () => {
+    it('uses default partner "To be determined" when withPerson is not provided', async () => {
       const tradesNoPartner: TradeOpportunity[] = [{ type: 'sell', description: 'Item' }];
 
       await persistTrades(profileId, tradesNoPartner);
 
       expect(tradeService.bulkCreateTrades).toHaveBeenCalledWith(
         profileId,
-        expect.arrayContaining([expect.objectContaining({ partner: 'Unknown' })])
+        expect.arrayContaining([expect.objectContaining({ partner: 'To be determined' })])
       );
     });
 
@@ -394,6 +439,22 @@ describe('onboardingPersistence', () => {
     const profileId = 'test-profile-123';
 
     it('returns success when all tasks complete', async () => {
+      // Mock fetch to return appropriate responses for goal persistence
+      mockFetch.mockImplementation((url: string) => {
+        if (url.includes('/api/goals') && url.includes('status=active')) {
+          // GET existing goals - return empty array
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([]),
+          });
+        }
+        // All other requests succeed
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ id: 'new-item' }),
+        });
+      });
+
       const result = await persistAllOnboardingData(profileId, {
         goal: { name: 'Test Goal', amount: 500, deadline: '2025-06-01' },
         skills: ['Python'],

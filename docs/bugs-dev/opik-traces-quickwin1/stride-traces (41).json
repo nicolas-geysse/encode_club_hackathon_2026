@@ -1,0 +1,871 @@
+[
+  {
+    "id": "019c0e4d-8e97-71c2-a32a-1c658ea00e3a",
+    "name": "chat.conversation",
+    "start_time": "2026-01-30T09:48:09.751Z",
+    "end_time": "2026-01-30T09:48:10.496Z",
+    "input": {
+      "message": "Bonjour je suis étudiant",
+      "mode": "conversation",
+      "profileId": "eec95aae-df41-445f-9a62-db308e565448",
+      "goalName": "Vacation",
+      "goalAmount": 1000
+    },
+    "output": "",
+    "tags": [
+      "action:general",
+      "conversation"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 4,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the limited income and busy schedule typical of students, making it relevant for their financial planning.",
+    "feedback_scores.conversation_progress": "-",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any response to the user's input about being a student or their vacation goal, failing to address the user's message and context.",
+    "feedback_scores.extraction_success": "-",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice likely emphasizes budgeting and saving for the vacation goal, which is appropriate for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "frontend_api"
+    }
+  },
+  {
+    "id": "019c0e4d-3695-7221-943a-8c28877312a1",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:47:47.221Z",
+    "end_time": "2026-01-30T09:47:47.223Z",
+    "input": {
+      "message": "Netflix",
+      "currentStep": "lifestyle",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "income": 1000,
+        "expenses": 800,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "goalName": "Vacation",
+        "goalAmount": 1000,
+        "goalDeadline": "2026-04-30",
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": {
+      "response": "Your profile is complete, Nico! Head to \"My Plan\" to see your personalized strategies.",
+      "extractedData": {
+        "subscriptions": [
+          {
+            "name": "Netflix",
+            "currentCost": 15
+          }
+        ]
+      },
+      "nextStep": "complete",
+      "isComplete": true,
+      "source": "fallback",
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0
+      }
+    },
+    "tags": [
+      "agent",
+      "onboarding",
+      "tab:lifestyle",
+      "lifestyle"
+    ],
+    "usage.total_tokens": 0,
+    "usage.prompt_tokens": 0,
+    "usage.completion_tokens": 0,
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 2,
+    "feedback_scores.actionability_score_reason": "The advice suggests checking 'My Plan' for personalized strategies, but does not provide specific steps or details on what actions to take.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice acknowledges Nico's complete profile and suggests personalized strategies, which is appropriate given his limited income and busy schedule.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not address the user's input regarding Netflix and the user's financial situation, as it only confirms profile completion without providing relevant financial advice or strategies related to the user's goal.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice focuses on completing a profile and suggests personalized strategies, which implies budgeting and planning, suitable for a student with limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode",
+      "agent.step": "lifestyle",
+      "agent.message_length": 7,
+      "agent.has_history": true,
+      "agent.target_tab": "lifestyle",
+      "agent.source": "fallback",
+      "agent.next_step": "complete",
+      "agent.extracted_fields": 1,
+      "duration_ms": 1,
+      "status": "success"
+    }
+  },
+  {
+    "id": "019c0e4d-2475-772c-9828-bfa9e4b5e059",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:47:42.581Z",
+    "end_time": "2026-01-30T09:47:43.216Z",
+    "input": {
+      "message": "borrow tent from alex (saves $50)",
+      "currentStep": "trade",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "income": 1000,
+        "expenses": 800,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "goalName": "Vacation",
+        "goalAmount": 1000,
+        "goalDeadline": "2026-04-30",
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "trade",
+      "tab:trade",
+      "onboarding"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice to borrow a tent is practical and cost-saving, which aligns well with a student's limited budget and need to save for their vacation goal.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any evaluation or response to the user's input regarding borrowing a tent, failing to address the user's request for assistance in a relevant manner.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "Borrowing a tent to save money is a practical and low-risk strategy for managing expenses.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4c-f8c6-710a-88b7-1fe5bed210b4",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:47:31.398Z",
+    "end_time": "2026-01-30T09:47:32.104Z",
+    "input": {
+      "message": "iphone ($100)",
+      "currentStep": "inventory",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "income": 1000,
+        "expenses": 800,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "goalName": "Vacation",
+        "goalAmount": 1000,
+        "goalDeadline": "2026-04-30",
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "onboarding",
+      "tab:inventory",
+      "inventory"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 2,
+    "feedback_scores.appropriateness_score_reason": "The advice assumes a disposable income for non-essential purchases, which may not align with a typical student's financial constraints.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide a valid JSON response that addresses the user's input regarding the iPhone purchase and the user's financial situation.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice suggests a low-cost purchase, which aligns with budgeting and careful spending.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4c-a32b-71de-b328-9cc6a20c8f01",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:47:09.483Z",
+    "end_time": "2026-01-30T09:47:10.623Z",
+    "input": {
+      "message": "exam (exam_period)",
+      "currentStep": "academic_events",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "income": 1000,
+        "expenses": 800,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "goalName": "Vacation",
+        "goalAmount": 1000,
+        "goalDeadline": "2026-04-30",
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "onboarding",
+      "tab:setup",
+      "academic_events"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice includes clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule during exam periods, making it relevant and practical.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide a valid JSON object that addresses the user's input, as it lacks the necessary content and structure to evaluate correctness based on the provided input.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 14 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice focuses on budgeting and saving for a vacation, which is a low-risk strategy suitable for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4c-7165-764e-8cab-cf3bef10f6e7",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:56.741Z",
+    "end_time": "2026-01-30T09:46:57.120Z",
+    "input": {
+      "message": "Vacation - 1000 by 2026-04-30",
+      "currentStep": "goal",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "income": 1000,
+        "expenses": 800,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "goal",
+      "onboarding",
+      "tab:setup"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice includes clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it appropriate for their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any response to the user's input regarding their vacation goal, thus failing to address the user's request for assistance.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 3 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice focuses on saving for a specific goal (vacation) within a set timeframe, which encourages budgeting and careful financial planning.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4c-40a1-721a-a2aa-ee27f73f8424",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:44.257Z",
+    "end_time": "2026-01-30T09:46:44.690Z",
+    "input": {
+      "message": "15 hours per week, minimum 12/h",
+      "currentStep": "work_preferences",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "income": 1000,
+        "expenses": 800,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "work_preferences",
+      "onboarding",
+      "tab:profile"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and maximum work hours, aligning well with typical student constraints.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any evaluation or response to the user's input regarding work preferences, making it incomplete and irrelevant.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 2 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice suggests a minimum hourly rate and a manageable work schedule, which aligns with budgeting and low-risk strategies.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4c-3603-702c-88c4-2d8e21f49cbd",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:41.539Z",
+    "end_time": "2026-01-30T09:46:42.010Z",
+    "input": {
+      "message": "beginning of month",
+      "currentStep": "income_timing",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "income": 1000,
+        "expenses": 800,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "income_timing",
+      "tab:unknown",
+      "onboarding"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it relevant to their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any relevant information or response to the user's input regarding their financial situation and current step.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice suggests budgeting and managing expenses within a limited income, which is a safe approach for a student.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4c-2279-73bd-a9ad-0ff545915acf",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:36.537Z",
+    "end_time": "2026-01-30T09:46:36.978Z",
+    "input": {
+      "message": "income 1000, expenses 800",
+      "currentStep": "budget",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "onboarding",
+      "tab:profile",
+      "budget"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it relevant for their financial planning.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any relevant information or analysis regarding the user's income and expenses, which is essential for addressing the user's input about budgeting.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 2 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice focuses on budgeting and managing expenses, which is a safe approach for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4c-07c3-701a-8ee6-ee3963d1f203",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:29.699Z",
+    "end_time": "2026-01-30T09:46:30.003Z",
+    "input": {
+      "message": "BAFA (Animation)",
+      "currentStep": "certifications",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [
+          "Python"
+        ],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "tab:skills",
+      "onboarding",
+      "certifications"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 3,
+    "feedback_scores.actionability_score_reason": "The advice provides general suggestions but lacks specific steps for implementation.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it appropriate for their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide a valid JSON object that addresses the user's input regarding BAFA (Animation) and certifications, as it only contains instructions without any relevant content.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice suggests budgeting and saving, which are low-risk strategies suitable for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4b-f7ff-704e-b023-f97ade369536",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:25.663Z",
+    "end_time": "2026-01-30T09:46:26.153Z",
+    "input": {
+      "message": "Python",
+      "currentStep": "skills",
+      "existingProfile": {
+        "name": "Nico",
+        "diploma": "Master",
+        "field": "Economics",
+        "city": "Montpellier",
+        "skills": [],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 8
+    },
+    "output": "",
+    "tags": [
+      "skills",
+      "agent",
+      "tab:skills",
+      "onboarding"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 3,
+    "feedback_scores.actionability_score_reason": "The advice provides general suggestions but lacks specific steps for implementation.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice to learn Python is appropriate as it aligns with the student's need to enhance skills for better job opportunities while considering their limited work hours and busy schedule.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any relevant information or response to the user's input regarding their skills in Python, as it only specifies a format for a JSON object without addressing the user's request.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice suggests budgeting and saving, which are low-risk strategies suitable for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4b-ea88-7289-8852-623d7515cdd0",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:22.216Z",
+    "end_time": "2026-01-30T09:46:22.738Z",
+    "input": {
+      "message": "master2 in Eco",
+      "currentStep": "studies",
+      "existingProfile": {
+        "name": "Nico",
+        "city": "Montpellier",
+        "skills": [],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 6
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "onboarding",
+      "studies",
+      "tab:profile"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 3,
+    "feedback_scores.actionability_score_reason": "The advice provides general suggestions but lacks specific steps for implementation.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it appropriate for their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any relevant information or response to the user's input regarding 'master2 in Eco' and the user's profile details.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 3 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 4,
+    "feedback_scores.safety_score_reason": "The advice suggests budgeting and saving, which are low-risk strategies suitable for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4b-cf89-77e1-a16d-8e262be58192",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:46:15.305Z",
+    "end_time": "2026-01-30T09:46:15.722Z",
+    "input": {
+      "message": "Nico",
+      "currentStep": "name",
+      "existingProfile": {
+        "city": "Montpellier",
+        "skills": [],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "EUR"
+      },
+      "historyLength": 4
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "name",
+      "onboarding",
+      "tab:profile"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it appropriate for their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any JSON object that addresses the user's input, failing to meet the requirement for a valid response.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 1 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 5,
+    "feedback_scores.safety_score_reason": "The advice emphasizes careful spending and realistic goals, which is crucial for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  },
+  {
+    "id": "019c0e4b-6e3f-774b-86ba-316e366ade53",
+    "name": "agent.onboarding",
+    "start_time": "2026-01-30T09:45:50.023Z",
+    "end_time": "2026-01-30T09:45:50.966Z",
+    "input": {
+      "message": "Montpellier",
+      "currentStep": "greeting",
+      "existingProfile": {
+        "skills": [],
+        "expenses": 0,
+        "maxWorkHours": 15,
+        "minHourlyRate": 12,
+        "currency": "USD"
+      },
+      "historyLength": 2
+    },
+    "output": "",
+    "tags": [
+      "agent",
+      "greeting",
+      "onboarding",
+      "tab:profile"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "span_count": 3,
+    "llm_span_count": 1,
+    "thread_id": "thread_1769766343075_8f2o79v",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "feedback_scores.actionability_score": 4,
+    "feedback_scores.actionability_score_reason": "The advice provides clear steps the student can take to improve their financial situation, such as creating a budget and setting savings goals.",
+    "feedback_scores.appropriateness_score": 4,
+    "feedback_scores.appropriateness_score_reason": "The advice considers the student's limited income and busy schedule, making it relevant for their situation.",
+    "feedback_scores.conversation_progress": 1,
+    "feedback_scores.conversation_progress_reason": "Advanced to next step",
+    "feedback_scores.Correctness": 0,
+    "feedback_scores.Correctness_reason": "The output does not provide any JSON object or relevant information based on the user's input about Montpellier and the existing profile.",
+    "feedback_scores.extraction_success": 1,
+    "feedback_scores.extraction_success_reason": "Extracted 2 fields",
+    "feedback_scores.intent_detection_confidence": "-",
+    "feedback_scores.intent_is_fallback": "-",
+    "feedback_scores.safety_score": 5,
+    "feedback_scores.safety_score_reason": "The advice emphasizes careful spending and realistic financial goals, which is crucial for a student with a limited budget.",
+    "feedback_scores.user_helpful": "-",
+    "metadata": {
+      "providers": [
+        "groq"
+      ],
+      "source": "groq_json_mode"
+    }
+  }
+]

@@ -109,22 +109,41 @@ Wrap new LLM operations with the trace function from `services/opik.ts`.
 
 ### Prompt Versioning Pattern
 
-When creating new traced tools, include prompt metadata for regression detection:
+When creating new traced tools, include prompt metadata for regression detection.
+
+**⚠️ SDK Bug Workaround**: The Opik TypeScript SDK (v1.9.98+) has a bug where `trace.update({ metadata })` does not persist metadata. You MUST pass metadata in the initial `traceOptions` instead.
 
 ```typescript
-import { trace, setPromptAttributes } from '../services/opik.js';
+import { trace, type TraceOptions, registerPrompt } from '../lib/opik';
+
+// Register prompt at module load (generates hash)
+const PROMPT_METADATA = registerPrompt('my-agent-id', MY_SYSTEM_PROMPT);
+
+// ✅ CORRECT: Pass metadata in traceOptions (persists correctly)
+const traceOptions: TraceOptions = {
+  source: 'my_source',
+  metadata: {
+    'prompt.name': PROMPT_METADATA.name,
+    'prompt.version': PROMPT_METADATA.version,
+    'prompt.hash': PROMPT_METADATA.hash,
+  },
+};
 
 return trace('tool.my_new_tool', async (ctx) => {
-  setPromptAttributes(ctx, 'agent-id');  // Required for prompt versioning
-  ctx.setAttributes({ /* input/output attrs */ });
+  ctx.setAttributes({ /* input/output attrs - these work */ });
   // ...
-});
+}, traceOptions);
+
+// ❌ WRONG: setPromptAttributes uses update() internally - metadata is LOST
+// setPromptAttributes(ctx, 'my-agent-id');  // Don't use this!
 ```
 
 This adds `prompt.name`, `prompt.version`, `prompt.hash` to the trace metadata, enabling:
 - Filtering traces by prompt version in Opik dashboard
 - Regression detection when prompts change
 - Correlation of quality metrics with specific prompt versions
+
+**Related bug report**: Opik SDK GitHub issue (trace.update metadata not persisting)
 
 ## Environment Variables
 

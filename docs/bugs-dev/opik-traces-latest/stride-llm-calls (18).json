@@ -1,0 +1,28 @@
+[
+  {
+    "id": "019beeb6-b588-77ea-97b9-962aed5869d7",
+    "name": "agent.budget_coach",
+    "start_time": "2026-01-24T06:35:10.088Z",
+    "end_time": "2026-01-24T06:35:10.091Z",
+    "input": "",
+    "output": {
+      "margin": 0,
+      "status": "positive",
+      "optimizationsFound": 3
+    },
+    "tags": [
+      "budget-coach",
+      "tips"
+    ],
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "duration_ms": 3,
+      "status": "success"
+    }
+  }
+]

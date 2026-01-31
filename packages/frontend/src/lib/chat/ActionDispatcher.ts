@@ -33,7 +33,22 @@ export class ActionDispatcher {
     const missingFields: string[] = [];
     const fieldsToCollect: ActionField[] = [];
 
-    for (const field of definition.fields) {
+    // Context for hydration (Profile, Goal)
+    // We assume extractedData includes context if passed from chat.ts, allows access to profile props
+    // Ideally we should pass context explicitly to dispatch, but for now we might rely on it being merged or passed separately
+    // Let's assume extractedData MIGHT have hidden context or we pass it via a separate argument in future refactor.
+    // CURRENT HACK: We expect context to be passed in extractedData._context for now, or access global/closure if possible.
+    // WAIT: The user request implies we SHOULD pass context.
+    // Let's update the signature of `dispatch` slightly or assume `extractedData` contains profile info if updated in chat.ts
+    const context = extractedData._context || {};
+
+    for (const fieldDefinition of definition.fields) {
+      // Hydrate field (options, etc)
+      const field = this.hydrateFields(fieldDefinition, context);
+
+      // Hydrate default values if missing
+      this.hydrateDefaultValues(field, extractedData, context);
+
       if (
         field.required &&
         (extractedData[field.name] === undefined || extractedData[field.name] === null)
@@ -76,5 +91,55 @@ export class ActionDispatcher {
       actionType,
       data: extractedData,
     };
+  }
+
+  /**
+   * Helper to hydrate dynamic fields with data from context (Profile, Goal)
+   */
+  private static hydrateFields(field: ActionField, context: Record<string, any>): ActionField {
+    const hydrated = { ...field };
+
+    // Hydrate Options (e.g. "dynamic:subscriptions")
+    if (field.options?.some((opt) => opt.startsWith('dynamic:'))) {
+      const dynamicSource = field.options.find((opt) => opt.startsWith('dynamic:'));
+
+      if (dynamicSource === 'dynamic:subscriptions') {
+        const subscriptions = (context.subscriptions || []) as { name: string }[];
+        // Extract names
+        hydrated.options = subscriptions.map((s) => s.name);
+
+        // Fallback if no subscriptions
+        if (hydrated.options.length === 0) {
+          hydrated.options = ['Netflix', 'Spotify', 'Amazon Prime', 'Gym']; // Fallback common ones
+        }
+      }
+    }
+
+    return hydrated;
+  }
+
+  /**
+   * Helper to calculate dynamic default values
+   */
+  private static hydrateDefaultValues(
+    field: ActionField,
+    extractedData: Record<string, any>,
+    context: Record<string, any>
+  ): void {
+    // Logic for "Smart Duration" (Pause until goal deadline)
+    if (field.name === 'durationMonths' && !extractedData['durationMonths']) {
+      // Check if we have a goal deadline
+      if (context.goalDeadline) {
+        const now = new Date();
+        const deadline = new Date(context.goalDeadline);
+        const months =
+          (deadline.getFullYear() - now.getFullYear()) * 12 +
+          (deadline.getMonth() - now.getMonth());
+
+        if (months > 0) {
+          extractedData['durationMonths'] = months;
+        }
+      }
+    }
   }
 }

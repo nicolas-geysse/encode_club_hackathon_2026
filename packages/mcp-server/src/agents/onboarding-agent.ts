@@ -10,7 +10,7 @@ import { Agent } from '@mastra/core/agent';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { registerTool, createStrideAgent } from './factory.js';
-import { trace } from '../services/opik.js';
+import { trace, setPromptAttributes, registerPrompt } from '../services/opik.js';
 
 // === Schemas ===
 
@@ -64,8 +64,9 @@ Return only fields that are clearly mentioned. Be generous with skill extraction
     fieldsFound: z.array(z.string()).describe('List of fields that were extracted'),
   }),
   execute: async (input) => {
-    return trace('tool.extract_profile_data', async (span) => {
-      span.setAttributes({
+    return trace('tool.extract_profile_data', async (ctx) => {
+      setPromptAttributes(ctx, 'onboarding');
+      ctx.setAttributes({
         'input.message': input.message.substring(0, 200),
         'input.step': input.currentStep,
         'input.existing_fields': Object.keys(input.existingData || {}).length,
@@ -82,7 +83,7 @@ Return only fields that are clearly mentioned. Be generous with skill extraction
         fieldsFound: [] as string[],
       };
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.fields_found': result.fieldsFound.length,
         'output.confidence': result.confidence,
       });
@@ -116,8 +117,9 @@ Guide the conversation to collect all profile information naturally.`,
     isComplete: z.boolean().describe('Whether onboarding is complete'),
   }),
   execute: async (input) => {
-    return trace('tool.generate_onboarding_response', async (span) => {
-      span.setAttributes({
+    return trace('tool.generate_onboarding_response', async (ctx) => {
+      setPromptAttributes(ctx, 'onboarding');
+      ctx.setAttributes({
         'input.step': input.currentStep,
         'input.should_advance': input.shouldAdvance,
         'input.did_extract': input.didExtractData,
@@ -130,7 +132,7 @@ Guide the conversation to collect all profile information naturally.`,
         isComplete: false,
       };
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.next_step': result.nextStep,
         'output.is_complete': result.isComplete,
         'output.response_length': result.response.length,
@@ -157,7 +159,8 @@ export const validateProfileTool = createTool({
     completionPercentage: z.number().describe('Overall profile completion (0-100)'),
   }),
   execute: async (input) => {
-    return trace('tool.validate_profile', async (span) => {
+    return trace('tool.validate_profile', async (ctx) => {
+      setPromptAttributes(ctx, 'onboarding');
       const { currentStep, profileData } = input;
 
       // Define required fields per step
@@ -202,7 +205,7 @@ export const validateProfileTool = createTool({
 
       const canAdvance = missingFields.length === 0;
 
-      span.setAttributes({
+      ctx.setAttributes({
         'input.step': currentStep,
         'output.can_advance': canAdvance,
         'output.missing_count': missingFields.length,
@@ -226,11 +229,8 @@ registerTool('validate_profile', validateProfileTool);
 
 // === Agent Configuration ===
 
-export const ONBOARDING_AGENT_CONFIG = {
-  id: 'onboarding',
-  name: 'Onboarding Agent',
-  description: 'Guides students through profile creation with natural conversation',
-  instructions: `You are Bruno, a friendly and enthusiastic financial coach for students.
+// Register onboarding prompt for version tracking (not in AGENT_CONFIGS)
+const ONBOARDING_INSTRUCTIONS = `You are Bruno, a friendly and enthusiastic financial coach for students.
 Your job is to collect profile information through natural conversation.
 
 PERSONALITY:
@@ -269,7 +269,16 @@ RESPONSE RULES:
 NEVER:
 - Extract "Netflix", "Spotify", "Amazon" as names
 - Advance without getting at least one piece of expected data
-- Give risky financial advice`,
+- Give risky financial advice`;
+
+// Register the onboarding prompt for version tracking
+registerPrompt('onboarding', ONBOARDING_INSTRUCTIONS);
+
+export const ONBOARDING_AGENT_CONFIG = {
+  id: 'onboarding',
+  name: 'Onboarding Agent',
+  description: 'Guides students through profile creation with natural conversation',
+  instructions: ONBOARDING_INSTRUCTIONS,
   toolNames: ['extract_profile_data', 'generate_onboarding_response', 'validate_profile'],
 };
 
@@ -307,8 +316,9 @@ export interface OnboardingOutput {
  * Process an onboarding message using the Mastra agent
  */
 export async function processOnboardingMessage(input: OnboardingInput): Promise<OnboardingOutput> {
-  return trace('agent.onboarding', async (span) => {
-    span.setAttributes({
+  return trace('agent.onboarding', async (ctx) => {
+    setPromptAttributes(ctx, 'onboarding');
+    ctx.setAttributes({
       'input.step': input.currentStep,
       'input.message_length': input.message.length,
       'input.existing_fields': Object.keys(input.existingProfile).filter(
@@ -378,7 +388,7 @@ Return the extracted data, next step, and your response.
         response = getDefaultResponse(nextStep, profileData);
       }
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.next_step': nextStep,
         'output.is_complete': isComplete,
         'output.extracted_fields': Object.keys(extractedData).length,
@@ -393,7 +403,7 @@ Return the extracted data, next step, and your response.
         profileData,
       };
     } catch (error) {
-      span.setAttributes({
+      ctx.setAttributes({
         error: true,
         'error.message': error instanceof Error ? error.message : 'Unknown error',
       });

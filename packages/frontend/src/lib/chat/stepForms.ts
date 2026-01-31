@@ -360,7 +360,8 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
         type: 'multi-select-pills',
         label: 'Skills you can monetize',
         placeholder: 'Type or select skills',
-        suggestions: POPULAR_SKILLS,
+        // Note: suggestions are provided dynamically via getFieldContext prop
+        // DO NOT add suggestions: POPULAR_SKILLS here as fallback
       },
     ],
     helpText: 'Skills you can use to earn money: freelance, tutoring, services, creative work...',
@@ -623,19 +624,16 @@ export function hasStepForm(step: OnboardingStep): boolean {
 /**
  * Get skill suggestions based on user's field of study.
  * Returns field-specific skills + skills from connected fields.
- * Falls back to generic POPULAR_SKILLS if field is unknown.
+ * Falls back to all skills from the knowledge graph if field is unknown.
  *
  * @param field - The user's field of study (optional)
  * @returns Array of suggested skill names
  */
 export function getSkillsForField(field: string | undefined): string[] {
   const suggestions = getSkillSuggestions(field);
-  // If we got suggestions from the knowledge graph, use them
-  if (suggestions.length > 0) {
-    return suggestions;
-  }
-  // Fallback to generic popular skills
-  return POPULAR_SKILLS;
+  // getSkillSuggestions always returns skills (field-specific or all skills)
+  // so we can return directly without fallback
+  return suggestions;
 }
 
 // Re-export for convenience

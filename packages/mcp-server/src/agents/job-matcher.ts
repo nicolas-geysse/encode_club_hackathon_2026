@@ -21,7 +21,7 @@ import {
   type ArbitrageWeights,
   DEFAULT_WEIGHTS,
 } from '../algorithms/skill-arbitrage.js';
-import { trace } from '../services/opik.js';
+import { trace, setPromptAttributes } from '../services/opik.js';
 
 // Extended Job database with effort/rest metrics for arbitrage scoring
 const JOB_DATABASE = [
@@ -141,8 +141,9 @@ export const matchJobsTool = createTool({
     prioritizeNetworking: z.boolean().optional().describe('Prioritize networking'),
   }),
   execute: async (input) => {
-    return trace('tool.match_jobs', async (span) => {
-      span.setAttributes({
+    return trace('tool.match_jobs', async (ctx) => {
+      setPromptAttributes(ctx, 'job-matcher');
+      ctx.setAttributes({
         'input.skills_count': input.skills.length,
         'input.min_hourly_rate': input.minHourlyRate ?? 0,
         'input.prioritize_networking': input.prioritizeNetworking ?? false,
@@ -184,7 +185,7 @@ export const matchJobsTool = createTool({
       // Always include McDo as reference
       const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.matches_count': matches.length,
         'output.top_match': matches[0]?.name ?? null,
         'output.top_match_score': matches[0]?.matchScore ?? 0,
@@ -211,8 +212,9 @@ export const explainJobMatchTool = createTool({
     jobId: z.string().describe('Target job ID'),
   }),
   execute: async (input) => {
-    return trace('tool.explain_job_match', async (span) => {
-      span.setAttributes({
+    return trace('tool.explain_job_match', async (ctx) => {
+      setPromptAttributes(ctx, 'job-matcher');
+      ctx.setAttributes({
         'input.skill': input.skill,
         'input.job_id': input.jobId,
       });
@@ -220,7 +222,7 @@ export const explainJobMatchTool = createTool({
       const job = JOB_DATABASE.find((j) => j.id === input.jobId);
 
       if (!job) {
-        span.setAttributes({ 'output.found': false });
+        ctx.setAttributes({ 'output.found': false });
         return {
           found: false,
           explanation: `Job "${input.jobId}" not found`,
@@ -244,7 +246,7 @@ export const explainJobMatchTool = createTool({
         ? `Bonus: ${job.coBenefit}`
         : 'No particular co-benefit';
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.found': true,
         'output.has_direct_skill_match': hasSkill,
         'output.job_name': job.name,
@@ -276,8 +278,9 @@ export const compareJobsTool = createTool({
     hoursPerWeek: z.number().optional().describe('Work hours per week'),
   }),
   execute: async (input) => {
-    return trace('tool.compare_jobs', async (span) => {
-      span.setAttributes({
+    return trace('tool.compare_jobs', async (ctx) => {
+      setPromptAttributes(ctx, 'job-matcher');
+      ctx.setAttributes({
         'input.job_ids_count': input.jobIds.length,
         'input.hours_per_week': input.hoursPerWeek ?? 10,
       });
@@ -321,7 +324,7 @@ export const compareJobsTool = createTool({
           return scoreB - scoreA;
         })[0]?.name || 'No recommendation';
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.jobs_compared': jobs.length,
         'output.recommendation': recommendation,
         'output.best_income': bestIncome,
@@ -368,8 +371,9 @@ export const scoreSkillArbitrageTool = createTool({
       .describe('Custom weights (optional)'),
   }),
   execute: async (input) => {
-    return trace('tool.score_skill_arbitrage', async (span) => {
-      span.setAttributes({
+    return trace('tool.score_skill_arbitrage', async (ctx) => {
+      setPromptAttributes(ctx, 'job-matcher');
+      ctx.setAttributes({
         'input.skills_count': input.skills.length,
         'input.has_custom_weights': !!input.customWeights,
       });
@@ -413,7 +417,7 @@ export const scoreSkillArbitrageTool = createTool({
         }
       }
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.top_pick': sortedResults[0]?.skill.name ?? null,
         'output.top_score': sortedResults[0]?.score ?? 0,
         'output.insights_count': insights.length,
@@ -448,8 +452,9 @@ export const matchJobsWithArbitrageTool = createTool({
     prioritizeLowEffort: z.boolean().optional().describe('Prioritize low-effort jobs'),
   }),
   execute: async (input) => {
-    return trace('tool.match_jobs_arbitrage', async (span) => {
-      span.setAttributes({
+    return trace('tool.match_jobs_arbitrage', async (ctx) => {
+      setPromptAttributes(ctx, 'job-matcher');
+      ctx.setAttributes({
         'input.skills_count': input.skills.length,
         'input.energy_level': input.energyLevel ?? 100,
         'input.prioritize_low_effort': input.prioritizeLowEffort ?? false,
@@ -503,7 +508,7 @@ export const matchJobsWithArbitrageTool = createTool({
       // Reference job (McDo)
       const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
 
-      span.setAttributes({
+      ctx.setAttributes({
         'output.matches_count': scoredJobs.length,
         'output.top_match': scoredJobs[0]?.name ?? null,
         'output.top_combined_score': scoredJobs[0]?.combinedScore ?? 0,

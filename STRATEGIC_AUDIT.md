@@ -14,14 +14,15 @@ The biggest risk is that judges think you just "prompted an LLM".
 *   `comeback-detection.ts`: A window-based detection algorithm (3-week history check) that mathematically calculates "Recovery Windows".
 *   **Action**: Create a "Debug View" in the UI that visualizes these algorithms (e.g., a "System Internals" tab). Don't hide this logic!
 
-### 2. The RAG Paradox
+### 2. The RAG Engine (Active)
 *   **Status**: `rag.ts` is beautiful code. It handles embeddings, vector search, and context formatting efficiently.
-*   **The Gap**: It's a "Ghost Feature". It's imported but rarely *activated* in the user flow.
-*   **Fix**: Wire it specifically for the "Budget Coach". When a user asks "How do I save?", force the agent to pull from `rag.getContext()`.
+*   **Active**: It is wired to the Chat API via `fetchRAGContext()`.
+*   **Verdict**: ✅ Feature is live.
 
-### 3. Opik Integration
+### 3. Opik Integration (Full Loop)
 *   **Strength**: `guardian.ts` hybrid evaluation is world-class.
-*   **Weakness**: We trace the *AI*, not the *Human*. We need to close the feedback loop (Thumbs Up/Down).
+*   **Solved**: We trace the *Human* via `SwipeSession` traces and Chat Feedback (Thumbs Up/Down).
+*   **Verdict**: ✅ "Best Use of Opik" criteria met.
 
 ---
 

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "019beeb6-867e-7429-a48a-239fc4ce1ffd",
+    "name": "chat.budget_context",
+    "start_time": "2026-01-24T06:34:58.046Z",
+    "end_time": "2026-01-24T06:34:58.506Z",
+    "input": {
+      "profileId": "1e9d331e-ca5e-4d94-bad4-659dac7a9330"
+    },
+    "output": "",
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "budget.available": false,
+      "budget.net_margin": 0,
+      "budget.adjusted_margin": 0,
+      "budget.goal_progress": 0,
+      "duration_ms": 20,
+      "status": "success"
+    }
+  }
+]

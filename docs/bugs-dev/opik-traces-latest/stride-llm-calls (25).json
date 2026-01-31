@@ -1,0 +1,36 @@
+[
+  {
+    "id": "019beeb6-867d-706b-9da3-8a62be715566",
+    "name": "chat.intent_detection",
+    "start_time": "2026-01-24T06:34:58.045Z",
+    "end_time": "2026-01-24T06:34:58.507Z",
+    "input": {
+      "message": "test"
+    },
+    "output": {
+      "intent": {
+        "mode": "conversation",
+        "_matchedPattern": "default_fallback"
+      },
+      "is_fallback": true
+    },
+    "tags": "",
+    "usage.total_tokens": "",
+    "usage.prompt_tokens": "",
+    "usage.completion_tokens": "",
+    "total_estimated_cost": "",
+    "comments": "",
+    "feedback_scores.User feedback": "-",
+    "metadata": {
+      "detected_mode": "conversation",
+      "detected_action": "general",
+      "detected_field": "none",
+      "message_length": 4,
+      "message_preview": "test",
+      "is_fallback": true,
+      "matched_pattern": "default_fallback",
+      "duration_ms": 0,
+      "status": "success"
+    }
+  }
+]
