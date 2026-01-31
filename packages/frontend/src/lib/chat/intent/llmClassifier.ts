@@ -21,6 +21,7 @@ export const SUPPORTED_ACTIONS = [
   'show_progress_chart',
   'show_projection_chart',
   'show_energy_chart',
+  'show_swipe_embed',
   'whatif_work',
   'whatif_sell',
   'whatif_cut',
@@ -61,6 +62,7 @@ ACTIONS DISPONIBLES:
 - show_progress_chart: L'utilisateur veut voir sa progression vers son objectif d'épargne
 - show_projection_chart: L'utilisateur veut voir des projections financières futures
 - show_energy_chart: L'utilisateur veut voir son historique d'énergie/fatigue
+- show_swipe_embed: L'utilisateur veut voir/utiliser les stratégies swipe, explorer ses options d'action (mots clés: swipe, actions, stratégies, que puis-je faire, quelles options)
 - whatif_work: L'utilisateur pose une question "et si je travaillais X heures"
 - whatif_sell: L'utilisateur veut simuler une vente d'objet
 - whatif_cut: L'utilisateur veut simuler l'arrêt d'une dépense/abonnement
