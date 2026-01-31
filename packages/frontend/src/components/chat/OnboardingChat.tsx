@@ -2335,9 +2335,20 @@ export function OnboardingChat() {
       case 'goal':
         message = `${data.goalName} - ${data.goalAmount} by ${data.goalDeadline}`;
         break;
-      case 'lifestyle':
-        message = (data.subscriptions as string) || 'none';
+      case 'lifestyle': {
+        const subs = data.subscriptions as Array<{ name: string; currentCost?: number }>;
+        if (Array.isArray(subs) && subs.length > 0) {
+          message = subs
+            .map(
+              (sub) =>
+                `${sub.name}${sub.currentCost ? ` (${getCurrencySymbolForForm()}${sub.currentCost}/month)` : ''}`
+            )
+            .join(', ');
+        } else {
+          message = 'none';
+        }
         break;
+      }
       default:
         message = JSON.stringify(data);
     }
