@@ -4,26 +4,28 @@
 
 See: .planning/PROJECT.md (updated 2026-01-31)
 
-**Core value:** Polish onboarding UX before demo
-**Current focus:** Fix Onboarding (Milestone 2)
+**Core value:** Frictionless onboarding in conversation flow
+**Current focus:** v2.0 complete — ready for next milestone
 
 ## Current Position
 
-Phase: 10 of 10 (Debug) - COMPLETE
-Plan: 1 of 1 in current phase
-Status: Milestone complete
-Last activity: 2026-01-31 — Completed Plan 10-01
+Phase: 10 of 10 (Debug) — MILESTONE COMPLETE
+Plan: All plans complete
+Status: v2.0 shipped
+Last activity: 2026-01-31 — Milestone v2.0 complete
 
 Progress: [██████████] 100% (15 of 15 plans complete)
 
-Next: Milestone completion and archival
+Next: `/gsd:new-milestone` to start next version
 
 ## Performance Metrics
 
-**Velocity:**
+**Milestone v2.0:**
 - Total plans completed: 15
-- Average duration: 3.4 min
-- Total execution time: 51 min
+- Total phases: 10
+- Execution time: ~51 min
+- Files modified: 69
+- Lines changed: +9,719 / -601
 
 **By Phase:**
 
@@ -40,71 +42,30 @@ Next: Milestone completion and archival
 | 09-navigation-flow | 2 | 13 min | 6.5 min |
 | 10-debug | 1 | 1 min | 1 min |
 
-**Recent Trend:**
-- Last 5 plans: 5, 5, 8, 5 min
-- Trend: Slightly higher for visual polish and navigation work
-
-*Updated after each plan completion*
-
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Shared onboarding state store uses localStorage for persistence (09-01)
-- 75ms animation delay for Sidebar, 50ms for BottomNav (09-01)
-- Local aliases in OnboardingChat to maintain API compatibility (09-01)
-- Quick links use single column layout (flex-col) for 3 items (09-02)
-- Quick links trigger charts in chat via handleUIAction (user request) (09-02)
-- Quick links use existing fade-in keyframes from app.css (09-02)
-- Inline style tag for orbital-pulse animation (08-02) - component-scoped
-- Ring opacity decreases outward (30%->20%->10%) for depth effect (08-02)
-- Animation duration 3s for calm breathing effect (08-02)
-- Stagger delay 0.5s creates wave-like ripple effect (08-02)
-- Inline animation style for pulse (08-01) - simplifies step-specific logic
-- Green state uses Tailwind green-500 for success color (08-01)
-- Animation duration 2s for subtle, non-distracting effect (08-01)
-- Subscription field names match Subscription type (name, currentCost) (07-02)
-- INVENTORY_CATEGORIES constant kept for potential future use (07-02)
-- GridMultiSelect includes optional filter input for large option lists (07-01)
-- Keep MultiSelectPills as fallback for future multi-select-pills uses (07-01)
-- Certifications use POPULAR_CERTIFICATIONS labels from stepForms.ts (07-01)
-- All user-facing text now in English (06-02)
-- French patterns in detector.ts kept intentionally (for French input detection)
-- Hybrid A+C approach: iframe for desktop, navigation button for mobile
-- postMessage for swipe feedback (one-way communication)
-- 768px breakpoint for mobile/desktop divide
-- Swipe patterns placed BEFORE chart patterns for matching priority
-- Height default 450px for swipe embed iframe
-- embedMode prop reduces padding (p-2 vs p-6) for iframe fit
-- useLocation + Show pattern for conditional layout exclusion
-- SwipeEmbedResource: viewport detection with 768px threshold
-- Iframe error fallback shows navigation button
-- postMessage bridge: iframe → parent for swipe acknowledgments
-- CTA buttons outside ScrollArea for position stability (06-01)
+See PROJECT.md Key Decisions table for full log.
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-None yet.
+None.
 
 ### Roadmap Evolution
 
-- Phases 6-10 added: Fix Onboarding milestone from docs/bugs-dev/fix-onboarding.md
-- Phase 6 complete (both plans executed)
-- Phase 7 complete (both plans executed)
-- Phase 8 complete (both plans executed)
-- Phase 9 complete (both plans: conditional nav + quick links)
-- Phase 10 complete (runtime error investigation)
-- Milestone 2 (Fix Onboarding) 100% complete
+v2.0 milestone complete:
+- Phases 1-5: Swipe-in-Chat
+- Phases 6-10: Fix Onboarding
+
+All work archived to `.planning/milestones/v2.0-ROADMAP.md`
 
 ## Session Continuity
 
-Last session: 2026-01-31T17:57:49Z
-Stopped at: Completed 10-01-PLAN.md - Milestone complete
-Resume file: None
+Last session: 2026-01-31T18:30:00Z
+Stopped at: Milestone v2.0 complete
+Resume file: None needed — milestone boundary
