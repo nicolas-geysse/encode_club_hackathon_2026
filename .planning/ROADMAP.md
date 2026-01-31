@@ -27,10 +27,10 @@ This roadmap delivers chat-integrated Swipe functionality in 5 phases. Starting 
   2. User typing "actions" or "strategies" triggers swipe intent response
   3. French phrases like "que puis-je faire?" and "quelles options" trigger swipe intent
   4. Intent detection works in both regex fast-path and LLM fallback modes
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: [TBD during planning]
+- [ ] 01-01-PLAN.md - Add swipe intent detection (regex + LLM fallback)
 
 ### Phase 2: UI Resource
 **Goal**: Chat API returns properly structured UIResource for swipe embedding
@@ -92,7 +92,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Intent Detection | 0/TBD | Not started | - |
+| 1. Intent Detection | 0/1 | Planned | - |
 | 2. UI Resource | 0/TBD | Not started | - |
 | 3. Embed Route | 0/TBD | Not started | - |
 | 4. Responsive Rendering | 0/TBD | Not started | - |
