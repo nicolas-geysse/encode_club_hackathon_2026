@@ -149,11 +149,11 @@ Plans:
   1. During onboarding, only "Onboarding" link is visible in nav
   2. After completion, "My Plan", "Tracking", "Debug" appear with reveal animation
   3. Post-onboarding shows quick links (Budget, Savings, Goals, Energy) below Bruno
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md - Implement conditional nav visibility with reveal animation
-- [ ] 09-02-PLAN.md - Add post-onboarding quick link shortcuts
+- [ ] 09-01-PLAN.md - Conditional nav visibility with shared onboarding state store
+- [ ] 09-02-PLAN.md - Quick link shortcuts below Bruno avatar
 
 ### Phase 10: Debug
 **Goal**: Investigate and fix runtime errors
