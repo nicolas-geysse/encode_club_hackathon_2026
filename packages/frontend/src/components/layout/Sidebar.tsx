@@ -2,6 +2,7 @@ import { type Component, For, Show } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { cn } from '~/lib/cn';
 import { LayoutDashboard, Map, GraduationCap, Wrench } from 'lucide-solid';
+import { onboardingIsComplete } from '~/lib/onboardingStateStore';
 import { Logo } from '~/components/Logo';
 
 interface NavItem {
@@ -26,6 +27,16 @@ export const Sidebar: Component<SidebarProps> = (props) => {
     { action: 'debug', label: 'Debug', icon: Wrench },
   ];
 
+  // Conditionally show nav items based on onboarding state
+  const visibleNavItems = () => {
+    if (!onboardingIsComplete()) {
+      // During onboarding: only show Onboarding link
+      return navItems.filter((item) => item.href === '/');
+    }
+    // After onboarding: show all items
+    return navItems;
+  };
+
   return (
     <aside
       class={cn(
@@ -38,9 +49,17 @@ export const Sidebar: Component<SidebarProps> = (props) => {
       </div>
       <div class="px-3 py-4">
         <nav class="space-y-1">
-          <For each={navItems}>
-            {(item) => {
+          <For each={visibleNavItems()}>
+            {(item, i) => {
               const isActive = () => item.href && location.pathname === item.href;
+              // Only apply animation delay after onboarding completes (for newly revealed items)
+              const animStyle = () =>
+                onboardingIsComplete()
+                  ? {
+                      'animation-delay': `${i() * 75}ms`,
+                      'animation-fill-mode': 'both',
+                    }
+                  : {};
               return (
                 <Show
                   when={item.href}
@@ -49,8 +68,10 @@ export const Sidebar: Component<SidebarProps> = (props) => {
                       onClick={() => item.action === 'debug' && props.onDebugOpen?.()}
                       class={cn(
                         'w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50',
-                        'text-muted-foreground hover:text-foreground'
+                        'text-muted-foreground hover:text-foreground',
+                        onboardingIsComplete() && 'animate-fade-in'
                       )}
+                      style={animStyle()}
                     >
                       <item.icon class="h-4 w-4" />
                       {item.label}
@@ -63,8 +84,10 @@ export const Sidebar: Component<SidebarProps> = (props) => {
                       'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50',
                       isActive()
                         ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:text-foreground'
+                        : 'text-muted-foreground hover:text-foreground',
+                      onboardingIsComplete() && 'animate-fade-in'
                     )}
+                    style={animStyle()}
                   >
                     <item.icon class="h-4 w-4" />
                     {item.label}
