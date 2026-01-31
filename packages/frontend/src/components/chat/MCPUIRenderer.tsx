@@ -671,7 +671,7 @@ interface SwipeEmbedParams {
 function SwipeEmbedResource(props: { params?: SwipeEmbedParams }) {
   const embedUrl = () => props.params?.embedUrl || '/embed/swipe';
   const fallbackUrl = () => props.params?.fallbackUrl || '/plan?tab=swipe';
-  const height = () => props.params?.height || 450;
+  const height = () => props.params?.height || 600;
 
   // Viewport detection with reactive signal
   const [isDesktop, setIsDesktop] = createSignal(

@@ -1645,7 +1645,7 @@ async function handleConversationMode(
             params: {
               embedUrl: '/embed/swipe',
               fallbackUrl: '/plan?tab=swipe',
-              height: 450,
+              height: 600,
               title: 'Swipe Strategies',
             },
           };
