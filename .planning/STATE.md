@@ -9,14 +9,14 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 
 ## Current Position
 
-Phase: 8 of 10 (Visual Polish) - COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase 8 complete, ready for Phase 9
-Last activity: 2026-01-31 — Completed 08-02-PLAN.md (Bruno orbital pulse)
+Phase: 9 of 10 (Navigation Flow) - NOT STARTED
+Plan: 0 of 2 in current phase
+Status: Ready to plan Phase 9
+Last activity: 2026-01-31 — Completed Phase 8 (Visual Polish)
 
-Progress: [█████████░] 100% (12 of 12 plans complete)
+Progress: [████████░░] 80% (12 of 15 plans complete)
 
-Next: Phase 9 (Error Handling) - Loading states, graceful degradation
+Next: Phase 9 (Navigation Flow) - Conditional nav visibility, post-onboarding shortcuts
 
 ## Performance Metrics
 
