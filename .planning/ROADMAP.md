@@ -81,10 +81,10 @@ Plans:
   1. Swiping left/right in embed mode sends postMessage to parent window
   2. OnboardingChat receives and processes swipe_completed messages
   3. Chat displays contextual acknowledgment (e.g., "Strategy accepted!" or "Skipped strategy")
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: [TBD during planning]
+- [ ] 05-01-PLAN.md - Add postMessage bridge for swipe acknowledgments
 
 ## Progress
 
