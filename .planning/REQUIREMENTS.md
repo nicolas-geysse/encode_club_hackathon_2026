@@ -69,26 +69,26 @@ Explicitly excluded. Documented to prevent scope creep.
 
 Which phases cover which requirements. Updated during roadmap creation.
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| INTD-01 | Phase 1 | Pending |
-| INTD-02 | Phase 1 | Pending |
-| INTD-03 | Phase 1 | Pending |
-| INTD-04 | Phase 1 | Pending |
-| INTD-05 | Phase 1 | Pending |
-| UIRS-01 | Phase 2 | Pending |
-| UIRS-02 | Phase 2 | Pending |
-| UIRS-03 | Phase 2 | Pending |
-| UIRS-04 | Phase 2 | Pending |
-| EMBD-01 | Phase 3 | Pending |
-| EMBD-02 | Phase 3 | Pending |
-| EMBD-03 | Phase 3 | Pending |
-| RESP-01 | Phase 4 | Pending |
-| RESP-02 | Phase 4 | Pending |
-| RESP-03 | Phase 4 | Pending |
-| COMM-01 | Phase 5 | Pending |
-| COMM-02 | Phase 5 | Pending |
-| COMM-03 | Phase 5 | Pending |
+| Requirement | Phase | Phase Name | Status |
+|-------------|-------|------------|--------|
+| INTD-01 | Phase 1 | Intent Detection | Pending |
+| INTD-02 | Phase 1 | Intent Detection | Pending |
+| INTD-03 | Phase 1 | Intent Detection | Pending |
+| INTD-04 | Phase 1 | Intent Detection | Pending |
+| INTD-05 | Phase 1 | Intent Detection | Pending |
+| UIRS-01 | Phase 2 | UI Resource | Pending |
+| UIRS-02 | Phase 2 | UI Resource | Pending |
+| UIRS-03 | Phase 2 | UI Resource | Pending |
+| UIRS-04 | Phase 2 | UI Resource | Pending |
+| EMBD-01 | Phase 3 | Embed Route | Pending |
+| EMBD-02 | Phase 3 | Embed Route | Pending |
+| EMBD-03 | Phase 3 | Embed Route | Pending |
+| RESP-01 | Phase 4 | Responsive Rendering | Pending |
+| RESP-02 | Phase 4 | Responsive Rendering | Pending |
+| RESP-03 | Phase 4 | Responsive Rendering | Pending |
+| COMM-01 | Phase 5 | Communication | Pending |
+| COMM-02 | Phase 5 | Communication | Pending |
+| COMM-03 | Phase 5 | Communication | Pending |
 
 **Coverage:**
 - v1 requirements: 18 total
@@ -97,4 +97,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-31*
-*Last updated: 2026-01-31 after initial definition*
+*Last updated: 2026-01-31 after roadmap creation*
