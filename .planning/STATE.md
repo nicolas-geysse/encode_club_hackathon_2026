@@ -21,7 +21,7 @@ Next: `/gsd:plan-phase 14` or `/gsd:execute-phase 14`
 ## Performance Metrics
 
 **Milestone v2.1:**
-- Total plans completed: 2
+- Total plans completed: 3
 - Total phases: 5
 - Execution time: —
 
@@ -44,7 +44,7 @@ None.
 v2.1 milestone started:
 - Phase 11: Chart Rendering ✓
 - Phase 12: Form Fixes ✓
-- Phase 13: State Persistence
+- Phase 13: State Persistence ✓
 - Phase 14: UI Fixes
 - Phase 15: GridMultiSelect Fixes
 

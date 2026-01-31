@@ -20,8 +20,8 @@ Bug fixes for this milestone. Each maps to roadmap phases.
 
 ### State Persistence
 
-- [ ] **STAT-01**: Onboarding completion state persists across navigation (no restart on return)
-- [ ] **STAT-02**: onboardingStateStore reads from localStorage on initial page load
+- [x] **STAT-01**: Onboarding completion state persists across navigation (no restart on return)
+- [x] **STAT-02**: onboardingStateStore reads from localStorage on initial page load
 
 ### UI Placement
 
@@ -60,8 +60,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHRT-03 | Phase 11 | Chart Rendering | Complete |
 | FORM-01 | Phase 12 | Form Fixes | Complete |
 | FORM-02 | Phase 12 | Form Fixes | Complete |
-| STAT-01 | Phase 13 | State Persistence | Pending |
-| STAT-02 | Phase 13 | State Persistence | Pending |
+| STAT-01 | Phase 13 | State Persistence | Complete |
+| STAT-02 | Phase 13 | State Persistence | Complete |
 | PLAC-01 | Phase 14 | UI Fixes | Pending |
 | PLAC-02 | Phase 14 | UI Fixes | Pending |
 | DARK-01 | Phase 14 | UI Fixes | Pending |
@@ -77,4 +77,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-31*
-*Last updated: 2026-01-31 after Phase 12 completion*
+*Last updated: 2026-01-31 after Phase 13 completion*
