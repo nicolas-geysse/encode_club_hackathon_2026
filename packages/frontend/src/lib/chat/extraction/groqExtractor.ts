@@ -9,6 +9,11 @@ import Groq from 'groq-sdk';
 import type { ProfileData, TokenUsage } from '../types';
 import { GROQ_EXTRACTION_SYSTEM_PROMPT, EXTRACTION_STEP_CONTEXT } from '../prompts';
 import { detectCurrencyFromCity } from './patterns';
+import {
+  getReferenceDate,
+  calculateRelativeDateFromReference,
+  type TimeContext,
+} from '../../timeAwareDate';
 
 // =============================================================================
 // Groq Client Management
@@ -98,8 +103,14 @@ const FRENCH_MONTH_NAMES = [
 /**
  * Convert goalDeadline string to YYYY-MM-DD format
  * Handles: "in 2 months", "dans 2 mois", "2 mois", "March 2026", "in 3 weeks", etc.
+ *
+ * @param deadline - The deadline string to normalize
+ * @param timeContext - Optional time context for simulation support
  */
-export function normalizeGoalDeadline(deadline: string | undefined): string | undefined {
+export function normalizeGoalDeadline(
+  deadline: string | undefined,
+  timeContext?: TimeContext
+): string | undefined {
   if (!deadline) return undefined;
 
   const lower = deadline.toLowerCase().trim();
@@ -114,7 +125,11 @@ export function normalizeGoalDeadline(deadline: string | undefined): string | un
     /^(?:in|within|dans|d'ici)\s+(\d+)\s+(months?|mois|weeks?|semaines?|years?|ans?|days?|jours?)$/i
   );
   if (relativeMatch) {
-    return calculateRelativeDate(parseInt(relativeMatch[1], 10), relativeMatch[2]);
+    return calculateRelativeDateInternal(
+      parseInt(relativeMatch[1], 10),
+      relativeMatch[2],
+      timeContext
+    );
   }
 
   // Relative deadlines WITHOUT prefix: "2 mois", "3 weeks", "6 months"
@@ -122,8 +137,15 @@ export function normalizeGoalDeadline(deadline: string | undefined): string | un
     /^(\d+)\s+(months?|mois|weeks?|semaines?|years?|ans?|days?|jours?)$/i
   );
   if (shortRelativeMatch) {
-    return calculateRelativeDate(parseInt(shortRelativeMatch[1], 10), shortRelativeMatch[2]);
+    return calculateRelativeDateInternal(
+      parseInt(shortRelativeMatch[1], 10),
+      shortRelativeMatch[2],
+      timeContext
+    );
   }
+
+  // Get reference date for comparisons (uses simulated date if provided)
+  const refDate = getReferenceDate(timeContext);
 
   // Try English month names
   const monthMatch = lower.match(
@@ -132,10 +154,10 @@ export function normalizeGoalDeadline(deadline: string | undefined): string | un
   if (monthMatch) {
     const monthIndex = ENGLISH_MONTH_NAMES.indexOf(monthMatch[1].toLowerCase());
     const yearMatch = deadline.match(/20\d{2}/);
-    const year = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+    const year = yearMatch ? parseInt(yearMatch[0], 10) : refDate.getFullYear();
 
     const targetDate = new Date(year, monthIndex + 1, 0);
-    if (targetDate < new Date()) {
+    if (targetDate < refDate) {
       targetDate.setFullYear(targetDate.getFullYear() + 1);
     }
     return targetDate.toISOString().split('T')[0];
@@ -155,10 +177,10 @@ export function normalizeGoalDeadline(deadline: string | undefined): string | un
     const monthIndex = FRENCH_MONTH_NAMES.indexOf(monthName);
     if (monthIndex >= 0) {
       const yearMatch = deadline.match(/20\d{2}/);
-      const year = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+      const year = yearMatch ? parseInt(yearMatch[0], 10) : refDate.getFullYear();
 
       const targetDate = new Date(year, monthIndex + 1, 0);
-      if (targetDate < new Date()) {
+      if (targetDate < refDate) {
         targetDate.setFullYear(targetDate.getFullYear() + 1);
       }
       return targetDate.toISOString().split('T')[0];
@@ -177,22 +199,27 @@ export function normalizeGoalDeadline(deadline: string | undefined): string | un
 }
 
 /**
- * Calculate a date relative to today
+ * Calculate a date relative to reference (uses simulated date if provided)
  */
-function calculateRelativeDate(amount: number, unit: string): string {
-  const targetDate = new Date();
+function calculateRelativeDateInternal(
+  amount: number,
+  unit: string,
+  timeContext?: TimeContext
+): string {
   const unitLower = unit.toLowerCase();
 
+  let normalizedUnit: 'days' | 'weeks' | 'months' | 'years' = 'days';
   if (unitLower.startsWith('month') || unitLower === 'mois') {
-    targetDate.setMonth(targetDate.getMonth() + amount);
+    normalizedUnit = 'months';
   } else if (unitLower.startsWith('week') || unitLower.startsWith('semaine')) {
-    targetDate.setDate(targetDate.getDate() + amount * 7);
+    normalizedUnit = 'weeks';
   } else if (unitLower.startsWith('year') || unitLower.startsWith('an')) {
-    targetDate.setFullYear(targetDate.getFullYear() + amount);
+    normalizedUnit = 'years';
   } else if (unitLower.startsWith('day') || unitLower.startsWith('jour')) {
-    targetDate.setDate(targetDate.getDate() + amount);
+    normalizedUnit = 'days';
   }
 
+  const targetDate = calculateRelativeDateFromReference(amount, normalizedUnit, timeContext);
   return targetDate.toISOString().split('T')[0];
 }
 

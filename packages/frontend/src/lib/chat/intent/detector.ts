@@ -281,6 +281,77 @@ export function detectIntent(message: string, _context: Record<string, unknown>)
   }
 
   // ==========================================================================
+  // WHAT-IF SCENARIOS (Budget Projections)
+  // ==========================================================================
+
+  // What-if work: "what if I work 10 hours", "si je travaille 5h/semaine"
+  const whatifWorkMatch = lower.match(
+    /\b(?:what\s*if|si\s*je|imagine|et\s*si|if\s*i)\b.*\b(?:work|travail|hours?|heures?|job|boulot)\b/i
+  );
+  if (whatifWorkMatch) {
+    const hoursMatch = message.match(/(\d+)\s*(?:h(?:ours?)?|heures?)/i);
+    const rateMatch = message.match(
+      /[$€£]?\s*(\d+)\s*(?:\/h|per\s*h(?:our)?|de\s*l['']?heure|€\/h|\$\/h)/i
+    );
+    return {
+      mode: 'conversation',
+      action: 'whatif_work',
+      extractedScenario: {
+        hours: hoursMatch ? parseInt(hoursMatch[1], 10) : undefined,
+        rate: rateMatch ? parseInt(rateMatch[1], 10) : undefined,
+      },
+      _matchedPattern: 'whatif_work',
+    };
+  }
+
+  // What-if sell: "what if I sell my guitar", "si je vends mon vélo"
+  const whatifSellMatch = lower.match(
+    /\b(?:what\s*if|si\s*je|imagine|et\s*si|if\s*i)\b.*\b(?:sell|vend[s]?|sold)\b/i
+  );
+  if (whatifSellMatch) {
+    const amountMatch = message.match(/[$€£]?\s*(\d+)/);
+    const itemMatch = message.match(
+      /(?:sell|vend[s]?)\s+(?:my\s+|mon\s+|ma\s+)?([a-zA-ZÀ-ÿ\s]+?)(?:\s+for|\s+à|\s*$)/i
+    );
+    return {
+      mode: 'conversation',
+      action: 'whatif_sell',
+      extractedScenario: {
+        amount: amountMatch ? parseInt(amountMatch[1], 10) : undefined,
+        item: itemMatch ? itemMatch[1].trim() : undefined,
+      },
+      _matchedPattern: 'whatif_sell',
+    };
+  }
+
+  // What-if cut: "what if I stop Netflix", "si j'arrête spotify"
+  const whatifCutMatch = lower.match(
+    /\b(?:what\s*if|si\s*je|imagine|et\s*si|if\s*i)\b.*\b(?:cut|stop|cancel|pause|arrête|annule|coupe)\b/i
+  );
+  if (whatifCutMatch) {
+    const amountMatch = message.match(/[$€£]?\s*(\d+)/);
+    const serviceMatch = SERVICE_NAMES.find((s) => lower.includes(s));
+    return {
+      mode: 'conversation',
+      action: 'whatif_cut',
+      extractedScenario: {
+        amount: amountMatch ? parseInt(amountMatch[1], 10) : undefined,
+        service: serviceMatch,
+      },
+      _matchedPattern: 'whatif_cut',
+    };
+  }
+
+  // Generic scenario/projection request: "show projection", "compare scenarios"
+  if (lower.match(/\b(show|compare|projection|simulate|scenario|visualize|chart)\b/i)) {
+    return {
+      mode: 'conversation',
+      action: 'show_projection',
+      _matchedPattern: 'show_projection',
+    };
+  }
+
+  // ==========================================================================
   // PROGRESS CHECK
   // ==========================================================================
   if (lower.match(/\b(progress|how.*(doing|going)|status|where.*am)\b/i)) {

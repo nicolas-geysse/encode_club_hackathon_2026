@@ -50,8 +50,33 @@ export type UIResource =
       params: { title?: string; options: string[] };
     }
   | {
-      type: 'table' | 'metric' | 'chart';
+      type: 'table' | 'metric';
       params: any;
+    }
+  | {
+      type: 'chart';
+      params: {
+        /** Chart type: bar, line, or comparison */
+        type: 'bar' | 'line' | 'comparison';
+        /** Chart title */
+        title?: string;
+        /** Chart.js data structure */
+        data: {
+          labels: string[];
+          datasets: Array<{
+            label: string;
+            data: number[];
+            backgroundColor?: string | string[];
+            borderColor?: string | string[];
+          }>;
+        };
+        /** Summary for comparison charts */
+        summary?: {
+          currentWeeks: number | null;
+          scenarioWeeks: number | null;
+          weeksSaved: number;
+        };
+      };
     }
   | {
       type: 'grid';
@@ -147,6 +172,23 @@ export interface ChatResponse {
  *   conversationHistory: [{ role: 'assistant', content: 'What is your name?' }]
  * };
  */
+/**
+ * Time context for simulation support
+ *
+ * When simulation is active, the chat uses simulatedDate
+ * instead of real date for all time-based calculations.
+ */
+export interface TimeContext {
+  /** ISO string of simulated date */
+  simulatedDate: string;
+  /** Whether simulation is active */
+  isSimulating: boolean;
+  /** Number of days offset from real date */
+  offsetDays: number;
+  /** Pre-computed: whether goal deadline has passed */
+  deadlinePassed?: boolean;
+}
+
 export interface ChatRequest {
   /** User's input message */
   message: string;
@@ -156,4 +198,6 @@ export interface ChatRequest {
   currentStep: string;
   /** Recent conversation history for context awareness */
   conversationHistory?: Array<{ role: string; content: string }>;
+  /** Time context for simulation support */
+  timeContext?: TimeContext;
 }

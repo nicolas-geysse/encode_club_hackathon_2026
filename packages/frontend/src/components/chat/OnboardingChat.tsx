@@ -31,6 +31,8 @@ import { OnboardingProgress } from './OnboardingProgress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import OnboardingFormStep from './OnboardingFormStep';
 import { hasStepForm } from '~/lib/chat/stepForms';
+import { useSimulation } from '~/lib/simulationContext';
+import { isDeadlinePassed } from '~/lib/timeAwareDate';
 
 // Message type imported from ~/types/chat
 
@@ -191,6 +193,10 @@ export function OnboardingChat() {
     refreshTrades,
     refreshGoals,
   } = useProfile();
+
+  // Simulation context for time-aware responses
+  const { currentDate, simulationState } = useSimulation();
+
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [step, setStep] = createSignal<OnboardingStep>('greeting');
@@ -1142,6 +1148,19 @@ export function OnboardingChat() {
     source?: 'mastra' | 'groq' | 'fallback';
   }> => {
     try {
+      // Build time context for simulation support
+      const simState = simulationState();
+      const simDate = currentDate();
+      const goalDeadline = context.goalDeadline as string | undefined;
+      const timeContext = {
+        simulatedDate: simDate.toISOString(),
+        isSimulating: simState.isSimulating,
+        offsetDays: simState.offsetDays,
+        deadlinePassed: goalDeadline
+          ? isDeadlinePassed(goalDeadline, { simulatedDate: simDate.toISOString() })
+          : false,
+      };
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1153,6 +1172,7 @@ export function OnboardingChat() {
           threadId: threadId(), // For Opik conversation grouping
           profileId: profileId(), // For trace metadata
           conversationHistory: recentHistory, // For context awareness in LLM
+          timeContext, // NEW: Time context for simulation support
         }),
       });
 

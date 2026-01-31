@@ -53,6 +53,18 @@ import { detectIntent, isIntentFallback } from '../../lib/chat/intent';
 import { parseSlashCommand, executeSlashCommand } from '../../lib/chat/commands';
 import { runResponseEvaluation } from '../../lib/chat/evaluation';
 import { WorkingMemory } from '../../lib/mastra/workingMemory';
+import {
+  getReferenceDate,
+  isDeadlinePassed,
+  formatTimeRemaining,
+  type TimeContext,
+} from '../../lib/timeAwareDate';
+import {
+  calculateProjection,
+  buildProjectionSummary,
+  type FinancialData,
+  type ScenarioModifications,
+} from '../../lib/budgetEngine';
 
 const logger = createLogger('ChatAPI');
 
@@ -256,6 +268,13 @@ interface ChatRequest {
   profileId?: string;
   /** Recent conversation history for context (last 4 turns = 8 messages) */
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
+  /** Time context for simulation support */
+  timeContext?: {
+    simulatedDate: string;
+    isSimulating: boolean;
+    offsetDays: number;
+    deadlinePassed?: boolean;
+  };
 }
 
 interface ChatResponse {
@@ -400,6 +419,7 @@ export async function POST(event: APIEvent) {
       threadId,
       profileId,
       conversationHistory,
+      timeContext,
     } = body;
 
     if (!message || !step) {
@@ -453,7 +473,8 @@ export async function POST(event: APIEvent) {
         mode,
         context,
         threadId,
-        profileId
+        profileId,
+        timeContext
       );
       return new Response(JSON.stringify(conversationResult), {
         status: 200,
@@ -892,8 +913,16 @@ async function handleConversationMode(
   currentMode: ChatMode,
   context: Record<string, unknown>,
   threadId?: string,
-  profileId?: string
+  profileId?: string,
+  timeContext?: TimeContext
 ): Promise<ChatResponse> {
+  // Build time context for internal use (default to current date if not provided)
+  const timeCtx: TimeContext = timeContext || {
+    simulatedDate: new Date().toISOString(),
+    isSimulating: false,
+    offsetDays: 0,
+  };
+
   // Pre-detect intent for tags
   const preIntent = detectIntent(message, context);
 
@@ -1385,11 +1414,207 @@ async function handleConversationMode(
           break;
         }
 
+        // =====================================================================
+        // WHAT-IF SCENARIOS (Budget Projections) - Time-aware
+        // =====================================================================
+        case 'whatif_work': {
+          const scenario = intent.extractedScenario || {};
+          const hours = scenario.hours || 5;
+          const rate = scenario.rate || (context.minHourlyRate as number) || 15;
+          const currencySymbol = getCurrencySymbol(context.currency as string);
+
+          // Build financial data for projection
+          const goalDeadline = context.goalDeadline as string;
+          if (!goalDeadline) {
+            response = `I'd love to show you a projection, but you don't have a goal deadline set yet. Set a goal first!`;
+            break;
+          }
+
+          const financialData: FinancialData = {
+            income: (context.income as number) || 0,
+            expenses: (context.expenses as number) || 0,
+            currentSaved: (context.currentSaved as number) || 0,
+            goalAmount: (context.goalAmount as number) || 0,
+            goalDeadline,
+          };
+
+          const modifications: ScenarioModifications = {
+            additionalHoursPerWeek: hours,
+            hourlyRate: rate,
+          };
+
+          const projection = calculateProjection(financialData, timeCtx, modifications);
+
+          // Build response with projection summary
+          const summary = buildProjectionSummary(projection, currencySymbol);
+          const extraMonthly = hours * rate * 4.33;
+
+          if (projection.scenarioPath?.success && !projection.currentPath.success) {
+            response = `Great idea! Working **${hours}h/week at ${currencySymbol}${rate}/h** would add **${currencySymbol}${Math.round(extraMonthly)}/month** to your budget.\n\n${summary}\n\nThis could help you reach your goal!`;
+          } else if (projection.scenarioPath?.success) {
+            response = `Working **${hours}h/week at ${currencySymbol}${rate}/h** would add **${currencySymbol}${Math.round(extraMonthly)}/month**.\n\n${summary}`;
+          } else {
+            response = `Working **${hours}h/week at ${currencySymbol}${rate}/h** would add **${currencySymbol}${Math.round(extraMonthly)}/month**, but you'd still need more to reach your goal.\n\n${summary}`;
+          }
+
+          // Add chart UI resource
+          const chartResource: UIResource = {
+            type: 'chart',
+            params: {
+              type: 'comparison',
+              title: 'Goal Projection',
+              data: {
+                labels: ['Current Path', 'With Work'],
+                datasets: [
+                  {
+                    label: 'Projected Amount',
+                    data: [
+                      Math.round(projection.currentPath.projectedTotal),
+                      Math.round(projection.scenarioPath?.projectedTotal || 0),
+                    ],
+                    backgroundColor: ['rgba(239, 68, 68, 0.5)', 'rgba(34, 197, 94, 0.5)'],
+                    borderColor: ['rgb(239, 68, 68)', 'rgb(34, 197, 94)'],
+                  },
+                ],
+              },
+              summary: {
+                currentWeeks: projection.currentPath.weeksToGoal,
+                scenarioWeeks: projection.scenarioPath?.weeksToGoal || null,
+                weeksSaved: projection.delta?.weeks || 0,
+              },
+            },
+          };
+
+          const traceId = ctx.getTraceId();
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: traceId || undefined,
+            traceUrl: traceId ? getTraceUrl(traceId) : undefined,
+            source: 'groq' as const,
+            uiResource: chartResource,
+          };
+        }
+
+        case 'whatif_sell': {
+          const scenario = intent.extractedScenario || {};
+          const amount = scenario.amount || 100;
+          const item = scenario.item || 'this item';
+          const currencySymbol = getCurrencySymbol(context.currency as string);
+
+          const goalDeadline = context.goalDeadline as string;
+          if (!goalDeadline) {
+            response = `I'd love to show you a projection, but you don't have a goal deadline set yet.`;
+            break;
+          }
+
+          const financialData: FinancialData = {
+            income: (context.income as number) || 0,
+            expenses: (context.expenses as number) || 0,
+            currentSaved: (context.currentSaved as number) || 0,
+            goalAmount: (context.goalAmount as number) || 0,
+            goalDeadline,
+          };
+
+          const modifications: ScenarioModifications = {
+            oneTimeGain: amount,
+          };
+
+          const projection = calculateProjection(financialData, timeCtx, modifications);
+          const summary = buildProjectionSummary(projection, currencySymbol);
+
+          if (projection.scenarioPath?.success && !projection.currentPath.success) {
+            response = `Selling **${item}** for **${currencySymbol}${amount}** would give your savings a nice boost!\n\n${summary}`;
+          } else {
+            response = `Selling **${item}** for **${currencySymbol}${amount}** would add to your progress.\n\n${summary}`;
+          }
+          break;
+        }
+
+        case 'whatif_cut': {
+          const scenario = intent.extractedScenario || {};
+          const amount = scenario.amount || 15;
+          const service = scenario.service || 'this subscription';
+          const currencySymbol = getCurrencySymbol(context.currency as string);
+
+          const goalDeadline = context.goalDeadline as string;
+          if (!goalDeadline) {
+            response = `I'd love to show you a projection, but you don't have a goal deadline set yet.`;
+            break;
+          }
+
+          const financialData: FinancialData = {
+            income: (context.income as number) || 0,
+            expenses: (context.expenses as number) || 0,
+            currentSaved: (context.currentSaved as number) || 0,
+            goalAmount: (context.goalAmount as number) || 0,
+            goalDeadline,
+          };
+
+          const modifications: ScenarioModifications = {
+            reducedExpenses: amount,
+          };
+
+          const projection = calculateProjection(financialData, timeCtx, modifications);
+          const summary = buildProjectionSummary(projection, currencySymbol);
+
+          response = `Cutting **${service}** (saving **${currencySymbol}${amount}/month**) would help!\n\n${summary}`;
+          break;
+        }
+
+        case 'show_projection': {
+          const currencySymbol = getCurrencySymbol(context.currency as string);
+          const goalDeadline = context.goalDeadline as string;
+
+          if (!goalDeadline) {
+            response = `I don't have enough information for a projection. Set a goal with a deadline first!`;
+            break;
+          }
+
+          const financialData: FinancialData = {
+            income: (context.income as number) || 0,
+            expenses: (context.expenses as number) || 0,
+            currentSaved: (context.currentSaved as number) || 0,
+            goalAmount: (context.goalAmount as number) || 0,
+            goalDeadline,
+          };
+
+          const projection = calculateProjection(financialData, timeCtx);
+          const summary = buildProjectionSummary(projection, currencySymbol);
+
+          // Add time-aware context
+          const timeRemaining = formatTimeRemaining(goalDeadline, timeCtx);
+          const deadlinePassed = isDeadlinePassed(goalDeadline, timeCtx);
+
+          if (deadlinePassed) {
+            response = `Your goal deadline has **passed**. Consider updating your timeline.\n\n${summary}`;
+          } else {
+            response = `Here's your current projection (**${timeRemaining}** remaining):\n\n${summary}`;
+          }
+          break;
+        }
+
         case 'check_progress': {
           const goalName = context.goalName || 'your goal';
           const goalAmount = context.goalAmount || 'your target';
           const currencySymbol = getCurrencySymbol(context.currency as string);
-          response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\nHead to **My Plan** to see your detailed progress, timeline, and weekly targets!`;
+          const goalDeadline = context.goalDeadline as string;
+
+          // Time-aware progress check
+          if (goalDeadline) {
+            const deadlinePassed = isDeadlinePassed(goalDeadline, timeCtx);
+            const timeRemaining = formatTimeRemaining(goalDeadline, timeCtx);
+
+            if (deadlinePassed) {
+              response = `Your deadline for **${goalName}** (${currencySymbol}${goalAmount}) has **passed**. Consider setting a new timeline or adjusting your goal in **My Plan**!`;
+            } else {
+              response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\n**${timeRemaining}** remaining until your deadline.\n\nHead to **My Plan** for detailed progress!`;
+            }
+          } else {
+            response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\nHead to **My Plan** to see your detailed progress, timeline, and weekly targets!`;
+          }
           break;
         }
 
@@ -1462,6 +1687,23 @@ async function handleConversationMode(
                     'budget.available': budgetContext !== null,
                   });
 
+                  // Build time context section for system prompt
+                  const goalDeadline = context.goalDeadline as string | undefined;
+                  let timeSection = '';
+                  if (timeCtx.isSimulating) {
+                    const simDate = getReferenceDate(timeCtx);
+                    timeSection = `\nCurrent simulated date: ${simDate.toLocaleDateString()}.`;
+                  }
+                  if (goalDeadline) {
+                    const deadlinePassed = isDeadlinePassed(goalDeadline, timeCtx);
+                    const timeRemaining = formatTimeRemaining(goalDeadline, timeCtx);
+                    if (deadlinePassed) {
+                      timeSection += `\nIMPORTANT: The goal deadline (${goalDeadline}) has PASSED. Adopt a supportive but direct tone. Suggest the user reset their goal or adjust their timeline.`;
+                    } else {
+                      timeSection += `\nGoal deadline: ${goalDeadline} (${timeRemaining} remaining).`;
+                    }
+                  }
+
                   const completion = await client.chat.completions.create({
                     model: GROQ_MODEL,
                     messages: [
@@ -1470,7 +1712,7 @@ async function handleConversationMode(
                         content: `${SYSTEM_PROMPTS.onboarding}
 
 The user has already completed onboarding. Their profile: ${JSON.stringify(context)}.
-${budgetSection}${ragSection}
+${budgetSection}${ragSection}${timeSection}
 You have access to their consolidated financial data including income, expenses, savings from paused items, and trade values.
 Use this data to provide personalized, specific financial advice.
 Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed information.`,

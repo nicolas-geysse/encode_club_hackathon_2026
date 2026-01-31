@@ -13,8 +13,34 @@
 
 import { Show, createSignal, createMemo, For, Switch, Match } from 'solid-js';
 import { createLogger } from '~/lib/logger';
+import {
+  Chart,
+  Title,
+  Tooltip,
+  Legend,
+  Colors,
+  BarElement,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale,
+} from 'chart.js';
+import { Bar, Line } from 'solid-chartjs';
 
 import { UIResource } from '~/types/chat';
+
+// Register Chart.js components
+Chart.register(
+  Title,
+  Tooltip,
+  Legend,
+  Colors,
+  BarElement,
+  LineElement,
+  PointElement,
+  CategoryScale,
+  LinearScale
+);
 
 const logger = createLogger('MCPUIRenderer');
 
@@ -463,18 +489,123 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
 }
 
 /**
- * Chart Placeholder (would integrate with chart.js)
+ * Chart Resource - Real Chart.js integration
  */
-function ChartPlaceholder(props: { params?: Record<string, unknown> }) {
-  const title = () => (props.params?.title as string) || 'Chart';
-  const type = () => (props.params?.type as string) || 'bar';
+interface ChartParams {
+  type?: 'bar' | 'line' | 'comparison';
+  title?: string;
+  data?: {
+    labels: string[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor?: string | string[];
+      borderColor?: string | string[];
+    }>;
+  };
+  summary?: {
+    currentWeeks: number | null;
+    scenarioWeeks: number | null;
+    weeksSaved: number;
+  };
+}
+
+function ChartResource(props: { params?: ChartParams }) {
+  const chartType = () => props.params?.type || 'bar';
+  const title = () => props.params?.title || 'Chart';
+  const data = () => props.params?.data || { labels: [], datasets: [] };
+  const summary = () => props.params?.summary;
+
+  // Chart.js options
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(255, 255, 255, 0.1)',
+        },
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.7)',
+        },
+      },
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: 'rgba(255, 255, 255, 0.7)',
+        },
+      },
+    },
+  };
+
+  // Format chart data for Chart.js
+  const chartData = createMemo(() => {
+    const d = data();
+    return {
+      labels: d.labels || [],
+      datasets: (d.datasets || []).map((ds) => ({
+        label: ds.label || '',
+        data: ds.data || [],
+        backgroundColor: ds.backgroundColor || 'rgba(59, 130, 246, 0.5)',
+        borderColor: ds.borderColor || 'rgb(59, 130, 246)',
+        borderWidth: 2,
+        borderRadius: 4,
+      })),
+    };
+  });
 
   return (
-    <div class="chart-placeholder bg-card rounded-lg p-4 text-center border border-border">
-      <div class="text-sm text-foreground">{title()}</div>
-      <div class="text-xs text-muted-foreground mt-1">({type()} chart)</div>
+    <div class="chart-resource bg-card rounded-lg p-4 border border-border">
+      <Show when={title()}>
+        <h4 class="font-medium text-sm text-foreground mb-3">{title()}</h4>
+      </Show>
+
+      {/* Chart container */}
+      <div class="h-48 w-full">
+        <Switch fallback={<Bar data={chartData()} options={chartOptions} />}>
+          <Match when={chartType() === 'line'}>
+            <Line data={chartData()} options={chartOptions} />
+          </Match>
+          <Match when={chartType() === 'bar' || chartType() === 'comparison'}>
+            <Bar data={chartData()} options={chartOptions} />
+          </Match>
+        </Switch>
+      </div>
+
+      {/* Summary for comparison charts */}
+      <Show when={summary() && chartType() === 'comparison'}>
+        <div class="mt-3 pt-3 border-t border-border">
+          <div class="flex justify-between text-xs text-muted-foreground">
+            <Show when={summary()!.weeksSaved > 0}>
+              <span class="text-green-500 font-medium">{summary()!.weeksSaved} weeks faster</span>
+            </Show>
+            <Show when={summary()!.currentWeeks !== null}>
+              <span>Current: {summary()!.currentWeeks} weeks</span>
+            </Show>
+            <Show when={summary()!.scenarioWeeks !== null}>
+              <span>With change: {summary()!.scenarioWeeks} weeks</span>
+            </Show>
+          </div>
+        </div>
+      </Show>
     </div>
   );
+}
+
+// Keep placeholder for backward compatibility (alias)
+function ChartPlaceholder(props: { params?: Record<string, unknown> }) {
+  return <ChartResource params={props.params as ChartParams} />;
 }
 
 /**

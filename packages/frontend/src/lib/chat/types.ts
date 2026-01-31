@@ -113,6 +113,19 @@ export interface DetectedIntent {
     amount?: number;
     deadline?: string;
   };
+  /** What-if scenario parameters (for budget projections) */
+  extractedScenario?: {
+    /** Additional work hours per week */
+    hours?: number;
+    /** Hourly rate */
+    rate?: number;
+    /** One-time sale amount */
+    amount?: number;
+    /** Item to sell */
+    item?: string;
+    /** Subscription/service to cut */
+    service?: string;
+  };
   /** Mission title/partial match for suivi commands */
   extractedMission?: string;
   /** Energy level (0-100) for suivi commands */
