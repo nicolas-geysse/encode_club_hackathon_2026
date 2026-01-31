@@ -2395,255 +2395,299 @@ export function OnboardingChat() {
   };
 
   return (
-    <div class="fixed inset-x-0 top-16 md:pl-64 bottom-16 md:bottom-0 z-30 bg-background">
-      <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] h-full">
-        {/* Left Sidebar (Desktop Only) */}
-        <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-6 h-full">
-          <div class="flex flex-col items-center text-center mb-10">
-            <div class="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-background mb-4">
-              B
+    <>
+      <style>{`
+        @keyframes orbital-pulse {
+          0%, 100% {
+            transform: scale(0.95);
+            opacity: 0.3;
+          }
+          50% {
+            transform: scale(1.05);
+            opacity: 0.7;
+          }
+        }
+      `}</style>
+      <div class="fixed inset-x-0 top-16 md:pl-64 bottom-16 md:bottom-0 z-30 bg-background">
+        <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] h-full">
+          {/* Left Sidebar (Desktop Only) */}
+          <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-6 h-full">
+            <div class="flex flex-col items-center text-center mb-10">
+              {/* Bruno Avatar with Orbital Pulse */}
+              <div class="relative w-36 h-36 flex items-center justify-center mb-4">
+                {/* Orbital Rings */}
+                <div
+                  class="absolute w-[104px] h-[104px] rounded-full border border-primary/30"
+                  style={{
+                    animation: 'orbital-pulse 3s ease-in-out infinite',
+                    'animation-delay': '0s',
+                  }}
+                />
+                <div
+                  class="absolute w-[116px] h-[116px] rounded-full border border-primary/20"
+                  style={{
+                    animation: 'orbital-pulse 3s ease-in-out infinite',
+                    'animation-delay': '0.5s',
+                  }}
+                />
+                <div
+                  class="absolute w-[128px] h-[128px] rounded-full border border-primary/10"
+                  style={{
+                    animation: 'orbital-pulse 3s ease-in-out infinite',
+                    'animation-delay': '1s',
+                  }}
+                />
+
+                {/* Bruno Avatar (centered, above rings) */}
+                <div class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-background">
+                  B
+                </div>
+              </div>
+              <h2 class="text-2xl font-bold text-foreground">Bruno</h2>
+              <p class="text-muted-foreground font-medium">Financial Coach</p>
             </div>
-            <h2 class="text-2xl font-bold text-foreground">Bruno</h2>
-            <p class="text-muted-foreground font-medium">Financial Coach</p>
-          </div>
 
-          <div
-            class="flex-1 overflow-y-auto min-h-0 w-full transition-all duration-1000"
-            classList={{
-              'opacity-0': ['greeting', 'currency_confirm'].includes(step()) || isComplete(),
-              'opacity-100': !['greeting', 'currency_confirm'].includes(step()) && !isComplete(),
-              'pointer-events-none': isComplete(),
-            }}
-          >
-            <Show when={!['greeting', 'currency_confirm'].includes(step())}>
-              <OnboardingProgress currentStepId={step()} />
-            </Show>
-          </div>
-
-          <div class="mt-auto p-6 w-full flex items-center justify-center gap-4">
-            {/* Restart Button - Always Visible */}
-            <GlassButton
-              class="icon-mode group transform-gpu"
-              title="Restart Onboarding"
-              // eslint-disable-next-line solid/reactivity
-              onClick={async () => {
-                setProfile({
-                  name: undefined,
-                  diploma: undefined,
-                  field: undefined, // Reset field to get fresh skill suggestions
-                  city: undefined,
-                  skills: [],
-                  certifications: [],
-                  incomes: [],
-                  expenses: [],
-                  maxWorkHours: 15,
-                  minHourlyRate: 12,
-                  hasLoan: false,
-                  loanAmount: 0,
-                  academicEvents: [],
-                  inventoryItems: [],
-                  subscriptions: [],
-                  tradeOpportunities: [],
-                  swipePreferences: {
-                    effort_sensitivity: 0.5,
-                    hourly_rate_priority: 0.5,
-                    time_flexibility: 0.5,
-                    income_stability: 0.5,
-                  },
-                });
-                localStorage.removeItem('studentProfile');
-                localStorage.removeItem('planData');
-                localStorage.removeItem('activeProfileId');
-                localStorage.removeItem('followupData');
-                localStorage.removeItem('achievements');
-
-                const oldProfileId = profileId();
-                if (oldProfileId) {
-                  try {
-                    await Promise.all([
-                      fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                    ]);
-                    await Promise.all([
-                      refreshSkills(),
-                      refreshInventory(),
-                      refreshLifestyle(),
-                      refreshIncome(),
-                    ]);
-                  } catch (e) {
-                    logger.warn('Failed to clear old data', { error: e });
-                  }
-                }
-                setThreadId(generateThreadId());
-                setProfileId(undefined);
-                setIsComplete(false);
-                setChatMode('onboarding');
-                setStep('greeting');
-                setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+            <div
+              class="flex-1 overflow-y-auto min-h-0 w-full transition-all duration-1000"
+              classList={{
+                'opacity-0': ['greeting', 'currency_confirm'].includes(step()) || isComplete(),
+                'opacity-100': !['greeting', 'currency_confirm'].includes(step()) && !isComplete(),
+                'pointer-events-none': isComplete(),
               }}
             >
-              <Repeat class="h-6 w-6 text-muted-foreground group-hover:text-primary group-hover:rotate-180 transition-all duration-500" />
-            </GlassButton>
+              <Show when={!['greeting', 'currency_confirm'].includes(step())}>
+                <OnboardingProgress currentStepId={step()} />
+              </Show>
+            </div>
 
-            {/* Start My Plan - Fades In Next to it */}
-            <div
-              class={`transition-all duration-1000 transform overflow-hidden whitespace-nowrap ${
-                isComplete() ? 'w-auto opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'
-              }`}
-            >
-              <GlassButton onClick={goToPlan}>
-                Start My Plan
-                <svg
-                  class="animate-bounce-x ml-2"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
+            <div class="mt-auto p-6 w-full flex items-center justify-center gap-4">
+              {/* Restart Button - Always Visible */}
+              <GlassButton
+                class="icon-mode group transform-gpu"
+                title="Restart Onboarding"
+                // eslint-disable-next-line solid/reactivity
+                onClick={async () => {
+                  setProfile({
+                    name: undefined,
+                    diploma: undefined,
+                    field: undefined, // Reset field to get fresh skill suggestions
+                    city: undefined,
+                    skills: [],
+                    certifications: [],
+                    incomes: [],
+                    expenses: [],
+                    maxWorkHours: 15,
+                    minHourlyRate: 12,
+                    hasLoan: false,
+                    loanAmount: 0,
+                    academicEvents: [],
+                    inventoryItems: [],
+                    subscriptions: [],
+                    tradeOpportunities: [],
+                    swipePreferences: {
+                      effort_sensitivity: 0.5,
+                      hourly_rate_priority: 0.5,
+                      time_flexibility: 0.5,
+                      income_stability: 0.5,
+                    },
+                  });
+                  localStorage.removeItem('studentProfile');
+                  localStorage.removeItem('planData');
+                  localStorage.removeItem('activeProfileId');
+                  localStorage.removeItem('followupData');
+                  localStorage.removeItem('achievements');
+
+                  const oldProfileId = profileId();
+                  if (oldProfileId) {
+                    try {
+                      await Promise.all([
+                        fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                        fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
+                      ]);
+                      await Promise.all([
+                        refreshSkills(),
+                        refreshInventory(),
+                        refreshLifestyle(),
+                        refreshIncome(),
+                      ]);
+                    } catch (e) {
+                      logger.warn('Failed to clear old data', { error: e });
+                    }
+                  }
+                  setThreadId(generateThreadId());
+                  setProfileId(undefined);
+                  setIsComplete(false);
+                  setChatMode('onboarding');
+                  setStep('greeting');
+                  setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+                }}
+              >
+                <Repeat class="h-6 w-6 text-muted-foreground group-hover:text-primary group-hover:rotate-180 transition-all duration-500" />
               </GlassButton>
+
+              {/* Start My Plan - Fades In Next to it */}
+              <div
+                class={`transition-all duration-1000 transform overflow-hidden whitespace-nowrap ${
+                  isComplete() ? 'w-auto opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'
+                }`}
+              >
+                <GlassButton onClick={goToPlan}>
+                  Start My Plan
+                  <svg
+                    class="animate-bounce-x ml-2"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </GlassButton>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Chat Area */}
-        <div class="flex flex-col h-full min-h-0 relative bg-background/50">
-          {/* Messages */}
+          {/* Right Chat Area */}
+          <div class="flex flex-col h-full min-h-0 relative bg-background/50">
+            {/* Messages */}
 
-          {/* Messages */}
-          <ScrollArea
-            class="flex-1 min-h-0"
-            viewportClass="p-4 md:p-8"
-            viewportRef={(el) => (messagesContainerRef = el)}
-          >
-            <div class="max-w-3xl space-y-6 pb-40">
-              <For each={messages()}>
-                {(msg) => (
-                  <>
-                    <ChatMessage
-                      role={msg.role}
-                      content={msg.content}
-                      avatar="B"
-                      name={msg.role === 'assistant' ? 'Bruno' : undefined}
-                      badge={msg.source}
-                      traceId={msg.traceId}
-                      traceUrl={msg.traceUrl}
-                    />
-                    {/* MCP-UI interactive component (forms, tables, etc.) */}
-                    <Show when={msg.uiResource}>
-                      <div class="ml-12 mb-4">
-                        <MCPUIRenderer resource={msg.uiResource!} onAction={handleUIAction} />
-                      </div>
-                    </Show>
-                  </>
-                )}
-              </For>
+            {/* Messages */}
+            <ScrollArea
+              class="flex-1 min-h-0"
+              viewportClass="p-4 md:p-8"
+              viewportRef={(el) => (messagesContainerRef = el)}
+            >
+              <div class="max-w-3xl space-y-6 pb-40">
+                <For each={messages()}>
+                  {(msg) => (
+                    <>
+                      <ChatMessage
+                        role={msg.role}
+                        content={msg.content}
+                        avatar="B"
+                        name={msg.role === 'assistant' ? 'Bruno' : undefined}
+                        badge={msg.source}
+                        traceId={msg.traceId}
+                        traceUrl={msg.traceUrl}
+                      />
+                      {/* MCP-UI interactive component (forms, tables, etc.) */}
+                      <Show when={msg.uiResource}>
+                        <div class="ml-12 mb-4">
+                          <MCPUIRenderer resource={msg.uiResource!} onAction={handleUIAction} />
+                        </div>
+                      </Show>
+                    </>
+                  )}
+                </For>
 
-              <Show when={loading()}>
-                <div class="flex justify-start mb-4 pl-2">
-                  <div class="flex items-center gap-2 px-4 py-3 bg-muted/50 rounded-2xl rounded-tl-none">
-                    <div class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" />
-                    <div
-                      class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"
-                      style={{ 'animation-delay': '0.1s' }}
-                    />
-                    <div
-                      class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"
-                      style={{ 'animation-delay': '0.2s' }}
+                <Show when={loading()}>
+                  <div class="flex justify-start mb-4 pl-2">
+                    <div class="flex items-center gap-2 px-4 py-3 bg-muted/50 rounded-2xl rounded-tl-none">
+                      <div class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce" />
+                      <div
+                        class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"
+                        style={{ 'animation-delay': '0.1s' }}
+                      />
+                      <div
+                        class="w-1.5 h-1.5 bg-primary/60 rounded-full animate-bounce"
+                        style={{ 'animation-delay': '0.2s' }}
+                      />
+                    </div>
+                  </div>
+                </Show>
+
+                {/* Contextual form for current step */}
+                <Show
+                  when={
+                    !loading() &&
+                    !isComplete() &&
+                    chatMode() === 'onboarding' &&
+                    hasStepForm(step())
+                  }
+                >
+                  <div class="ml-12 mb-4 max-w-md">
+                    <OnboardingFormStep
+                      step={step()}
+                      initialValues={profile() as Record<string, unknown>}
+                      currencySymbol={getCurrencySymbolForForm()}
+                      fieldOfStudy={profile().field}
+                      onSubmit={handleFormSubmit}
+                      onSkip={() => handleSend('none')}
                     />
                   </div>
-                </div>
-              </Show>
+                </Show>
 
-              {/* Contextual form for current step */}
-              <Show
-                when={
-                  !loading() && !isComplete() && chatMode() === 'onboarding' && hasStepForm(step())
-                }
-              >
-                <div class="ml-12 mb-4 max-w-md">
-                  <OnboardingFormStep
-                    step={step()}
-                    initialValues={profile() as Record<string, unknown>}
-                    currencySymbol={getCurrencySymbolForForm()}
-                    fieldOfStudy={profile().field}
-                    onSubmit={handleFormSubmit}
-                    onSkip={() => handleSend('none')}
-                  />
-                </div>
-              </Show>
+                {/* Spacer for bottom scroll */}
+                <div class="h-4" />
+              </div>
+            </ScrollArea>
 
-              {/* Spacer for bottom scroll */}
-              <div class="h-4" />
-            </div>
-          </ScrollArea>
+            {/* Action buttons (Restart / Start Plan) */}
+            {/* Action buttons (Restart / Start Plan) */}
+            {/* Action buttons (Restart / Start Plan) */}
+            {/* Restart button removed from top right, moved to sidebar */}
 
-          {/* Action buttons (Restart / Start Plan) */}
-          {/* Action buttons (Restart / Start Plan) */}
-          {/* Action buttons (Restart / Start Plan) */}
-          {/* Restart button removed from top right, moved to sidebar */}
-
-          {/* Input Area */}
-          <div class="p-4 md:p-6 bg-background/80 backdrop-blur-xl border-t border-border z-20">
-            <div class="max-w-3xl w-full relative">
-              <Show
-                when={isComplete()}
-                fallback={
-                  <ChatInput
-                    ref={(el) => (chatInputRef = el)}
-                    onSend={handleSend}
-                    placeholder="Type your response..."
-                    disabled={loading()}
-                  />
-                }
-              >
-                <div class="flex gap-4">
-                  <ChatInput
-                    ref={(el) => (chatInputRef = el)}
-                    onSend={handleSend}
-                    placeholder="Ask Bruno anything..."
-                    disabled={loading()}
-                  />
-                  <div class="hidden md:flex items-center justify-center">
-                    {/* Desktop CTA moved to sidebar */}
+            {/* Input Area */}
+            <div class="p-4 md:p-6 bg-background/80 backdrop-blur-xl border-t border-border z-20">
+              <div class="max-w-3xl w-full relative">
+                <Show
+                  when={isComplete()}
+                  fallback={
+                    <ChatInput
+                      ref={(el) => (chatInputRef = el)}
+                      onSend={handleSend}
+                      placeholder="Type your response..."
+                      disabled={loading()}
+                    />
+                  }
+                >
+                  <div class="flex gap-4">
+                    <ChatInput
+                      ref={(el) => (chatInputRef = el)}
+                      onSend={handleSend}
+                      placeholder="Ask Bruno anything..."
+                      disabled={loading()}
+                    />
+                    <div class="hidden md:flex items-center justify-center">
+                      {/* Desktop CTA moved to sidebar */}
+                    </div>
                   </div>
-                </div>
-                {/* Mobile CTA */}
-                <div class="md:hidden mt-3 animate-in slide-in-from-bottom-4 duration-500 w-full flex justify-center">
-                  <GlassButton onClick={goToPlan}>
-                    Start My Plan
-                    <svg
-                      class="animate-bounce-x"
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M5 12h14" />
-                      <path d="m12 5 7 7-7 7" />
-                    </svg>
-                  </GlassButton>
-                </div>
-              </Show>
+                  {/* Mobile CTA */}
+                  <div class="md:hidden mt-3 animate-in slide-in-from-bottom-4 duration-500 w-full flex justify-center">
+                    <GlassButton onClick={goToPlan}>
+                      Start My Plan
+                      <svg
+                        class="animate-bounce-x"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M5 12h14" />
+                        <path d="m12 5 7 7-7 7" />
+                      </svg>
+                    </GlassButton>
+                  </div>
+                </Show>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
