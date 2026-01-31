@@ -55,7 +55,9 @@ Plans:
   2. Navigation menu items remain visible after returning from other pages
   3. onboardingStateStore reads localStorage value on app initialization
   4. Hard refresh after onboarding shows completed state (not restart)
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 13-01-PLAN.md — Fix SSR hydration bug in onboardingStateStore
 
 ### Phase 14: UI Fixes
 **Goal**: Fix button placement and dark mode visibility
@@ -90,6 +92,6 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 |-------|----------------|--------|-----------|
 | 11. Chart Rendering | 1/1 | Complete | 2026-01-31 |
 | 12. Form Fixes | 1/1 | Complete | 2026-01-31 |
-| 13. State Persistence | 0/? | Not started | - |
+| 13. State Persistence | 0/1 | Planned | - |
 | 14. UI Fixes | 0/? | Not started | - |
 | 15. GridMultiSelect Fixes | 0/? | Not started | - |
