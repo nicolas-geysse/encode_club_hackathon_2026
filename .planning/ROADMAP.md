@@ -41,10 +41,10 @@ Plans:
   2. UIResource contains embedUrl pointing to `/embed/swipe`
   3. UIResource contains fallbackUrl pointing to `/plan?tab=swipe`
   4. UIResource includes configurable height (default 450px)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: [TBD during planning]
+- [ ] 02-01-PLAN.md - Add swipe_embed UIResource type and API handler
 
 ### Phase 3: Embed Route
 **Goal**: Standalone swipe route renders SwipeTab without navigation chrome
@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Intent Detection | 1/1 | Complete | 2026-01-31 |
-| 2. UI Resource | 0/TBD | Not started | - |
+| 2. UI Resource | 0/1 | In Progress | - |
 | 3. Embed Route | 0/TBD | Not started | - |
 | 4. Responsive Rendering | 0/TBD | Not started | - |
 | 5. Communication | 0/TBD | Not started | - |
