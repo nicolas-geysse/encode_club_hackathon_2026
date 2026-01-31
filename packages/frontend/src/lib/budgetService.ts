@@ -254,56 +254,56 @@ export function createEmptyBudget(): ConsolidatedBudget {
  * between monthly recurring and one-time gains.
  */
 export function formatBudgetForChat(budget: ConsolidatedBudget): string {
-  const lines: string[] = ['Situation Financière:'];
+  const lines: string[] = ['Financial Summary:'];
 
   // MONTHLY RECURRING
   lines.push('');
-  lines.push('REVENUS MENSUELS (récurrent):');
-  lines.push(`- Revenus: ${budget.monthly.income}€/mois`);
-  lines.push(`- Dépenses: ${budget.monthly.expenses}€/mois`);
-  lines.push(`- Marge nette: ${budget.monthly.margin}€/mois`);
+  lines.push('MONTHLY INCOME (recurring):');
+  lines.push(`- Income: ${budget.monthly.income}€/month`);
+  lines.push(`- Expenses: ${budget.monthly.expenses}€/month`);
+  lines.push(`- Net margin: ${budget.monthly.margin}€/month`);
 
   // ONE-TIME GAINS (realized)
   if (budget.oneTimeGains.total > 0) {
     lines.push('');
-    lines.push('GAINS PONCTUELS RÉALISÉS:');
+    lines.push('ONE-TIME GAINS (realized):');
     if (budget.oneTimeGains.tradeSales > 0) {
-      lines.push(`- Ventes complétées: +${budget.oneTimeGains.tradeSales}€`);
+      lines.push(`- Completed sales: +${budget.oneTimeGains.tradeSales}€`);
     }
     if (budget.oneTimeGains.tradeBorrow > 0) {
-      lines.push(`- Emprunts économisés: +${budget.oneTimeGains.tradeBorrow}€`);
+      lines.push(`- Borrowing savings: +${budget.oneTimeGains.tradeBorrow}€`);
     }
     if (budget.oneTimeGains.pausedSavings > 0) {
-      lines.push(`- Items pausés: +${budget.oneTimeGains.pausedSavings}€`);
+      lines.push(`- Paused items: +${budget.oneTimeGains.pausedSavings}€`);
     }
-    lines.push(`- Total gains ponctuels: +${budget.oneTimeGains.total}€`);
+    lines.push(`- Total one-time gains: +${budget.oneTimeGains.total}€`);
   }
 
   // ONE-TIME POTENTIAL
   if (budget.oneTimePotential.total > 0) {
     lines.push('');
-    lines.push('GAINS POTENTIELS (non réalisés):');
+    lines.push('POTENTIAL GAINS (unrealized):');
     if (budget.oneTimePotential.tradeSalesPending > 0) {
-      lines.push(`- Ventes en attente: +${budget.oneTimePotential.tradeSalesPending}€`);
+      lines.push(`- Pending sales: +${budget.oneTimePotential.tradeSalesPending}€`);
     }
     if (budget.oneTimePotential.tradeBorrowPending > 0) {
-      lines.push(`- Emprunts potentiels: +${budget.oneTimePotential.tradeBorrowPending}€`);
+      lines.push(`- Potential borrowing: +${budget.oneTimePotential.tradeBorrowPending}€`);
     }
   }
 
   // GOAL PROJECTION
   if (budget.goalProjection.goalAmount > 0) {
     lines.push('');
-    lines.push('PROJECTION VERS OBJECTIF:');
-    lines.push(`- Objectif: ${budget.goalProjection.goalAmount}€`);
-    lines.push(`- Mois restants: ${budget.goalProjection.monthsRemaining}`);
-    lines.push(`- Via marge mensuelle: ${budget.goalProjection.fromMonthlyMargin}€`);
-    lines.push(`- Via gains ponctuels: ${budget.goalProjection.fromOneTimeGains}€`);
-    lines.push(`- TOTAL PROJETÉ: ${budget.goalProjection.totalProjected}€`);
+    lines.push('GOAL PROJECTION:');
+    lines.push(`- Goal: ${budget.goalProjection.goalAmount}€`);
+    lines.push(`- Months remaining: ${budget.goalProjection.monthsRemaining}`);
+    lines.push(`- From monthly margin: ${budget.goalProjection.fromMonthlyMargin}€`);
+    lines.push(`- From one-time gains: ${budget.goalProjection.fromOneTimeGains}€`);
+    lines.push(`- PROJECTED TOTAL: ${budget.goalProjection.totalProjected}€`);
     if (budget.goalProjection.potentialExtra > 0) {
-      lines.push(`- Potentiel additionnel: +${budget.goalProjection.potentialExtra}€`);
+      lines.push(`- Additional potential: +${budget.goalProjection.potentialExtra}€`);
     }
-    lines.push(`- Progression: ${budget.goalProjection.progressPercent.toFixed(1)}%`);
+    lines.push(`- Progress: ${budget.goalProjection.progressPercent.toFixed(1)}%`);
   }
 
   return lines.join('\n');
@@ -332,13 +332,13 @@ export function calculateBudgetHealth(budget: ConsolidatedBudget): {
     score += 40;
     if (budget.monthly.margin >= budget.monthly.expenses * 0.2) {
       score += 10; // Bonus for 20%+ margin
-      messages.push('Marge saine');
+      messages.push('Healthy margin');
     }
   } else {
     const marginRatio =
       budget.monthly.expenses > 0 ? budget.monthly.margin / budget.monthly.expenses : 0;
     score += Math.max(0, 20 + marginRatio * 20);
-    messages.push('Marge négative');
+    messages.push('Negative margin');
   }
 
   // Goal progress (using new projection structure)
@@ -348,14 +348,14 @@ export function calculateBudgetHealth(budget: ConsolidatedBudget): {
 
     if (totalProjected >= goalAmount) {
       score += 30;
-      messages.push('Objectif atteignable');
+      messages.push('Goal achievable');
     } else if (withPotential >= goalAmount) {
       score += 20;
-      messages.push('Objectif possible avec trades');
+      messages.push('Goal possible with trades');
     } else {
       const ratio = totalProjected / goalAmount;
       score += Math.floor(ratio * 30);
-      messages.push('Objectif à risque');
+      messages.push('Goal at risk');
     }
   } else {
     score += 15; // No goal set - neutral
@@ -366,7 +366,7 @@ export function calculateBudgetHealth(budget: ConsolidatedBudget): {
     const gainsScore = Math.min(20, Math.floor(budget.oneTimeGains.total / 50));
     score += gainsScore;
     if (gainsScore >= 10) {
-      messages.push('Bons gains ponctuels');
+      messages.push('Good one-time gains');
     }
   }
 
@@ -392,7 +392,7 @@ export function calculateBudgetHealth(budget: ConsolidatedBudget): {
   return {
     score: Math.min(100, score),
     status,
-    message: messages.length > 0 ? messages.join('. ') : 'Budget calculé',
+    message: messages.length > 0 ? messages.join('. ') : 'Budget calculated',
   };
 }
 
