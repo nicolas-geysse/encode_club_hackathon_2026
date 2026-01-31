@@ -56,7 +56,7 @@ Recent decisions affecting current work:
 - 75ms animation delay for Sidebar, 50ms for BottomNav (09-01)
 - Local aliases in OnboardingChat to maintain API compatibility (09-01)
 - Quick links use single column layout (flex-col) for 3 items (09-02)
-- Energy maps to 'profile' tab (energy level is in ProfileTab) (09-02)
+- Quick links trigger charts in chat via handleUIAction (user request) (09-02)
 - Quick links use existing fade-in keyframes from app.css (09-02)
 - Inline style tag for orbital-pulse animation (08-02) - component-scoped
 - Ring opacity decreases outward (30%->20%->10%) for depth effect (08-02)
