@@ -38,11 +38,11 @@ import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardin
 
 // Message type imported from ~/types/chat
 
-// Quick links shown after onboarding completion
+// Quick links shown after onboarding completion - trigger charts in chat
 const QUICK_LINKS = [
-  { label: 'Budget', tab: 'budget', icon: 'wallet' },
-  { label: 'Goals', tab: 'goals', icon: 'target' },
-  { label: 'Energy', tab: 'profile', icon: 'zap' },
+  { label: 'Budget', chartType: 'budget_breakdown', icon: 'wallet' },
+  { label: 'Goals', chartType: 'progress', icon: 'target' },
+  { label: 'Energy', chartType: 'energy', icon: 'zap' },
 ] as const;
 
 const quickLinkIcons: Record<string, Component<{ class?: string }>> = {
@@ -2465,7 +2465,7 @@ export function OnboardingChat() {
               <h2 class="text-2xl font-bold text-foreground">Bruno</h2>
               <p class="text-muted-foreground font-medium">Financial Coach</p>
 
-              {/* Quick Links - Show after onboarding */}
+              {/* Quick Links - Show after onboarding, trigger charts in chat */}
               <Show when={isComplete()}>
                 <div class="mt-6 flex flex-col gap-2 w-full max-w-[180px]">
                   <For each={QUICK_LINKS}>
@@ -2473,7 +2473,9 @@ export function OnboardingChat() {
                       const Icon = quickLinkIcons[link.icon];
                       return (
                         <button
-                          onClick={() => navigate(`/plan?tab=${link.tab}`)}
+                          onClick={() =>
+                            handleUIAction('show_chart', { chartType: link.chartType })
+                          }
                           class="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/30 shadow-sm hover:shadow text-sm text-muted-foreground hover:text-foreground transition-all duration-200"
                           style={{
                             animation: 'fade-in 0.3s ease-out forwards',
