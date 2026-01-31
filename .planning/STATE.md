@@ -9,21 +9,21 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 
 ## Current Position
 
-Phase: 6 of 10 (Critical Fixes)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-31 — Completed 06-01-PLAN.md
+Phase: 6 of 10 (Critical Fixes) - COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase 6 complete, ready for Phase 7
+Last activity: 2026-01-31 — Completed 06-02-PLAN.md (French to English translation)
 
-Progress: [██████░░░░] 58% (7 of 12 plans complete)
+Progress: [██████░░░░] 67% (8 of 12 plans complete)
 
-Next: Plan and execute Phase 6 (Critical Fixes)
+Next: Phase 7 (UX Improvements) - GridMultiSelect for skills/certifications
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 2.3 min
-- Total execution time: 14 min
+- Total plans completed: 8
+- Average duration: 2.8 min
+- Total execution time: 22 min
 
 **By Phase:**
 
@@ -34,10 +34,11 @@ Next: Plan and execute Phase 6 (Critical Fixes)
 | 03-embed-route | 2 | 5 min | 2.5 min |
 | 04-responsive-rendering | 1 | 2 min | 2 min |
 | 05-communication | 1 | 2 min | 2 min |
+| 06-critical-fixes | 2 | 8 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 2, 3, 2, 2 min
-- Trend: Stable
+- Last 5 plans: 2, 2, 3, 8 min
+- Trend: Slightly increasing (translation task had more scope)
 
 *Updated after each plan completion*
 
@@ -48,6 +49,8 @@ Next: Plan and execute Phase 6 (Critical Fixes)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- All user-facing text now in English (06-02)
+- French patterns in detector.ts kept intentionally (for French input detection)
 - Hybrid A+C approach: iframe for desktop, navigation button for mobile
 - postMessage for swipe feedback (one-way communication)
 - 768px breakpoint for mobile/desktop divide
@@ -71,9 +74,10 @@ None yet.
 ### Roadmap Evolution
 
 - Phases 6-10 added: Fix Onboarding milestone from docs/bugs-dev/fix-onboarding.md
+- Phase 6 now complete (both plans executed)
 
 ## Session Continuity
 
-Last session: 2026-01-31T16:34:18Z
-Stopped at: Completed 06-01-PLAN.md (Start My Plan button fix)
+Last session: 2026-01-31T16:46:00Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
