@@ -2589,32 +2589,6 @@ export function OnboardingChat() {
               >
                 <Repeat class="h-6 w-6 text-muted-foreground group-hover:text-primary group-hover:rotate-180 transition-all duration-500" />
               </GlassButton>
-
-              {/* Start My Plan - Fades In Next to it */}
-              <div
-                class={`transition-all duration-1000 transform overflow-hidden whitespace-nowrap ${
-                  isComplete() ? 'w-auto opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-4'
-                }`}
-              >
-                <GlassButton onClick={goToPlan}>
-                  Start My Plan
-                  <svg
-                    class="animate-bounce-x ml-2"
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M5 12h14" />
-                    <path d="m12 5 7 7-7 7" />
-                  </svg>
-                </GlassButton>
-              </div>
             </div>
           </div>
 
