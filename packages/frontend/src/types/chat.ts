@@ -104,6 +104,19 @@ export type UIResource =
       };
     }
   | {
+      type: 'swipe_embed';
+      params: {
+        /** URL for iframe embedding */
+        embedUrl: string;
+        /** Fallback URL for mobile/navigation */
+        fallbackUrl: string;
+        /** Height in pixels for iframe (default 450) */
+        height: number;
+        /** Optional title for accessibility */
+        title?: string;
+      };
+    }
+  | {
       type: 'grid';
       params: { columns?: number; children: UIResource[] };
     }
