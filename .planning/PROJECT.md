@@ -8,19 +8,17 @@ A student financial health navigator with an LLM-powered onboarding chat experie
 
 Frictionless onboarding that keeps users in the conversation flow while taking financial planning actions.
 
-## Current Milestone: v2.1 Bugfixes
+## Current State (v2.1 shipped 2026-01-31)
 
-**Goal:** Fix critical bugs discovered during demo testing before production release.
+**Status:** Production ready — all critical bugs fixed
 
-**Target fixes:**
-- Charts not rendering in quick links (only text responses)
-- Missing 4th quick link (Savings Progress)
-- Subscription form shows `[object Object]`
-- Currency hardcoded on "items to sell" step
-- Navigation resets onboarding state
-- "Start my plan" button placement
-- Dark mode visibility issues
-- GridMultiSelect column width/stability
+**v2.1 shipped:**
+- ✓ Quick links render actual charts (Budget, Goals, Energy, Savings)
+- ✓ Form data displays correctly (subscriptions, dynamic currency)
+- ✓ Onboarding state persists across navigation
+- ✓ "Start My Plan" in chat completion message
+- ✓ Dark mode visibility (emerald gradient)
+- ✓ GridMultiSelect with flexible layouts
 
 ## Current State (v2.0 shipped 2026-01-31)
 
@@ -32,7 +30,7 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - ✓ Quick links triggering charts in chat
 - ✓ English localization throughout
 
-**Tech stack:** SolidStart, SolidJS, TailwindCSS, ~60,849 LOC TypeScript
+**Tech stack:** SolidStart, SolidJS, TailwindCSS, ~60,917 LOC TypeScript
 
 ## Requirements
 
@@ -51,18 +49,17 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - ✓ Bruno orbital pulse animation — v2.0
 - ✓ Conditional navigation visibility — v2.0
 - ✓ Quick links for Budget/Goals/Energy — v2.0
+- ✓ Quick links render actual charts (not just text) — v2.1
+- ✓ 4th quick link "Savings Progress" — v2.1
+- ✓ Form data serialization (subscriptions, currency) — v2.1
+- ✓ Onboarding state persistence across navigation — v2.1
+- ✓ "Start my plan" in chat completion message — v2.1
+- ✓ Dark mode visibility (Bruno avatar, progress pulse) — v2.1
+- ✓ GridMultiSelect variant prop with full-width titles — v2.1
 
 ### Active
 
-- [ ] Quick links render actual charts (not just text responses)
-- [ ] 4th quick link "Savings Progress" present
-- [ ] Subscription form properly serializes objects
-- [ ] Currency respects profile setting on all steps
-- [ ] Onboarding state persists across navigation
-- [ ] "Start my plan" button in chat area (not Bruno bar)
-- [ ] Bruno/progress pulse visible in dark mode
-- [ ] Skills GridMultiSelect stable with full-width titles
-- [ ] Certifications GridMultiSelect wider columns
+(No active requirements — planning next milestone)
 
 ### Out of Scope
 
@@ -105,4 +102,4 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 | Remove in-chat button | Button in ScrollArea moved with messages | ✓ Good |
 
 ---
-*Last updated: 2026-01-31 after v2.1 milestone start*
+*Last updated: 2026-01-31 after v2.1 milestone completion*

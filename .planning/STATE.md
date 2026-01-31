@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Frictionless onboarding in conversation flow
-**Current focus:** v2.1 Bugfixes
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 15 of 15 (GridMultiSelect Fixes) - COMPLETE
-Plan: 15-01 executed (1/1 executed)
-Status: v2.1 milestone complete
-Last activity: 2026-01-31 — Executed 15-01-PLAN.md
+Phase: — (v2.1 complete, planning next milestone)
+Plan: —
+Status: Milestone v2.1 archived
+Last activity: 2026-01-31 — Archived v2.1 milestone
 
-Progress: [██████████] 100% (5 of 5 phases complete)
+Progress: [██████████] 100% (v2.1 shipped)
 
-Next: All v2.1 bugfix phases complete
+Next: `/gsd:new-milestone`
 
 ## Performance Metrics
 
@@ -61,5 +61,5 @@ v2.1 milestone complete:
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 15-01-PLAN.md execution
+Stopped at: Archived v2.1 milestone
 Resume file: None
