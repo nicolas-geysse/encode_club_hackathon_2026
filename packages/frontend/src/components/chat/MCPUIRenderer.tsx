@@ -11,7 +11,7 @@
  * - Actions (buttons, callbacks)
  */
 
-import { Show, createSignal, createMemo, For, Switch, Match } from 'solid-js';
+import { Show, createSignal, createMemo, For, Switch, Match, onMount, onCleanup } from 'solid-js';
 import { createLogger } from '~/lib/logger';
 import {
   Chart,
@@ -112,6 +112,9 @@ function ResourceRenderer(props: { resource: UIResource; onAction?: ActionCallba
       </Match>
       <Match when={props.resource.type === 'confirmation'}>
         <ConfirmationResource params={(props.resource as any).params} onAction={props.onAction} />
+      </Match>
+      <Match when={props.resource.type === 'swipe_embed'}>
+        <SwipeEmbedResource params={(props.resource as any).params} />
       </Match>
     </Switch>
   );
@@ -649,6 +652,96 @@ function ConfirmationResource(props: {
           {confirmLabel()}
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Swipe Embed Resource - Responsive iframe/button for Swipe strategies
+ * Desktop: renders iframe with /embed/swipe
+ * Mobile: renders navigation button to /plan?tab=swipe
+ */
+interface SwipeEmbedParams {
+  embedUrl: string;
+  fallbackUrl: string;
+  height: number;
+  title?: string;
+}
+
+function SwipeEmbedResource(props: { params?: SwipeEmbedParams }) {
+  const embedUrl = () => props.params?.embedUrl || '/embed/swipe';
+  const fallbackUrl = () => props.params?.fallbackUrl || '/plan?tab=swipe';
+  const height = () => props.params?.height || 450;
+
+  // Viewport detection with reactive signal
+  const [isDesktop, setIsDesktop] = createSignal(
+    typeof window !== 'undefined' ? window.innerWidth > 768 : true
+  );
+
+  // Loading and error state for iframe
+  const [iframeLoaded, setIframeLoaded] = createSignal(false);
+  const [iframeError, setIframeError] = createSignal(false);
+
+  // Handle viewport resize with proper cleanup
+  onMount(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth > 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    onCleanup(() => {
+      window.removeEventListener('resize', handleResize);
+    });
+  });
+
+  // Handle iframe load
+  const handleIframeLoad = () => {
+    setIframeLoaded(true);
+  };
+
+  // Handle iframe error - show fallback button
+  const handleIframeError = () => {
+    setIframeError(true);
+  };
+
+  // If iframe failed, show fallback button regardless of viewport
+  const showButton = () => !isDesktop() || iframeError();
+
+  return (
+    <div class="swipe-embed-resource">
+      <Show
+        when={!showButton()}
+        fallback={
+          <a
+            href={fallbackUrl()}
+            class="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium text-sm"
+          >
+            Swipe to plan ! →
+          </a>
+        }
+      >
+        {/* Desktop: iframe */}
+        <div class="relative w-full rounded-lg overflow-hidden" style={{ height: `${height()}px` }}>
+          {/* Loading spinner while iframe loads */}
+          <Show when={!iframeLoaded()}>
+            <div class="absolute inset-0 flex items-center justify-center bg-muted/50">
+              <div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          </Show>
+          <iframe
+            src={embedUrl()}
+            class="w-full h-full border-0"
+            classList={{ 'opacity-0': !iframeLoaded(), 'opacity-100': iframeLoaded() }}
+            style={{ transition: 'opacity 0.2s ease-in-out' }}
+            onLoad={handleIframeLoad}
+            onError={handleIframeError}
+            title="Swipe Strategies"
+          />
+        </div>
+      </Show>
     </div>
   );
 }
