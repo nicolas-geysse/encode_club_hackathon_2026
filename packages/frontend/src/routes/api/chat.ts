@@ -1635,6 +1635,35 @@ async function handleConversationMode(
         }
 
         // =====================================================================
+        // SWIPE EMBED (Swipe-in-Chat Feature)
+        // =====================================================================
+
+        case 'show_swipe_embed': {
+          response = `Voici les stratégies disponibles!\n\nSwipe pour choisir tes actions.`;
+          const swipeResource: UIResource = {
+            type: 'swipe_embed',
+            params: {
+              embedUrl: '/embed/swipe',
+              fallbackUrl: '/plan?tab=swipe',
+              height: 450,
+              title: 'Swipe Strategies',
+            },
+          };
+          const swipeTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_swipe_embed' });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: swipeTraceId || undefined,
+            traceUrl: swipeTraceId ? getTraceUrl(swipeTraceId) : undefined,
+            source: 'groq' as const,
+            uiResource: swipeResource,
+          };
+        }
+
+        // =====================================================================
         // CHART GALLERY & SPECIFIC CHARTS (Sprint Graphiques)
         // =====================================================================
 
