@@ -837,16 +837,19 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
 
         // Use GridMultiSelect for skills and certifications steps
         if (isSkillsField || isCertificationsField) {
-          const options = isSkillsField
-            ? getSkillsForField(props.fieldOfStudy)
-            : POPULAR_CERTIFICATIONS.map((c) => c.label);
+          // Make options reactive by using a getter function
+          const getOptions = () =>
+            isSkillsField
+              ? getSkillsForField(props.fieldOfStudy)
+              : POPULAR_CERTIFICATIONS.map((c) => c.label);
 
           return (
             <GridMultiSelect
-              options={options}
+              options={getOptions()}
               selected={(value() as string[]) || []}
               onChange={(v) => updateField(field.name, v)}
               placeholder={field.placeholder}
+              variant={isCertificationsField ? 'wide' : 'default'}
             />
           );
         }
