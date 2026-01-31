@@ -10,13 +10,23 @@ export const setOnboardingComplete = (complete: boolean) => {
   setIsComplete(complete);
 };
 
-// Initialize from localStorage on load (for page refresh persistence)
-if (typeof window !== 'undefined') {
-  const stored = localStorage.getItem('onboardingComplete');
-  if (stored === 'true') {
-    setIsComplete(true);
+/**
+ * Initialize onboarding state from localStorage.
+ * Must be called on client-side only (in entry-client.tsx before mount).
+ *
+ * This function is hydration-safe:
+ * - Server-side: does nothing (window check guards localStorage access)
+ * - Client-side: syncs signal with localStorage value
+ * - Idempotent: safe to call multiple times
+ */
+export const initOnboardingState = () => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('onboardingComplete');
+    if (stored === 'true') {
+      setIsComplete(true);
+    }
   }
-}
+};
 
 export const persistOnboardingComplete = (complete: boolean) => {
   setOnboardingComplete(complete);
