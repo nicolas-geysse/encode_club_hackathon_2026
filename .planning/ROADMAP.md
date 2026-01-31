@@ -13,7 +13,7 @@ v2.1 Bugfixes — Fix critical bugs discovered during demo testing. Phases 11-15
 ### Milestone 3: v2.1 Bugfixes
 
 - [x] **Phase 11: Chart Rendering** - Fix quick links to render actual charts
-- [ ] **Phase 12: Form Fixes** - Fix subscription object display and currency hardcoding
+- [x] **Phase 12: Form Fixes** - Fix subscription object display and currency hardcoding
 - [ ] **Phase 13: State Persistence** - Fix onboarding state reset on navigation
 - [ ] **Phase 14: UI Fixes** - Fix button placement and dark mode visibility
 - [ ] **Phase 15: GridMultiSelect Fixes** - Fix column widths and stability
@@ -44,7 +44,7 @@ Plans:
   3. Currency symbol is consistent throughout entire onboarding flow
 **Plans**: 1 plan
 Plans:
-- [ ] 12-01-PLAN.md — Fix subscription, inventory, and trade message formatting
+- [x] 12-01-PLAN.md — Fix subscription, inventory, and trade message formatting
 
 ### Phase 13: State Persistence
 **Goal**: Onboarding completion state survives navigation
@@ -89,7 +89,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 11. Chart Rendering | 1/1 | Complete | 2026-01-31 |
-| 12. Form Fixes | 0/1 | Planned | - |
+| 12. Form Fixes | 1/1 | Complete | 2026-01-31 |
 | 13. State Persistence | 0/? | Not started | - |
 | 14. UI Fixes | 0/? | Not started | - |
 | 15. GridMultiSelect Fixes | 0/? | Not started | - |
