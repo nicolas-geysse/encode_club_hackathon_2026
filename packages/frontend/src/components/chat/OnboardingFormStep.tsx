@@ -14,6 +14,7 @@ import {
   getAllSkills,
   type FormField,
   type DynamicListFieldConfig,
+  POPULAR_CERTIFICATIONS,
 } from '../../lib/chat/stepForms';
 import {
   getCurrentLocation,
@@ -23,6 +24,7 @@ import {
 } from '../../lib/geolocation';
 import MapPicker, { type MapCoordinates } from './MapPicker';
 import { DatePicker } from '~/components/ui/DatePicker';
+import GridMultiSelect from './GridMultiSelect';
 
 // =============================================================================
 // Types
@@ -828,15 +830,34 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
         );
 
       case 'multi-select-pills': {
-        // For skills field, use field-specific suggestions based on user's field of study
+        // For skills and certifications, use the new GridMultiSelect component
         const isSkillsField = props.step === 'skills' && field.name === 'skills';
+        const isCertificationsField =
+          props.step === 'certifications' && field.name === 'certifications';
 
+        // Use GridMultiSelect for skills and certifications steps
+        if (isSkillsField || isCertificationsField) {
+          const options = isSkillsField
+            ? getSkillsForField(props.fieldOfStudy)
+            : POPULAR_CERTIFICATIONS.map((c) => c.label);
+
+          return (
+            <GridMultiSelect
+              options={options}
+              selected={(value() as string[]) || []}
+              onChange={(v) => updateField(field.name, v)}
+              placeholder={field.placeholder}
+            />
+          );
+        }
+
+        // Fallback to MultiSelectPills for other multi-select-pills uses
         return (
           <MultiSelectPills
             field={field}
             selected={(value() as string[]) || []}
             onChange={(v) => updateField(field.name, v)}
-            getSuggestions={isSkillsField ? () => getSkillsForField(props.fieldOfStudy) : undefined}
+            getSuggestions={undefined}
           />
         );
       }
