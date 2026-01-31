@@ -80,9 +80,9 @@ export const OnboardingProgress: Component<OnboardingProgressProps> = (props) =>
                       step.id === 'plan' && (status() === 'current' || status() === 'done')
                         ? 'w-3 h-3 bg-green-500 ring-4 ring-green-500/20'
                         : status() === 'current'
-                          ? 'w-3 h-3 bg-primary ring-4 ring-primary/20'
+                          ? 'w-3 h-3 bg-emerald-500 dark:bg-emerald-400 ring-4 ring-emerald-500/20 dark:ring-emerald-400/30'
                           : status() === 'done'
-                            ? 'w-2.5 h-2.5 bg-primary/60'
+                            ? 'w-2.5 h-2.5 bg-emerald-500/60 dark:bg-emerald-400/60'
                             : 'w-2 h-2 bg-muted-foreground/30'
                     }`}
                     style={
@@ -96,7 +96,7 @@ export const OnboardingProgress: Component<OnboardingProgressProps> = (props) =>
 
                   {/* Active Glow for current */}
                   {status() === 'current' && (
-                    <div class="absolute inset-0 bg-primary/40 rounded-full animate-ping opacity-75 lg:hidden" />
+                    <div class="absolute inset-0 bg-emerald-500/40 dark:bg-emerald-400/40 rounded-full animate-ping opacity-75 lg:hidden" />
                   )}
                 </div>
 

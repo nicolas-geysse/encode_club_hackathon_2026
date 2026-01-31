@@ -200,11 +200,25 @@
 @keyframes subtle-pulse {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
   }
   50% {
     transform: scale(1.1);
-    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+}
+
+/* Dark mode pulse with higher visibility */
+@media (prefers-color-scheme: dark) {
+  @keyframes subtle-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
+    }
+    50% {
+      transform: scale(1.1);
+      box-shadow: 0 0 0 8px rgba(52, 211, 153, 0);
+    }
   }
 }
 
