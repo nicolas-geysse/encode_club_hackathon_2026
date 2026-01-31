@@ -1,6 +1,6 @@
-import { Router } from '@solidjs/router';
+import { Router, useLocation } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { Suspense, createSignal, onMount } from 'solid-js';
+import { Show, Suspense, createSignal, onMount } from 'solid-js';
 import './app.css';
 import { ProfileSelector } from '~/components/ProfileSelector';
 import { SimulationControls, type SimulationState } from '~/components/SimulationControls';
@@ -102,36 +102,56 @@ export default function App() {
       <SimulationProvider>
         <ProfileProvider>
           <Router
-            root={(props) => (
-              <AppLayout
-                onDebugOpen={() => setDebugOpen(true)}
-                headerContent={
-                  <>
-                    <SimulationControls
-                      compact={true}
-                      onSimulationChange={handleSimulationChange}
-                    />
-                    <ProfileSelector onProfileChange={handleProfileChange} />
-                    <ThemeToggle />
-                    <NotificationBell
-                      notifications={notifications()}
-                      onMarkAsRead={handleMarkNotificationAsRead}
-                      onClearAll={handleClearAllNotifications}
-                    />
-                  </>
-                }
-              >
-                <Suspense
+            root={(props) => {
+              const location = useLocation();
+              const isEmbedRoute = () => location.pathname.startsWith('/embed');
+
+              return (
+                <Show
+                  when={!isEmbedRoute()}
                   fallback={
-                    <div class="flex items-center justify-center py-12">
-                      <div class="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-                    </div>
+                    <Suspense
+                      fallback={
+                        <div class="flex items-center justify-center py-12">
+                          <div class="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                        </div>
+                      }
+                    >
+                      {props.children}
+                    </Suspense>
                   }
                 >
-                  {props.children}
-                </Suspense>
-              </AppLayout>
-            )}
+                  <AppLayout
+                    onDebugOpen={() => setDebugOpen(true)}
+                    headerContent={
+                      <>
+                        <SimulationControls
+                          compact={true}
+                          onSimulationChange={handleSimulationChange}
+                        />
+                        <ProfileSelector onProfileChange={handleProfileChange} />
+                        <ThemeToggle />
+                        <NotificationBell
+                          notifications={notifications()}
+                          onMarkAsRead={handleMarkNotificationAsRead}
+                          onClearAll={handleClearAllNotifications}
+                        />
+                      </>
+                    }
+                  >
+                    <Suspense
+                      fallback={
+                        <div class="flex items-center justify-center py-12">
+                          <div class="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+                        </div>
+                      }
+                    >
+                      {props.children}
+                    </Suspense>
+                  </AppLayout>
+                </Show>
+              );
+            }}
           >
             <FileRoutes />
           </Router>
