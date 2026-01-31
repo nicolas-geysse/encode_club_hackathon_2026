@@ -17,10 +17,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### UI Resource
 
-- [ ] **UIRS-01**: Chat API returns `swipe_embed` UIResource type
-- [ ] **UIRS-02**: UIResource includes embedUrl (`/embed/swipe`)
-- [ ] **UIRS-03**: UIResource includes fallbackUrl (`/plan?tab=swipe`)
-- [ ] **UIRS-04**: UIResource includes configurable height (default 450px)
+- [x] **UIRS-01**: Chat API returns `swipe_embed` UIResource type ✅
+- [x] **UIRS-02**: UIResource includes embedUrl (`/embed/swipe`) ✅
+- [x] **UIRS-03**: UIResource includes fallbackUrl (`/plan?tab=swipe`) ✅
+- [x] **UIRS-04**: UIResource includes configurable height (default 450px) ✅
 
 ### Embed Route
 
@@ -76,10 +76,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTD-03 | Phase 1 | Intent Detection | Complete |
 | INTD-04 | Phase 1 | Intent Detection | Complete |
 | INTD-05 | Phase 1 | Intent Detection | Complete |
-| UIRS-01 | Phase 2 | UI Resource | Pending |
-| UIRS-02 | Phase 2 | UI Resource | Pending |
-| UIRS-03 | Phase 2 | UI Resource | Pending |
-| UIRS-04 | Phase 2 | UI Resource | Pending |
+| UIRS-01 | Phase 2 | UI Resource | Complete |
+| UIRS-02 | Phase 2 | UI Resource | Complete |
+| UIRS-03 | Phase 2 | UI Resource | Complete |
+| UIRS-04 | Phase 2 | UI Resource | Complete |
 | EMBD-01 | Phase 3 | Embed Route | Pending |
 | EMBD-02 | Phase 3 | Embed Route | Pending |
 | EMBD-03 | Phase 3 | Embed Route | Pending |
