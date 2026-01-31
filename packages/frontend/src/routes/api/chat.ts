@@ -1853,9 +1853,10 @@ async function handleConversationMode(
         }
 
         case 'show_energy_chart': {
-          // Try two sources for energy data:
+          // Try three sources for energy data:
           // 1. context.energyHistory (from Suivi page, stored in profile.followupData)
-          // 2. energy_logs table via API (detailed logs with mood/stress/sleep)
+          // 2. Direct profile API call to get followupData (in case context is stale)
+          // 3. energy_logs table via API (detailed logs with mood/stress/sleep)
           let energyLogs: EnergyLogEntry[] = [];
 
           // Source 1: Check context.energyHistory (from Suivi page)
@@ -1863,6 +1864,9 @@ async function handleConversationMode(
             | Array<{ week: number; level: number; date: string }>
             | undefined;
           if (contextEnergyHistory && contextEnergyHistory.length > 0) {
+            logger.debug('[show_energy_chart] Using context.energyHistory', {
+              count: contextEnergyHistory.length,
+            });
             // Convert Suivi format to chart format (already 0-100 scale)
             energyLogs = contextEnergyHistory.map((entry) => ({
               date: entry.date || `Week ${entry.week}`,
@@ -1870,7 +1874,32 @@ async function handleConversationMode(
             }));
           }
 
-          // Source 2: If no context data, try energy_logs API
+          // Source 2: If no context data, try direct profile API (context might be stale)
+          if (energyLogs.length === 0 && profileId) {
+            try {
+              const profileUrl = `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/profiles?id=${profileId}`;
+              const profileResponse = await fetch(profileUrl);
+              if (profileResponse.ok) {
+                const profileData = await profileResponse.json();
+                const followupEnergy = profileData?.followupData?.energyHistory;
+                if (Array.isArray(followupEnergy) && followupEnergy.length > 0) {
+                  logger.debug('[show_energy_chart] Using profile API followupData', {
+                    count: followupEnergy.length,
+                  });
+                  energyLogs = followupEnergy.map(
+                    (entry: { week: number; level: number; date?: string }) => ({
+                      date: entry.date || `Week ${entry.week}`,
+                      level: entry.level,
+                    })
+                  );
+                }
+              }
+            } catch (err) {
+              logger.error('[show_energy_chart] Failed to fetch profile', { error: String(err) });
+            }
+          }
+
+          // Source 3: If still no data, try energy_logs API
           if (energyLogs.length === 0) {
             try {
               const energyUrl = `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/energy-logs?profileId=${profileId}`;
@@ -1878,11 +1907,20 @@ async function handleConversationMode(
               if (energyResponse.ok) {
                 const energyData = await energyResponse.json();
                 energyLogs = energyData.logs || [];
+                if (energyLogs.length > 0) {
+                  logger.debug('[show_energy_chart] Using energy_logs API', {
+                    count: energyLogs.length,
+                  });
+                }
               }
             } catch (err) {
-              console.error('[show_energy_chart] Failed to fetch energy logs:', err);
+              logger.error('[show_energy_chart] Failed to fetch energy logs', {
+                error: String(err),
+              });
             }
           }
+
+          logger.debug('[show_energy_chart] Final energyLogs', { count: energyLogs.length });
 
           if (energyLogs.length === 0) {
             response = `⚡ Je n'ai pas encore de données sur ton niveau d'énergie. Commence par enregistrer ton énergie sur la page de Suivi!`;
