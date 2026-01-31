@@ -2686,7 +2686,9 @@ export function OnboardingChat() {
                     hasStepForm(step())
                   }
                 >
-                  <div class="ml-12 mb-4 max-w-md">
+                  <div
+                    class={`ml-12 mb-4 ${step() === 'certifications' ? 'max-w-2xl' : 'max-w-md'}`}
+                  >
                     <OnboardingFormStep
                       step={step()}
                       initialValues={profile() as Record<string, unknown>}
