@@ -9,21 +9,21 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 
 ## Current Position
 
-Phase: 14 of 15 (UI Fixes) - COMPLETE
-Plan: 14-01 executed (1/1 complete)
-Status: Phase 14 complete, ready for Phase 15
-Last activity: 2026-01-31 — Executed 14-01-PLAN.md
+Phase: 15 of 15 (GridMultiSelect Fixes) - COMPLETE
+Plan: 15-01 executed (1/1 executed)
+Status: v2.1 milestone complete
+Last activity: 2026-01-31 — Executed 15-01-PLAN.md
 
-Progress: [████████░░] 80% (4 of 5 phases complete)
+Progress: [██████████] 100% (5 of 5 phases complete)
 
-Next: `/gsd:execute-phase 15`
+Next: All v2.1 bugfix phases complete
 
 ## Performance Metrics
 
 **Milestone v2.1:**
-- Total plans completed: 4
+- Total plans completed: 5
 - Total phases: 5
-- Execution time: —
+- Execution time: 2026-01-31
 
 ## Accumulated Context
 
@@ -36,6 +36,11 @@ See PROJECT.md Key Decisions table for full log.
 - Moved "Start My Plan" button to chat messages area as a completion message (better UX flow)
 - Dark mode CSS uses `prefers-color-scheme` media query for pulse animation
 
+**Phase 15 Decisions:**
+- Default grid variant uses fewer columns (1 sm:2) for skill readability
+- Wide variant (2 sm:3 md:4) for certifications with wider container
+- Empty state message contextual to filter state
+
 ### Pending Todos
 
 None.
@@ -46,15 +51,15 @@ None.
 
 ### Roadmap Evolution
 
-v2.1 milestone started:
+v2.1 milestone complete:
 - Phase 11: Chart Rendering ✓
 - Phase 12: Form Fixes ✓
 - Phase 13: State Persistence ✓
 - Phase 14: UI Fixes ✓
-- Phase 15: GridMultiSelect Fixes
+- Phase 15: GridMultiSelect Fixes ✓
 
 ## Session Continuity
 
 Last session: 2026-01-31
-Stopped at: Completed 14-01 plan execution
+Stopped at: Completed 15-01-PLAN.md execution
 Resume file: None
