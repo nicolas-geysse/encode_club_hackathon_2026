@@ -2227,7 +2227,10 @@ export function OnboardingChat() {
       const message =
         items.length > 0
           ? items
-              .map((i) => `${i.name}${i.estimatedValue ? ` ($${i.estimatedValue})` : ''}`)
+              .map(
+                (i) =>
+                  `${i.name}${i.estimatedValue ? ` (${getCurrencySymbolForForm()}${i.estimatedValue})` : ''}`
+              )
               .join(', ')
           : 'none';
       handleSend(message);
