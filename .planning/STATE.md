@@ -4,19 +4,19 @@
 
 See: .planning/PROJECT.md (updated 2026-01-31)
 
-**Core value:** Users can trigger and interact with Swipe strategies directly from chat
-**Current focus:** Roadmap complete
+**Core value:** Polish onboarding UX before demo
+**Current focus:** Fix Onboarding (Milestone 2)
 
 ## Current Position
 
-Phase: 5 of 5 (Communication) ✅ COMPLETE
-Plan: 1 of 1 in current phase
-Status: Roadmap complete! All 5 phases done.
-Last activity: 2026-01-31 — Executed 05-01, postMessage bridge implemented
+Phase: 6 of 10 (Critical Fixes)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-31 — Completed 06-01-PLAN.md
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 58% (7 of 12 plans complete)
 
-Next: Roadmap complete. Ready for manual QA.
+Next: Plan and execute Phase 6 (Critical Fixes)
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Recent decisions affecting current work:
 - SwipeEmbedResource: viewport detection with 768px threshold
 - Iframe error fallback shows navigation button
 - postMessage bridge: iframe → parent for swipe acknowledgments
+- CTA buttons outside ScrollArea for position stability (06-01)
 
 ### Pending Todos
 
@@ -67,8 +68,12 @@ None yet.
 
 None yet.
 
+### Roadmap Evolution
+
+- Phases 6-10 added: Fix Onboarding milestone from docs/bugs-dev/fix-onboarding.md
+
 ## Session Continuity
 
-Last session: 2026-01-31T15:15:00Z
-Stopped at: Completed all 5 phases! Roadmap done.
+Last session: 2026-01-31T16:34:18Z
+Stopped at: Completed 06-01-PLAN.md (Start My Plan button fix)
 Resume file: None

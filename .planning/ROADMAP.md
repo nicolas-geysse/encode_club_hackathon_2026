@@ -107,7 +107,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md - Remove in-chat Start My Plan button (keep stable sidebar/mobile CTAs)
+- [x] 06-01-PLAN.md - Remove in-chat Start My Plan button (keep stable sidebar/mobile CTAs)
 - [ ] 06-02-PLAN.md - Translate all French strings to English
 
 ### Phase 7: UX Improvements
@@ -186,7 +186,7 @@ Phases execute in numeric order: 1 -> 2 -> ... -> 10
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 6. Critical Fixes | 0/2 | Not Started | — |
+| 6. Critical Fixes | 1/2 | In Progress | — |
 | 7. UX Improvements | 0/2 | Not Started | — |
 | 8. Visual Polish | 0/2 | Not Started | — |
 | 9. Navigation Flow | 0/2 | Not Started | — |
