@@ -111,7 +111,8 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
             input.currentStep,
             input.existingProfile,
             input.conversationHistory,
-            input.workingMemory
+            input.workingMemory,
+            input.timeContext
           );
 
           if (groqResult && Object.keys(groqResult.data).length > 0) {

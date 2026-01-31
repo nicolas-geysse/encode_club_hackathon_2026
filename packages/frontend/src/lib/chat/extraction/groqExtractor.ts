@@ -261,7 +261,8 @@ export async function extractWithGroq(
   step: string,
   existing: ProfileData,
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[],
-  workingMemory?: string[]
+  workingMemory?: string[],
+  timeContext?: TimeContext
 ): Promise<ExtractionResult | null> {
   // Skip extraction for 'complete' and 'lifestyle' steps - nothing meaningful to extract
   if (step === 'complete' || step === 'lifestyle') {
@@ -324,9 +325,9 @@ export async function extractWithGroq(
     // Clean extracted data
     const cleaned = cleanExtractedData(extracted);
 
-    // Normalize goalDeadline to YYYY-MM-DD format
+    // Normalize goalDeadline to YYYY-MM-DD format (time-aware for simulation)
     if (cleaned.goalDeadline) {
-      cleaned.goalDeadline = normalizeGoalDeadline(cleaned.goalDeadline);
+      cleaned.goalDeadline = normalizeGoalDeadline(cleaned.goalDeadline, timeContext);
     }
 
     // Auto-detect currency from city if at greeting step and not already detected

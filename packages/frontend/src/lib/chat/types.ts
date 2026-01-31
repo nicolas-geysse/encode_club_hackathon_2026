@@ -170,6 +170,12 @@ export interface OnboardingInput {
   threadId?: string;
   conversationHistory?: { role: 'user' | 'assistant'; content: string }[];
   workingMemory?: string[];
+  /** Time context for simulation support (deadline normalization) */
+  timeContext?: {
+    simulatedDate?: string;
+    isSimulating?: boolean;
+    offsetDays?: number;
+  };
 }
 
 export interface OnboardingOutput {

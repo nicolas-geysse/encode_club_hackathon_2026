@@ -505,6 +505,7 @@ export async function POST(event: APIEvent) {
           threadId, // Pass threadId for conversation grouping in Opik
           conversationHistory, // Pass history for context awareness
           workingMemory: currentWorkingMemory, // Pass working memory for context
+          timeContext, // Pass time context for deadline normalization (simulation support)
         });
 
         // Get trace ID for response

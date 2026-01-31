@@ -137,7 +137,7 @@ export function calculateProjection(
   // Scenario path (if modifications provided)
   if (modifications && hasModifications(modifications)) {
     let extraMonthly = modifications.additionalIncome || 0;
-    extraMonthly -= modifications.reducedExpenses || 0;
+    extraMonthly += modifications.reducedExpenses || 0;
 
     // Calculate extra from additional work hours
     if (modifications.additionalHoursPerWeek && modifications.hourlyRate) {
