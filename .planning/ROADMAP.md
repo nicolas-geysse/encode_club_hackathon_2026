@@ -68,10 +68,10 @@ Plans:
   1. On desktop (>768px), chat message includes iframe with Swipe component
   2. On mobile (<=768px), chat message shows "Swipe to plan !" navigation button
   3. Resizing viewport dynamically updates rendering mode
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: [TBD during planning]
+- [ ] 04-01-PLAN.md - Add SwipeEmbedResource with responsive iframe/button rendering
 
 ### Phase 5: Communication
 **Goal**: Swipe actions in iframe are acknowledged in chat
