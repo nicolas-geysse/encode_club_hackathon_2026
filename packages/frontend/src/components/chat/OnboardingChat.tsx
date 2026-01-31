@@ -694,11 +694,11 @@ export function OnboardingChat() {
 
           // Map chart type to user-friendly request
           const chartMessages: Record<string, string> = {
-            budget_breakdown: 'Montre-moi mon budget en graphique',
-            progress: 'Montre-moi ma progression',
-            projection: 'Montre-moi mes projections',
-            comparison: 'Montre-moi une comparaison de scénarios',
-            energy: "Montre-moi mon historique d'énergie",
+            budget_breakdown: 'Show me my budget chart',
+            progress: 'Show me my progress',
+            projection: 'Show me my projections',
+            comparison: 'Show me a scenario comparison',
+            energy: 'Show me my energy history',
           };
 
           const userMessage = chartMessages[chartType] || `Show me the ${chartType} chart`;

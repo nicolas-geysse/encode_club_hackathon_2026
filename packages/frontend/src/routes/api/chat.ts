@@ -135,14 +135,14 @@ async function fetchBudgetContext(profileId?: string): Promise<BudgetContext | n
  * Uses correct semantic separation: monthly recurring vs one-time gains
  */
 function formatBudgetForPrompt(budget: BudgetContext): string {
-  const lines: string[] = ['Situation Financière:'];
+  const lines: string[] = ['Financial Summary:'];
 
   // MONTHLY RECURRING (continuous cash flows)
   lines.push('');
-  lines.push('REVENUS MENSUELS (récurrent):');
-  lines.push(`- Revenus: ${budget.totalIncome}€/mois`);
-  lines.push(`- Dépenses: ${budget.activeExpenses}€/mois`);
-  lines.push(`- Marge nette: ${budget.netMargin}€/mois`);
+  lines.push('MONTHLY INCOME (recurring):');
+  lines.push(`- Income: ${budget.totalIncome}€/month`);
+  lines.push(`- Expenses: ${budget.activeExpenses}€/month`);
+  lines.push(`- Net margin: ${budget.netMargin}€/month`);
 
   // ONE-TIME GAINS (realized)
   const oneTimeGainsTotal =
@@ -152,24 +152,24 @@ function formatBudgetForPrompt(budget: BudgetContext): string {
 
   if (oneTimeGainsTotal > 0) {
     lines.push('');
-    lines.push('GAINS PONCTUELS RÉALISÉS:');
+    lines.push('ONE-TIME GAINS (realized):');
     if (budget.tradeSalesCompleted > 0) {
-      lines.push(`- Ventes complétées: +${budget.tradeSalesCompleted}€`);
+      lines.push(`- Completed sales: +${budget.tradeSalesCompleted}€`);
     }
     if (budget.tradeBorrowSavings > 0) {
-      lines.push(`- Emprunts économisés: +${budget.tradeBorrowSavings}€`);
+      lines.push(`- Borrowing savings: +${budget.tradeBorrowSavings}€`);
     }
     if (budget.pausedSavings > 0) {
-      lines.push(`- Items pausés: +${budget.pausedSavings}€`);
+      lines.push(`- Paused items: +${budget.pausedSavings}€`);
     }
-    lines.push(`- Total gains ponctuels: +${oneTimeGainsTotal}€`);
+    lines.push(`- Total one-time gains: +${oneTimeGainsTotal}€`);
   }
 
   // POTENTIAL (not yet realized)
   if (budget.tradePotential > 0) {
     lines.push('');
-    lines.push('GAINS POTENTIELS (non réalisés):');
-    lines.push(`- Trades en attente: +${budget.tradePotential}€`);
+    lines.push('POTENTIAL GAINS (unrealized):');
+    lines.push(`- Pending trades: +${budget.tradePotential}€`);
   }
 
   // GOAL PROJECTION (combines correctly)
@@ -178,14 +178,14 @@ function formatBudgetForPrompt(budget: BudgetContext): string {
     const totalProjected = fromMonthlyMargin + oneTimeGainsTotal;
 
     lines.push('');
-    lines.push('PROJECTION VERS OBJECTIF:');
-    lines.push(`- Mois restants: ${budget.monthsUntilDeadline}`);
+    lines.push('GOAL PROJECTION:');
+    lines.push(`- Months remaining: ${budget.monthsUntilDeadline}`);
     lines.push(
-      `- Via marge mensuelle: ${fromMonthlyMargin}€ (${budget.netMargin}€ × ${budget.monthsUntilDeadline} mois)`
+      `- From monthly margin: ${fromMonthlyMargin}€ (${budget.netMargin}€ × ${budget.monthsUntilDeadline} months)`
     );
-    lines.push(`- Via gains ponctuels: ${oneTimeGainsTotal}€`);
-    lines.push(`- TOTAL PROJETÉ: ${totalProjected}€`);
-    lines.push(`- Progression: ${budget.goalProgress.toFixed(1)}%`);
+    lines.push(`- From one-time gains: ${oneTimeGainsTotal}€`);
+    lines.push(`- PROJECTED TOTAL: ${totalProjected}€`);
+    lines.push(`- Progress: ${budget.goalProgress.toFixed(1)}%`);
   }
 
   return lines.join('\n');
