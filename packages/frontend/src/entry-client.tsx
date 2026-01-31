@@ -1,5 +1,6 @@
 // @refresh reload
 import { mount, StartClient } from '@solidjs/start/client';
+import { initOnboardingState } from '~/lib/onboardingStateStore';
 
 // Apply theme immediately to prevent flash
 (function () {
@@ -12,5 +13,8 @@ import { mount, StartClient } from '@solidjs/start/client';
     document.documentElement.classList.remove('dark');
   }
 })();
+
+// Initialize onboarding state from localStorage (must run before app hydrates)
+initOnboardingState();
 
 mount(() => <StartClient />, document.getElementById('app')!);
