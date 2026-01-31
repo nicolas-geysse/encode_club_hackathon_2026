@@ -2251,7 +2251,7 @@ export function OnboardingChat() {
           ? trades
               .map(
                 (t) =>
-                  `${t.type} ${t.description}${t.withPerson ? ` from ${t.withPerson}` : ''}${t.estimatedValue ? ` (saves $${t.estimatedValue})` : ''}`
+                  `${t.type} ${t.description}${t.withPerson ? ` from ${t.withPerson}` : ''}${t.estimatedValue ? ` (saves ${getCurrencySymbolForForm()}${t.estimatedValue})` : ''}`
               )
               .join(', ')
           : 'none';
