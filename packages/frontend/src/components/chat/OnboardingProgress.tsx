@@ -43,7 +43,7 @@ export const OnboardingProgress: Component<OnboardingProgressProps> = (props) =>
   return (
     <div class="relative py-4 w-full">
       {/* Continuous Vertical Line - Centered */}
-      <div class="absolute left-1/2 top-6 bottom-6 w-px bg-border/50 -translate-x-[0.5px] -z-10" />
+      <div class="absolute left-1/2 top-6 bottom-6 w-0.5 bg-border -translate-x-[0.5px] -z-10" />
 
       <div class="flex flex-col gap-6">
         <For each={TIMELINE_STEPS}>
@@ -61,11 +61,13 @@ export const OnboardingProgress: Component<OnboardingProgressProps> = (props) =>
                 {/* Label (Left) */}
                 <div
                   class={`text-right text-sm font-medium transition-colors duration-300 ${
-                    status() === 'current'
-                      ? 'text-primary scale-105 origin-right'
-                      : status() === 'done'
-                        ? 'text-muted-foreground'
-                        : 'text-muted-foreground/40'
+                    step.id === 'plan' && (status() === 'current' || status() === 'done')
+                      ? 'text-green-500 font-semibold'
+                      : status() === 'current'
+                        ? 'text-primary scale-105 origin-right'
+                        : status() === 'done'
+                          ? 'text-muted-foreground'
+                          : 'text-muted-foreground/40'
                   }`}
                 >
                   {step.leftLabel}
@@ -75,12 +77,21 @@ export const OnboardingProgress: Component<OnboardingProgressProps> = (props) =>
                 <div class="relative flex items-center justify-center w-4">
                   <div
                     class={`rounded-full transition-all duration-500 z-10 ${
-                      status() === 'current'
-                        ? 'w-3 h-3 bg-primary ring-4 ring-primary/20'
-                        : status() === 'done'
-                          ? 'w-2.5 h-2.5 bg-primary/60'
-                          : 'w-2 h-2 bg-muted-foreground/30'
+                      step.id === 'plan' && (status() === 'current' || status() === 'done')
+                        ? 'w-3 h-3 bg-green-500 ring-4 ring-green-500/20'
+                        : status() === 'current'
+                          ? 'w-3 h-3 bg-primary ring-4 ring-primary/20'
+                          : status() === 'done'
+                            ? 'w-2.5 h-2.5 bg-primary/60'
+                            : 'w-2 h-2 bg-muted-foreground/30'
                     }`}
+                    style={
+                      status() === 'current'
+                        ? {
+                            animation: 'subtle-pulse 2s ease-in-out infinite',
+                          }
+                        : undefined
+                    }
                   />
 
                   {/* Active Glow for current */}

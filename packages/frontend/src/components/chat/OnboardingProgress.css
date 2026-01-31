@@ -195,3 +195,19 @@
 :global(.dark) .progress-timeline>div.right div.done.current:before {
     background: lightgreen !important;
 }
+
+/* Active Step Pulse Animation */
+@keyframes subtle-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+  }
+}
+
+.step-active {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
