@@ -109,6 +109,8 @@ interface ProfileData {
   subscriptions?: Subscription[];
   tradeOpportunities?: TradeOpportunity[];
   swipePreferences?: SwipePreferences; // BUG J FIX: Add swipe preferences to profile
+  // Sprint Graphiques: Include followupData for energy history
+  followupData?: Record<string, unknown>;
 }
 
 type OnboardingStep =
@@ -785,6 +787,8 @@ export function OnboardingChat() {
       academicEvents: [],
       inventoryItems: [],
       subscriptions: [],
+      // Sprint Graphiques: Include followupData for energy history
+      followupData: newProfile.followupData,
     });
 
     // Check profile completeness - need key fields to skip onboarding
@@ -978,6 +982,8 @@ export function OnboardingChat() {
           goalName: apiProfile.goalName,
           goalAmount: apiProfile.goalAmount,
           goalDeadline: apiProfile.goalDeadline,
+          // Include followupData for energy chart (Sprint Graphiques)
+          followupData: apiProfile.followupData,
         });
 
         if (isProfileComplete(apiProfile)) {
