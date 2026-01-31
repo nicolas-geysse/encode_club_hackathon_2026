@@ -22,6 +22,8 @@ interface GridMultiSelectProps {
   placeholder?: string;
   /** Maximum height for scrollable container (default: 200px) */
   maxHeight?: string;
+  /** Display variant - 'wide' uses more columns for wider containers */
+  variant?: 'default' | 'wide';
 }
 
 // =============================================================================
@@ -69,13 +71,19 @@ export default function GridMultiSelect(props: GridMultiSelectProps) {
 
       {/* Scrollable grid container */}
       <div class="overflow-y-auto" style={{ 'max-height': maxHeightStyle() }}>
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div
+          class={`grid gap-2 ${
+            (props.variant || 'default') === 'wide'
+              ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+              : 'grid-cols-1 sm:grid-cols-2'
+          }`}
+        >
           <For each={filteredOptions()}>
             {(option) => (
               <button
                 type="button"
                 onClick={() => toggleItem(option)}
-                class={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors truncate text-left ${
+                class={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors whitespace-normal text-left ${
                   isSelected(option)
                     ? 'bg-primary border border-primary text-primary-foreground'
                     : 'bg-muted border border-border text-foreground hover:bg-muted/80'
@@ -86,6 +94,11 @@ export default function GridMultiSelect(props: GridMultiSelectProps) {
               </button>
             )}
           </For>
+          <Show when={filteredOptions().length === 0}>
+            <p class="text-sm text-muted-foreground py-4 text-center col-span-full">
+              {filter() ? 'No matches found. Try a different search.' : 'No options available.'}
+            </p>
+          </Show>
         </div>
       </div>
 
