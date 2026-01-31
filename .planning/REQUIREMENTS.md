@@ -35,9 +35,9 @@ Bug fixes for this milestone. Each maps to roadmap phases.
 
 ### GridMultiSelect
 
-- [ ] **GRID-01**: Skills list always shows options (no random empty state)
-- [ ] **GRID-02**: Skills column width shows full titles without truncation
-- [ ] **GRID-03**: Certifications GridMultiSelect 2x wider (match response area width)
+- [x] **GRID-01**: Skills list always shows options (no random empty state)
+- [x] **GRID-02**: Skills column width shows full titles without truncation
+- [x] **GRID-03**: Certifications GridMultiSelect 2x wider (match response area width)
 
 ## Out of Scope
 
@@ -66,9 +66,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLAC-02 | Phase 14 | UI Fixes | Complete |
 | DARK-01 | Phase 14 | UI Fixes | Complete |
 | DARK-02 | Phase 14 | UI Fixes | Complete |
-| GRID-01 | Phase 15 | GridMultiSelect Fixes | Pending |
-| GRID-02 | Phase 15 | GridMultiSelect Fixes | Pending |
-| GRID-03 | Phase 15 | GridMultiSelect Fixes | Pending |
+| GRID-01 | Phase 15 | GridMultiSelect Fixes | Complete |
+| GRID-02 | Phase 15 | GridMultiSelect Fixes | Complete |
+| GRID-03 | Phase 15 | GridMultiSelect Fixes | Complete |
 
 **Coverage:**
 - v1 requirements: 14 total
@@ -77,4 +77,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-31*
-*Last updated: 2026-01-31 after Phase 14 completion*
+*Last updated: 2026-01-31 after Phase 15 completion — v2.1 milestone complete*

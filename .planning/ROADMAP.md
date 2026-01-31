@@ -16,7 +16,7 @@ v2.1 Bugfixes — Fix critical bugs discovered during demo testing. Phases 11-15
 - [x] **Phase 12: Form Fixes** - Fix subscription object display and currency hardcoding
 - [x] **Phase 13: State Persistence** - Fix onboarding state reset on navigation
 - [x] **Phase 14: UI Fixes** - Fix button placement and dark mode visibility
-- [ ] **Phase 15: GridMultiSelect Fixes** - Fix column widths and stability
+- [x] **Phase 15: GridMultiSelect Fixes** - Fix column widths and stability
 
 ## Phase Details
 
@@ -81,7 +81,9 @@ Plans:
   2. Skill names display fully without truncation
   3. Certifications grid is wider (matches chat response width)
   4. Certification names display fully without truncation
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [x] 15-01-PLAN.md — Fix GridMultiSelect variant, text truncation, and container width
 
 ## Progress
 
@@ -96,4 +98,4 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | 12. Form Fixes | 1/1 | Complete | 2026-01-31 |
 | 13. State Persistence | 1/1 | Complete | 2026-01-31 |
 | 14. UI Fixes | 1/1 | Complete | 2026-01-31 |
-| 15. GridMultiSelect Fixes | 0/? | Not started | - |
+| 15. GridMultiSelect Fixes | 1/1 | Complete | 2026-01-31 |
