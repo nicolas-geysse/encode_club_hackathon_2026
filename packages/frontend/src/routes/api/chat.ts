@@ -1639,7 +1639,7 @@ async function handleConversationMode(
         // =====================================================================
 
         case 'show_swipe_embed': {
-          response = `Voici les stratégies disponibles!\n\nSwipe pour choisir tes actions.`;
+          response = `Here are your available strategies!\n\nSwipe to choose your actions.`;
           const swipeResource: UIResource = {
             type: 'swipe_embed',
             params: {
@@ -1668,7 +1668,7 @@ async function handleConversationMode(
         // =====================================================================
 
         case 'show_chart_gallery': {
-          response = `📊 **Voici les graphiques disponibles**\n\nClique sur un bouton pour afficher le graphique:`;
+          response = `📊 **Available Charts**\n\nClick a button to display the chart:`;
           const galleryResource = buildChartGallery();
           const chartGalleryTraceId = ctx.getTraceId();
           ctx.setOutput({ action: 'show_chart_gallery', chartCount: 4 });
@@ -1727,11 +1727,11 @@ async function handleConversationMode(
           const savings = income - expenses;
 
           if (income === 0 && expenses === 0) {
-            response = `Je n'ai pas assez d'informations sur ton budget. Dis-moi ton revenu et tes dépenses d'abord!`;
+            response = `I don't have enough budget information yet. Tell me your income and expenses first!`;
             break;
           }
 
-          response = `📊 **Répartition de ton budget mensuel**\n\nRevenus: **${currSymbol}${income}** | Dépenses: **${currSymbol}${expenses}** | Épargne: **${currSymbol}${savings}**`;
+          response = `📊 **Your Monthly Budget**\n\nIncome: **${currSymbol}${income}** | Expenses: **${currSymbol}${expenses}** | Savings: **${currSymbol}${savings}**`;
           const budgetChartResource = buildBudgetBreakdownChart(
             income,
             expenses,
@@ -1785,13 +1785,13 @@ async function handleConversationMode(
           const weeklySavings = (income - expenses) / 4.33;
 
           if (goalAmount === 0) {
-            response = `Tu n'as pas encore défini d'objectif d'épargne. Crée un objectif d'abord!`;
+            response = `You haven't set a savings goal yet. Create a goal first!`;
             break;
           }
 
           const weeksRemaining =
             weeklySavings > 0 ? Math.ceil((goalAmount - currentSaved) / weeklySavings) : 52;
-          response = `📈 **Progression vers ton objectif**\n\nDéjà épargné: **${currSymbol}${currentSaved}** sur **${currSymbol}${goalAmount}**`;
+          response = `📈 **Progress Towards Your Goal**\n\nAlready saved: **${currSymbol}${currentSaved}** of **${currSymbol}${goalAmount}**`;
           const progressChartResource = buildProgressChart(
             currentSaved,
             goalAmount,
@@ -1823,7 +1823,7 @@ async function handleConversationMode(
           const goalDeadlineForChart = context.goalDeadline as string;
 
           if (!goalDeadlineForChart) {
-            response = `Je n'ai pas assez d'informations pour une projection. Définis un objectif avec une deadline d'abord!`;
+            response = `I don't have enough information for a projection. Set a goal with a deadline first!`;
             break;
           }
 
@@ -1863,7 +1863,7 @@ async function handleConversationMode(
           const projectionForChart = calculateProjection(financialDataForChart, timeCtx);
           const projectionChartResource = buildProjectionChart(projectionForChart, currSymbol);
           const summaryText = buildProjectionSummary(projectionForChart, currSymbol);
-          response = `🎯 **Projection vers ton objectif**\n\n${summaryText}`;
+          response = `🎯 **Projection Towards Your Goal**\n\n${summaryText}`;
           const projectionChartTraceId = ctx.getTraceId();
           ctx.setOutput({
             action: 'show_projection_chart',
@@ -1952,11 +1952,11 @@ async function handleConversationMode(
           logger.debug('[show_energy_chart] Final energyLogs', { count: energyLogs.length });
 
           if (energyLogs.length === 0) {
-            response = `⚡ Je n'ai pas encore de données sur ton niveau d'énergie. Commence par enregistrer ton énergie sur la page de Suivi!`;
+            response = `⚡ I don't have energy data yet. Start by logging your energy on the Tracking page!`;
             break;
           }
 
-          response = `⚡ **Évolution de ton énergie**\n\nLes lignes en pointillé indiquent les seuils: rouge (40%) = fatigue, vert (80%) = récupération.`;
+          response = `⚡ **Your Energy History**\n\nDashed lines indicate thresholds: red (40%) = fatigue, green (80%) = recovery.`;
           const energyChartResource = buildEnergyChart(energyLogs);
           const energyChartTraceId = ctx.getTraceId();
           ctx.setOutput({ action: 'show_energy_chart', logCount: energyLogs.length });
@@ -1974,7 +1974,7 @@ async function handleConversationMode(
 
         case 'show_comparison_chart': {
           // For comparison, redirect to gallery since user needs to specify scenarios
-          response = `📊 Pour comparer des scénarios, utilise les commandes "et si...". Par exemple:\n\n- "Et si je travaillais 5h/semaine?"\n- "Et si je vendais mon vélo?"\n- "Et si j'arrêtais Netflix?"\n\nOu choisis un graphique ci-dessous:`;
+          response = `📊 To compare scenarios, use "what if" commands. For example:\n\n- "What if I worked 5h/week?"\n- "What if I sold my bike?"\n- "What if I canceled Netflix?"\n\nOr choose a chart below:`;
           const comparisonGalleryResource = buildChartGallery();
           const comparisonTraceId = ctx.getTraceId();
           return {
