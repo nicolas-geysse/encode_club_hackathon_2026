@@ -135,7 +135,7 @@ Plans:
   2. Active step has subtle pulse animation with slight enlargement
   3. "Generating Plan" step text turns green when complete
   4. Bruno avatar has orbital pulse breathing animation
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 08-01-PLAN.md - Enhance progress indicator (lines, pulse, green state)
