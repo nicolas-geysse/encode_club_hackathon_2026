@@ -9,14 +9,14 @@ Bug fixes for this milestone. Each maps to roadmap phases.
 
 ### Chart Rendering
 
-- [ ] **CHRT-01**: Quick links (Budget, Goals, Energy) render actual chart visualizations, not text-only responses
-- [ ] **CHRT-02**: Add 4th quick link "Savings Progress" with savings projection chart
-- [ ] **CHRT-03**: handleUIAction 'show_chart' returns proper UIResource for MCPUIRenderer
+- [x] **CHRT-01**: Quick links (Budget, Goals, Energy) render actual chart visualizations, not text-only responses
+- [x] **CHRT-02**: Add 4th quick link "Savings Progress" with savings projection chart
+- [x] **CHRT-03**: handleUIAction 'show_chart' returns proper UIResource for MCPUIRenderer
 
 ### Form Data
 
-- [ ] **FORM-01**: Subscription form properly displays added items (not `[object Object]`)
-- [ ] **FORM-02**: "Items to sell" step uses profile currency (not hardcoded $)
+- [x] **FORM-01**: Subscription form properly displays added items (not `[object Object]`)
+- [x] **FORM-02**: "Items to sell" step uses profile currency (not hardcoded $)
 
 ### State Persistence
 
@@ -55,11 +55,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Phase Name | Status |
 |-------------|-------|------------|--------|
-| CHRT-01 | Phase 11 | Chart Rendering | Pending |
-| CHRT-02 | Phase 11 | Chart Rendering | Pending |
-| CHRT-03 | Phase 11 | Chart Rendering | Pending |
-| FORM-01 | Phase 12 | Form Fixes | Pending |
-| FORM-02 | Phase 12 | Form Fixes | Pending |
+| CHRT-01 | Phase 11 | Chart Rendering | Complete |
+| CHRT-02 | Phase 11 | Chart Rendering | Complete |
+| CHRT-03 | Phase 11 | Chart Rendering | Complete |
+| FORM-01 | Phase 12 | Form Fixes | Complete |
+| FORM-02 | Phase 12 | Form Fixes | Complete |
 | STAT-01 | Phase 13 | State Persistence | Pending |
 | STAT-02 | Phase 13 | State Persistence | Pending |
 | PLAC-01 | Phase 14 | UI Fixes | Pending |
@@ -77,4 +77,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-31*
-*Last updated: 2026-01-31 after initial definition*
+*Last updated: 2026-01-31 after Phase 12 completion*
