@@ -14,7 +14,7 @@ This roadmap delivers chat-integrated Swipe functionality in 5 phases. Starting 
 - [x] **Phase 2: UI Resource** - Chat API returns embed configuration
 - [x] **Phase 3: Embed Route** - Standalone swipe route for iframe
 - [x] **Phase 4: Responsive Rendering** - Desktop iframe vs mobile navigation
-- [ ] **Phase 5: Communication** - postMessage bridge for swipe feedback
+- [x] **Phase 5: Communication** - postMessage bridge for swipe feedback
 
 ## Phase Details
 
@@ -84,7 +84,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 05-01-PLAN.md - Add postMessage bridge for swipe acknowledgments
+- [x] 05-01-PLAN.md - Add postMessage bridge for swipe acknowledgments
 
 ## Progress
 
@@ -97,4 +97,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. UI Resource | 1/1 | Complete | 2026-01-31 |
 | 3. Embed Route | 2/2 | Complete | 2026-01-31 |
 | 4. Responsive Rendering | 1/1 | Complete | 2026-01-31 |
-| 5. Communication | 0/TBD | Not started | - |
+| 5. Communication | 1/1 | Complete | 2026-01-31 |

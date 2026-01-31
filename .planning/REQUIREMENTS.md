@@ -36,9 +36,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Communication
 
-- [ ] **COMM-01**: SwipeTab in embed mode sends postMessage on swipe completion
-- [ ] **COMM-02**: OnboardingChat listens for swipe_completed messages
-- [ ] **COMM-03**: Chat displays acknowledgment when swipe is completed
+- [x] **COMM-01**: SwipeTab in embed mode sends postMessage on swipe completion ✅
+- [x] **COMM-02**: OnboardingChat listens for swipe_completed messages ✅
+- [x] **COMM-03**: Chat displays acknowledgment when swipe is completed ✅
 
 ## v2 Requirements
 
@@ -86,9 +86,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RESP-01 | Phase 4 | Responsive Rendering | Complete |
 | RESP-02 | Phase 4 | Responsive Rendering | Complete |
 | RESP-03 | Phase 4 | Responsive Rendering | Complete |
-| COMM-01 | Phase 5 | Communication | Pending |
-| COMM-02 | Phase 5 | Communication | Pending |
-| COMM-03 | Phase 5 | Communication | Pending |
+| COMM-01 | Phase 5 | Communication | Complete |
+| COMM-02 | Phase 5 | Communication | Complete |
+| COMM-03 | Phase 5 | Communication | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total
