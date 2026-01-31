@@ -8,6 +8,20 @@ A student financial health navigator with an LLM-powered onboarding chat experie
 
 Frictionless onboarding that keeps users in the conversation flow while taking financial planning actions.
 
+## Current Milestone: v2.1 Bugfixes
+
+**Goal:** Fix critical bugs discovered during demo testing before production release.
+
+**Target fixes:**
+- Charts not rendering in quick links (only text responses)
+- Missing 4th quick link (Savings Progress)
+- Subscription form shows `[object Object]`
+- Currency hardcoded on "items to sell" step
+- Navigation resets onboarding state
+- "Start my plan" button placement
+- Dark mode visibility issues
+- GridMultiSelect column width/stability
+
 ## Current State (v2.0 shipped 2026-01-31)
 
 **Shipped features:**
@@ -40,7 +54,15 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 
 ### Active
 
-(None yet — define for next milestone)
+- [ ] Quick links render actual charts (not just text responses)
+- [ ] 4th quick link "Savings Progress" present
+- [ ] Subscription form properly serializes objects
+- [ ] Currency respects profile setting on all steps
+- [ ] Onboarding state persists across navigation
+- [ ] "Start my plan" button in chat area (not Bruno bar)
+- [ ] Bruno/progress pulse visible in dark mode
+- [ ] Skills GridMultiSelect stable with full-width titles
+- [ ] Certifications GridMultiSelect wider columns
 
 ### Out of Scope
 
@@ -58,11 +80,11 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - UIResource pattern for chat → UI communication
 - Shared onboardingStateStore for cross-component state
 
-**Design decisions:**
-- Hybrid A+C approach: iframe for desktop, navigation for mobile
-- postMessage for swipe feedback (one-way communication)
-- 768px breakpoint for mobile/desktop divide
-- Quick links trigger charts in chat (not navigation)
+**Known issues to address:**
+- handleUIAction 'show_chart' case not returning proper UIResource for charts
+- localStorage onboarding state not being read on page load
+- Subscription form field serialization issue in stepForms.ts
+- Hardcoded $ in inventory sell step
 
 ## Constraints
 
@@ -83,4 +105,4 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 | Remove in-chat button | Button in ScrollArea moved with messages | ✓ Good |
 
 ---
-*Last updated: 2026-01-31 after v2.0 milestone*
+*Last updated: 2026-01-31 after v2.1 milestone start*
