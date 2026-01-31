@@ -34,6 +34,7 @@ interface SwipeSessionProps {
   initialPreferences: UserPreferences;
   currency?: Currency;
   profileId?: string;
+  embedMode?: boolean;
   onComplete: (
     accepted: Scenario[],
     rejected: Scenario[],
@@ -253,6 +254,19 @@ export function SwipeSession(props: SwipeSessionProps) {
       .catch((err) => {
         console.error('[SwipeSession] Network error tracing swipe:', err.message);
       }); // Non-blocking
+
+    // Notify parent window if in embed mode (Phase 5: Communication)
+    if (props.embedMode && typeof window !== 'undefined') {
+      window.parent.postMessage(
+        {
+          type: 'swipe_completed',
+          direction,
+          scenarioTitle: scenario.title,
+          scenarioId: scenario.id,
+        },
+        '*'
+      );
+    }
 
     // Save to history for undo (including current adjustments)
     const currentAdjustments = { ...adjustments() };

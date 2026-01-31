@@ -935,6 +935,44 @@ export function OnboardingChat() {
   // Check for existing profile on mount
   // Priority: 1. Check forceNewProfile flag, 2. API (DuckDB), 3. localStorage fallback
   onMount(async () => {
+    // Phase 5: Listen for swipe_completed messages from embed iframe
+    const handleSwipeMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'swipe_completed') {
+        const { direction, scenarioTitle } = event.data;
+
+        // Generate acknowledgment based on direction
+        let acknowledgment: string;
+        switch (direction) {
+          case 'right':
+          case 'up':
+            acknowledgment = `Strategy accepted: ${scenarioTitle}`;
+            break;
+          case 'left':
+            acknowledgment = `Skipped: ${scenarioTitle}`;
+            break;
+          case 'down':
+            acknowledgment = `Noted: ${scenarioTitle} isn't for you`;
+            break;
+          default:
+            acknowledgment = `Swipe recorded: ${scenarioTitle}`;
+        }
+
+        // Add acknowledgment as assistant message
+        const ackMsg: Message = {
+          id: `swipe-ack-${Date.now()}`,
+          role: 'assistant',
+          content: acknowledgment,
+        };
+        setMessages((prev) => [...prev, ackMsg]);
+      }
+    };
+
+    window.addEventListener('message', handleSwipeMessage);
+
+    onCleanup(() => {
+      window.removeEventListener('message', handleSwipeMessage);
+    });
+
     // Check if user requested a completely fresh start
     const forceNew = localStorage.getItem('forceNewProfile');
     if (forceNew === 'true') {

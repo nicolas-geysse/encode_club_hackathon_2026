@@ -317,6 +317,7 @@ export function SwipeTab(props: SwipeTabProps) {
           initialPreferences={preferences()}
           currency={currency()}
           profileId={props.profileId}
+          embedMode={props.embedMode}
           onComplete={handleSwipeComplete}
         />
       </Show>
