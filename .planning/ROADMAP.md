@@ -30,7 +30,9 @@ v2.1 Bugfixes — Fix critical bugs discovered during demo testing. Phases 11-15
   3. Clicking "Energy" quick link shows Energy Timeline chart (or "no data" message)
   4. 4th quick link "Savings" shows Savings Progress chart
   5. handleUIAction returns UIResource that MCPUIRenderer can render
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 11-01-PLAN.md — Add 4th quick link and fix chartType-to-action mapping
 
 ### Phase 12: Form Fixes
 **Goal**: Fix form serialization and currency issues
@@ -84,7 +86,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 11. Chart Rendering | 0/? | Not started | - |
+| 11. Chart Rendering | 0/1 | Planned | - |
 | 12. Form Fixes | 0/? | Not started | - |
 | 13. State Persistence | 0/? | Not started | - |
 | 14. UI Fixes | 0/? | Not started | - |
