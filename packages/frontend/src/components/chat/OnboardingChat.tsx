@@ -2452,21 +2452,21 @@ export function OnboardingChat() {
               <div class="relative w-36 h-36 flex items-center justify-center mb-4">
                 {/* Orbital Rings */}
                 <div
-                  class="absolute w-[104px] h-[104px] rounded-full border border-primary/30"
+                  class="absolute w-[104px] h-[104px] rounded-full border border-emerald-500/30 dark:border-emerald-400/40"
                   style={{
                     animation: 'orbital-pulse 3s ease-in-out infinite',
                     'animation-delay': '0s',
                   }}
                 />
                 <div
-                  class="absolute w-[116px] h-[116px] rounded-full border border-primary/20"
+                  class="absolute w-[116px] h-[116px] rounded-full border border-emerald-500/20 dark:border-emerald-400/30"
                   style={{
                     animation: 'orbital-pulse 3s ease-in-out infinite',
                     'animation-delay': '0.5s',
                   }}
                 />
                 <div
-                  class="absolute w-[128px] h-[128px] rounded-full border border-primary/10"
+                  class="absolute w-[128px] h-[128px] rounded-full border border-emerald-500/10 dark:border-emerald-400/20"
                   style={{
                     animation: 'orbital-pulse 3s ease-in-out infinite',
                     'animation-delay': '1s',
@@ -2474,7 +2474,7 @@ export function OnboardingChat() {
                 />
 
                 {/* Bruno Avatar (centered, above rings) */}
-                <div class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-background">
+                <div class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-400 dark:to-emerald-500 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-background">
                   B
                 </div>
               </div>
