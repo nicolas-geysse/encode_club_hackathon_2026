@@ -49,41 +49,41 @@ export type LLMClassificationResult = z.infer<typeof LLMClassificationSchema>;
 // CONTEXT-AWARE PROMPT
 // =============================================================================
 
-const INTENT_CLASSIFICATION_PROMPT = `Tu es un classificateur d'intentions pour Stride, une app de finances étudiantes.
+const INTENT_CLASSIFICATION_PROMPT = `You are an intent classifier for Stride, a student financial health app.
 
-CONTEXTE ACTUEL:
+CURRENT CONTEXT:
 - Mode: {mode}
-- Étape: {currentStep}
-- Données utilisateur: goal={hasGoal}, budget={hasBudget}, energy={hasEnergy}
+- Step: {currentStep}
+- User data: goal={hasGoal}, budget={hasBudget}, energy={hasEnergy}
 
-ACTIONS DISPONIBLES:
-- show_chart_gallery: L'utilisateur veut voir les graphiques/visualisations disponibles (mots clés: charts, graphiques, visuels, visualisations, diagrammes)
-- show_budget_chart: L'utilisateur veut voir son budget en graphique (revenus, dépenses, épargne)
-- show_progress_chart: L'utilisateur veut voir sa progression vers son objectif d'épargne
-- show_projection_chart: L'utilisateur veut voir des projections financières futures
-- show_energy_chart: L'utilisateur veut voir son historique d'énergie/fatigue
-- show_swipe_embed: L'utilisateur veut voir/utiliser les stratégies swipe, explorer ses options d'action (mots clés: swipe, actions, stratégies, que puis-je faire, quelles options)
-- whatif_work: L'utilisateur pose une question "et si je travaillais X heures"
-- whatif_sell: L'utilisateur veut simuler une vente d'objet
-- whatif_cut: L'utilisateur veut simuler l'arrêt d'une dépense/abonnement
-- check_progress: L'utilisateur veut connaître sa progression actuelle (sans graphique)
-- get_advice: L'utilisateur demande des conseils financiers
-- continue_onboarding: L'utilisateur veut continuer/reprendre l'onboarding (SEULEMENT si mode=onboarding)
-- conversation: Conversation générale sans action spécifique (salutations, remerciements, questions générales)
+AVAILABLE ACTIONS:
+- show_chart_gallery: User wants to see available charts/visualizations (keywords: charts, graphs, visuals, visualizations, diagrams)
+- show_budget_chart: User wants to see their budget as a chart (income, expenses, savings)
+- show_progress_chart: User wants to see progress towards their savings goal
+- show_projection_chart: User wants to see future financial projections
+- show_energy_chart: User wants to see their energy/fatigue history
+- show_swipe_embed: User wants to see/use swipe strategies, explore action options (keywords: swipe, actions, strategies, what can I do, what options)
+- whatif_work: User asks "what if I worked X hours"
+- whatif_sell: User wants to simulate selling an item
+- whatif_cut: User wants to simulate stopping a subscription/expense
+- check_progress: User wants to know their current progress (without chart)
+- get_advice: User asks for financial advice
+- continue_onboarding: User wants to continue/resume onboarding (ONLY if mode=onboarding)
+- conversation: General conversation without specific action (greetings, thanks, general questions)
 
-RÈGLES IMPORTANTES:
-1. "continue", "on continue" en mode onboarding → continue_onboarding
-2. "continue" en mode conversation → conversation (pas d'action spéciale)
-3. Mots simples comme "charts", "graphiques", "visuel", "visualisation" → show_chart_gallery
-4. "chart please", "j'aimerais voir des visuels" → show_chart_gallery
-5. Demandes visuelles sans type spécifique → show_chart_gallery
-6. Salutations (bonjour, hello, merci, thanks) → conversation
-7. Si incertain (< 70% confiance), retourner conversation avec confidence basse
+IMPORTANT RULES:
+1. "continue", "let's continue" in onboarding mode → continue_onboarding
+2. "continue" in conversation mode → conversation (no special action)
+3. Simple words like "charts", "graphs", "visual", "visualization" → show_chart_gallery
+4. "chart please", "show me some visuals" → show_chart_gallery
+5. Visual requests without specific type → show_chart_gallery
+6. Greetings (hello, hi, thanks, thank you) → conversation
+7. If uncertain (< 70% confidence), return conversation with low confidence
 
-Réponds UNIQUEMENT avec un JSON valide sans markdown:
-{"action": "nom_action", "confidence": 0.0-1.0, "reasoning": "explication courte"}
+Respond ONLY with valid JSON without markdown:
+{"action": "action_name", "confidence": 0.0-1.0, "reasoning": "brief explanation"}
 
-Message utilisateur: "{message}"`;
+User message: "{message}"`;
 
 // Register prompt for version tracking
 const PROMPT_METADATA = registerPrompt('intent-classifier', INTENT_CLASSIFICATION_PROMPT);
