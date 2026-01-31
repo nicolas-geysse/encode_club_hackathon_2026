@@ -70,8 +70,11 @@ function getPromptHash(prompt: string): string {
  * - action: 'restart_update_profile' | 'update' | 'new_goal' | etc.
  *
  * expected_intent in benchmark can match either mode OR action
+ *
+ * Note: detectIntent is now async (Phase 2 - LLM fallback) but we call it
+ * without groqClient option to use regex-only fast path in benchmarks.
  */
-function evaluateIntent(item: BenchmarkItem): EvaluationResult {
+async function evaluateIntent(item: BenchmarkItem): Promise<EvaluationResult> {
   const start = Date.now();
   const input = item.input || {};
   const expected = item.expected_output || {};
@@ -79,7 +82,8 @@ function evaluateIntent(item: BenchmarkItem): EvaluationResult {
   const context = (input.profile as Record<string, unknown>) || {};
 
   try {
-    const result = detectIntent(message, context);
+    // Call without groqClient to use regex-only mode (fast path for benchmarks)
+    const result = await detectIntent(message, context);
     const expectedIntent = expected.expected_intent as string;
     const expectedAction = expected.expected_action as string | undefined;
     const expectedField = expected.expected_field as string | undefined;
@@ -381,7 +385,7 @@ async function runExperiment() {
 
     switch (category) {
       case 'intent':
-        result = evaluateIntent(item);
+        result = await evaluateIntent(item);
         break;
       case 'onboarding':
         result = await evaluateOnboarding(item);
@@ -431,7 +435,7 @@ async function runExperiment() {
       // If not found (shouldn't happen), compute it
       const category = (datasetItem.metadata?.category as string) || 'unknown';
       if (category === 'intent') {
-        const evalResult = evaluateIntent(datasetItem);
+        const evalResult = await evaluateIntent(datasetItem);
         return { output: evalResult.output };
       }
       return { output: { error: 'Not evaluated' } };

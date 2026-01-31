@@ -132,6 +132,10 @@ export interface DetectedIntent {
   extractedEnergy?: number;
   /** Internal: which pattern matched (for observability) */
   _matchedPattern?: string;
+  /** Internal: LLM classification confidence (0-1) when using LLM fallback */
+  _llmConfidence?: number;
+  /** Internal: LLM reasoning when using LLM fallback */
+  _llmReasoning?: string;
 }
 
 // =============================================================================

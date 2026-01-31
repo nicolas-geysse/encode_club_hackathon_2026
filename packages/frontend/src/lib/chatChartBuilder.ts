@@ -3,10 +3,83 @@
  *
  * Builds UIResource chart data from projection results.
  * Used by chat API to generate visual comparisons for what-if scenarios.
+ *
+ * Sprint Graphiques: Added chart gallery and specific chart builders
  */
 
 import type { UIResource } from '../types/chat';
 import type { ProjectionResult } from './budgetEngine';
+
+// =============================================================================
+// Chart Type Definitions
+// =============================================================================
+
+export type ChartType = 'budget_breakdown' | 'progress' | 'projection' | 'comparison' | 'energy';
+
+export interface ChartGalleryItem {
+  id: ChartType;
+  label: string;
+  description: string;
+  icon: string;
+}
+
+/**
+ * Available charts for the gallery
+ */
+export const AVAILABLE_CHARTS: ChartGalleryItem[] = [
+  {
+    id: 'budget_breakdown',
+    label: 'Budget Overview',
+    description: 'Income vs Expenses vs Savings',
+    icon: '📊',
+  },
+  {
+    id: 'progress',
+    label: 'Savings Progress',
+    description: 'Timeline towards your goal',
+    icon: '📈',
+  },
+  {
+    id: 'projection',
+    label: 'Goal Projection',
+    description: "When you'll reach your target",
+    icon: '🎯',
+  },
+  {
+    id: 'energy',
+    label: 'Energy Timeline',
+    description: 'Your energy levels over time',
+    icon: '⚡',
+  },
+];
+
+// =============================================================================
+// Chart Gallery Builder (Sprint Graphiques)
+// =============================================================================
+
+/**
+ * Build a chart gallery UIResource with buttons for available chart types
+ */
+export function buildChartGallery(): UIResource {
+  const chartButtons: UIResource[] = AVAILABLE_CHARTS.map((chart) => ({
+    type: 'action',
+    params: {
+      type: 'button',
+      label: `${chart.icon} ${chart.label}`,
+      variant: 'outline',
+      action: 'show_chart',
+      params: { chartType: chart.id },
+    },
+  }));
+
+  return {
+    type: 'grid',
+    params: {
+      columns: 2,
+      children: chartButtons,
+    },
+  };
+}
 
 /**
  * Build a comparison chart UIResource from projection result
@@ -176,6 +249,83 @@ export function buildScenarioGrid(
             borderColor: scenarios.map((s) =>
               s.success ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'
             ),
+          },
+        ],
+      },
+    },
+  };
+}
+
+// =============================================================================
+// Energy Chart Builder (Sprint Graphiques)
+// =============================================================================
+
+export interface EnergyLogEntry {
+  date: string;
+  level: number;
+}
+
+/**
+ * Build an energy timeline chart
+ * Shows energy levels over time with threshold lines
+ */
+export function buildEnergyChart(
+  energyLogs: EnergyLogEntry[],
+  _title: string = 'Energy Timeline'
+): UIResource {
+  // Sort logs by date and take last 12 entries
+  const sortedLogs = [...energyLogs]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(-12);
+
+  if (sortedLogs.length === 0) {
+    return {
+      type: 'metric',
+      params: {
+        title: 'No Energy Data',
+        value: '-',
+        subtitle: 'Start tracking your energy levels',
+      },
+    };
+  }
+
+  // Format labels as short dates
+  const labels = sortedLogs.map((log) => {
+    const date = new Date(log.date);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  });
+
+  const data = sortedLogs.map((log) => log.level);
+
+  // Threshold lines
+  const lowThreshold = sortedLogs.map(() => 40);
+  const highThreshold = sortedLogs.map(() => 80);
+
+  return {
+    type: 'chart',
+    params: {
+      type: 'line',
+      title: 'Energy Timeline',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Energy Level',
+            data,
+            backgroundColor: 'rgba(251, 191, 36, 0.2)',
+            borderColor: 'rgb(251, 191, 36)',
+          },
+          {
+            label: 'Low Threshold',
+            data: lowThreshold,
+            backgroundColor: 'transparent',
+            borderColor: 'rgba(239, 68, 68, 0.4)',
+          },
+          {
+            label: 'Recovery Threshold',
+            data: highThreshold,
+            backgroundColor: 'transparent',
+            borderColor: 'rgba(34, 197, 94, 0.4)',
           },
         ],
       },

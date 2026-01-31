@@ -3,15 +3,135 @@
  *
  * Detects user intent from messages in conversation mode.
  * Patterns match profile edits, goal creation, onboarding continuation, etc.
+ *
+ * Sprint Graphiques Phase 2: Hybrid detection with LLM fallback.
+ * - Fast path: Regex patterns (~1ms, $0)
+ * - Slow path: LLM classification (~500-800ms, ~$0.0001) when regex fails
  */
 
-import type { DetectedIntent } from '../types';
+import type Groq from 'groq-sdk';
+import type { DetectedIntent, ChatMode } from '../types';
 import { SERVICE_NAMES, SUBSCRIPTION_PATTERNS } from '../extraction/patterns';
+import {
+  classifyIntentWithLLM,
+  getIntentModeFromAction,
+  type ClassificationContext,
+} from './llmClassifier';
+
+// =============================================================================
+// CHART-RELATED PATTERNS (Sprint Graphiques)
+// =============================================================================
+
+/**
+ * Patterns for asking what charts are available (gallery request)
+ * Matches: "quels graphiques", "what charts", "show me charts", "available visualizations"
+ */
+const CHART_GALLERY_PATTERNS = [
+  // SIMPLE: Single word triggers for chart gallery
+  /^(?:charts?|graphs?|graphiques?|visualisations?|visuels?|diagrammes?)[\s?!.]*$/i,
+  // FR: List/discovery patterns
+  /\b(?:quels?|liste|montre[rz]?|affiche[rz]?|voir)\s+(?:les?\s+)?(?:graphiques?|courbes?|visualisations?|charts?|diagrammes?)/i,
+  /\b(?:disponibles?|available)\s+(?:graphiques?|charts?|visualisations?)/i,
+  // FR: "qu'as-tu comme visualisations", "as-tu des graphiques"
+  /\b(?:qu['']?as[- ]?tu|as[- ]?tu)\s+(?:comme\s+)?(?:des?\s+)?(?:graphiques?|visualisations?|charts?)/i,
+  // FR: "montres moi des charts" (with or without 's', with or without hyphen)
+  /\b(?:montre[sz]?)(?:[- ]?moi)?\s+(?:des\s+)?(?:graphiques?|visualisations?|charts?)\b/i,
+  // EN: List/discovery patterns
+  /\b(?:what|which|list|show)\s+(?:charts?|graphs?|visualizations?)\s+(?:do you have|can you|are available)/i,
+  /\b(?:show|display|see)\s+(?:me\s+)?(?:available|all|your)\s+(?:charts?|graphs?|visualizations?)/i,
+  // Direct requests for chart gallery
+  /\b(?:charts?|graphs?|graphiques?)\s+(?:disponibles?|available)/i,
+];
+
+/**
+ * Patterns for specific chart types
+ */
+const CHART_SPECIFIC_PATTERNS = {
+  // Budget breakdown chart
+  budget: [
+    // "budget en graphique", "budget chart", "dépenses graphique"
+    /\b(?:budget|income|expense|dépenses?|revenus?|finances?)\s+(?:en\s+)?(?:chart|graph|graphique|breakdown|répartition|vue)/i,
+    // "chart of budget", "graphique du budget"
+    /\b(?:chart|graph|graphique)\s+(?:of\s+|du\s+|de\s+)?(?:my\s+|mon\s+)?(?:budget|income|expense|dépenses?|revenus?)/i,
+    // "montre mon budget en graphique", "show my budget"
+    /\b(?:montre|show|affiche|display)(?:-moi)?\s+(?:my\s+|mon\s+|ma\s+)?(?:budget|dépenses?|revenus?)(?:\s+en\s+graphique|\s+chart|\s+graph)?/i,
+    // "mon budget" followed eventually by "graphique" - covers "montre-moi mon budget en graphique"
+    /\b(?:mon\s+|ma\s+|my\s+)(?:budget|dépenses?|revenus?)\b.*\b(?:graphique|chart|graph)\b/i,
+  ],
+  // Progress/savings timeline chart
+  progress: [
+    /\b(?:progress|progression|timeline|évolution|savings?|épargne)\s+(?:en\s+)?(?:chart|graph|graphique|courbe)/i,
+    /\b(?:chart|graph|graphique|courbe)\s+(?:of\s+|de\s+)?(?:my\s+|ma\s+)?(?:progress|progression|savings?|épargne)/i,
+    // SIMPLE: "montre ma progression" without requiring "graphique"
+    /\b(?:montre|show|affiche)(?:-moi)?\s+(?:my\s+|ma\s+)?(?:progress|progression)\b/i,
+    // "ma progression" followed by "graphique"
+    /\b(?:mon\s+|ma\s+|my\s+)(?:progress|progression|épargne)\b.*\b(?:graphique|chart|graph)\b/i,
+  ],
+  // Goal projection chart
+  projection: [
+    /\b(?:projection|forecast|prévision|objectif|goal)\s+(?:en\s+)?(?:chart|graph|graphique)/i,
+    /\b(?:chart|graph|graphique)\s+(?:of\s+|de\s+)?(?:my\s+|mes\s+)?(?:projection|forecast|prévision|goal|objectif)/i,
+    // SIMPLE: "montre mes projections" without requiring "graphique"
+    /\b(?:montre|show|affiche)(?:-moi)?\s+(?:my\s+|mes\s+)?(?:projection|prévision)s?\b/i,
+  ],
+  // Scenario comparison chart
+  comparison: [
+    /\b(?:compar|versus|vs|scénarios?)\s+(?:en\s+)?(?:chart|graph|graphique)/i,
+    /\b(?:chart|graph|graphique)\s+(?:to\s+|de\s+)?(?:compar|versus|scénarios?)/i,
+  ],
+  // Energy timeline chart
+  energy: [
+    /\b(?:energy|énergie|fatigue)\s+(?:en\s+)?(?:chart|graph|graphique|timeline|history|historique)/i,
+    /\b(?:chart|graph|graphique|timeline|historique)\s+(?:of\s+|de\s+)?(?:my\s+|mon\s+)?(?:energy|énergie)/i,
+    // SIMPLE: "montre mon énergie/historique" without requiring "graphique"
+    /\b(?:montre|show|affiche)(?:-moi)?\s+(?:my\s+|mon\s+)?(?:energy|énergie)\b/i,
+    /\b(?:montre|show|affiche)(?:-moi)?\s+(?:my\s+|mon\s+)?historique\s+d['']?énergie\b/i,
+    // "mon énergie/historique" followed by "graphique"
+    /\b(?:mon\s+|my\s+)(?:energy|énergie|historique\s+d['']?énergie)\b.*\b(?:graphique|chart|graph)\b/i,
+  ],
+};
+
+/**
+ * Generic chart request patterns (user wants "a chart" without specifying type)
+ * Matches: "montre-moi un graphique", "show me a chart", "tu as des graphiques?"
+ */
+const GENERIC_CHART_PATTERNS = [
+  /\b(?:tu\s+(?:aurais?|as|peux)|(?:do\s+)?you\s+have|can\s+you\s+show)\s+(?:un\s+|a\s+)?(?:graphique|chart|graph)/i,
+  /\b(?:montre|show|affiche|display|dessine|draw|visualise)\s+(?:-?moi\s+)?(?:un\s+|a\s+)?(?:graphique|chart|graph|courbe|visualization)/i,
+  /\b(?:graphique|chart|graph|visualisation)\s*\??$/i, // Just "graphique?" or "chart?"
+];
+
+// =============================================================================
+
+/**
+ * Options for intent detection with optional LLM fallback
+ */
+export interface DetectIntentOptions {
+  /** Groq client for LLM fallback (optional - no LLM if not provided) */
+  groqClient?: Groq;
+  /** Current chat mode for context-aware classification */
+  mode?: ChatMode;
+  /** Current onboarding step for context-aware classification */
+  currentStep?: string;
+}
 
 /**
  * Detect user intent from message
+ *
+ * Uses hybrid approach:
+ * 1. Fast path: Regex patterns (~1ms)
+ * 2. Slow path: LLM classification if regex fails and groqClient is provided
+ *
+ * @param message - User message to analyze
+ * @param context - Profile/conversation context for extraction
+ * @param options - Optional LLM fallback configuration
+ * @returns DetectedIntent with mode, action, and matched pattern info
  */
-export function detectIntent(message: string, _context: Record<string, unknown>): DetectedIntent {
+export async function detectIntent(
+  message: string,
+  context: Record<string, unknown>,
+  options?: DetectIntentOptions
+): Promise<DetectedIntent> {
   const lower = message.toLowerCase();
 
   // ==========================================================================
@@ -471,6 +591,77 @@ export function detectIntent(message: string, _context: Record<string, unknown>)
       action: 'progress_summary',
       _matchedPattern: 'suivi_progress_summary',
     };
+  }
+
+  // ==========================================================================
+  // CHART REQUESTS (Sprint Graphiques)
+  // ==========================================================================
+  // Order matters: check SPECIFIC chart types FIRST, then gallery, then generic
+
+  // Check for specific chart type requests FIRST (most specific)
+  for (const [chartType, patterns] of Object.entries(CHART_SPECIFIC_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(lower)) {
+        return {
+          mode: 'conversation',
+          action: `show_${chartType}_chart`,
+          _matchedPattern: `chart_${chartType}`,
+        };
+      }
+    }
+  }
+
+  // Check for chart gallery request (list available charts)
+  for (const pattern of CHART_GALLERY_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'show_chart_gallery',
+        _matchedPattern: 'chart_gallery',
+      };
+    }
+  }
+
+  // Check for generic chart request (show gallery as fallback)
+  for (const pattern of GENERIC_CHART_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'show_chart_gallery',
+        _matchedPattern: 'chart_generic',
+      };
+    }
+  }
+
+  // ==========================================================================
+  // LLM FALLBACK (Sprint Graphiques Phase 2)
+  // ==========================================================================
+  // If no regex pattern matched and groqClient is provided, use LLM classification
+  if (options?.groqClient) {
+    const classificationContext: ClassificationContext = {
+      mode: options.mode || 'conversation',
+      currentStep: options.currentStep || 'unknown',
+      hasGoal: Boolean(context.goalAmount),
+      hasBudget: Boolean(context.income || context.expenses),
+      hasEnergy:
+        Array.isArray(context.energyHistory) && (context.energyHistory as unknown[]).length > 0,
+    };
+
+    const llmResult = await classifyIntentWithLLM(
+      message,
+      options.groqClient,
+      classificationContext
+    );
+
+    if (llmResult) {
+      return {
+        mode: getIntentModeFromAction(llmResult.action),
+        action: llmResult.action,
+        _matchedPattern: 'llm_classification',
+        _llmConfidence: llmResult.confidence,
+        _llmReasoning: llmResult.reasoning,
+      };
+    }
   }
 
   // ==========================================================================

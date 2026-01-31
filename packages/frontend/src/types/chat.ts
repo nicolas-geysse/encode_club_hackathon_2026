@@ -9,6 +9,31 @@
  * @see api/chat.ts - API route using ChatResponse/ChatRequest
  */
 
+// =============================================================================
+// Chart Action Types (Sprint Graphiques)
+// =============================================================================
+
+/**
+ * Available chart types for the gallery
+ */
+export type ChartType = 'budget_breakdown' | 'progress' | 'projection' | 'comparison' | 'energy';
+
+/**
+ * Action params for UI actions (buttons, links, etc.)
+ */
+export interface ActionParams {
+  /** Chart type for show_chart action */
+  chartType?: ChartType;
+  /** Navigation target for navigate action */
+  to?: string;
+  /** Generic data payload */
+  [key: string]: unknown;
+}
+
+// =============================================================================
+// UIResource Type
+// =============================================================================
+
 // Define UIResource here as the single source of truth
 export type UIResource =
   | {
@@ -88,7 +113,13 @@ export type UIResource =
     }
   | {
       type: 'action';
-      params: { type?: string; label?: string; variant?: string; action?: string; params?: any };
+      params: {
+        type?: string;
+        label?: string;
+        variant?: string;
+        action?: string;
+        params?: ActionParams;
+      };
     }
   | {
       type: 'composite';

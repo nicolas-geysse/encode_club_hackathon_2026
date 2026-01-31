@@ -65,6 +65,14 @@ import {
   type FinancialData,
   type ScenarioModifications,
 } from '../../lib/budgetEngine';
+import {
+  buildChartGallery,
+  buildBudgetBreakdownChart,
+  buildProgressChart,
+  buildProjectionChart,
+  buildEnergyChart,
+  type EnergyLogEntry,
+} from '../../lib/chatChartBuilder';
 
 const logger = createLogger('ChatAPI');
 
@@ -464,6 +472,31 @@ export async function POST(event: APIEvent) {
         }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
+    }
+
+    // =========================================================================
+    // CHART REQUESTS - Handle in ANY mode (Sprint Graphiques)
+    // Phase 2: Now uses async detectIntent with LLM fallback
+    // =========================================================================
+    const chartIntent = await detectIntent(message, context, {
+      groqClient: getGroqClient() || undefined,
+      mode: mode || 'conversation',
+      currentStep: step,
+    });
+    if (chartIntent.action?.startsWith('show_') && chartIntent.action?.includes('chart')) {
+      // Redirect to conversation mode handler for chart intents
+      const chartResult = await handleConversationMode(
+        message,
+        'conversation', // Force conversation mode for charts
+        context,
+        threadId,
+        profileId,
+        timeContext
+      );
+      return new Response(JSON.stringify(chartResult), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Handle conversation mode (after onboarding is complete)
@@ -924,8 +957,12 @@ async function handleConversationMode(
     offsetDays: 0,
   };
 
-  // Pre-detect intent for tags
-  const preIntent = detectIntent(message, context);
+  // Pre-detect intent for tags (Phase 2: async with LLM fallback)
+  const preIntent = await detectIntent(message, context, {
+    groqClient: getGroqClient() || undefined,
+    mode: currentMode,
+    currentStep: 'conversation', // In conversation mode, step is generic
+  });
 
   const traceOptions: TraceOptions = {
     source: 'frontend_api',
@@ -1595,6 +1632,294 @@ async function handleConversationMode(
             response = `Here's your current projection (**${timeRemaining}** remaining):\n\n${summary}`;
           }
           break;
+        }
+
+        // =====================================================================
+        // CHART GALLERY & SPECIFIC CHARTS (Sprint Graphiques)
+        // =====================================================================
+
+        case 'show_chart_gallery': {
+          response = `📊 **Voici les graphiques disponibles**\n\nClique sur un bouton pour afficher le graphique:`;
+          const galleryResource = buildChartGallery();
+          const chartGalleryTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_chart_gallery', chartCount: 4 });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: chartGalleryTraceId || undefined,
+            traceUrl: chartGalleryTraceId ? getTraceUrl(chartGalleryTraceId) : undefined,
+            source: 'groq' as const,
+            uiResource: galleryResource,
+          };
+        }
+
+        case 'show_budget_chart': {
+          const currSymbol = getCurrencySymbol(context.currency as string);
+
+          // Handle both number and array formats for income/expenses
+          let income = 0;
+          let expenses = 0;
+
+          // Income can be a number or array of {source, amount}
+          if (typeof context.income === 'number') {
+            income = context.income;
+          } else if (Array.isArray(context.incomes)) {
+            income = (context.incomes as Array<{ amount: number }>).reduce(
+              (sum, i) => sum + (i.amount || 0),
+              0
+            );
+          } else if (Array.isArray(context.income)) {
+            income = (context.income as Array<{ amount: number }>).reduce(
+              (sum, i) => sum + (i.amount || 0),
+              0
+            );
+          }
+
+          // Expenses can be a number or array of {category, amount}
+          if (typeof context.expenses === 'number') {
+            expenses = context.expenses;
+          } else if (Array.isArray(context.expenses)) {
+            expenses = (context.expenses as Array<{ amount: number }>).reduce(
+              (sum, e) => sum + (e.amount || 0),
+              0
+            );
+          }
+
+          // Also try to get from budget context if available
+          if (income === 0 && budgetContext) {
+            income = budgetContext.totalIncome || 0;
+          }
+          if (expenses === 0 && budgetContext) {
+            expenses = budgetContext.activeExpenses || 0;
+          }
+
+          const savings = income - expenses;
+
+          if (income === 0 && expenses === 0) {
+            response = `Je n'ai pas assez d'informations sur ton budget. Dis-moi ton revenu et tes dépenses d'abord!`;
+            break;
+          }
+
+          response = `📊 **Répartition de ton budget mensuel**\n\nRevenus: **${currSymbol}${income}** | Dépenses: **${currSymbol}${expenses}** | Épargne: **${currSymbol}${savings}**`;
+          const budgetChartResource = buildBudgetBreakdownChart(
+            income,
+            expenses,
+            savings,
+            currSymbol
+          );
+          const budgetChartTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_budget_chart', income, expenses, savings });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: budgetChartTraceId || undefined,
+            traceUrl: budgetChartTraceId ? getTraceUrl(budgetChartTraceId) : undefined,
+            source: 'groq' as const,
+            uiResource: budgetChartResource,
+          };
+        }
+
+        case 'show_progress_chart': {
+          const currSymbol = getCurrencySymbol(context.currency as string);
+          const goalAmount = (context.goalAmount as number) || 0;
+          const currentSaved = (context.currentSaved as number) || 0;
+
+          // Calculate income/expenses from budget context or arrays
+          let income = budgetContext?.totalIncome || 0;
+          let expenses = budgetContext?.activeExpenses || 0;
+
+          if (income === 0) {
+            if (typeof context.income === 'number') {
+              income = context.income;
+            } else if (Array.isArray(context.incomes)) {
+              income = (context.incomes as Array<{ amount: number }>).reduce(
+                (sum, i) => sum + (i.amount || 0),
+                0
+              );
+            }
+          }
+          if (expenses === 0) {
+            if (typeof context.expenses === 'number') {
+              expenses = context.expenses;
+            } else if (Array.isArray(context.expenses)) {
+              expenses = (context.expenses as Array<{ amount: number }>).reduce(
+                (sum, e) => sum + (e.amount || 0),
+                0
+              );
+            }
+          }
+
+          const weeklySavings = (income - expenses) / 4.33;
+
+          if (goalAmount === 0) {
+            response = `Tu n'as pas encore défini d'objectif d'épargne. Crée un objectif d'abord!`;
+            break;
+          }
+
+          const weeksRemaining =
+            weeklySavings > 0 ? Math.ceil((goalAmount - currentSaved) / weeklySavings) : 52;
+          response = `📈 **Progression vers ton objectif**\n\nDéjà épargné: **${currSymbol}${currentSaved}** sur **${currSymbol}${goalAmount}**`;
+          const progressChartResource = buildProgressChart(
+            currentSaved,
+            goalAmount,
+            weeksRemaining,
+            weeklySavings,
+            currSymbol
+          );
+          const progressChartTraceId = ctx.getTraceId();
+          ctx.setOutput({
+            action: 'show_progress_chart',
+            currentSaved,
+            goalAmount,
+            weeksRemaining,
+          });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: progressChartTraceId || undefined,
+            traceUrl: progressChartTraceId ? getTraceUrl(progressChartTraceId) : undefined,
+            source: 'groq' as const,
+            uiResource: progressChartResource,
+          };
+        }
+
+        case 'show_projection_chart': {
+          const currSymbol = getCurrencySymbol(context.currency as string);
+          const goalDeadlineForChart = context.goalDeadline as string;
+
+          if (!goalDeadlineForChart) {
+            response = `Je n'ai pas assez d'informations pour une projection. Définis un objectif avec une deadline d'abord!`;
+            break;
+          }
+
+          // Calculate income/expenses from budget context or arrays
+          let incomeForProjection = budgetContext?.totalIncome || 0;
+          let expensesForProjection = budgetContext?.activeExpenses || 0;
+
+          if (incomeForProjection === 0) {
+            if (typeof context.income === 'number') {
+              incomeForProjection = context.income;
+            } else if (Array.isArray(context.incomes)) {
+              incomeForProjection = (context.incomes as Array<{ amount: number }>).reduce(
+                (sum, i) => sum + (i.amount || 0),
+                0
+              );
+            }
+          }
+          if (expensesForProjection === 0) {
+            if (typeof context.expenses === 'number') {
+              expensesForProjection = context.expenses;
+            } else if (Array.isArray(context.expenses)) {
+              expensesForProjection = (context.expenses as Array<{ amount: number }>).reduce(
+                (sum, e) => sum + (e.amount || 0),
+                0
+              );
+            }
+          }
+
+          const financialDataForChart: FinancialData = {
+            income: incomeForProjection,
+            expenses: expensesForProjection,
+            currentSaved: (context.currentSaved as number) || 0,
+            goalAmount: (context.goalAmount as number) || 0,
+            goalDeadline: goalDeadlineForChart,
+          };
+
+          const projectionForChart = calculateProjection(financialDataForChart, timeCtx);
+          const projectionChartResource = buildProjectionChart(projectionForChart, currSymbol);
+          const summaryText = buildProjectionSummary(projectionForChart, currSymbol);
+          response = `🎯 **Projection vers ton objectif**\n\n${summaryText}`;
+          const projectionChartTraceId = ctx.getTraceId();
+          ctx.setOutput({
+            action: 'show_projection_chart',
+            success: projectionForChart.currentPath.success,
+          });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: projectionChartTraceId || undefined,
+            traceUrl: projectionChartTraceId ? getTraceUrl(projectionChartTraceId) : undefined,
+            source: 'groq' as const,
+            uiResource: projectionChartResource,
+          };
+        }
+
+        case 'show_energy_chart': {
+          // Try two sources for energy data:
+          // 1. context.energyHistory (from Suivi page, stored in profile.followupData)
+          // 2. energy_logs table via API (detailed logs with mood/stress/sleep)
+          let energyLogs: EnergyLogEntry[] = [];
+
+          // Source 1: Check context.energyHistory (from Suivi page)
+          const contextEnergyHistory = context.energyHistory as
+            | Array<{ week: number; level: number; date: string }>
+            | undefined;
+          if (contextEnergyHistory && contextEnergyHistory.length > 0) {
+            // Convert Suivi format to chart format (already 0-100 scale)
+            energyLogs = contextEnergyHistory.map((entry) => ({
+              date: entry.date || `Week ${entry.week}`,
+              level: entry.level,
+            }));
+          }
+
+          // Source 2: If no context data, try energy_logs API
+          if (energyLogs.length === 0) {
+            try {
+              const energyUrl = `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/energy-logs?profileId=${profileId}`;
+              const energyResponse = await fetch(energyUrl);
+              if (energyResponse.ok) {
+                const energyData = await energyResponse.json();
+                energyLogs = energyData.logs || [];
+              }
+            } catch (err) {
+              console.error('[show_energy_chart] Failed to fetch energy logs:', err);
+            }
+          }
+
+          if (energyLogs.length === 0) {
+            response = `⚡ Je n'ai pas encore de données sur ton niveau d'énergie. Commence par enregistrer ton énergie sur la page de Suivi!`;
+            break;
+          }
+
+          response = `⚡ **Évolution de ton énergie**\n\nLes lignes en pointillé indiquent les seuils: rouge (40%) = fatigue, vert (80%) = récupération.`;
+          const energyChartResource = buildEnergyChart(energyLogs);
+          const energyChartTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_energy_chart', logCount: energyLogs.length });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: energyChartTraceId || undefined,
+            traceUrl: energyChartTraceId ? getTraceUrl(energyChartTraceId) : undefined,
+            source: 'groq' as const,
+            uiResource: energyChartResource,
+          };
+        }
+
+        case 'show_comparison_chart': {
+          // For comparison, redirect to gallery since user needs to specify scenarios
+          response = `📊 Pour comparer des scénarios, utilise les commandes "et si...". Par exemple:\n\n- "Et si je travaillais 5h/semaine?"\n- "Et si je vendais mon vélo?"\n- "Et si j'arrêtais Netflix?"\n\nOu choisis un graphique ci-dessous:`;
+          const comparisonGalleryResource = buildChartGallery();
+          const comparisonTraceId = ctx.getTraceId();
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: comparisonTraceId || undefined,
+            traceUrl: comparisonTraceId ? getTraceUrl(comparisonTraceId) : undefined,
+            source: 'groq' as const,
+            uiResource: comparisonGalleryResource,
+          };
         }
 
         case 'check_progress': {

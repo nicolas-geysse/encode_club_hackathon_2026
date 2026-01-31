@@ -683,6 +683,75 @@ export function OnboardingChat() {
         break;
       }
 
+      case 'show_chart': {
+        // Handle chart gallery button clicks - send as user message to trigger chart handler
+        const chartData = data as { chartType?: string };
+        const chartType = chartData?.chartType;
+        if (chartType) {
+          logger.info('Chart button clicked', { chartType });
+
+          // Map chart type to user-friendly request
+          const chartMessages: Record<string, string> = {
+            budget_breakdown: 'Montre-moi mon budget en graphique',
+            progress: 'Montre-moi ma progression',
+            projection: 'Montre-moi mes projections',
+            comparison: 'Montre-moi une comparaison de scénarios',
+            energy: "Montre-moi mon historique d'énergie",
+          };
+
+          const userMessage = chartMessages[chartType] || `Show me the ${chartType} chart`;
+
+          // Add user message to chat
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `user-chart-${Date.now()}`,
+              role: 'user',
+              content: userMessage,
+              source: 'fallback',
+            },
+          ]);
+
+          // Trigger the chat API with the chart request
+          setLoading(true);
+          fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: userMessage,
+              step: step(),
+              mode: chatMode(),
+              context: profile(),
+              threadId: threadId(),
+              profileId: profileId(),
+            }),
+          })
+            .then((res) => res.json())
+            .then((result) => {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `assistant-chart-${Date.now()}`,
+                  role: 'assistant',
+                  content: result.response || 'Here is your chart:',
+                  source: result.source || 'groq',
+                  uiResource: result.uiResource,
+                  traceId: result.traceId,
+                  traceUrl: result.traceUrl,
+                },
+              ]);
+            })
+            .catch((err) => {
+              logger.error('Chart request failed', { error: err });
+              toastPopup.error('Error', 'Failed to load chart');
+            })
+            .finally(() => {
+              setLoading(false);
+            });
+        }
+        break;
+      }
+
       default:
         logger.info('Unhandled UI action', { action });
     }
@@ -1732,6 +1801,8 @@ export function OnboardingChat() {
     try {
       // Build context from current profile
       const currentProfile = profile();
+      // Cast to any for extended profile properties not in simplified ProfileData type
+      const fullProfile = currentProfile as Record<string, unknown>;
       const context: Record<string, unknown> = {
         name: currentProfile.name,
         diploma: currentProfile.diploma,
@@ -1739,6 +1810,7 @@ export function OnboardingChat() {
         city: currentProfile.city,
         skills: currentProfile.skills,
         income: currentProfile.incomes?.[0]?.amount,
+        incomes: currentProfile.incomes, // Full array for chart handlers
         expenses: currentProfile.expenses?.reduce((sum, e) => sum + e.amount, 0),
         maxWorkHours: currentProfile.maxWorkHours,
         minHourlyRate: currentProfile.minHourlyRate,
@@ -1746,8 +1818,11 @@ export function OnboardingChat() {
         goalName: currentProfile.goalName,
         goalAmount: currentProfile.goalAmount,
         goalDeadline: currentProfile.goalDeadline,
+        currentSaved: (fullProfile.currentSaved as number) || 0,
         // Currency for dynamic formatting
         currency: currentProfile.currency || 'USD',
+        // Energy history for energy chart (from Suivi page's followupData)
+        energyHistory: (fullProfile.followupData as Record<string, unknown>)?.energyHistory || [],
       };
 
       // Collect recent conversation history (last 4 turns = 8 messages) for context
