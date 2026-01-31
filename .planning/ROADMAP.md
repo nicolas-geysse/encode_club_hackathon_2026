@@ -10,7 +10,7 @@ This roadmap delivers chat-integrated Swipe functionality in 5 phases. Starting 
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Intent Detection** - Recognize swipe-related messages in chat
+- [x] **Phase 1: Intent Detection** - Recognize swipe-related messages in chat
 - [ ] **Phase 2: UI Resource** - Chat API returns embed configuration
 - [ ] **Phase 3: Embed Route** - Standalone swipe route for iframe
 - [ ] **Phase 4: Responsive Rendering** - Desktop iframe vs mobile navigation
@@ -30,7 +30,7 @@ This roadmap delivers chat-integrated Swipe functionality in 5 phases. Starting 
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md - Add swipe intent detection (regex + LLM fallback)
+- [x] 01-01-PLAN.md - Add swipe intent detection (regex + LLM fallback)
 
 ### Phase 2: UI Resource
 **Goal**: Chat API returns properly structured UIResource for swipe embedding
@@ -92,7 +92,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Intent Detection | 0/1 | Planned | - |
+| 1. Intent Detection | 1/1 | Complete | 2026-01-31 |
 | 2. UI Resource | 0/TBD | Not started | - |
 | 3. Embed Route | 0/TBD | Not started | - |
 | 4. Responsive Rendering | 0/TBD | Not started | - |
