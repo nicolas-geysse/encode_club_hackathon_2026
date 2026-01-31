@@ -2722,38 +2722,12 @@ export function OnboardingChat() {
                     />
                   }
                 >
-                  <div class="flex gap-4">
-                    <ChatInput
-                      ref={(el) => (chatInputRef = el)}
-                      onSend={handleSend}
-                      placeholder="Ask Bruno anything..."
-                      disabled={loading()}
-                    />
-                    <div class="hidden md:flex items-center justify-center">
-                      {/* Desktop CTA moved to sidebar */}
-                    </div>
-                  </div>
-                  {/* Mobile CTA */}
-                  <div class="md:hidden mt-3 animate-in slide-in-from-bottom-4 duration-500 w-full flex justify-center">
-                    <GlassButton onClick={goToPlan}>
-                      Start My Plan
-                      <svg
-                        class="animate-bounce-x"
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M5 12h14" />
-                        <path d="m12 5 7 7-7 7" />
-                      </svg>
-                    </GlassButton>
-                  </div>
+                  <ChatInput
+                    ref={(el) => (chatInputRef = el)}
+                    onSend={handleSend}
+                    placeholder="Ask Bruno anything..."
+                    disabled={loading()}
+                  />
                 </Show>
               </div>
             </div>
