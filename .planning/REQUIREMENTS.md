@@ -24,9 +24,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Embed Route
 
-- [ ] **EMBD-01**: `/embed/swipe` route renders SwipeTab component
-- [ ] **EMBD-02**: Embed route has no header/navigation chrome
-- [ ] **EMBD-03**: SwipeTab accepts `embedMode` prop
+- [x] **EMBD-01**: `/embed/swipe` route renders SwipeTab component ✅
+- [x] **EMBD-02**: Embed route has no header/navigation chrome ✅
+- [x] **EMBD-03**: SwipeTab accepts `embedMode` prop ✅
 
 ### Responsive Rendering
 
@@ -80,9 +80,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UIRS-02 | Phase 2 | UI Resource | Complete |
 | UIRS-03 | Phase 2 | UI Resource | Complete |
 | UIRS-04 | Phase 2 | UI Resource | Complete |
-| EMBD-01 | Phase 3 | Embed Route | Pending |
-| EMBD-02 | Phase 3 | Embed Route | Pending |
-| EMBD-03 | Phase 3 | Embed Route | Pending |
+| EMBD-01 | Phase 3 | Embed Route | Complete |
+| EMBD-02 | Phase 3 | Embed Route | Complete |
+| EMBD-03 | Phase 3 | Embed Route | Complete |
 | RESP-01 | Phase 4 | Responsive Rendering | Pending |
 | RESP-02 | Phase 4 | Responsive Rendering | Pending |
 | RESP-03 | Phase 4 | Responsive Rendering | Pending |

@@ -54,10 +54,11 @@ Plans:
   1. Visiting `/embed/swipe` renders functional SwipeTab component
   2. Embed route displays no header, sidebar, or navigation elements
   3. SwipeTab component accepts and respects `embedMode` prop
-**Plans**: 1 plan
+**Plans**: 2 plans
 
 Plans:
 - [x] 03-01-PLAN.md - Create embed route and add embedMode to SwipeTab
+- [x] 03-02-PLAN.md - Fix layout exclusion for embed routes (gap closure)
 
 ### Phase 4: Responsive Rendering
 **Goal**: Chat displays appropriate UI based on viewport size
@@ -94,6 +95,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Intent Detection | 1/1 | Complete | 2026-01-31 |
 | 2. UI Resource | 1/1 | Complete | 2026-01-31 |
-| 3. Embed Route | 1/1 | Complete | 2026-01-31 |
+| 3. Embed Route | 2/2 | Complete | 2026-01-31 |
 | 4. Responsive Rendering | 0/TBD | Not started | - |
 | 5. Communication | 0/TBD | Not started | - |
