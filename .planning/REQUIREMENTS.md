@@ -30,9 +30,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Responsive Rendering
 
-- [ ] **RESP-01**: Desktop (>768px) renders iframe with Swipe component
-- [ ] **RESP-02**: Mobile (≤768px) renders "Swipe to plan ! →" navigation button
-- [ ] **RESP-03**: Viewport changes update rendering mode
+- [x] **RESP-01**: Desktop (>768px) renders iframe with Swipe component ✅
+- [x] **RESP-02**: Mobile (≤768px) renders "Swipe to plan ! →" navigation button ✅
+- [x] **RESP-03**: Viewport changes update rendering mode ✅
 
 ### Communication
 
@@ -83,9 +83,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EMBD-01 | Phase 3 | Embed Route | Complete |
 | EMBD-02 | Phase 3 | Embed Route | Complete |
 | EMBD-03 | Phase 3 | Embed Route | Complete |
-| RESP-01 | Phase 4 | Responsive Rendering | Pending |
-| RESP-02 | Phase 4 | Responsive Rendering | Pending |
-| RESP-03 | Phase 4 | Responsive Rendering | Pending |
+| RESP-01 | Phase 4 | Responsive Rendering | Complete |
+| RESP-02 | Phase 4 | Responsive Rendering | Complete |
+| RESP-03 | Phase 4 | Responsive Rendering | Complete |
 | COMM-01 | Phase 5 | Communication | Pending |
 | COMM-02 | Phase 5 | Communication | Pending |
 | COMM-03 | Phase 5 | Communication | Pending |

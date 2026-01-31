@@ -13,7 +13,7 @@ This roadmap delivers chat-integrated Swipe functionality in 5 phases. Starting 
 - [x] **Phase 1: Intent Detection** - Recognize swipe-related messages in chat
 - [x] **Phase 2: UI Resource** - Chat API returns embed configuration
 - [x] **Phase 3: Embed Route** - Standalone swipe route for iframe
-- [ ] **Phase 4: Responsive Rendering** - Desktop iframe vs mobile navigation
+- [x] **Phase 4: Responsive Rendering** - Desktop iframe vs mobile navigation
 - [ ] **Phase 5: Communication** - postMessage bridge for swipe feedback
 
 ## Phase Details
@@ -71,7 +71,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01-PLAN.md - Add SwipeEmbedResource with responsive iframe/button rendering
+- [x] 04-01-PLAN.md - Add SwipeEmbedResource with responsive iframe/button rendering
 
 ### Phase 5: Communication
 **Goal**: Swipe actions in iframe are acknowledged in chat
@@ -96,5 +96,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Intent Detection | 1/1 | Complete | 2026-01-31 |
 | 2. UI Resource | 1/1 | Complete | 2026-01-31 |
 | 3. Embed Route | 2/2 | Complete | 2026-01-31 |
-| 4. Responsive Rendering | 0/TBD | Not started | - |
+| 4. Responsive Rendering | 1/1 | Complete | 2026-01-31 |
 | 5. Communication | 0/TBD | Not started | - |
