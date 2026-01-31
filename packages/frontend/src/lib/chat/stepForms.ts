@@ -586,9 +586,29 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
     fields: [
       {
         name: 'subscriptions',
-        type: 'text',
+        type: 'dynamic-list',
         label: 'Current subscriptions',
-        placeholder: 'e.g., Netflix, Spotify, Gym',
+        config: {
+          itemFields: [
+            {
+              name: 'name',
+              type: 'text',
+              label: 'Service',
+              placeholder: 'e.g., Netflix',
+              required: true,
+            },
+            {
+              name: 'currentCost',
+              type: 'number',
+              label: 'Monthly cost',
+              placeholder: '15',
+              min: 0,
+              suffix: '$',
+            },
+          ],
+          addLabel: 'Add subscription',
+          maxItems: 15,
+        },
       },
     ],
     helpText: "We'll help identify subscriptions you might optimize or cancel.",
