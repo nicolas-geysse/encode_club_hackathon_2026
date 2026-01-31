@@ -23,6 +23,7 @@ import {
   detectCurrencyFromCity,
 } from './patterns';
 import type { ProfileData, OnboardingStep } from '../types';
+import { getReferenceDate, type TimeContext } from '../../timeAwareDate';
 
 /**
  * Extract profile data from message using regex patterns
@@ -31,7 +32,8 @@ import type { ProfileData, OnboardingStep } from '../types';
 export function extractWithRegex(
   message: string,
   step: OnboardingStep,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
+  timeContext?: TimeContext
 ): ProfileData {
   const extracted: ProfileData = {};
   const msg = message.trim();
@@ -72,7 +74,7 @@ export function extractWithRegex(
       break;
 
     case 'goal':
-      extractGoal(msg, lower, extracted);
+      extractGoal(msg, lower, extracted, timeContext);
       break;
 
     case 'academic_events':
@@ -331,7 +333,12 @@ function extractWorkPreferences(
   }
 }
 
-function extractGoal(msg: string, lower: string, extracted: ProfileData): void {
+function extractGoal(
+  msg: string,
+  lower: string,
+  extracted: ProfileData,
+  timeContext?: TimeContext
+): void {
   // Extract amount
   const amountMatch = msg.match(/(?:\$|€)?(\d+)/);
   if (amountMatch) {
@@ -346,17 +353,18 @@ function extractGoal(msg: string, lower: string, extracted: ProfileData): void {
     }
   }
 
-  // Extract deadline
+  // Extract deadline (time-aware for simulation support)
+  const refDate = getReferenceDate(timeContext);
   const monthMatch = lower.match(
     /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i
   );
   if (monthMatch) {
     const monthIndex = ENGLISH_MONTH_NAMES.indexOf(monthMatch[1].toLowerCase());
     const yearMatch = msg.match(/20\d{2}/);
-    const year = yearMatch ? parseInt(yearMatch[0], 10) : new Date().getFullYear();
+    const year = yearMatch ? parseInt(yearMatch[0], 10) : refDate.getFullYear();
 
     const targetDate = new Date(year, monthIndex + 1, 0);
-    if (targetDate < new Date()) {
+    if (targetDate < refDate) {
       targetDate.setFullYear(targetDate.getFullYear() + 1);
     }
     extracted.goalDeadline = targetDate.toISOString().split('T')[0];
@@ -369,7 +377,7 @@ function extractGoal(msg: string, lower: string, extracted: ProfileData): void {
   if (relativeMatch) {
     const amount = parseInt(relativeMatch[1], 10);
     const unit = relativeMatch[2].toLowerCase();
-    const targetDate = new Date();
+    const targetDate = new Date(refDate);
 
     if (unit.startsWith('month') || unit === 'mois') {
       targetDate.setMonth(targetDate.getMonth() + amount);

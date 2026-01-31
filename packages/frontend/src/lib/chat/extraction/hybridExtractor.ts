@@ -140,7 +140,8 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
             const regexData = extractWithRegex(
               input.message,
               input.currentStep as OnboardingStep,
-              input.existingProfile as Record<string, unknown>
+              input.existingProfile as Record<string, unknown>,
+              input.timeContext
             );
             span.setOutput({
               method: 'regex_fallback',
@@ -153,7 +154,8 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
             const regexData = extractWithRegex(
               input.message,
               input.currentStep as OnboardingStep,
-              input.existingProfile as Record<string, unknown>
+              input.existingProfile as Record<string, unknown>,
+              input.timeContext
             );
             span.setOutput({
               method: 'regex_fallback',
