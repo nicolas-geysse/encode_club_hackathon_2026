@@ -34,6 +34,7 @@ import OnboardingFormStep from './OnboardingFormStep';
 import { hasStepForm } from '~/lib/chat/stepForms';
 import { useSimulation } from '~/lib/simulationContext';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
+import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardingStateStore';
 
 // Message type imported from ~/types/chat
 
@@ -238,7 +239,11 @@ export function OnboardingChat() {
       income_stability: 0.5,
     },
   });
-  const [isComplete, setIsComplete] = createSignal(false);
+  // Use shared store - isComplete reads from store, setIsComplete updates store + persists
+  const isComplete = onboardingIsComplete;
+  const setIsComplete = (value: boolean) => {
+    persistOnboardingComplete(value); // This updates store AND localStorage
+  };
   const [threadId, setThreadId] = createSignal<string>(generateThreadId());
   const [profileId, setProfileId] = createSignal<string | undefined>(undefined);
 
