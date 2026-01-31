@@ -354,111 +354,113 @@ export function SwipeSession(props: SwipeSessionProps) {
           </Card>
         </Show>
 
-        {/* AI Context Block - Less important, now second */}
-        <div class="flex flex-col gap-2 p-3 bg-muted/20 rounded-xl border border-border/50 backdrop-blur-sm w-full">
-          <div class="flex items-center gap-2 mb-1">
-            <div class="p-1 bg-purple-500/10 rounded-md">
-              <Bot class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+        {/* AI Context Block - Hidden in embed mode */}
+        <Show when={!props.embedMode}>
+          <div class="flex flex-col gap-2 p-3 bg-muted/20 rounded-xl border border-border/50 backdrop-blur-sm w-full">
+            <div class="flex items-center gap-2 mb-1">
+              <div class="p-1 bg-purple-500/10 rounded-md">
+                <Bot class="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                AI Context
+              </span>
             </div>
-            <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              AI Context
-            </span>
+
+            <div class="flex items-end justify-between gap-2 pt-1">
+              {/* Effort */}
+              <Tooltip>
+                <TooltipTrigger>
+                  <div class="flex flex-col items-center gap-1.5 group w-full">
+                    <div class="h-8 w-1.5 bg-blue-200 dark:bg-blue-950/50 rounded-full relative overflow-hidden">
+                      <div
+                        class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+                        style={{ height: `${preferences().effortSensitivity * 100}%` }}
+                      />
+                    </div>
+                    <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-blue-400 transition-colors">
+                      Effort
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent class="bg-card border-border text-foreground p-3">
+                  <div class="text-xs font-bold mb-1">Effort Sensitivity</div>
+                  <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
+                    Influence: {Math.round(preferences().effortSensitivity * 100)}%
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Pay */}
+              <Tooltip>
+                <TooltipTrigger>
+                  <div class="flex flex-col items-center gap-1.5 group w-full">
+                    <div class="h-8 w-1.5 bg-green-200 dark:bg-green-950/50 rounded-full relative overflow-hidden">
+                      <div
+                        class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-500 ease-out"
+                        style={{ height: `${preferences().hourlyRatePriority * 100}%` }}
+                      />
+                    </div>
+                    <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-green-400 transition-colors">
+                      Pay
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent class="bg-card border-border text-foreground p-3">
+                  <div class="text-xs font-bold mb-1">Hourly Rate Priority</div>
+                  <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
+                    Influence: {Math.round(preferences().hourlyRatePriority * 100)}%
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Flexibility */}
+              <Tooltip>
+                <TooltipTrigger>
+                  <div class="flex flex-col items-center gap-1.5 group w-full">
+                    <div class="h-8 w-1.5 bg-purple-200 dark:bg-purple-950/50 rounded-full relative overflow-hidden">
+                      <div
+                        class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-500 ease-out"
+                        style={{ height: `${preferences().timeFlexibility * 100}%` }}
+                      />
+                    </div>
+                    <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-purple-400 transition-colors">
+                      Flex
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent class="bg-card border-border text-foreground p-3">
+                  <div class="text-xs font-bold mb-1">Time Flexibility</div>
+                  <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
+                    Influence: {Math.round(preferences().timeFlexibility * 100)}%
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Stability */}
+              <Tooltip>
+                <TooltipTrigger>
+                  <div class="flex flex-col items-center gap-1.5 group w-full">
+                    <div class="h-8 w-1.5 bg-amber-200 dark:bg-amber-950/50 rounded-full relative overflow-hidden">
+                      <div
+                        class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-500 ease-out"
+                        style={{ height: `${preferences().incomeStability * 100}%` }}
+                      />
+                    </div>
+                    <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-amber-400 transition-colors">
+                      Stable
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent class="bg-card border-border text-foreground p-3">
+                  <div class="text-xs font-bold mb-1">Income Stability</div>
+                  <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
+                    Influence: {Math.round(preferences().incomeStability * 100)}%
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-
-          <div class="flex items-end justify-between gap-2 pt-1">
-            {/* Effort */}
-            <Tooltip>
-              <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-blue-200 dark:bg-blue-950/50 rounded-full relative overflow-hidden">
-                    <div
-                      class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
-                      style={{ height: `${preferences().effortSensitivity * 100}%` }}
-                    />
-                  </div>
-                  <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-blue-400 transition-colors">
-                    Effort
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent class="bg-card border-border text-foreground p-3">
-                <div class="text-xs font-bold mb-1">Effort Sensitivity</div>
-                <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
-                  Influence: {Math.round(preferences().effortSensitivity * 100)}%
-                </div>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Pay */}
-            <Tooltip>
-              <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-green-200 dark:bg-green-950/50 rounded-full relative overflow-hidden">
-                    <div
-                      class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-500 ease-out"
-                      style={{ height: `${preferences().hourlyRatePriority * 100}%` }}
-                    />
-                  </div>
-                  <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-green-400 transition-colors">
-                    Pay
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent class="bg-card border-border text-foreground p-3">
-                <div class="text-xs font-bold mb-1">Hourly Rate Priority</div>
-                <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
-                  Influence: {Math.round(preferences().hourlyRatePriority * 100)}%
-                </div>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Flexibility */}
-            <Tooltip>
-              <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-purple-200 dark:bg-purple-950/50 rounded-full relative overflow-hidden">
-                    <div
-                      class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-500 ease-out"
-                      style={{ height: `${preferences().timeFlexibility * 100}%` }}
-                    />
-                  </div>
-                  <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-purple-400 transition-colors">
-                    Flex
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent class="bg-card border-border text-foreground p-3">
-                <div class="text-xs font-bold mb-1">Time Flexibility</div>
-                <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
-                  Influence: {Math.round(preferences().timeFlexibility * 100)}%
-                </div>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Stability */}
-            <Tooltip>
-              <TooltipTrigger>
-                <div class="flex flex-col items-center gap-1.5 group w-full">
-                  <div class="h-8 w-1.5 bg-amber-200 dark:bg-amber-950/50 rounded-full relative overflow-hidden">
-                    <div
-                      class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-500 ease-out"
-                      style={{ height: `${preferences().incomeStability * 100}%` }}
-                    />
-                  </div>
-                  <span class="text-[8px] text-muted-foreground font-medium uppercase tracking-tight group-hover:text-amber-400 transition-colors">
-                    Stable
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent class="bg-card border-border text-foreground p-3">
-                <div class="text-xs font-bold mb-1">Income Stability</div>
-                <div class="text-[10px] text-muted-foreground font-medium mb-1.5">
-                  Influence: {Math.round(preferences().incomeStability * 100)}%
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
+        </Show>
 
         {/* Spacer to align left column content with Card bottom (compensating for buttons on right) */}
         <div class="h-24 hidden md:block shrink-0" aria-hidden="true" />
