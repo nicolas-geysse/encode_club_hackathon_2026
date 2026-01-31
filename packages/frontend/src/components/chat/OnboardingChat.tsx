@@ -2651,6 +2651,42 @@ export function OnboardingChat() {
                   )}
                 </For>
 
+                {/* Completion CTA - appears in chat area when onboarding complete */}
+                <Show when={isComplete() && step() === 'complete'}>
+                  <div class="flex justify-start mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pl-2">
+                    <div class="flex items-start gap-3">
+                      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-400 dark:to-emerald-500 flex items-center justify-center text-white text-sm font-bold shadow-md ring-2 ring-background">
+                        B
+                      </div>
+                      <div class="flex flex-col gap-3">
+                        <div class="rounded-2xl px-5 py-3.5 shadow-sm text-sm leading-relaxed bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-border/50 text-foreground rounded-tl-sm">
+                          <p class="whitespace-pre-wrap">
+                            Your profile is complete! Ready to start working towards your goal.
+                          </p>
+                        </div>
+                        <GlassButton onClick={goToPlan} class="w-fit">
+                          Start My Plan
+                          <svg
+                            class="animate-bounce-x ml-2"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="M5 12h14" />
+                            <path d="m12 5 7 7-7 7" />
+                          </svg>
+                        </GlassButton>
+                      </div>
+                    </div>
+                  </div>
+                </Show>
+
                 <Show when={loading()}>
                   <div class="flex justify-start mb-4 pl-2">
                     <div class="flex items-center gap-2 px-4 py-3 bg-muted/50 rounded-2xl rounded-tl-none">
