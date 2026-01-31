@@ -120,7 +120,7 @@ Plans:
   3. "Items to sell" form has no category field
   4. "Borrow" form has no "from whom" field
   5. Subscriptions can add multiple items with "Add subscription" button
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [ ] 07-01-PLAN.md - Create GridMultiSelect component for skills/certifications
