@@ -27,8 +27,8 @@ import {
  * Matches: "swipe", "actions", "strategies", "que puis-je faire", "quelles options"
  */
 const SWIPE_PATTERNS = [
-  // SIMPLE: Single word triggers
-  /^(?:swipe|actions?|stratégie?s?)[\s?!.]*$/i,
+  // SIMPLE: Single word triggers (EN + FR)
+  /^(?:swipe|actions?|stratég?ies?|strategies?)[\s?!.]*$/i,
   // FR: "que puis-je faire", "quelles options", "quelles actions"
   /\b(?:que\s+puis[- ]?je\s+faire|quelles?\s+(?:options?|actions?|stratégies?))\b/i,
   // FR: "qu'est-ce que je peux faire", "que faire"
