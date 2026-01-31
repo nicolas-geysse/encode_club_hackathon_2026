@@ -43,6 +43,8 @@ interface SwipeTabProps {
   lifestyle?: { name: string; currentCost: number; pausedMonths?: number }[];
   trades?: { name: string; value: number }[];
   currency?: Currency;
+  /** Whether component is rendered in embed mode (iframe context) */
+  embedMode?: boolean;
   // BUG 3 FIX: Add initialPreferences to load saved preferences from profile
   initialPreferences?: UserPreferences;
   /** Profile ID for tracing swipe preferences to Opik */
@@ -294,7 +296,7 @@ export function SwipeTab(props: SwipeTabProps) {
   };
 
   return (
-    <div class="p-6">
+    <div class={props.embedMode ? 'p-2' : 'p-6'}>
       {/* Idle Phase - Roll the Dice */}
       <Show when={phase() === 'idle'}>
         <RollDice onRoll={handleRoll} />
