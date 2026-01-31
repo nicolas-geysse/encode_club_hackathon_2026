@@ -11,7 +11,8 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { MCPUIRenderer, type ActionCallback } from './MCPUIRenderer';
 import type { ChatMessage as Message, UIResource } from '~/types/chat';
-import { Repeat } from 'lucide-solid';
+import { Repeat, Wallet, Target, Zap } from 'lucide-solid';
+import type { Component } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { lifestyleService } from '~/lib/lifestyleService';
 import { createLogger } from '~/lib/logger';
@@ -35,6 +36,19 @@ import { useSimulation } from '~/lib/simulationContext';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
 
 // Message type imported from ~/types/chat
+
+// Quick links shown after onboarding completion
+const QUICK_LINKS = [
+  { label: 'Budget', tab: 'budget', icon: 'wallet' },
+  { label: 'Goals', tab: 'goals', icon: 'target' },
+  { label: 'Energy', tab: 'profile', icon: 'zap' },
+] as const;
+
+const quickLinkIcons: Record<string, Component<{ class?: string }>> = {
+  wallet: Wallet,
+  target: Target,
+  zap: Zap,
+};
 
 // Must match the retroplan API types
 type AcademicEventType =
@@ -2445,6 +2459,31 @@ export function OnboardingChat() {
               </div>
               <h2 class="text-2xl font-bold text-foreground">Bruno</h2>
               <p class="text-muted-foreground font-medium">Financial Coach</p>
+
+              {/* Quick Links - Show after onboarding */}
+              <Show when={isComplete()}>
+                <div class="mt-6 flex flex-col gap-2 w-full max-w-[180px]">
+                  <For each={QUICK_LINKS}>
+                    {(link, i) => {
+                      const Icon = quickLinkIcons[link.icon];
+                      return (
+                        <button
+                          onClick={() => navigate(`/plan?tab=${link.tab}`)}
+                          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/30 shadow-sm hover:shadow text-sm text-muted-foreground hover:text-foreground transition-all duration-200"
+                          style={{
+                            animation: 'fade-in 0.3s ease-out forwards',
+                            'animation-delay': `${i() * 75}ms`,
+                            opacity: 0,
+                          }}
+                        >
+                          <Icon class="h-4 w-4" />
+                          <span>{link.label}</span>
+                        </button>
+                      );
+                    }}
+                  </For>
+                </div>
+              </Show>
             </div>
 
             <div
