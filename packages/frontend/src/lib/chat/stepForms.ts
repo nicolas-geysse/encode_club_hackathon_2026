@@ -534,12 +534,6 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
               min: 0,
               suffix: '$',
             },
-            {
-              name: 'category',
-              type: 'select',
-              label: 'Category',
-              options: INVENTORY_CATEGORIES,
-            },
           ],
           addLabel: 'Add item',
           maxItems: 20,
@@ -570,12 +564,6 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
               label: 'Item',
               placeholder: 'e.g., Camping tent',
               required: true,
-            },
-            {
-              name: 'partner',
-              type: 'text',
-              label: 'From whom?',
-              placeholder: 'e.g., Alex',
             },
             {
               name: 'estimatedSavings',
