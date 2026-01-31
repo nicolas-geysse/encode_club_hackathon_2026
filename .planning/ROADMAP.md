@@ -42,7 +42,9 @@ Plans:
   1. Adding a subscription shows the subscription name and cost (not `[object Object]`)
   2. "Items to sell" step uses profile currency (€ if profile is €, $ if $)
   3. Currency symbol is consistent throughout entire onboarding flow
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 12-01-PLAN.md — Fix subscription, inventory, and trade message formatting
 
 ### Phase 13: State Persistence
 **Goal**: Onboarding completion state survives navigation
@@ -87,7 +89,7 @@ Phases execute in numeric order: 11 → 12 → 13 → 14 → 15
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 11. Chart Rendering | 1/1 | Complete | 2026-01-31 |
-| 12. Form Fixes | 0/? | Not started | - |
+| 12. Form Fixes | 0/1 | Planned | - |
 | 13. State Persistence | 0/? | Not started | - |
 | 14. UI Fixes | 0/? | Not started | - |
 | 15. GridMultiSelect Fixes | 0/? | Not started | - |
