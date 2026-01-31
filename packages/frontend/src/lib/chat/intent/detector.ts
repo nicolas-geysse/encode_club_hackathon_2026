@@ -19,6 +19,27 @@ import {
 } from './llmClassifier';
 
 // =============================================================================
+// SWIPE-RELATED PATTERNS (Swipe-in-Chat)
+// =============================================================================
+
+/**
+ * Patterns for requesting swipe strategies
+ * Matches: "swipe", "actions", "strategies", "que puis-je faire", "quelles options"
+ */
+const SWIPE_PATTERNS = [
+  // SIMPLE: Single word triggers
+  /^(?:swipe|actions?|stratégie?s?)[\s?!.]*$/i,
+  // FR: "que puis-je faire", "quelles options", "quelles actions"
+  /\b(?:que\s+puis[- ]?je\s+faire|quelles?\s+(?:options?|actions?|stratégies?))\b/i,
+  // FR: "qu'est-ce que je peux faire", "que faire"
+  /\b(?:qu['']?est[- ]?ce\s+que\s+je\s+(?:peux|pourrais?)\s+faire|que\s+faire)\b/i,
+  // EN: "what can I do", "what options", "what actions"
+  /\b(?:what\s+(?:can\s+i\s+do|options?|actions?|strategies?))\b/i,
+  // Direct requests: "show swipe", "open swipe", "montre les swipes"
+  /\b(?:show|open|montre[rz]?|affiche[rz]?|ouvre?)\s+(?:le\s+|les?\s+)?(?:swipe|options?|stratégies?)\b/i,
+];
+
+// =============================================================================
 // CHART-RELATED PATTERNS (Sprint Graphiques)
 // =============================================================================
 
@@ -591,6 +612,19 @@ export async function detectIntent(
       action: 'progress_summary',
       _matchedPattern: 'suivi_progress_summary',
     };
+  }
+
+  // ==========================================================================
+  // SWIPE INTENT (Swipe-in-Chat)
+  // ==========================================================================
+  for (const pattern of SWIPE_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'show_swipe_embed',
+        _matchedPattern: 'swipe_intent',
+      };
+    }
   }
 
   // ==========================================================================
