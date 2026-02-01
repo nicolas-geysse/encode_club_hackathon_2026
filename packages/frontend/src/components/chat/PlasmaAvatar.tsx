@@ -27,6 +27,19 @@ interface Particle {
   phase: number;
 }
 
+interface EyeState {
+  // Position of gaze (offset from center, very subtle)
+  lookX: number; // -1 to 1
+  lookY: number; // -1 to 1
+  targetLookX: number;
+  targetLookY: number;
+
+  // Blinking
+  blinkProgress: number; // 0 = open, 1 = closed
+  isBlinking: boolean;
+  nextBlinkTime: number; // Time before next blink
+}
+
 export default function PlasmaAvatar(props: PlasmaAvatarProps) {
   const size = () => props.size || 32;
   const color = () => props.color || 'green';
@@ -35,6 +48,17 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
   let animationId: number;
   const particles: Particle[] = [];
   let time = 0;
+
+  // Eye state for blink and gaze animation
+  const eyeState: EyeState = {
+    lookX: 0,
+    lookY: 0,
+    targetLookX: 0,
+    targetLookY: 0,
+    blinkProgress: 0,
+    isBlinking: false,
+    nextBlinkTime: 3 + Math.random() * 5, // First blink in 3-8 seconds
+  };
 
   // Color schemes
   const colorSchemes = {
@@ -56,6 +80,74 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
       glow: 'rgba(192, 132, 252, 0.4)',
       core: 'rgba(233, 213, 255, 0.95)',
     },
+  };
+
+  /**
+   * Draw manga/kawaii style eye with blink and gaze animation
+   */
+  const drawEye = (
+    ctx: CanvasRenderingContext2D,
+    centerX: number,
+    centerY: number,
+    scale: number,
+    lookX: number,
+    lookY: number,
+    blinkProgress: number
+  ) => {
+    const eyeRadius = 2.5 * scale;
+    const pupilWidth = 1.8 * scale;
+    const pupilHeight = 2.2 * scale; // Slightly elongated (almond shape)
+
+    // Gaze offset (white + pupil move together)
+    const lookOffset = 0.8 * scale;
+    const eyeCenterX = centerX + lookX * lookOffset;
+    const eyeCenterY = centerY + lookY * lookOffset;
+
+    // Calculate blink (0→1→0)
+    const blink = blinkProgress <= 1 ? blinkProgress : 2 - blinkProgress;
+
+    // Draw sclera (white of the eye)
+    ctx.beginPath();
+    ctx.ellipse(
+      eyeCenterX,
+      eyeCenterY,
+      eyeRadius,
+      eyeRadius * (1 - blink * 0.9), // Squashes vertically during blink
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fill();
+    ctx.closePath();
+
+    // Draw pupil (or horizontal line when blinking)
+    if (blink > 0.7) {
+      // Blinking: horizontal line
+      ctx.beginPath();
+      ctx.moveTo(eyeCenterX - eyeRadius * 0.7, eyeCenterY);
+      ctx.lineTo(eyeCenterX + eyeRadius * 0.7, eyeCenterY);
+      ctx.strokeStyle = 'rgba(30, 30, 30, 0.9)';
+      ctx.lineWidth = 1.2 * scale;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.closePath();
+    } else {
+      // Eye open: almond-shaped pupil
+      ctx.beginPath();
+      ctx.ellipse(
+        eyeCenterX + lookX * 0.3 * scale, // Pupil follows gaze
+        eyeCenterY + lookY * 0.2 * scale,
+        pupilWidth * (1 - blink * 0.5),
+        pupilHeight * (1 - blink * 0.8),
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.fillStyle = 'rgba(20, 20, 20, 0.9)';
+      ctx.fill();
+      ctx.closePath();
+    }
   };
 
   const createParticle = (
@@ -92,6 +184,34 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
     const colors = colorSchemes[color()];
 
     time += 0.006; // Slow, calm animation
+
+    // === Eye animation logic ===
+
+    // Trigger random blink (every 3-8 seconds)
+    if (time > eyeState.nextBlinkTime && !eyeState.isBlinking) {
+      eyeState.isBlinking = true;
+      eyeState.nextBlinkTime = time + 3 + Math.random() * 5;
+    }
+
+    // Blink animation (fast: ~150ms)
+    if (eyeState.isBlinking) {
+      eyeState.blinkProgress += 0.15;
+      if (eyeState.blinkProgress >= 2) {
+        // Round-trip complete
+        eyeState.blinkProgress = 0;
+        eyeState.isBlinking = false;
+      }
+    }
+
+    // Change gaze direction occasionally (~once every 8 seconds)
+    if (Math.random() < 0.002) {
+      eyeState.targetLookX = (Math.random() - 0.5) * 0.6; // Subtle range
+      eyeState.targetLookY = (Math.random() - 0.5) * 0.4;
+    }
+
+    // Smooth interpolation toward target gaze
+    eyeState.lookX += (eyeState.targetLookX - eyeState.lookX) * 0.02;
+    eyeState.lookY += (eyeState.targetLookY - eyeState.lookY) * 0.02;
 
     // Clear canvas
     ctx.clearRect(0, 0, w, h);
@@ -158,12 +278,8 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
     ctx.fill();
     ctx.closePath();
 
-    // Inner bright core
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, coreRadius * 0.5, 0, Math.PI * 2);
-    ctx.fillStyle = colors.core;
-    ctx.fill();
-    ctx.closePath();
+    // Draw the eye at the center (replaces inner bright core)
+    drawEye(ctx, centerX, centerY, scale, eyeState.lookX, eyeState.lookY, eyeState.blinkProgress);
 
     animationId = requestAnimationFrame(animate);
   };
