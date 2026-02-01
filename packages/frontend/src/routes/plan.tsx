@@ -686,6 +686,8 @@ export default function PlanPage() {
                   }
                   city={activeProfile()?.city}
                   currency={activeProfile()?.currency}
+                  userSkills={activeProfile()?.skills}
+                  minHourlyRate={activeProfile()?.minHourlyRate}
                 />
               </TabsContent>
             </div>

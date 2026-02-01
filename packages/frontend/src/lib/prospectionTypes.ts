@@ -174,6 +174,9 @@ export interface ProspectionTabProps {
   city?: string;
   currency?: 'USD' | 'EUR' | 'GBP';
   onLeadSaved?: (lead: Lead) => void;
+  // JOBS-04: Skills for matching algorithm
+  userSkills?: string[];
+  minHourlyRate?: number;
 }
 
 // =============================================================================

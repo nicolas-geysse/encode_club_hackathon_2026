@@ -29,6 +29,7 @@ import type {
   ProspectionTabProps,
 } from '~/lib/prospectionTypes';
 import { getCategoryById } from '~/config/prospectionCategories';
+import { scoreJobsForProfile, type ScoredJob, type UserProfile } from '~/lib/jobScoring';
 
 type Phase = 'idle' | 'loading' | 'swiping' | 'complete';
 type ViewMode = 'list' | 'map';
@@ -37,7 +38,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const [phase, setPhase] = createSignal<Phase>('idle');
   const [viewMode, setViewMode] = createSignal<ViewMode>('list');
   const [_loadingCategory, setLoadingCategory] = createSignal<string | null>(null);
-  const [currentCards, setCurrentCards] = createSignal<ProspectionCard[]>([]);
+  const [currentCards, setCurrentCards] = createSignal<ScoredJob[]>([]);
   const [currentCategory, setCurrentCategory] = createSignal<string | null>(null);
   const [leads, setLeads] = createSignal<Lead[]>([]);
   const [highlightedLeadId, setHighlightedLeadId] = createSignal<string | null>(null);
@@ -86,7 +87,15 @@ export function ProspectionTab(props: ProspectionTabProps) {
       }
 
       const data = await response.json();
-      setCurrentCards(data.cards);
+
+      // JOBS-04/05: Build user profile for scoring and score/sort jobs
+      const userProfile: UserProfile = {
+        skills: props.userSkills,
+        minHourlyRate: props.minHourlyRate,
+      };
+      const scoredCards = scoreJobsForProfile(data.cards, userProfile);
+
+      setCurrentCards(scoredCards);
       setCurrentCategory(categoryId);
       setSwipeResults([]);
       setPhase('swiping');
