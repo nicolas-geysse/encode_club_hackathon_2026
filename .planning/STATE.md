@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 17 of 19 (Real Job Search API)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: In progress
-Last activity: 2026-02-01 — Completed 17-01-PLAN.md (Google Maps Field Masks)
+Last activity: 2026-02-01 — Completed 17-02-PLAN.md (Real Google Places API Integration)
 
-Progress: [████░░░░░░] 40% (v3.0 milestone: 4/10 plans estimated)
+Progress: [█████░░░░░] 50% (v3.0 milestone: 5/10 plans estimated)
 
-Next: Execute 17-02-PLAN.md (Job Search Tool)
+Next: Execute 17-03-PLAN.md (Job Search MCP Tool)
 
 ## Performance Metrics
 
@@ -31,9 +31,9 @@ Next: Execute 17-02-PLAN.md (Job Search Tool)
 - Execution time: 2026-01-31
 
 **v3.0 (in progress):**
-- Total plans completed: 4
+- Total plans completed: 5
 - Total phases: 4 (16-19)
-- Status: Phase 17 plan 1 complete, continuing with plan 2
+- Status: Phase 17 plan 2 complete, continuing with plan 3
 
 ## Accumulated Context
 
@@ -50,6 +50,11 @@ Next: Execute 17-02-PLAN.md (Job Search Tool)
 **Phase 17 Decisions (17-01):**
 - Photo billing opt-in: includePhotos defaults to false to avoid API costs (~$0.007/photo)
 - Direct export pattern: google-maps now exported from @stride/mcp-server/services
+
+**Phase 17 Decisions (17-02):**
+- Platform fallback: Categories without googlePlaceTypes use platform suggestions
+- Commute speed: Walking at 80m/min for urban commute estimation
+- Score weights: distance 30%, profile 25%, effort 25%, rate 20%
 
 **Phase 16 Decisions (16-01):**
 - 2 decimal places = ~1.1km precision (city-level, not street-level)
@@ -92,7 +97,7 @@ v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 
 **v3.0 Early Engagement (Phases 16-19):**
 - Phase 16: Privacy & Consent (PRIV-01 to PRIV-04) — VERIFIED COMPLETE
-- Phase 17: Real Job Search API (JOBS-01 to JOBS-05) — Plan 1/3 complete
+- Phase 17: Real Job Search API (JOBS-01 to JOBS-05) — Plan 2/3 complete
 - Phase 18: Background Prefetch (PREF-01 to PREF-03)
 - Phase 19: Commute & UI Enhancements (COMM-01 to COMM-03, UI-01 to UI-03)
 
@@ -101,5 +106,5 @@ v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Completed 17-01-PLAN.md
+Stopped at: Completed 17-02-PLAN.md
 Resume file: None
