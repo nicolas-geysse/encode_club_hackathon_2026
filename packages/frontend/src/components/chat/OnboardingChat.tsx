@@ -32,6 +32,7 @@ import { OnboardingProgress } from './OnboardingProgress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import OnboardingFormStep from './OnboardingFormStep';
 import PlasmaAvatar from './PlasmaAvatar';
+import { OnboardingTips } from './OnboardingTips';
 import { hasStepForm } from '~/lib/chat/stepForms';
 import { useSimulation } from '~/lib/simulationContext';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
@@ -2512,12 +2513,12 @@ export function OnboardingChat() {
       <style>{`
         @keyframes orbital-pulse {
           0%, 100% {
-            transform: scale(0.95);
-            opacity: 0.3;
+            transform: scale(0.98);
+            opacity: 0.2;
           }
           50% {
-            transform: scale(1.05);
-            opacity: 0.7;
+            transform: scale(1.02);
+            opacity: 0.5;
           }
         }
       `}</style>
@@ -2528,26 +2529,26 @@ export function OnboardingChat() {
             <div class="flex flex-col items-center text-center mb-10">
               {/* Bruno Avatar with Orbital Pulse */}
               <div class="relative w-36 h-36 flex items-center justify-center mb-4">
-                {/* Orbital Rings */}
+                {/* Orbital Rings - very slow, calm breathing effect */}
                 <div
                   class="absolute w-[104px] h-[104px] rounded-full border border-emerald-500/30 dark:border-emerald-400/40"
                   style={{
-                    animation: 'orbital-pulse 3s ease-in-out infinite',
+                    animation: 'orbital-pulse 12s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite',
                     'animation-delay': '0s',
                   }}
                 />
                 <div
                   class="absolute w-[116px] h-[116px] rounded-full border border-emerald-500/20 dark:border-emerald-400/30"
                   style={{
-                    animation: 'orbital-pulse 3s ease-in-out infinite',
-                    'animation-delay': '0.5s',
+                    animation: 'orbital-pulse 12s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite',
+                    'animation-delay': '2s',
                   }}
                 />
                 <div
                   class="absolute w-[128px] h-[128px] rounded-full border border-emerald-500/10 dark:border-emerald-400/20"
                   style={{
-                    animation: 'orbital-pulse 3s ease-in-out infinite',
-                    'animation-delay': '1s',
+                    animation: 'orbital-pulse 12s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite',
+                    'animation-delay': '4s',
                   }}
                 />
 
@@ -2558,6 +2559,17 @@ export function OnboardingChat() {
               </div>
               <h2 class="text-2xl font-bold text-foreground">Bruno</h2>
               <p class="text-muted-foreground font-medium">Financial Coach</p>
+
+              {/* Bruno Tips Panel - Context-aware tips after onboarding complete */}
+              <Show when={isComplete()}>
+                <div class="mt-4 w-full max-w-[280px]">
+                  <OnboardingTips
+                    currentStep={step()}
+                    profileData={profile() as Partial<FullProfile>}
+                    isComplete={isComplete()}
+                  />
+                </div>
+              </Show>
 
               {/* Quick Links - Show after onboarding, trigger charts in chat */}
               <Show when={isComplete()}>

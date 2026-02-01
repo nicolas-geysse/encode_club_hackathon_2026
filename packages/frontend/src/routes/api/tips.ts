@@ -51,6 +51,9 @@ interface TipsRequest {
   hoursAvailable?: number;
   // Orchestration options
   enableFullOrchestration?: boolean;
+  // Onboarding context (optional, for step-aware tips)
+  onboardingStep?: string;
+  tipContext?: 'tracking' | 'onboarding';
 }
 
 interface AgentRecommendations {

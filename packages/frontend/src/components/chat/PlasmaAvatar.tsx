@@ -72,7 +72,7 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
       vy: 0,
       radius: (2 + Math.random() * 3) * scale,
       angle: baseAngle + Math.random() * 0.5,
-      angularSpeed: 0.01 + Math.random() * 0.02,
+      angularSpeed: 0.003 + Math.random() * 0.005,
       orbitRadius: (3 + Math.random() * 6) * scale,
       phase: Math.random() * Math.PI * 2,
     };
@@ -91,7 +91,7 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
     const centerY = h / 2;
     const colors = colorSchemes[color()];
 
-    time += 0.016; // ~60fps time increment
+    time += 0.006; // Slow, calm animation
 
     // Clear canvas
     ctx.clearRect(0, 0, w, h);
@@ -108,20 +108,20 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
       // Organic movement: combination of orbital motion and noise-like wandering
       p.angle += p.angularSpeed;
 
-      // Pulsing orbit radius for breathing effect
-      const breathe = Math.sin(time * 2 + p.phase) * 0.3 + 1;
+      // Pulsing orbit radius for breathing effect (slow)
+      const breathe = Math.sin(time * 0.8 + p.phase) * 0.2 + 1;
       const currentOrbit = p.orbitRadius * breathe;
 
-      // Add some wobble for organic feel
-      const wobbleX = Math.sin(time * 3 + i) * 2 * scale;
-      const wobbleY = Math.cos(time * 2.5 + i * 0.7) * 2 * scale;
+      // Add some wobble for organic feel (gentle)
+      const wobbleX = Math.sin(time * 1.2 + i) * 1.5 * scale;
+      const wobbleY = Math.cos(time * 1.0 + i * 0.7) * 1.5 * scale;
 
       // Calculate position
       p.x = centerX + Math.cos(p.angle) * currentOrbit + wobbleX;
       p.y = centerY + Math.sin(p.angle) * currentOrbit + wobbleY;
 
-      // Pulsing radius
-      const radiusPulse = Math.sin(time * 4 + p.phase) * 0.2 + 1;
+      // Pulsing radius (slow)
+      const radiusPulse = Math.sin(time * 1.5 + p.phase) * 0.15 + 1;
       const currentRadius = p.radius * radiusPulse;
 
       // Draw particle
@@ -135,8 +135,8 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
       ctx.closePath();
     });
 
-    // Draw central core (always visible, pulsing)
-    const pulse = 0.85 + Math.sin(time * 3) * 0.15;
+    // Draw central core (always visible, slow pulsing)
+    const pulse = 0.9 + Math.sin(time * 1.0) * 0.1;
     const coreRadius = 5 * scale * pulse;
 
     // Outer glow gradient
@@ -220,14 +220,14 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
         class="absolute inset-0 rounded-full"
         style={{
           'box-shadow': `0 0 ${size() / 4}px ${size() / 8}px ${colorSchemes[color()].glow}`,
-          animation: 'plasma-glow 2s ease-in-out infinite',
+          animation: 'plasma-glow 6s ease-in-out infinite',
         }}
       />
 
       <style>{`
         @keyframes plasma-glow {
-          0%, 100% { opacity: 0.6; }
-          50% { opacity: 1; }
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 0.9; }
         }
       `}</style>
     </div>
