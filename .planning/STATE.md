@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-02-01)
 ## Current Position
 
 Phase: 16 of 19 (Privacy & Consent)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-01 — Completed 16-01-PLAN.md (Location Privacy Foundation)
+Plan: 2 of 2 complete
+Status: Phase complete
+Last activity: 2026-02-01 — Completed 16-02-PLAN.md (Geolocation Integration)
 
-Progress: [█░░░░░░░░░] 10% (v3.0 milestone: 1/10 plans estimated)
+Progress: [██░░░░░░░░] 20% (v3.0 milestone: 2/10 plans estimated)
 
-Next: Execute 16-02-PLAN.md (Geolocation Integration)
+Next: Execute Phase 17 (Real Job Search API)
 
 ## Performance Metrics
 
@@ -31,9 +31,9 @@ Next: Execute 16-02-PLAN.md (Geolocation Integration)
 - Execution time: 2026-01-31
 
 **v3.0 (in progress):**
-- Total plans completed: 1
+- Total plans completed: 2
 - Total phases: 4 (16-19)
-- Status: Executing Phase 16
+- Status: Phase 16 complete, ready for Phase 17
 
 ## Accumulated Context
 
@@ -52,6 +52,12 @@ Next: Execute 16-02-PLAN.md (Geolocation Integration)
 - PII sanitizer handles nested objects recursively
 - Inline SVG for location icon (no lucide import needed)
 
+**Phase 16 Decisions (16-02):**
+- Consent overlay approach: Modal overlay (not route) keeps user in onboarding flow
+- Empty messages until consent: Chat messages empty until user makes choice, then greeting appears
+- API defense-in-depth: Even if frontend sends raw coords, API enforces fuzzyCoordinates
+- Duplicate sanitization function: PII sanitizer in opik.ts with dual-maintenance warning (hackathon speed)
+
 **v2.x Decisions:**
 - Hybrid iframe+button rendering over pure iframe (mobile touch issues)
 - postMessage for swipe feedback (avoid polling)
@@ -63,15 +69,18 @@ None
 
 ### Blockers/Concerns
 
-**Critical (addressed in 16-01):**
+**Resolved (Phase 16 complete):**
 - Privacy utilities created: fuzzyCoordinates and sanitizeLocationPII ready
-- LocationConsent component ready for integration
+- LocationConsent component integrated into onboarding
+- Consent flow enforces privacy before browser permission request
+- API layer enforces coordinate fuzzing (defense-in-depth)
+- Opik traces sanitized of location PII
 
 **Remaining concerns:**
 - Google Places API costs: Field masking must be strict (no wildcards in production)
 
 **Phase dependencies:**
-- Phase 17 depends on Phase 16 (cannot collect location without consent)
+- Phase 17 depends on Phase 16 (cannot collect location without consent) - READY
 - Phase 18 depends on Phase 17 (cannot prefetch without real API)
 - Phase 19 depends on Phase 18 (commute calculation needs cached results)
 
@@ -81,8 +90,8 @@ v2.0 milestone complete (Phases 1-10) — shipped 2026-01-31
 v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 
 **v3.0 Early Engagement (Phases 16-19):**
-- Phase 16: Privacy & Consent (PRIV-01 to PRIV-04) — Plan 01 complete
-- Phase 17: Real Job Search API (JOBS-01 to JOBS-05)
+- Phase 16: Privacy & Consent (PRIV-01 to PRIV-04) — COMPLETE
+- Phase 17: Real Job Search API (JOBS-01 to JOBS-05) — Next
 - Phase 18: Background Prefetch (PREF-01 to PREF-03)
 - Phase 19: Commute & UI Enhancements (COMM-01 to COMM-03, UI-01 to UI-03)
 
@@ -90,6 +99,6 @@ v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 
 ## Session Continuity
 
-Last session: 2026-02-01
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-02-01 16:50 UTC
+Stopped at: Completed 16-02-PLAN.md (Phase 16 complete)
 Resume file: None
