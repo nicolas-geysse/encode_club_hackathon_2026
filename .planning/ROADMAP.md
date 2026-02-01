@@ -49,14 +49,16 @@
 4. Location data is stored as city name or fuzzy coordinates only (rounded to 2 decimals)
 5. Privacy policy disclosure states Google Places API third-party data sharing
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 16-01: TBD
+- [ ] 16-01-PLAN.md — Location privacy utilities and consent UI component
+- [ ] 16-02-PLAN.md — Integrate consent flow and enforce privacy across stack
+- [ ] 16-03-PLAN.md — Human verification of end-to-end privacy compliance
 
 **Key Files**:
 - Create: `packages/frontend/src/components/onboarding/LocationConsent.tsx`
-- Modify: `packages/frontend/src/routes/api/_db.ts` (location field constraints)
+- Modify: `packages/frontend/src/routes/api/profiles.ts` (coordinate fuzzing)
 - Modify: `packages/mcp-server/src/services/opik.ts` (PII sanitization)
 - Create: `packages/frontend/src/lib/locationPrivacy.ts` (fuzzy coordinate helpers)
 
@@ -150,7 +152,7 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 |-------|-----------|----------------|--------|-----------|
 | 1-10 | v2.0 | 15/15 | Complete | 2026-01-31 |
 | 11-15 | v2.1 | 5/5 | Complete | 2026-01-31 |
-| 16. Privacy & Consent | v3.0 | 0/TBD | Not started | - |
+| 16. Privacy & Consent | v3.0 | 0/3 | Ready | - |
 | 17. Real Job Search API | v3.0 | 0/TBD | Not started | - |
 | 18. Background Prefetch | v3.0 | 0/TBD | Not started | - |
 | 19. Commute & UI | v3.0 | 0/TBD | Not started | - |
