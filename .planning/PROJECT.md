@@ -8,11 +8,27 @@ A student financial health navigator with an LLM-powered onboarding chat experie
 
 Frictionless onboarding that keeps users in the conversation flow while taking financial planning actions.
 
-## Current State (v2.1 shipped 2026-01-31)
+## Current Milestone: v3.0 Early Engagement
+
+**Goal:** Exploit geolocation from onboarding step 1 to show real job opportunities during profile setup.
+
+**Target features:**
+- Privacy-first location consent (allow GPS or enter city)
+- Real Google Places API results (replace mocks)
+- Skill-based job matching from onboarding skills
+- Background prefetch during onboarding
+- Commute time display and radius slider
+- Star rating with scoring algorithm
+
+**Key insight:** The infrastructure exists (MCP tools, Google Maps service) but wasn't connected. This milestone wires the frontend to real data.
+
+## Previous Milestones
+
+### v2.1 (shipped 2026-01-31)
 
 **Status:** Production ready — all critical bugs fixed
 
-**v2.1 shipped:**
+**Shipped:**
 - ✓ Quick links render actual charts (Budget, Goals, Energy, Savings)
 - ✓ Form data displays correctly (subscriptions, dynamic currency)
 - ✓ Onboarding state persists across navigation
@@ -20,11 +36,11 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - ✓ Dark mode visibility (emerald gradient)
 - ✓ GridMultiSelect with flexible layouts
 
-## Current State (v2.0 shipped 2026-01-31)
+### v2.0 (shipped 2026-01-31)
 
-**Shipped features:**
+**Shipped:**
 - ✓ Swipe-in-Chat integration with responsive rendering
-- ✓ GridMultiSelect for skills/certifications (replaces dropdown)
+- ✓ GridMultiSelect for skills/certifications
 - ✓ Bruno orbital pulse animation and progress indicator polish
 - ✓ Conditional navigation visibility during onboarding
 - ✓ Quick links triggering charts in chat
@@ -36,58 +52,55 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 
 ### Validated
 
-- ✓ Intent detection for swipe triggers (swipe, actions, stratégies, etc.) — v2.0
-- ✓ Chat API returns swipe_embed UIResource with embedUrl/fallbackUrl — v2.0
+- ✓ Intent detection for swipe triggers — v2.0
+- ✓ Chat API returns swipe_embed UIResource — v2.0
 - ✓ /embed/swipe route renders chrome-free SwipeTab — v2.0
 - ✓ Responsive rendering: iframe (desktop) / button (mobile) — v2.0
 - ✓ postMessage communication for swipe acknowledgments — v2.0
-- ✓ Start My Plan button stability (removed from ScrollArea) — v2.0
-- ✓ English localization (all French strings translated) — v2.0
+- ✓ Start My Plan button stability — v2.0
+- ✓ English localization — v2.0
 - ✓ GridMultiSelect for skills/certifications — v2.0
-- ✓ Simplified forms (sell, borrow, subscriptions) — v2.0
-- ✓ Progress indicator visual polish — v2.0
-- ✓ Bruno orbital pulse animation — v2.0
-- ✓ Conditional navigation visibility — v2.0
-- ✓ Quick links for Budget/Goals/Energy — v2.0
-- ✓ Quick links render actual charts (not just text) — v2.1
-- ✓ 4th quick link "Savings Progress" — v2.1
-- ✓ Form data serialization (subscriptions, currency) — v2.1
-- ✓ Onboarding state persistence across navigation — v2.1
-- ✓ "Start my plan" in chat completion message — v2.1
-- ✓ Dark mode visibility (Bruno avatar, progress pulse) — v2.1
-- ✓ GridMultiSelect variant prop with full-width titles — v2.1
+- ✓ Quick links render actual charts — v2.1
+- ✓ Form data serialization — v2.1
+- ✓ Onboarding state persistence — v2.1
+- ✓ Dark mode visibility — v2.1
 
 ### Active
 
-(No active requirements — planning next milestone)
+See `.planning/REQUIREMENTS.md` for v3.0 requirements:
+- Privacy & Consent (PRIV-01 to PRIV-04)
+- Real Job Search (JOBS-01 to JOBS-05)
+- Background Prefetch (PREF-01 to PREF-03)
+- Commute & Distance (COMM-01 to COMM-03)
+- UI Enhancements (UI-01 to UI-03)
 
 ### Out of Scope
 
-- MCP-UI plugin modification — iframe approach is simpler
-- Real-time profile sync between iframe and parent — user can ask for status
-- Bidirectional iframe communication — one-way sufficient
+- OAuth login for job sites — high complexity
+- Job application tracking — requires external integrations
+- Real-time job availability — too complex for hackathon
 - Mobile app — web-first approach
+- Precise GPS storage — privacy by design
 
 ## Context
 
 **Existing infrastructure:**
 - Chat system with intent detection (regex fast-path + LLM fallback)
 - MCPUIRenderer handling bar, line, comparison, swipe_embed chart types
-- SwipeTab component with embedMode support
-- UIResource pattern for chat → UI communication
-- Shared onboardingStateStore for cross-component state
+- Google Maps service in MCP (findNearbyPlaces, getDistanceMatrix)
+- ProspectionTab with map and cards (currently uses mocks)
+- Skill arbitrage algorithm for scoring
 
-**Known issues to address:**
-- handleUIAction 'show_chart' case not returning proper UIResource for charts
-- localStorage onboarding state not being read on page load
-- Subscription form field serialization issue in stepForms.ts
-- Hardcoded $ in inventory sell step
+**Key discovery:** Frontend `/api/prospection` generates mock cards instead of calling MCP tools. The pipeline exists but isn't connected.
+
+**Privacy note:** For hackathon demo, using consent-first approach with no raw GPS storage. City-level or radius-from-point only.
 
 ## Constraints
 
-- **Tech stack**: SolidJS, SolidStart, existing chat architecture
-- **Reuse**: Must use existing SwipeTab component (no duplication)
-- **Performance**: Iframe overhead acceptable (~200ms), demand-loaded only
+- **Tech stack**: SolidJS, SolidStart, existing MCP architecture
+- **API costs**: Google Places API requires field masking to control costs
+- **Privacy**: GDPR/FERPA compliance for student data
+- **Timeline**: Hackathon demo deadline
 
 ## Key Decisions
 
@@ -95,11 +108,10 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 |----------|-----------|---------|
 | Hybrid A+C over pure iframe | Mobile iframes have touch/scroll issues | ✓ Good |
 | postMessage for swipe feedback | Allows chat to acknowledge actions without polling | ✓ Good |
-| 768px breakpoint | Standard tablet/mobile divide | ✓ Good |
-| Autonomous iframe state | Simpler than shared state, profile refetch acceptable | ✓ Good |
 | Quick links → charts in chat | User feedback: keep in conversation context | ✓ Good |
-| Shared state store | Cross-component nav visibility without prop drilling | ✓ Good |
-| Remove in-chat button | Button in ScrollArea moved with messages | ✓ Good |
+| Direct MCP import over HTTP | Same monorepo, pattern proven in agent.ts | — Pending |
+| Privacy-first location consent | Legal requirement for student apps | — Pending |
+| No raw GPS storage | Privacy by design for hackathon | — Pending |
 
 ---
-*Last updated: 2026-01-31 after v2.1 milestone completion*
+*Last updated: 2026-02-01 after v3.0 milestone initialization*

@@ -2,21 +2,21 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-31)
+See: .planning/PROJECT.md (updated 2026-02-01)
 
-**Core value:** Frictionless onboarding in conversation flow
-**Current focus:** Bug fixes for budget projections
+**Core value:** Frictionless onboarding that keeps users in conversation flow while taking financial planning actions
+**Current focus:** v3.0 Early Engagement — Phase 16 Privacy & Consent
 
 ## Current Position
 
-Phase: bugfix-budget-projections (1 of 1)
-Plan: 03 complete (all plans complete)
-Status: Bugfix milestone VERIFIED ✓
-Last activity: 2026-02-01 - All plans verified
+Phase: 16 of 19 (Privacy & Consent)
+Plan: Ready to plan
+Status: Roadmap complete, ready for phase planning
+Last activity: 2026-02-01 — v3.0 roadmap created
 
-Progress: [██████████] 100% (bugfix milestone verified)
+Progress: [░░░░░░░░░░] 0% (v3.0 milestone starting)
 
-Next: `/gsd:new-milestone` or continue with other bug fixes
+Next: `/gsd:plan-phase 16`
 
 ## Performance Metrics
 
@@ -25,66 +25,63 @@ Next: `/gsd:new-milestone` or continue with other bug fixes
 - Total phases: 5
 - Execution time: 2026-01-31
 
-**Bugfix Milestone:**
-- Plan 01: 8 min (3 tasks)
-- Plan 02: 12 min (3 tasks)
-- Plan 03: 15 min (3 tasks)
-- **Total:** 35 min (9 tasks)
+**Milestone v2.0:**
+- Total plans completed: 15
+- Total phases: 10
+- Execution time: 2026-01-31
+
+**v3.0 (in progress):**
+- Total plans completed: 0
+- Total phases: 4 (16-19)
+- Status: Planning phase
 
 ## Accumulated Context
 
 ### Decisions
 
-See PROJECT.md Key Decisions table for full log.
+**v3.0 Milestone Decisions:**
+- Privacy-first approach: Explicit consent screen before location access (FERPA/GDPR compliance)
+- No raw GPS storage: City name or fuzzy coordinates only (rounded to 2 decimals = ~1km precision)
+- Direct MCP import pattern: Proven in agent.ts, avoids HTTP overhead, maintains type safety
+- Field mask enforcement: Strict 6-field whitelist to prevent Google API cost explosion
+- Background prefetch: Non-blocking job search during onboarding for instant results
+- Phase structure: 4 phases derived from 18 requirements (16: Privacy, 17: API, 18: Prefetch, 19: UI)
 
-**Phase 14 Decisions:**
-- Used emerald-500/emerald-400 colors for Bruno avatar and progress indicators (replaces primary which becomes white in dark mode)
-- Moved "Start My Plan" button to chat messages area as a completion message (better UX flow)
-- Dark mode CSS uses `prefers-color-scheme` media query for pulse animation
-
-**Phase 15 Decisions:**
-- Default grid variant uses fewer columns (1 sm:2) for skill readability
-- Wide variant (2 sm:3 md:4) for certifications with wider container
-- Empty state message contextual to filter state
-
-**Bugfix-01 Decisions:**
-- Option 2 (Dynamic Calculation) chosen over Option 1 (Merge into currentAmount) to prevent double-counting
-- Keep 'earned' metric card showing mission earnings only while progress bar shows total
-
-**Bugfix-02 Decisions:**
-- oneTimeGains is a constant addition, not accumulated weekly
-- Chart title indicates "(incl. trades)" when oneTimeGains > 0
-- Trades note appended to response text showing breakdown
-
-**Bugfix-03 Decisions:**
-- Show breakdown tooltip only when oneTimeGains exist (clean UI for simple cases)
-- Fetch budget data directly in GoalsTab rather than prop drilling
-- Use simple text breakdown below total amount (not popover/modal)
+**v2.x Decisions:**
+- Hybrid iframe+button rendering over pure iframe (mobile touch issues)
+- postMessage for swipe feedback (avoid polling)
+- Quick links trigger charts in chat (keep conversation context)
 
 ### Pending Todos
 
-None - bugfix milestone complete.
+None — starting fresh milestone.
 
 ### Blockers/Concerns
 
-None.
+**Critical (must address in Phase 16):**
+- Privacy compliance is LEGAL BLOCKER: No user testing until consent flow implemented
+- Google Places API costs: Field masking must be strict (no wildcards in production)
+
+**Phase dependencies:**
+- Phase 17 depends on Phase 16 (cannot collect location without consent)
+- Phase 18 depends on Phase 17 (cannot prefetch without real API)
+- Phase 19 depends on Phase 18 (commute calculation needs cached results)
 
 ### Roadmap Evolution
 
-v2.1 milestone complete:
-- Phase 11: Chart Rendering
-- Phase 12: Form Fixes
-- Phase 13: State Persistence
-- Phase 14: UI Fixes
-- Phase 15: GridMultiSelect Fixes
+v2.0 milestone complete (Phases 1-10) — shipped 2026-01-31
+v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 
-Bugfix milestone (budget projections) - COMPLETE:
-- Plan 01: Suivi + TimelineHero UI (complete)
-- Plan 02: Chat Charts (complete)
-- Plan 03: GoalsTab integration (complete)
+**v3.0 Early Engagement (Phases 16-19):**
+- Phase 16: Privacy & Consent (PRIV-01 to PRIV-04)
+- Phase 17: Real Job Search API (JOBS-01 to JOBS-05)
+- Phase 18: Background Prefetch (PREF-01 to PREF-03)
+- Phase 19: Commute & UI Enhancements (COMM-01 to COMM-03, UI-01 to UI-03)
+
+**Coverage:** 18/18 requirements mapped (100%)
 
 ## Session Continuity
 
-Last session: 2026-02-01 15:33
-Stopped at: Completed bugfix-03-PLAN.md (milestone complete)
+Last session: 2026-02-01
+Stopped at: Roadmap creation complete for v3.0
 Resume file: None
