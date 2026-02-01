@@ -1,8 +1,9 @@
 # Fix: Budget & Projection Integration with Trades
 
 **Date:** 2026-02-01
-**Status:** Analysis Complete
+**Status:** Analysis Complete - Peer Reviewed ✅
 **Priority:** High - Core financial tracking is incomplete
+**Recommended Solution:** Option 2 (Calcul Dynamique)
 
 ---
 
@@ -231,7 +232,7 @@ Expected:
 
 ## Solution Proposée
 
-### Option 1: Intégration dans currentAmount (Recommandé)
+### Option 1: Intégration dans currentAmount (Non Recommandé)
 Quand suivi.tsx charge les données, ajouter les trades au currentAmount.
 
 ```typescript
@@ -251,8 +252,15 @@ const newFollowupData = {
 
 **Problème**: Double comptage si l'utilisateur recharge la page après avoir ajouté des trades.
 
-### Option 2: Calcul Dynamique (Plus Propre)
+### Option 2: Calcul Dynamique (Recommandé ✅)
 Ne pas stocker les trades dans currentAmount, mais les ajouter dynamiquement à l'affichage.
+
+**Pourquoi cette option?** Séparer la **source de stockage** (Missions vs Trades) de la **couche présentation** (Total Progress) est le bon pattern:
+- **Storage**: `followupData.currentAmount` = "Earnings from Missions"
+- **Storage**: `trades` table = "Savings from Trades"
+- **View**: Progress = Earnings + Savings (composable data streams)
+
+Option 1 nécessiterait une logique de synchronisation complexe à chaque mise à jour de trade ou complétion de mission. La ligne `updateFollowup({ currentAmount: totalEarnings })` dans suivi.tsx (~L923) écraserait agressivement toute donnée "mergée".
 
 ```typescript
 // Nouveau helper: lib/progressCalculator.ts
@@ -318,21 +326,19 @@ Supprimer `followupData.currentAmount` et tout calculer depuis:
 
 ---
 
-## Questions Ouvertes
+## Questions Résolues
 
 1. **Borrow completed vs active**: Un emprunt "completed" (rendu) devrait-il encore compter comme gains?
-   - Actuellement: oui (borrowSavings = active + completed)
-   - Logique: L'économie est réalisée pendant la période d'emprunt
+   - ✅ **Réponse: OUI, garder les deux.** Un emprunt "completed" (item rendu) représente toujours de l'argent qu'on n'a *pas dépensé* pendant cette période. C'est un historique d'économies valide.
 
 2. **Pause vs Cancel**: Une dépense "pausée" génère des pausedSavings. Quid d'une dépense "cancelled"?
-   - Pas de statut "cancelled" actuellement dans le schéma
+   - ✅ **Réponse:** Une souscription annulée devrait être **retirée des Expenses** entièrement (augmentant la marge mensuelle) plutôt que compter comme "one-time gain". "Paused" est correctement un accumulateur de gains ponctuels.
 
 3. **Double entry**: Si on ajoute les trades au currentAmount persisté, comment éviter le double comptage au reload?
-   - Solution: Calculer dynamiquement, ne pas persister
+   - ✅ **Réponse:** Calculer dynamiquement, ne pas persister. C'est pourquoi Option 2 est recommandée.
 
 4. **Simulation + Trades**: Les trades passés pendant la simulation devraient-ils compter?
-   - Actuellement: Les trades sont indépendants du temps simulé
-   - À clarifier: Est-ce le comportement souhaité?
+   - ✅ **Réponse:** Les `oneTimeGains` sont historiques/réalisés. Ils doivent rester **constants** pendant la simulation temporelle (sauf si on simule des trades *futurs*, ce qui est hors scope).
 
 ---
 
@@ -345,6 +351,63 @@ Supprimer `followupData.currentAmount` et tout calculer depuis:
 | Chat "show progress" | Savings inclut trades |
 | Simulation +30j + sell 100€ | projectedSaved = base + simulation + 100€ |
 | Pause expense 15€ x 2 mois | +30€ dans progress |
+
+---
+
+## Notes d'Implémentation
+
+### 1. Unified `ProgressCalculator`
+Le helper proposé `lib/progressCalculator.ts` doit accepter une interface générique pour être utilisable à la fois par le frontend (Suivi, Graphs) et le backend (Chat API) afin de garantir des chiffres identiques partout.
+
+```typescript
+// lib/progressCalculator.ts
+export interface OneTimeGains {
+  tradeSales: number;
+  tradeBorrow: number;
+  pausedSavings: number;
+}
+
+export function calculateTotalProgress(
+  currentAmount: number,
+  oneTimeGains: OneTimeGains
+): number {
+  return currentAmount + oneTimeGains.tradeSales + oneTimeGains.tradeBorrow + oneTimeGains.pausedSavings;
+}
+```
+
+### 2. Fetch Budget dans suivi.tsx
+Ajouter un fetch parallèle dans `loadData()` pour récupérer les données budget. Option A: endpoint léger dédié. Option B: fetch `/api/budget` en parallèle (acceptable).
+
+```typescript
+// Dans loadData() de suivi.tsx
+const [profileData, budgetData] = await Promise.all([
+  // existing profile fetch
+  fetch(`/api/budget?profileId=${profile.id}`).then(r => r.json())
+]);
+
+const oneTimeGains = budgetData.budget?.oneTimeGains || { tradeSales: 0, tradeBorrow: 0, pausedSavings: 0 };
+```
+
+---
+
+## Peer Review
+
+**Reviewer:** Antigravity (Senior Agent)
+**Date:** 2026-02-01
+**Verdict:** ✅ APPROVED
+
+> Le plan proposé est **techniquement solide** et adresse efficacement la cause racine de la divergence des données. Option 2 (Calcul Dynamique) est fortement recommandée.
+
+### Validation du Diagnostic
+- `routes/api/budget.ts`: Calcule correctement `oneTimeGains` (trades + paused savings) ✅
+- `routes/suivi.tsx`: Isole bien `currentAmount` aux earnings de missions uniquement ✅
+- Ligne ~923 `updateFollowup({ currentAmount: totalEarnings })` écraserait agressivement toute donnée "mergée" → Option 1 serait bug-prone ✅
+
+### Feu Vert
+Procéder avec les phases d'implémentation comme décrites:
+1. Créer `lib/progressCalculator.ts`
+2. Mettre à jour `suivi.tsx` pour fetch budget et utiliser le calculator
+3. Mettre à jour les composants UI pour afficher le breakdown
 
 ---
 
