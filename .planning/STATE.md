@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-02-01)
 
 **Core value:** Frictionless onboarding that keeps users in conversation flow while taking financial planning actions
-**Current focus:** v3.0 Early Engagement — Phase 16 Privacy & Consent
+**Current focus:** v3.0 Early Engagement — Phase 17 Real Job Search API
 
 ## Current Position
 
-Phase: 16 of 19 (Privacy & Consent)
-Plan: 3 of 3 complete
-Status: Phase complete (verified)
-Last activity: 2026-02-01 — Completed 16-03-PLAN.md (Human Verification)
+Phase: 17 of 19 (Real Job Search API)
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-02-01 — Completed 17-01-PLAN.md (Google Maps Field Masks)
 
-Progress: [███░░░░░░░] 30% (v3.0 milestone: 3/10 plans estimated)
+Progress: [████░░░░░░] 40% (v3.0 milestone: 4/10 plans estimated)
 
-Next: Plan Phase 17 (Real Job Search API)
+Next: Execute 17-02-PLAN.md (Job Search Tool)
 
 ## Performance Metrics
 
@@ -31,9 +31,9 @@ Next: Plan Phase 17 (Real Job Search API)
 - Execution time: 2026-01-31
 
 **v3.0 (in progress):**
-- Total plans completed: 3
+- Total plans completed: 4
 - Total phases: 4 (16-19)
-- Status: Phase 16 verified complete, ready for Phase 17 planning
+- Status: Phase 17 plan 1 complete, continuing with plan 2
 
 ## Accumulated Context
 
@@ -46,6 +46,10 @@ Next: Plan Phase 17 (Real Job Search API)
 - Field mask enforcement: Strict 6-field whitelist to prevent Google API cost explosion
 - Background prefetch: Non-blocking job search during onboarding for instant results
 - Phase structure: 4 phases derived from 18 requirements (16: Privacy, 17: API, 18: Prefetch, 19: UI)
+
+**Phase 17 Decisions (17-01):**
+- Photo billing opt-in: includePhotos defaults to false to avoid API costs (~$0.007/photo)
+- Direct export pattern: google-maps now exported from @stride/mcp-server/services
 
 **Phase 16 Decisions (16-01):**
 - 2 decimal places = ~1.1km precision (city-level, not street-level)
@@ -69,19 +73,16 @@ None
 
 ### Blockers/Concerns
 
-**Resolved (Phase 16 complete):**
-- Privacy utilities created: fuzzyCoordinates and sanitizeLocationPII ready
-- LocationConsent component integrated into onboarding
-- Consent flow enforces privacy before browser permission request
-- API layer enforces coordinate fuzzing (defense-in-depth)
-- Opik traces sanitized of location PII
+**Resolved (Phase 17-01 complete):**
+- Google Places API costs: Photo billing now controlled via opt-in includePhotos option
+- google-maps service exported for direct frontend imports
 
 **Remaining concerns:**
-- Google Places API costs: Field masking must be strict (no wildcards in production)
+- None currently
 
 **Phase dependencies:**
-- Phase 17 depends on Phase 16 (cannot collect location without consent) - READY
-- Phase 18 depends on Phase 17 (cannot prefetch without real API)
+- Phase 17 depends on Phase 16 (cannot collect location without consent) - SATISFIED
+- Phase 18 depends on Phase 17 (cannot prefetch without real API) - IN PROGRESS
 - Phase 19 depends on Phase 18 (commute calculation needs cached results)
 
 ### Roadmap Evolution
@@ -91,7 +92,7 @@ v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 
 **v3.0 Early Engagement (Phases 16-19):**
 - Phase 16: Privacy & Consent (PRIV-01 to PRIV-04) — VERIFIED COMPLETE
-- Phase 17: Real Job Search API (JOBS-01 to JOBS-05) — Ready for planning
+- Phase 17: Real Job Search API (JOBS-01 to JOBS-05) — Plan 1/3 complete
 - Phase 18: Background Prefetch (PREF-01 to PREF-03)
 - Phase 19: Commute & UI Enhancements (COMM-01 to COMM-03, UI-01 to UI-03)
 
@@ -100,5 +101,5 @@ v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 ## Session Continuity
 
 Last session: 2026-02-01
-Stopped at: Verified 16-03-PLAN.md (Phase 16 complete)
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None
