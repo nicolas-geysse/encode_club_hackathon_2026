@@ -3,6 +3,7 @@ import type { JSX } from 'solid-js';
 import { cn } from '~/lib/cn';
 import { OpikTraceLinkInline } from '~/components/ui/OpikTraceLink';
 import { ThumbsUp, ThumbsDown } from 'lucide-solid';
+import PlasmaAvatar from './PlasmaAvatar';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -96,9 +97,7 @@ export function ChatMessage(props: ChatMessageProps) {
         )}
       >
         <Show when={isAssistant()}>
-          <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-sm font-bold shadow-md ring-2 ring-background">
-            {props.avatar || 'B'}
-          </div>
+          <PlasmaAvatar size={32} color="green" />
         </Show>
 
         <div class="flex flex-col gap-1 min-w-0">
