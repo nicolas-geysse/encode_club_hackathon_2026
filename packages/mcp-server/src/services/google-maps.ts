@@ -115,7 +115,10 @@ interface PlacesApiResponse {
 }
 
 /**
- * Find places near a location using Google Places API
+ * Find places near a location using Google Places API (Nearby Search)
+ *
+ * Billing note: Nearby Search is billed per request (~$0.032/request)
+ * Photos are billed separately (~$0.007/photo) - only fetched if includePhotos=true
  */
 export async function findNearbyPlaces(
   location: Coordinates,
@@ -124,6 +127,7 @@ export async function findNearbyPlaces(
     radius?: number;
     keyword?: string;
     maxResults?: number;
+    includePhotos?: boolean; // Default false to avoid photo billing
   }
 ): Promise<Place[]> {
   const radius = options?.radius ?? 5000;
@@ -177,9 +181,11 @@ export async function findNearbyPlaces(
       priceLevel: p.price_level,
       openNow: p.opening_hours?.open_now,
       types: p.types,
-      photoUrl: p.photos?.[0]?.photo_reference
-        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${GOOGLE_MAPS_API_KEY}`
-        : undefined,
+      // Photo URLs are only included if explicitly requested (billed at ~$0.007/photo)
+      photoUrl:
+        options?.includePhotos && p.photos?.[0]?.photo_reference
+          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${GOOGLE_MAPS_API_KEY}`
+          : undefined,
     }));
 
     span.setOutput({ places_count: places.length });
