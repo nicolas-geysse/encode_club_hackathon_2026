@@ -10,13 +10,13 @@ See: .planning/PROJECT.md (updated 2026-01-31)
 ## Current Position
 
 Phase: bugfix-budget-projections (1 of 1)
-Plan: 01 complete, 02 complete
-Status: Plans 01-02 complete, Plan 03 pending
-Last activity: 2026-02-01 - Completed bugfix-01-PLAN.md and bugfix-02-PLAN.md
+Plan: 03 complete (all plans complete)
+Status: Bugfix milestone COMPLETE
+Last activity: 2026-02-01 - Completed bugfix-03-PLAN.md
 
-Progress: [████------] 40% (bugfix milestone in progress)
+Progress: [██████████] 100% (bugfix milestone complete)
 
-Next: Execute bugfix-03-PLAN.md (GoalsTab progress integration)
+Next: None - milestone complete
 
 ## Performance Metrics
 
@@ -28,6 +28,8 @@ Next: Execute bugfix-03-PLAN.md (GoalsTab progress integration)
 **Bugfix Milestone:**
 - Plan 01: 8 min (3 tasks)
 - Plan 02: 12 min (3 tasks)
+- Plan 03: 15 min (3 tasks)
+- **Total:** 35 min (9 tasks)
 
 ## Accumulated Context
 
@@ -54,9 +56,14 @@ See PROJECT.md Key Decisions table for full log.
 - Chart title indicates "(incl. trades)" when oneTimeGains > 0
 - Trades note appended to response text showing breakdown
 
+**Bugfix-03 Decisions:**
+- Show breakdown tooltip only when oneTimeGains exist (clean UI for simple cases)
+- Fetch budget data directly in GoalsTab rather than prop drilling
+- Use simple text breakdown below total amount (not popover/modal)
+
 ### Pending Todos
 
-- Execute bugfix-03-PLAN.md for GoalsTab integration
+None - bugfix milestone complete.
 
 ### Blockers/Concerns
 
@@ -71,13 +78,13 @@ v2.1 milestone complete:
 - Phase 14: UI Fixes
 - Phase 15: GridMultiSelect Fixes
 
-Bugfix milestone (budget projections):
+Bugfix milestone (budget projections) - COMPLETE:
 - Plan 01: Suivi + TimelineHero UI (complete)
 - Plan 02: Chat Charts (complete)
-- Plan 03: GoalsTab integration (pending)
+- Plan 03: GoalsTab integration (complete)
 
 ## Session Continuity
 
-Last session: 2026-02-01 15:02
-Stopped at: Completed bugfix-01-PLAN.md
+Last session: 2026-02-01 15:33
+Stopped at: Completed bugfix-03-PLAN.md (milestone complete)
 Resume file: None
