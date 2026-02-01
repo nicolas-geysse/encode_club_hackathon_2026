@@ -157,6 +157,7 @@ export function buildProjectionChart(
 /**
  * Build a progress chart showing saved amount over time
  * @param simulationInfo Optional - when provided and isSimulating is true, adds simulation indicator to title
+ * @param oneTimeGains Optional - one-time gains from trades (added to starting point, not accumulated weekly)
  */
 export function buildProgressChart(
   currentSaved: number,
@@ -164,7 +165,8 @@ export function buildProgressChart(
   weeksRemaining: number,
   weeklyContribution: number,
   _currencySymbol: string = '$',
-  simulationInfo?: SimulationInfo
+  simulationInfo?: SimulationInfo,
+  oneTimeGains: number = 0
 ): UIResource {
   // Generate data points for the next N weeks
   const numPoints = Math.min(weeksRemaining, 12);
@@ -172,7 +174,9 @@ export function buildProgressChart(
   const data: number[] = [];
   const goalLine: number[] = [];
 
-  let accumulated = currentSaved;
+  // oneTimeGains is a CONSTANT addition to the starting point.
+  // It represents already-realized gains (completed trades, current borrow savings).
+  let accumulated = currentSaved + oneTimeGains;
   for (let i = 0; i <= numPoints; i++) {
     labels.push(i === 0 ? 'Now' : `Week ${i}`);
     data.push(Math.round(accumulated));
@@ -180,10 +184,12 @@ export function buildProgressChart(
     accumulated += weeklyContribution;
   }
 
-  // Add simulation indicator to title if simulating
-  const title = simulationInfo?.isSimulating
+  // Build title with simulation and trades indicators
+  const hasOneTimeGains = oneTimeGains > 0;
+  const baseTitle = simulationInfo?.isSimulating
     ? `Savings Projection (Simulated +${simulationInfo.offsetDays ?? 0}d)`
     : 'Savings Projection';
+  const title = hasOneTimeGains ? `${baseTitle} (incl. trades)` : baseTitle;
 
   return {
     type: 'chart',
