@@ -18,6 +18,7 @@ import {
   uuidv4,
 } from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
+import { fuzzyCoordinates } from '../../lib/locationPrivacy';
 
 const logger = createLogger('Profiles');
 
@@ -343,6 +344,16 @@ export async function POST(event: APIEvent) {
     await ensureProfilesSchema();
 
     const body = await event.request.json();
+
+    // PRIVACY: Always store fuzzy coordinates (2 decimal places = ~1km precision)
+    // This ensures FERPA/GDPR compliance - no precise GPS data persisted
+    // Defense-in-depth: even if frontend sends raw coordinates, API enforces fuzzy values
+    if (body.latitude != null && body.longitude != null) {
+      const fuzzy = fuzzyCoordinates(body.latitude, body.longitude);
+      body.latitude = fuzzy.latitude;
+      body.longitude = fuzzy.longitude;
+    }
+
     const profileId = body.id || uuidv4();
     const setActive = body.setActive !== false;
     const preserveActiveState = body.setActive === false;
