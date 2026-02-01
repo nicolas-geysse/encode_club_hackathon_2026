@@ -5,6 +5,47 @@
  * Connects to self-hosted Opik instance
  */
 
+// =============================================================================
+// PRIVACY: Location PII sanitization for FERPA/GDPR compliance
+// WARNING: This is duplicated from packages/frontend/src/lib/locationPrivacy.ts
+// If you modify the logic here, update the frontend version too!
+// For hackathon this is acceptable; in production, extract to shared package.
+// =============================================================================
+
+/**
+ * PRIVACY COMPLIANCE:
+ * All trace inputs/outputs are sanitized to remove raw GPS coordinates.
+ * Location data is replaced with placeholder to prevent PII leakage.
+ * Required for FERPA (student data) and GDPR compliance.
+ */
+const PRIVACY_PLACEHOLDER = '[LOCATION_REDACTED]';
+const LOCATION_KEYS = ['latitude', 'longitude', 'lat', 'lon', 'coords', 'coordinates'];
+
+function sanitizeLocationPII(data: Record<string, unknown>): Record<string, unknown> {
+  if (!data || typeof data !== 'object') return data;
+
+  const result = { ...data };
+  for (const key of Object.keys(result)) {
+    const lowerKey = key.toLowerCase();
+    if (LOCATION_KEYS.some((k) => lowerKey.includes(k))) {
+      result[key] = PRIVACY_PLACEHOLDER;
+    } else if (
+      typeof result[key] === 'object' &&
+      result[key] !== null &&
+      !Array.isArray(result[key])
+    ) {
+      result[key] = sanitizeLocationPII(result[key] as Record<string, unknown>);
+    } else if (Array.isArray(result[key])) {
+      result[key] = (result[key] as unknown[]).map((item) =>
+        item !== null && typeof item === 'object'
+          ? sanitizeLocationPII(item as Record<string, unknown>)
+          : item
+      );
+    }
+  }
+  return result;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let opikClient: any = null;
 let currentTraceId: string | null = null;
@@ -283,9 +324,9 @@ export async function trace<T>(
         traceConfig.tags = options.tags;
       }
 
-      // Add initial input if provided
+      // Add initial input if provided (sanitized for PII)
       if (options?.input) {
-        traceConfig.input = options.input;
+        traceConfig.input = sanitizeLocationPII(options.input);
       }
 
       // Add thread ID for conversation grouping
@@ -368,12 +409,13 @@ export async function trace<T>(
       // Build update data with output and additional metadata
       const updateData: Record<string, unknown> = {};
 
-      // Merge collected attributes into metadata
+      // Merge collected attributes into metadata (sanitized for PII)
       if (Object.keys(collectedAttrs).length > 0) {
-        updateData.metadata = collectedAttrs;
+        updateData.metadata = sanitizeLocationPII(collectedAttrs);
       }
+      // PRIVACY: Sanitize output before sending to Opik
       if (outputData) {
-        updateData.output = outputData;
+        updateData.output = sanitizeLocationPII(outputData);
       }
       // Usage format: { prompt_tokens, completion_tokens, total_tokens }
       if (usageData) {
@@ -513,8 +555,9 @@ async function createSpanInternal<T>(
     type: options?.type || 'general', // REQUIRED: defaults to 'general'
   };
 
+  // PRIVACY: Sanitize span input before logging
   if (options?.input) {
-    spanConfig.input = options.input;
+    spanConfig.input = sanitizeLocationPII(options.input);
   }
 
   if (options?.tags && options.tags.length > 0) {
@@ -568,11 +611,12 @@ async function createSpanInternal<T>(
     collectedAttrs.duration_ms = Date.now() - startTime.getTime();
     collectedAttrs.status = 'success';
 
-    // Finalize span
+    // Finalize span - sanitize before sending to Opik
     if (spanHandle) {
-      const updateData: Record<string, unknown> = { metadata: collectedAttrs };
+      const updateData: Record<string, unknown> = { metadata: sanitizeLocationPII(collectedAttrs) };
+      // PRIVACY: Sanitize span output before sending to Opik
       if (outputData) {
-        updateData.output = outputData;
+        updateData.output = sanitizeLocationPII(outputData);
       }
       // Correct usage format - cast to TokenUsage since TypeScript flow analysis
       // doesn't track callback assignments properly
@@ -602,7 +646,7 @@ async function createSpanInternal<T>(
 
     if (spanHandle) {
       spanHandle.update({
-        metadata: collectedAttrs,
+        metadata: sanitizeLocationPII(collectedAttrs),
         output: { error: errorMessage },
         errorInfo: { message: errorMessage },
       });
