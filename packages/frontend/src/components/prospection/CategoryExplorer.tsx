@@ -21,6 +21,7 @@ import {
   ChevronDown,
   Search,
   Zap,
+  Globe,
 } from 'lucide-solid';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
@@ -75,6 +76,7 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
             const isExpanded = () => expandedId() === category.id;
             const isLoadingThis = () => props.isLoading && props.loadingCategory === category.id;
             const IconComponent = ICON_MAP[category.icon as keyof typeof ICON_MAP] || Building;
+            const isPlatformOnly = category.googlePlaceTypes.length === 0;
 
             return (
               <Card
@@ -96,7 +98,15 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
                           <Dynamic component={IconComponent} class="h-5 w-5" />
                         </div>
                         <div class="text-left">
-                          <h3 class="font-semibold text-foreground">{category.label}</h3>
+                          <div class="flex items-center gap-2">
+                            <h3 class="font-semibold text-foreground">{category.label}</h3>
+                            {isPlatformOnly && (
+                              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-300">
+                                <Globe class="h-3 w-3" />
+                                Platforms
+                              </span>
+                            )}
+                          </div>
                           <p class="text-sm text-muted-foreground">
                             {formatHourlyRange(category.avgHourlyRate, currency())}
                           </p>

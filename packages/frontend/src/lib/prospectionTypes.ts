@@ -114,9 +114,25 @@ export interface Lead {
 // API Response Types
 // =============================================================================
 
+export interface ProspectionSearchMeta {
+  /** Source of results: 'google_places' or 'platforms' */
+  source: 'google_places' | 'platforms';
+  /** Whether a Places API search was actually performed */
+  searchPerformed: boolean;
+  /** Google Place types that were queried */
+  placesTypesQueried: string[];
+  /** Whether user coordinates were available */
+  hasCoordinates: boolean;
+  /** Debug: actual coordinates used for search (to verify location is correct) */
+  searchLocation?: { lat: number; lng: number; city: string } | null;
+  /** Radius strategy used */
+  radiusUsed?: string | null;
+}
+
 export interface ProspectionSearchResponse {
   cards: ProspectionCard[];
   category: ProspectionCategory;
+  meta: ProspectionSearchMeta;
 }
 
 export interface ProspectionSearchRequest {

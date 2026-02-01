@@ -173,6 +173,7 @@ export {
   initGoogleMaps,
   isGoogleMapsAvailable,
   findNearbyPlaces,
+  textSearchPlaces,
   getDistanceMatrix,
   calculateDistance,
   formatDistance,

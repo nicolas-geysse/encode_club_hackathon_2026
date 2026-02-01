@@ -384,6 +384,12 @@ export function ProfileTab(props: ProfileTabProps) {
                     editable={false}
                     height="160px"
                   />
+                  {/* Show coordinates */}
+                  <Show when={profile()?.latitude && profile()?.longitude}>
+                    <p class="text-xs text-muted-foreground mt-1">
+                      📍 {profile()?.latitude?.toFixed(4)}, {profile()?.longitude?.toFixed(4)}
+                    </p>
+                  </Show>
                 </div>
               </div>
             </div>

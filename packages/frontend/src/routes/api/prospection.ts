@@ -83,9 +83,35 @@ export async function POST(event: APIEvent): Promise<Response> {
       logger.info('Prospection search', { categoryId, city, latitude, longitude, radius });
 
       // Search for real places using Google Maps API
+      const hasCoordinates = !!(latitude && longitude);
+      const isPlatformOnly = category.googlePlaceTypes.length === 0;
+
       const cards = await searchRealPlaces(category, latitude, longitude, city, radius);
 
-      return new Response(JSON.stringify({ cards, category }), {
+      // Diagnostic logging for Places API debugging
+      logger.info('Places API result', {
+        categoryId,
+        placeTypesCount: category.googlePlaceTypes.length,
+        resultsCount: cards.length,
+        hasCoordinates,
+        isPlatformOnly,
+        apiKeyPrefix: process.env.GOOGLE_MAPS_API_KEY?.slice(0, 10) + '...',
+      });
+
+      // Build response with diagnostic metadata
+      const meta = {
+        source: isPlatformOnly ? 'platforms' : 'google_places',
+        searchPerformed: hasCoordinates && !isPlatformOnly,
+        placesTypesQueried: category.googlePlaceTypes,
+        hasCoordinates,
+        // Debug: show actual search location to verify it's correct
+        searchLocation: hasCoordinates
+          ? { lat: latitude, lng: longitude, city: city || 'unknown' }
+          : null,
+        radiusUsed: hasCoordinates && !isPlatformOnly ? 'progressive (5-15km)' : null,
+      };
+
+      return new Response(JSON.stringify({ cards, category, meta }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -108,15 +134,35 @@ export async function POST(event: APIEvent): Promise<Response> {
 // Real Google Places API Search
 // =============================================================================
 
+// Progressive radius fallback: try larger areas if initial search is empty
+const RADIUS_FALLBACK = [5000, 10000, 15000]; // 5km → 10km → 15km
+
+// Text Search queries by category (more natural language, better results)
+const TEXT_SEARCH_QUERIES: Record<string, string[]> = {
+  service: ['restaurant', 'café bar', 'boulangerie', 'pizzeria'],
+  retail: ['supermarché', 'magasin vêtements', 'centre commercial', 'pharmacie'],
+  cleaning: ['hôtel', 'salle de sport', 'cinéma'],
+  childcare: ['école maternelle', 'école primaire', 'crèche'],
+  tutoring: ['bibliothèque', 'université', 'lycée'],
+  events: ['salle événements', 'centre congrès'],
+  digital: ['espace coworking', 'café wifi'],
+  campus: ['université', 'bibliothèque universitaire'],
+  beauty: ['salon coiffure', 'institut beauté', 'spa'],
+  auto: ['station service', 'lavage auto'],
+};
+
 /**
  * Search for real places using Google Places API
+ * Strategy:
+ * 1. Nearby Search with progressive radius (5km → 10km → 15km)
+ * 2. If still empty, fallback to Text Search (more flexible queries)
  */
 async function searchRealPlaces(
   category: ProspectionCategory,
   latitude?: number,
   longitude?: number,
   city?: string,
-  radius: number = 5000
+  _initialRadius: number = 5000
 ): Promise<ProspectionCard[]> {
   // If category has no googlePlaceTypes, return platform-based suggestions
   if (category.googlePlaceTypes.length === 0) {
@@ -130,36 +176,87 @@ async function searchRealPlaces(
   }
 
   const maps = await getGoogleMaps();
+  const location = { lat: latitude, lng: longitude };
 
-  // Search for each Google Place type in the category
-  const allPlaces: ProspectionCard[] = [];
+  // Strategy 1: Try Nearby Search with progressive radius
+  for (const radius of RADIUS_FALLBACK) {
+    const allPlaces = await searchWithRadius(maps, category, location, radius);
 
-  for (const placeType of category.googlePlaceTypes) {
+    if (allPlaces.length > 0) {
+      logger.info('Places found via Nearby Search', {
+        categoryId: category.id,
+        radius,
+        count: allPlaces.length,
+        method: 'nearby_search',
+      });
+      return allPlaces;
+    }
+
+    logger.info('No results at radius, trying larger', {
+      categoryId: category.id,
+      radius,
+      nextRadius: RADIUS_FALLBACK[RADIUS_FALLBACK.indexOf(radius) + 1] || 'text_search',
+    });
+  }
+
+  // Strategy 2: Fallback to Text Search (more flexible)
+  logger.info('Nearby Search exhausted, trying Text Search', { categoryId: category.id, city });
+
+  const textSearchResults = await searchWithTextSearch(maps, category, location, city);
+  if (textSearchResults.length > 0) {
+    logger.info('Places found via Text Search', {
+      categoryId: category.id,
+      count: textSearchResults.length,
+      method: 'text_search',
+    });
+    return textSearchResults;
+  }
+
+  // No results from any method
+  logger.warn('No Places results from any search method', {
+    categoryId: category.id,
+    placeTypes: category.googlePlaceTypes,
+    city,
+  });
+
+  return [];
+}
+
+/**
+ * Fallback: Use Text Search API for more flexible natural language queries
+ */
+async function searchWithTextSearch(
+  maps: Awaited<ReturnType<typeof getGoogleMaps>>,
+  category: ProspectionCategory,
+  location: { lat: number; lng: number },
+  city?: string
+): Promise<ProspectionCard[]> {
+  const queries = TEXT_SEARCH_QUERIES[category.id] || [category.label];
+  const cityName = city || '';
+
+  // Search with multiple queries in parallel
+  const searchPromises = queries.slice(0, 3).map(async (baseQuery) => {
     try {
-      const places = await maps.findNearbyPlaces(
-        { lat: latitude, lng: longitude },
-        placeType as import('@stride/mcp-server/services').PlaceType,
-        {
-          radius,
-          keyword: category.queryTemplate,
-          maxResults: 10,
-          includePhotos: false, // Cost control
-        }
-      );
+      const query = cityName ? `${baseQuery} ${cityName}` : baseQuery;
 
-      // Convert Place to ProspectionCard
-      for (const place of places) {
-        const distance = maps.calculateDistance({ lat: latitude, lng: longitude }, place.location);
-        const commuteMinutes = Math.round(distance / 80); // ~80m/min walking speed
+      const places = await maps.textSearchPlaces(query, {
+        location,
+        radius: 15000, // 15km for text search
+        maxResults: 10,
+        language: 'fr',
+      });
 
-        // Random hourly rate within category range
+      return places.map((place) => {
+        const distance = maps.calculateDistance(location, place.location);
+        const commuteMinutes = Math.round(distance / 80);
+
         const hourlyRate =
           category.avgHourlyRate.min +
           Math.random() * (category.avgHourlyRate.max - category.avgHourlyRate.min);
 
-        allPlaces.push({
+        return {
           id: `${category.id}_${place.placeId}`,
-          type: 'place',
+          type: 'place' as const,
           title: category.examples[Math.floor(Math.random() * category.examples.length)],
           company: place.name,
           location: place.address,
@@ -175,14 +272,96 @@ async function searchRealPlaces(
           categoryId: category.id,
           rating: place.rating,
           openNow: place.openNow,
-        });
-      }
+        };
+      });
+    } catch (error) {
+      logger.error('Text search error', { query: baseQuery, error });
+      return [];
+    }
+  });
+
+  const results = await Promise.all(searchPromises);
+
+  // Flatten and deduplicate
+  const allPlaces = results.flat();
+  const seen = new Set<string>();
+  return allPlaces.filter((place) => {
+    if (seen.has(place.id)) return false;
+    seen.add(place.id);
+    return true;
+  });
+}
+
+/**
+ * Search all place types in parallel at a given radius
+ */
+async function searchWithRadius(
+  maps: Awaited<ReturnType<typeof getGoogleMaps>>,
+  category: ProspectionCategory,
+  location: { lat: number; lng: number },
+  radius: number
+): Promise<ProspectionCard[]> {
+  // Search ALL place types in parallel for better performance
+  const searchPromises = category.googlePlaceTypes.map(async (placeType) => {
+    try {
+      const places = await maps.findNearbyPlaces(
+        location,
+        placeType as import('@stride/mcp-server/services').PlaceType,
+        {
+          radius,
+          // Don't use keyword - it's too restrictive and causes 0 results
+          maxResults: 15,
+          includePhotos: false, // Cost control
+        }
+      );
+
+      // Convert Place to ProspectionCard
+      return places.map((place) => {
+        const distance = maps.calculateDistance(location, place.location);
+        const commuteMinutes = Math.round(distance / 80); // ~80m/min walking speed
+
+        // Random hourly rate within category range
+        const hourlyRate =
+          category.avgHourlyRate.min +
+          Math.random() * (category.avgHourlyRate.max - category.avgHourlyRate.min);
+
+        return {
+          id: `${category.id}_${place.placeId}`,
+          type: 'place' as const,
+          title: category.examples[Math.floor(Math.random() * category.examples.length)],
+          company: place.name,
+          location: place.address,
+          lat: place.location.lat,
+          lng: place.location.lng,
+          commuteMinutes,
+          commuteText: `${commuteMinutes} min`,
+          salaryText: `${hourlyRate.toFixed(2)}€/h`,
+          avgHourlyRate: Math.round(hourlyRate * 100) / 100,
+          effortLevel: category.effortLevel,
+          source: 'Google Maps',
+          url: `https://www.google.com/maps/place/?q=place_id:${place.placeId}`,
+          categoryId: category.id,
+          rating: place.rating,
+          openNow: place.openNow,
+        };
+      });
     } catch (error) {
       logger.error('Places search error', { placeType, error });
+      return [];
     }
-  }
+  });
 
-  return allPlaces;
+  // Wait for all searches to complete in parallel
+  const results = await Promise.all(searchPromises);
+
+  // Flatten and deduplicate by placeId
+  const allPlaces = results.flat();
+  const seen = new Set<string>();
+  return allPlaces.filter((place) => {
+    if (seen.has(place.id)) return false;
+    seen.add(place.id);
+    return true;
+  });
 }
 
 /**

@@ -45,24 +45,26 @@ const LOCATION_PII_KEYS = ['latitude', 'longitude', 'lat', 'lon', 'coords', 'coo
 /**
  * Convert precise GPS coordinates to fuzzy coordinates.
  *
- * Rounding to 2 decimal places provides ~1.1km precision at the equator.
- * This is sufficient for city-level job matching while protecting
- * user privacy (no street-level tracking).
+ * Rounding to 4 decimal places provides ~11m precision at the equator.
+ * This gives accurate commute distances while providing slight privacy margin.
  *
- * Formula: 0.01 degree = ~1.11km at equator
+ * Formula: 0.0001 degree = ~11m at equator
+ *
+ * Note: Previously used 2 decimal places (~1.1km) but this was too imprecise
+ * for accurate commute calculations when users consent to geolocation.
  *
  * @example
  * fuzzyCoordinates(48.8566, 2.3522) // Paris
- * // Returns: { latitude: 48.86, longitude: 2.35 }
+ * // Returns: { latitude: 48.8566, longitude: 2.3522 }
  *
  * @param lat - Raw latitude from GPS
  * @param lon - Raw longitude from GPS
- * @returns Coordinates rounded to 2 decimal places
+ * @returns Coordinates rounded to 4 decimal places
  */
 export function fuzzyCoordinates(lat: number, lon: number): FuzzyCoordinates {
   return {
-    latitude: Math.round(lat * 100) / 100,
-    longitude: Math.round(lon * 100) / 100,
+    latitude: Math.round(lat * 10000) / 10000,
+    longitude: Math.round(lon * 10000) / 10000,
   };
 }
 
@@ -132,16 +134,16 @@ export function sanitizeLocationPII(data: Record<string, unknown>): Record<strin
 /**
  * Check if a coordinate value appears to be raw (unsanitized).
  *
- * Raw coordinates have more than 2 decimal places.
+ * Raw coordinates have more than 4 decimal places.
  * Used to detect potential privacy violations in logging/storage.
  *
  * @example
- * isRawCoordinate(48.8566) // true - 4 decimal places
- * isRawCoordinate(48.86)   // false - 2 decimal places (fuzzy)
- * isRawCoordinate(48)      // false - no decimal places
+ * isRawCoordinate(48.85661234) // true - 8 decimal places
+ * isRawCoordinate(48.8566)     // false - 4 decimal places (fuzzy)
+ * isRawCoordinate(48)          // false - no decimal places
  *
  * @param value - Numeric coordinate value to check
- * @returns true if coordinate has more than 2 decimal places
+ * @returns true if coordinate has more than 4 decimal places
  */
 export function isRawCoordinate(value: number): boolean {
   // Convert to string and check decimal places
@@ -154,5 +156,5 @@ export function isRawCoordinate(value: number): boolean {
   }
 
   const decimalPlaces = str.length - decimalIndex - 1;
-  return decimalPlaces > 2;
+  return decimalPlaces > 4;
 }

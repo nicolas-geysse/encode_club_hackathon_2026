@@ -5,33 +5,41 @@
  * Phases:
  * 1. idle - Display CategoryExplorer
  * 2. loading - Search in progress
- * 3. swiping - SwipeDeck with cards
+ * 3. results - ProspectionList with sorted jobs
  * 4. complete - Summary + SavedLeads + Map
  */
 
 import { createSignal, Show, createEffect, on } from 'solid-js';
 import {
   CategoryExplorer,
-  ProspectionSwipeDeck,
+  ProspectionList,
   ProspectionMap,
   SavedLeads,
 } from '~/components/prospection';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { RotateCcw, MapIcon, List, Compass, Check } from 'lucide-solid';
+import {
+  RotateCcw,
+  MapIcon,
+  List,
+  Compass,
+  Check,
+  Bookmark,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-solid';
 import { toastPopup } from '~/components/ui/Toast';
 import { celebrateBig } from '~/lib/confetti';
 import type {
-  ProspectionCard,
   Lead,
   LeadStatus,
-  SwipeResult,
   ProspectionTabProps,
+  ProspectionSearchMeta,
 } from '~/lib/prospectionTypes';
 import { getCategoryById } from '~/config/prospectionCategories';
 import { scoreJobsForProfile, type ScoredJob, type UserProfile } from '~/lib/jobScoring';
 
-type Phase = 'idle' | 'loading' | 'swiping' | 'complete';
+type Phase = 'idle' | 'loading' | 'results' | 'complete';
 type ViewMode = 'list' | 'map';
 
 export function ProspectionTab(props: ProspectionTabProps) {
@@ -40,9 +48,12 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const [_loadingCategory, setLoadingCategory] = createSignal<string | null>(null);
   const [currentCards, setCurrentCards] = createSignal<ScoredJob[]>([]);
   const [currentCategory, setCurrentCategory] = createSignal<string | null>(null);
+  const [searchMeta, setSearchMeta] = createSignal<ProspectionSearchMeta | undefined>(undefined);
   const [leads, setLeads] = createSignal<Lead[]>([]);
   const [highlightedLeadId, setHighlightedLeadId] = createSignal<string | null>(null);
-  const [swipeResults, setSwipeResults] = createSignal<SwipeResult[]>([]);
+  const [savedJobIds, setSavedJobIds] = createSignal<Set<string>>(new Set());
+  const [savedCount, setSavedCount] = createSignal(0);
+  const [showLeadsPanel, setShowLeadsPanel] = createSignal(false);
 
   // Load existing leads on mount
   createEffect(
@@ -97,8 +108,10 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
       setCurrentCards(scoredCards);
       setCurrentCategory(categoryId);
-      setSwipeResults([]);
-      setPhase('swiping');
+      setSearchMeta(data.meta);
+      setSavedJobIds(new Set<string>());
+      setSavedCount(0);
+      setPhase('results');
     } catch (err) {
       console.error('Search error', err);
       toastPopup.error('Search failed', 'Could not find opportunities. Try again.');
@@ -108,60 +121,48 @@ export function ProspectionTab(props: ProspectionTabProps) {
     }
   };
 
-  // Handle swipe action
-  const handleSwipe = (result: SwipeResult) => {
-    setSwipeResults([...swipeResults(), result]);
+  // Handle saving a single job from the list
+  const handleSaveJob = async (job: ScoredJob) => {
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId: props.profileId,
+          category: job.categoryId,
+          title: job.title,
+          company: job.company,
+          locationRaw: job.location,
+          lat: job.lat,
+          lng: job.lng,
+          commuteTimeMins: job.commuteMinutes,
+          salaryMin: job.avgHourlyRate,
+          salaryMax: job.avgHourlyRate,
+          effortLevel: job.effortLevel,
+          source: job.source,
+          url: job.url,
+        }),
+      });
+
+      if (response.ok) {
+        const lead = await response.json();
+        setLeads([lead, ...leads()]);
+        setSavedJobIds((prev) => new Set([...prev, job.id]));
+        setSavedCount((c) => c + 1);
+        toastPopup.success('Lead saved!', `${job.company || job.title} added to your list`);
+        props.onLeadSaved?.(lead);
+      }
+    } catch (err) {
+      console.error('Failed to save lead', err);
+      toastPopup.error('Save failed', 'Could not save this opportunity');
+    }
   };
 
-  // Handle swipe session complete
-  const handleSwipeComplete = async (saved: ScoredJob[], _skipped: ScoredJob[]) => {
-    // Save leads to database
-    const newLeads: Lead[] = [];
-
-    for (const card of saved) {
-      try {
-        const response = await fetch('/api/leads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            profileId: props.profileId,
-            category: card.categoryId,
-            title: card.title,
-            company: card.company,
-            locationRaw: card.location,
-            lat: card.lat,
-            lng: card.lng,
-            commuteTimeMins: card.commuteMinutes,
-            salaryMin: card.avgHourlyRate,
-            salaryMax: card.avgHourlyRate,
-            effortLevel: card.effortLevel,
-            source: card.source,
-            url: card.url,
-          }),
-        });
-
-        if (response.ok) {
-          const lead = await response.json();
-          newLeads.push(lead);
-        }
-      } catch (err) {
-        console.error('Failed to save lead', err);
-      }
-    }
-
-    // Update leads state
-    setLeads([...newLeads, ...leads()]);
-
-    // Celebrate and show summary
-    if (newLeads.length > 0) {
+  // Handle finishing the results phase
+  const handleFinishResults = () => {
+    if (savedCount() > 0) {
       celebrateBig();
-      toastPopup.success(
-        'Leads saved!',
-        `${newLeads.length} opportunities added to your prospection list`
-      );
     }
-
-    props.onLeadSaved?.(newLeads[0]);
     setPhase('complete');
   };
 
@@ -221,7 +222,9 @@ export function ProspectionTab(props: ProspectionTabProps) {
     setPhase('idle');
     setCurrentCards([]);
     setCurrentCategory(null);
-    setSwipeResults([]);
+    setSearchMeta(undefined);
+    setSavedJobIds(new Set<string>());
+    setSavedCount(0);
     setHighlightedLeadId(null);
   };
 
@@ -234,16 +237,47 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
   return (
     <div class="p-6 space-y-6">
-      {/* Idle Phase - Category Explorer */}
-      <Show when={phase() === 'idle'}>
-        <CategoryExplorer onCategorySelect={handleCategorySelect} currency={props.currency} />
+      {/* Floating Saved Leads Badge - Always visible when there are leads */}
+      <Show when={leads().length > 0 && phase() !== 'loading'}>
+        <div class="fixed bottom-20 sm:bottom-8 right-4 sm:right-6 z-50">
+          <button
+            onClick={() => {
+              setShowLeadsPanel(!showLeadsPanel());
+              // Smooth scroll to saved leads section
+              if (!showLeadsPanel()) {
+                setTimeout(() => {
+                  document.getElementById('saved-leads-panel')?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  });
+                }, 100);
+              }
+            }}
+            class={`
+              rounded-full shadow-xl px-4 py-2.5 flex items-center gap-2
+              transition-all duration-200
+              ${
+                showLeadsPanel()
+                  ? 'bg-transparent border-2 border-black dark:border-white text-black dark:text-white'
+                  : 'bg-black dark:bg-white text-white dark:text-black'
+              }
+            `}
+          >
+            <Bookmark class="h-4 w-4" />
+            <span class="font-semibold">{leads().length} saved</span>
+            {showLeadsPanel() ? <ChevronDown class="h-4 w-4" /> : <ChevronUp class="h-4 w-4" />}
+          </button>
+        </div>
+      </Show>
 
-        {/* Show existing leads if any */}
-        <Show when={leads().length > 0}>
-          <div class="mt-8 pt-6 border-t border-border">
+      {/* Collapsible Saved Leads Panel */}
+      <Show when={showLeadsPanel() && leads().length > 0}>
+        <Card id="saved-leads-panel" class="border-2 border-primary/20 bg-primary/5 scroll-mt-4">
+          <CardContent class="p-4">
             <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-semibold text-foreground">
-                Your Saved Leads ({leads().length})
+              <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Bookmark class="h-5 w-5 text-primary" />
+                My Saved Leads ({leads().length})
               </h3>
               <div class="flex items-center gap-2">
                 <Button
@@ -265,27 +299,32 @@ export function ProspectionTab(props: ProspectionTabProps) {
               </div>
             </div>
 
-            <Show when={viewMode() === 'list'}>
-              <SavedLeads
-                leads={leads()}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDelete}
-                onLeadClick={handleLeadClick}
-                highlightedId={highlightedLeadId() || undefined}
-              />
-            </Show>
-
-            <Show when={viewMode() === 'map'}>
+            {/* Map always visible at top for saved leads */}
+            <div class="mb-4">
               <ProspectionMap
                 userLocation={props.userLocation}
                 leads={leads()}
                 highlightedId={highlightedLeadId() || undefined}
                 onMarkerClick={handleMarkerClick}
-                height="400px"
+                height="300px"
               />
-            </Show>
-          </div>
-        </Show>
+            </div>
+
+            {/* List below */}
+            <SavedLeads
+              leads={leads()}
+              onStatusChange={handleStatusChange}
+              onDelete={handleDelete}
+              onLeadClick={handleLeadClick}
+              highlightedId={highlightedLeadId() || undefined}
+            />
+          </CardContent>
+        </Card>
+      </Show>
+
+      {/* Idle Phase - Category Explorer */}
+      <Show when={phase() === 'idle'}>
+        <CategoryExplorer onCategorySelect={handleCategorySelect} currency={props.currency} />
       </Show>
 
       {/* Loading Phase */}
@@ -298,45 +337,62 @@ export function ProspectionTab(props: ProspectionTabProps) {
         </div>
       </Show>
 
-      {/* Swiping Phase */}
-      <Show when={phase() === 'swiping'}>
-        <div class="flex flex-col lg:flex-row gap-6">
-          {/* Swipe deck */}
-          <div class="flex-1">
-            <div class="text-center mb-4">
-              <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
-              <p class="text-sm text-muted-foreground">Swipe right to save, left to skip</p>
-            </div>
-            <ProspectionSwipeDeck
-              cards={currentCards()}
-              onSwipe={handleSwipe}
-              onComplete={handleSwipeComplete}
-            />
+      {/* Results Phase */}
+      <Show when={phase() === 'results'}>
+        <div class="space-y-6">
+          {/* Header */}
+          <div>
+            <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
+            <p class="text-sm text-muted-foreground">Save opportunities you're interested in</p>
+            {/* Show search location */}
+            <Show when={props.userLocation}>
+              <p class="text-xs text-muted-foreground mt-1">
+                📍 {props.city || 'Near you'} ({props.userLocation?.lat.toFixed(4)},{' '}
+                {props.userLocation?.lng.toFixed(4)})
+              </p>
+            </Show>
           </div>
 
-          {/* Map (desktop only) */}
-          <Show when={props.userLocation}>
-            <div class="hidden lg:block w-80">
-              <Card>
-                <CardContent class="p-4">
-                  <h3 class="font-semibold text-foreground mb-3">Nearby</h3>
-                  <ProspectionMap
-                    userLocation={props.userLocation}
-                    currentCards={currentCards()}
-                    height="250px"
-                  />
-                </CardContent>
-              </Card>
-            </div>
+          {/* Map at top - visible on all devices */}
+          <Show when={props.userLocation && currentCards().length > 0}>
+            <Card>
+              <CardContent class="p-4">
+                <h3 class="font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <MapIcon class="h-4 w-4" />
+                  {currentCards().length} places nearby
+                </h3>
+                <ProspectionMap
+                  userLocation={props.userLocation}
+                  currentCards={currentCards()}
+                  height="350px"
+                  onSaveCard={handleSaveJob}
+                  savedCardIds={savedJobIds()}
+                />
+              </CardContent>
+            </Card>
           </Show>
+
+          {/* Job list below */}
+          <ProspectionList
+            jobs={currentCards()}
+            onSave={handleSaveJob}
+            savedIds={savedJobIds()}
+            meta={searchMeta()}
+          />
         </div>
 
-        {/* Back button */}
-        <div class="text-center mt-4">
+        {/* Action buttons */}
+        <div class="flex justify-center gap-4 mt-6">
           <Button variant="ghost" onClick={handleReset}>
             <RotateCcw class="h-4 w-4 mr-2" />
             Choose another category
           </Button>
+          <Show when={savedCount() > 0}>
+            <Button onClick={handleFinishResults}>
+              <Check class="h-4 w-4 mr-2" />
+              Done ({savedCount()} saved)
+            </Button>
+          </Show>
         </div>
       </Show>
 
@@ -351,9 +407,9 @@ export function ProspectionTab(props: ProspectionTabProps) {
               </div>
               <h2 class="text-2xl font-bold text-foreground mb-2">Exploration Complete!</h2>
               <p class="text-muted-foreground">
-                You explored {swipeResults().length} opportunities in {categoryLabel()}.
+                You explored {currentCards().length} opportunities in {categoryLabel()}.
                 <br />
-                {swipeResults().filter((r) => r.direction === 'right').length} saved to your list.
+                {savedCount()} saved to your list.
               </p>
             </CardContent>
           </Card>

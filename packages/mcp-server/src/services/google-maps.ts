@@ -43,19 +43,50 @@ export interface DistanceResult {
 }
 
 export type PlaceType =
+  // Service & Hospitality
   | 'restaurant'
   | 'cafe'
   | 'bar'
+  | 'bakery'
+  | 'night_club'
+  | 'meal_takeaway'
+  | 'meal_delivery'
+  // Retail & Sales
   | 'store'
   | 'supermarket'
-  | 'library'
-  | 'university'
-  | 'gym'
-  | 'lodging'
   | 'shopping_mall'
   | 'clothing_store'
+  | 'convenience_store'
+  | 'department_store'
+  | 'electronics_store'
+  | 'furniture_store'
+  | 'home_goods_store'
+  | 'shoe_store'
+  | 'jewelry_store'
+  | 'book_store'
+  | 'pet_store'
+  | 'florist'
+  | 'hardware_store'
+  | 'drugstore'
+  | 'liquor_store'
+  // Cleaning & Maintenance
+  | 'lodging'
+  | 'gym'
+  | 'spa'
+  | 'movie_theater'
+  | 'stadium'
+  | 'hospital'
+  // Education & Childcare
+  | 'library'
+  | 'university'
   | 'school'
-  | 'meal_takeaway';
+  | 'primary_school'
+  | 'secondary_school'
+  // Other
+  | 'gas_station'
+  | 'car_wash'
+  | 'beauty_salon'
+  | 'hair_care';
 
 export type TravelMode = 'walking' | 'bicycling' | 'transit' | 'driving';
 
@@ -211,6 +242,140 @@ export async function findNearbyPlaces(
       tags: ['google-maps', 'places'],
       metadata: { location, type, radius },
       input: { location, type, radius },
+    });
+  }
+}
+
+// =============================================================================
+// Text Search API (more flexible than Nearby Search)
+// =============================================================================
+
+/**
+ * Response structure for Text Search API
+ * Similar to Nearby Search but uses 'formatted_address' instead of 'vicinity'
+ */
+interface TextSearchApiResponse {
+  results: Array<{
+    place_id: string;
+    name: string;
+    formatted_address: string;
+    geometry: {
+      location: {
+        lat: number;
+        lng: number;
+      };
+    };
+    rating?: number;
+    price_level?: number;
+    opening_hours?: {
+      open_now?: boolean;
+    };
+    types: string[];
+    photos?: Array<{
+      photo_reference: string;
+    }>;
+  }>;
+  status: string;
+  error_message?: string;
+}
+
+/**
+ * Search places using natural language query (Text Search API)
+ *
+ * More flexible than Nearby Search - allows queries like:
+ * - "restaurants hiring students in Montpellier"
+ * - "cafes near university Montpellier"
+ * - "supermarkets with part-time jobs"
+ *
+ * Billing note: Text Search costs ~$0.032/request (same as Nearby Search)
+ */
+export async function textSearchPlaces(
+  query: string,
+  options?: {
+    location?: Coordinates; // Optional: bias results toward this location
+    radius?: number; // Only used if location is provided
+    maxResults?: number;
+    language?: string; // 'fr' for French results
+  }
+): Promise<Place[]> {
+  const maxResults = options?.maxResults ?? 20;
+
+  const executeTextSearch = async (span: import('./opik.js').Span): Promise<Place[]> => {
+    span.setInput({ query, location: options?.location, radius: options?.radius });
+    span.setAttributes({
+      'places.query': query,
+      'places.search_type': 'text_search',
+      'places.language': options?.language || 'fr',
+    });
+
+    if (!GOOGLE_MAPS_API_KEY) {
+      span.setAttributes({ error: 'API key not configured' });
+      return [];
+    }
+
+    const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
+    url.searchParams.set('query', query);
+    url.searchParams.set('key', GOOGLE_MAPS_API_KEY);
+    url.searchParams.set('language', options?.language || 'fr');
+
+    // Optional location bias
+    if (options?.location) {
+      url.searchParams.set('location', `${options.location.lat},${options.location.lng}`);
+      if (options?.radius) {
+        url.searchParams.set('radius', String(options.radius));
+      }
+    }
+
+    const response = await fetch(url.toString());
+    const data = (await response.json()) as TextSearchApiResponse;
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      span.setAttributes({
+        error: true,
+        error_status: data.status,
+        error_message: data.error_message,
+      });
+      console.error(`Google Text Search API error: ${data.status} - ${data.error_message}`);
+      return [];
+    }
+
+    const places: Place[] = data.results.slice(0, maxResults).map((p) => ({
+      placeId: p.place_id,
+      name: p.name,
+      address: p.formatted_address,
+      location: {
+        lat: p.geometry.location.lat,
+        lng: p.geometry.location.lng,
+      },
+      rating: p.rating,
+      priceLevel: p.price_level,
+      openNow: p.opening_hours?.open_now,
+      types: p.types,
+    }));
+
+    span.setOutput({ places_count: places.length });
+    span.setAttributes({
+      'places.results_count': places.length,
+    });
+
+    return places;
+  };
+
+  // Use createSpan if inside existing trace, otherwise create new trace
+  const hasParentTrace = !!getCurrentTraceHandle();
+  const spanOptions: SpanOptions = {
+    tags: ['google-maps', 'text-search'],
+    input: { query, location: options?.location },
+    type: 'tool',
+  };
+
+  if (hasParentTrace) {
+    return createSpan('google_places_text_search', executeTextSearch, spanOptions);
+  } else {
+    return trace('google_places_text_search', executeTextSearch, {
+      tags: ['google-maps', 'text-search'],
+      metadata: { query },
+      input: { query, location: options?.location },
     });
   }
 }
@@ -372,6 +537,7 @@ export const googleMaps = {
   init: initGoogleMaps,
   isAvailable: isGoogleMapsAvailable,
   findNearbyPlaces,
+  textSearchPlaces,
   getDistanceMatrix,
   calculateDistance,
   formatDistance,

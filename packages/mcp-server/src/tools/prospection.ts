@@ -4,7 +4,7 @@
  * MCP tools for job prospection:
  * - search_nearby_jobs: Find local businesses for potential jobs
  * - calculate_commute: Calculate commute time from user location
- * - search_job_offers: Search online job listings (via Groq)
+ * - search_job_offers: Returns REAL links to job platforms (Indeed, LinkedIn, etc.)
  *
  * Pattern follows tools/voice.ts
  */
@@ -18,7 +18,6 @@ import {
   type PlaceType,
   type TravelMode,
 } from '../services/google-maps.js';
-import { chat } from '../services/groq.js';
 
 // =============================================================================
 // Tool Definitions
@@ -328,155 +327,142 @@ export async function handleCalculateCommute(args: Record<string, unknown>) {
 }
 
 /**
+ * Job search platforms with URL templates
+ * These are REAL platforms - no hallucinated results
+ */
+const JOB_PLATFORMS = [
+  {
+    name: 'Indeed',
+    icon: '🔍',
+    urlTemplate: (query: string, city: string) =>
+      `https://fr.indeed.com/emplois?q=${encodeURIComponent(query)}&l=${encodeURIComponent(city)}`,
+    description: "Le plus grand moteur de recherche d'emploi",
+  },
+  {
+    name: 'LinkedIn Jobs',
+    icon: '💼',
+    urlTemplate: (query: string, city: string) =>
+      `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(query)}&location=${encodeURIComponent(city)}`,
+    description: 'Offres et networking professionnel',
+  },
+  {
+    name: 'StudentJob',
+    icon: '🎓',
+    urlTemplate: (query: string, city: string) =>
+      `https://www.studentjob.fr/offres-emploi?search=${encodeURIComponent(query)}&location=${encodeURIComponent(city)}`,
+    description: 'Spécialisé emplois étudiants',
+  },
+  {
+    name: 'HelloWork',
+    icon: '👋',
+    urlTemplate: (query: string, city: string) =>
+      `https://www.hellowork.com/fr-fr/emploi/recherche.html?k=${encodeURIComponent(query)}&l=${encodeURIComponent(city)}`,
+    description: 'Offres locales et régionales',
+  },
+  {
+    name: 'Pôle Emploi',
+    icon: '🏛️',
+    urlTemplate: (query: string, city: string) =>
+      `https://candidat.pole-emploi.fr/offres/recherche?motsCles=${encodeURIComponent(query)}&lieux=${encodeURIComponent(city)}`,
+    description: "Service public de l'emploi",
+  },
+  {
+    name: 'Jobijoba',
+    icon: '🔎',
+    urlTemplate: (query: string, city: string) =>
+      `https://www.jobijoba.com/fr/search?what=${encodeURIComponent(query)}&where=${encodeURIComponent(city)}`,
+    description: 'Agrégateur multi-sources',
+  },
+];
+
+/**
  * Handle search_job_offers tool
+ * Returns REAL links to job platforms instead of hallucinated offers
  */
 export async function handleSearchJobOffers(args: Record<string, unknown>) {
-  return trace('tool_search_job_offers', async (span) => {
-    const query = args.query as string;
-    const city = args.city as string;
-    const maxResults = (args.max_results as number) || 5;
+  return trace(
+    'tool_search_job_offers',
+    async (span) => {
+      const query = args.query as string;
+      const city = args.city as string;
 
-    span.setInput({ query, city, maxResults });
-    span.setAttributes({
-      'job_search.query': query,
-      'job_search.city': city,
-      'job_search.max_results': maxResults,
-    });
-
-    const systemPrompt = `Tu es un assistant de recherche d'emploi étudiant. Tu dois générer des offres d'emploi réalistes basées sur la recherche.
-
-Génère ${maxResults} offres d'emploi plausibles pour la requête donnée. Inclus des entreprises réelles ou plausibles de la ville.
-
-Réponds UNIQUEMENT en JSON valide avec ce format:
-{
-  "results": [
-    {
-      "title": "Titre du poste",
-      "company": "Nom de l'entreprise",
-      "location": "Adresse ou quartier",
-      "salary": "Salaire (ex: 11.65€/h ou 12-14€/h)",
-      "schedule": "Horaires (ex: Weekends, Soirs, Temps partiel)",
-      "url": "URL fictive vers l'offre",
-      "source": "Plateforme (Indeed, StudentJob, etc.)",
-      "snippet": "Description courte du poste"
-    }
-  ]
-}`;
-
-    const userPrompt = `Recherche: "${query}" à ${city}
-
-Génère ${maxResults} offres d'emploi étudiant réalistes pour cette recherche.`;
-
-    try {
-      const response = await chat(
-        [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        {
-          temperature: 0.7,
-          tags: ['prospection', 'job-search'],
-        }
-      );
-
-      // Parse JSON response
-      let results: Array<{
-        title: string;
-        company?: string;
-        location?: string;
-        salary?: string;
-        schedule?: string;
-        url?: string;
-        source: string;
-        snippet: string;
-      }> = [];
-
-      try {
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          results = parsed.results || [];
-        }
-      } catch {
-        span.setAttributes({ 'job_search.parse_error': true });
-        results = [];
-      }
-
-      span.setOutput({ results_count: results.length });
+      span.setInput({ query, city });
       span.setAttributes({
-        'job_search.results_count': results.length,
+        'job_search.query': query,
+        'job_search.city': city,
+        'job_search.method': 'real_links', // Not hallucinated
       });
 
-      if (results.length === 0) {
-        return {
-          type: 'text',
-          params: {
-            content: `No job offers found for "${query}" in ${city}. Try a different search term.`,
-            markdown: false,
-          },
-          metadata: {
-            traceId: getCurrentTraceId(),
-          },
-        };
-      }
+      // Generate real URLs for each platform
+      const platforms = JOB_PLATFORMS.map((platform) => ({
+        name: platform.name,
+        icon: platform.icon,
+        url: platform.urlTemplate(query, city),
+        description: platform.description,
+      }));
+
+      span.setOutput({ platforms_count: platforms.length });
+      span.setAttributes({
+        'job_search.platforms_count': platforms.length,
+      });
 
       return {
         type: 'composite',
         components: [
           {
-            id: 'summary',
+            id: 'intro',
             type: 'text',
             params: {
-              content: `Found **${results.length}** job offers for "${query}" in ${city}`,
+              content: `## 🔍 Recherche: "${query}" à ${city}\n\nVoici les meilleures plateformes pour trouver de **vraies offres d'emploi**:`,
               markdown: true,
             },
           },
           {
-            id: 'jobs',
+            id: 'platforms',
             type: 'table',
             params: {
-              title: 'Job Offers',
+              title: 'Plateformes de recherche',
               columns: [
-                { key: 'title', label: 'Position' },
-                { key: 'company', label: 'Company' },
-                { key: 'salary', label: 'Salary' },
-                { key: 'source', label: 'Source' },
+                { key: 'platform', label: 'Plateforme' },
+                { key: 'description', label: 'Description' },
+                { key: 'link', label: 'Lien' },
               ],
-              rows: results.map((r) => ({
-                title: r.title,
-                company: r.company || '-',
-                salary: r.salary || '-',
-                source: r.source,
+              rows: platforms.map((p) => ({
+                platform: `${p.icon} ${p.name}`,
+                description: p.description,
+                link: `[Rechercher →](${p.url})`,
               })),
+            },
+          },
+          {
+            id: 'tips',
+            type: 'text',
+            params: {
+              content: `### 💡 Conseils
+- **Indeed** et **LinkedIn** ont le plus grand volume d'offres
+- **StudentJob** est spécialisé pour les jobs étudiants
+- Activez les **alertes email** pour être notifié des nouvelles offres
+- Pensez aussi aux **candidatures spontanées** dans les commerces locaux`,
+              markdown: true,
             },
           },
         ],
         metadata: {
           traceId: getCurrentTraceId(),
-          results,
+          platforms,
           query,
           city,
+          method: 'real_links',
         },
       };
-    } catch (error) {
-      span.setAttributes({
-        error: true,
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      return {
-        type: 'text',
-        params: {
-          content: `Error searching for jobs: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          markdown: false,
-        },
-        metadata: {
-          traceId: getCurrentTraceId(),
-          error: true,
-        },
-      };
+    },
+    {
+      tags: ['prospection', 'job-search', 'real-links'],
+      metadata: {
+        'search.type': 'job_platforms',
+      },
     }
-  });
+  );
 }
 
 /**

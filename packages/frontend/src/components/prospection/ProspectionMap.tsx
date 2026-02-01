@@ -27,6 +27,22 @@ interface ProspectionMapProps {
   height?: string;
   /** Called when a marker is clicked */
   onMarkerClick?: (id: string) => void;
+  /** Called when save button is clicked on a card (works with ProspectionCard or ScoredJob) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onSaveCard?: (card: any) => void;
+  /** Set of already saved card IDs */
+  savedCardIds?: Set<string>;
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/** Escape HTML to prevent XSS in popup content */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // =============================================================================
@@ -106,6 +122,8 @@ export function ProspectionMap(props: ProspectionMapProps) {
   let _userMarker: unknown = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leadMarkers: Map<string, any> = new Map();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cardMarkers: Map<string, any> = new Map();
 
   const hasLocation = () => props.userLocation?.lat != null && props.userLocation?.lng != null;
 
@@ -170,11 +188,12 @@ export function ProspectionMap(props: ProspectionMapProps) {
   );
 
   // Update markers when leads change
+  // Also re-run when map becomes initialized
   createEffect(
     on(
-      () => props.leads,
-      (leads) => {
-        if (!map || !leads) return;
+      () => [props.leads, mapInitialized()] as const,
+      ([leads, initialized]) => {
+        if (!map || !leads || !initialized) return;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const L = (window as any).L;
@@ -227,13 +246,143 @@ export function ProspectionMap(props: ProspectionMapProps) {
     )
   );
 
+  // Update markers when currentCards change (search results)
+  // Also re-run when map becomes initialized
+  createEffect(
+    on(
+      () => [props.currentCards, mapInitialized()] as const,
+      ([cards, initialized]) => {
+        if (!map || !cards || !initialized) return;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const L = (window as any).L;
+        if (!L) return;
+
+        // Clear old card markers
+        cardMarkers.forEach((marker) => marker.remove());
+        cardMarkers.clear();
+
+        // Store cards for popup button handlers
+        const cardDataMap = new Map<string, ProspectionCard>();
+
+        // Add new markers for search results
+        cards.forEach((card) => {
+          if (card.lat == null || card.lng == null) return;
+
+          const color = getCategoryColor(card.categoryId);
+          const category = getCategoryById(card.categoryId);
+          const isSaved = props.savedCardIds?.has(card.id) ?? false;
+
+          // Store card data for popup handlers
+          cardDataMap.set(card.id, card);
+
+          // Smaller markers for search results (not saved yet)
+          const icon = L.divIcon({
+            html: `<div class="w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white text-xs" style="background-color: ${color}; opacity: 0.85;">
+              ${category?.label?.charAt(0) || '?'}
+            </div>`,
+            className: 'card-marker',
+            iconSize: [24, 24],
+            iconAnchor: [12, 24],
+          });
+
+          // Create popup with Save and View buttons
+          const popupContent = `
+            <div class="p-2 min-w-[180px]">
+              <strong class="text-sm block mb-1">${escapeHtml(card.company || card.title)}</strong>
+              <span class="text-xs text-gray-600 block mb-2">${escapeHtml(card.title)}</span>
+              <div class="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                ${card.rating ? `<span>⭐ ${card.rating.toFixed(1)}</span>` : ''}
+                ${card.commuteText ? `<span>🚶 ${card.commuteText}</span>` : ''}
+              </div>
+              <div class="flex gap-2">
+                <button
+                  data-action="save"
+                  data-card-id="${card.id}"
+                  class="flex-1 px-3 py-1.5 text-xs font-medium rounded ${
+                    isSaved
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }"
+                  ${isSaved ? 'disabled' : ''}
+                >
+                  ${isSaved ? '✓ Saved' : '💾 Save'}
+                </button>
+                ${
+                  card.url
+                    ? `
+                  <a
+                    href="${card.url}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex-1 px-3 py-1.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 text-center"
+                  >
+                    🔗 View
+                  </a>
+                `
+                    : ''
+                }
+              </div>
+            </div>
+          `;
+
+          const marker = L.marker([card.lat, card.lng], { icon })
+            .addTo(map)
+            .bindPopup(popupContent);
+
+          // Handle popup button clicks
+          marker.on('popupopen', () => {
+            const popup = marker.getPopup();
+            if (!popup) return;
+            const container = popup.getElement();
+            if (!container) return;
+
+            // Attach save button handler
+            const saveBtn = container.querySelector('[data-action="save"]') as HTMLButtonElement;
+            if (saveBtn && !saveBtn.disabled) {
+              saveBtn.onclick = () => {
+                const cardId = saveBtn.dataset.cardId;
+                const cardData = cardId ? cardDataMap.get(cardId) : null;
+                if (cardData && props.onSaveCard) {
+                  props.onSaveCard(cardData);
+                  // Update button state
+                  saveBtn.disabled = true;
+                  saveBtn.textContent = '✓ Saved';
+                  saveBtn.className =
+                    'flex-1 px-3 py-1.5 text-xs font-medium rounded bg-gray-200 text-gray-500 cursor-not-allowed';
+                }
+              };
+            }
+          });
+
+          marker.on('click', () => {
+            props.onMarkerClick?.(card.id);
+          });
+
+          cardMarkers.set(card.id, marker);
+        });
+
+        // Fit bounds to show all cards
+        const validCards = cards.filter((c) => c.lat != null && c.lng != null);
+        if (validCards.length > 0 && props.userLocation) {
+          const bounds = L.latLngBounds([
+            [props.userLocation.lat, props.userLocation.lng],
+            ...validCards.map((c) => [c.lat!, c.lng!]),
+          ]);
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+        }
+      }
+    )
+  );
+
   // Highlight selected marker
   createEffect(
     on(
       () => props.highlightedId,
       (id) => {
         if (!id || !map) return;
-        const marker = leadMarkers.get(id);
+        // Check both lead and card markers
+        const marker = leadMarkers.get(id) || cardMarkers.get(id);
         if (marker) {
           marker.openPopup();
           map.setView(marker.getLatLng(), 15);
@@ -243,6 +392,10 @@ export function ProspectionMap(props: ProspectionMapProps) {
   );
 
   onCleanup(() => {
+    cardMarkers.forEach((marker) => marker.remove());
+    cardMarkers.clear();
+    leadMarkers.forEach((marker) => marker.remove());
+    leadMarkers.clear();
     if (map) {
       map.remove();
     }
@@ -301,19 +454,30 @@ export function ProspectionMap(props: ProspectionMapProps) {
         </div>
 
         {/* Legend */}
-        <Show when={props.leads && props.leads.length > 0}>
-          <div class="flex flex-wrap gap-2 text-xs">
+        <Show
+          when={
+            (props.leads && props.leads.length > 0) ||
+            (props.currentCards && props.currentCards.length > 0)
+          }
+        >
+          <div class="flex flex-wrap gap-3 text-xs p-2 bg-background/80 rounded-lg">
             <div class="flex items-center gap-1">
-              <div class="w-3 h-3 bg-blue-500 rounded-full border border-white" />
+              <div class="w-3 h-3 bg-blue-500 rounded-full border border-white shadow-sm" />
               <span class="text-muted-foreground">You</span>
             </div>
+            <Show when={props.currentCards && props.currentCards.length > 0}>
+              <div class="flex items-center gap-1">
+                <div class="w-3 h-3 bg-primary/80 rounded-full border border-white shadow-sm" />
+                <span class="text-muted-foreground">{props.currentCards!.length} places</span>
+              </div>
+            </Show>
             <For each={[...new Set(props.leads?.map((l) => l.category))]}>
               {(categoryId) => {
                 const category = getCategoryById(categoryId);
                 return (
                   <div class="flex items-center gap-1">
                     <div
-                      class="w-3 h-3 rounded-full border border-white"
+                      class="w-3 h-3 rounded-full border border-white shadow-sm"
                       style={{ 'background-color': getCategoryColor(categoryId) }}
                     />
                     <span class="text-muted-foreground">{category?.label || categoryId}</span>
