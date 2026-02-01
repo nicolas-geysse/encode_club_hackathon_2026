@@ -77,17 +77,20 @@ Plans:
 4. Jobs are automatically matched to skills captured during onboarding
 5. Each job card shows star rating based on scoring algorithm (distance + profile + skill arbitrage)
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 17-01: TBD
+- [ ] 17-01-PLAN.md — Backend infrastructure: photo billing control and google-maps service export
+- [ ] 17-02-PLAN.md — API integration: replace mocks with real Places API + job scoring utility
+- [ ] 17-03-PLAN.md — UI update: star ratings, Top Pick badges, and human verification
 
 **Key Files**:
 - Modify: `packages/frontend/src/routes/api/prospection.ts` (remove mocks, direct MCP import)
-- Modify: `packages/mcp-server/package.json` (add `./tools/prospection` export)
-- Modify: `packages/mcp-server/src/services/google-maps.ts` (add field masks)
+- Modify: `packages/mcp-server/src/services/google-maps.ts` (add billing control options)
+- Modify: `packages/mcp-server/src/services/index.ts` (export google-maps)
 - Create: `packages/frontend/src/lib/jobScoring.ts` (scoring algorithm integration)
 - Modify: `packages/frontend/src/components/tabs/ProspectionTab.tsx` (star rating display)
+- Modify: `packages/frontend/src/components/prospection/ProspectionSwipeDeck.tsx` (star rating UI)
 
 ### Phase 18: Background Prefetch
 
@@ -153,6 +156,6 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 | 1-10 | v2.0 | 15/15 | Complete | 2026-01-31 |
 | 11-15 | v2.1 | 5/5 | Complete | 2026-01-31 |
 | 16. Privacy & Consent | v3.0 | 3/3 | Complete | 2026-02-01 |
-| 17. Real Job Search API | v3.0 | 0/TBD | Ready | - |
+| 17. Real Job Search API | v3.0 | 0/3 | Ready | - |
 | 18. Background Prefetch | v3.0 | 0/TBD | Not started | - |
 | 19. Commute & UI | v3.0 | 0/TBD | Not started | - |
