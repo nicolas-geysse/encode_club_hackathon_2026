@@ -9,6 +9,11 @@ import { Show, createSignal, createEffect, onMount } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { celebrateGoalAchieved } from '~/lib/confetti';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
+import {
+  type OneTimeGains,
+  calculateTotalProgress,
+  getEmptyOneTimeGains,
+} from '~/lib/progressCalculator';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Trophy, Rocket, ThumbsUp, Zap, Calendar, Target, Clock, ArrowRight } from 'lucide-solid';
@@ -27,6 +32,8 @@ interface TimelineHeroProps {
   currency?: Currency;
   /** Current simulated date (ISO string) - if not provided, uses real date */
   currentSimulatedDate?: string;
+  /** One-time gains from trades and paused subscriptions */
+  oneTimeGains?: OneTimeGains;
 }
 
 export function TimelineHero(props: TimelineHeroProps) {
@@ -34,9 +41,14 @@ export function TimelineHero(props: TimelineHeroProps) {
   const [animatedAmount, setAnimatedAmount] = createSignal(0);
   const [isAnimating, setIsAnimating] = createSignal(true);
 
+  // Total amount including one-time gains (trades + paused subscriptions)
+  const totalAmount = () =>
+    calculateTotalProgress(props.currentAmount, props.oneTimeGains || getEmptyOneTimeGains());
+
   const timeProgress = () => Math.min((props.currentWeek / props.totalWeeks) * 100, 100);
-  const amountProgress = () => Math.min((props.currentAmount / props.goalAmount) * 100, 100);
-  const goalAchieved = () => props.currentAmount >= props.goalAmount;
+  // Progress now uses totalAmount (mission earnings + one-time gains)
+  const amountProgress = () => Math.min((totalAmount() / props.goalAmount) * 100, 100);
+  const goalAchieved = () => totalAmount() >= props.goalAmount;
 
   const daysRemaining = () => {
     const end = new Date(props.endDate);
@@ -56,11 +68,11 @@ export function TimelineHero(props: TimelineHeroProps) {
     return { text: 'Need a boost', color: 'text-amber-400', icon: Zap };
   };
 
-  // Animate the amount counter on mount
+  // Animate the amount counter on mount (uses totalAmount including one-time gains)
   onMount(() => {
     const duration = 1500;
     const startTime = Date.now();
-    const targetAmount = props.currentAmount;
+    const targetAmount = totalAmount();
 
     function animate() {
       const elapsed = Date.now() - startTime;
@@ -80,9 +92,9 @@ export function TimelineHero(props: TimelineHeroProps) {
     requestAnimationFrame(animate);
   });
 
-  // Update animated amount when currentAmount changes
+  // Update animated amount when totalAmount changes (includes one-time gains)
   createEffect(() => {
-    const target = props.currentAmount;
+    const target = totalAmount();
     if (!isAnimating()) {
       setAnimatedAmount(target);
     }
