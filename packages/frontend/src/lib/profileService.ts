@@ -220,6 +220,7 @@ export async function saveProfile(
         currency: profile.currency,
         diploma: profile.diploma,
         skills: profile.skills,
+        certifications: profile.certifications,
         city: profile.city,
         citySize: profile.citySize,
         incomes: profile.incomeSources,
@@ -231,6 +232,7 @@ export async function saveProfile(
         latitude: profile.latitude,
         longitude: profile.longitude,
         address: profile.address,
+        subscriptions: profile.subscriptions,
       };
       localStorage.setItem('studentProfile', JSON.stringify(localProfile));
       logger.debug('Profile saved to localStorage');
@@ -551,6 +553,7 @@ export async function syncLocalToDb(): Promise<boolean> {
       name: localProfile.name || 'My Profile',
       diploma: localProfile.diploma,
       skills: localProfile.skills,
+      certifications: localProfile.certifications,
       city: localProfile.city,
       citySize: localProfile.citySize,
       latitude: localProfile.latitude,
@@ -562,6 +565,7 @@ export async function syncLocalToDb(): Promise<boolean> {
       minHourlyRate: localProfile.minHourlyRate,
       hasLoan: localProfile.hasLoan,
       loanAmount: localProfile.loanAmount,
+      subscriptions: localProfile.subscriptions,
       profileType: 'main',
       goalName: planData?.setup?.goalName,
       goalAmount: planData?.setup?.goalAmount,

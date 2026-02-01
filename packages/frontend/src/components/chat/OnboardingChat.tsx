@@ -2019,8 +2019,11 @@ export function OnboardingChat() {
         }
       }
 
-      // Capture if this is the completion message BEFORE state changes
-      const isThisTheCompletionMessage = result.nextStep === 'complete';
+      // Capture if this is the FIRST completion message (transitioning TO complete, not already there)
+      // This prevents the "Start my plan" button from appearing on every message after completion
+      // Note: currentStep is already defined above (line ~1968)
+      const isThisTheCompletionMessage =
+        result.nextStep === 'complete' && currentStep !== 'complete';
 
       // Update step
       setStep(result.nextStep);
@@ -2096,6 +2099,7 @@ export function OnboardingChat() {
           goalDeadline: finalProfile.goalDeadline,
           planData, // Include planData for all tabs
           followupData: {}, // Explicitly initialize to prevent localStorage fallback
+          subscriptions: finalProfile.subscriptions, // Bug fix: subscriptions were missing
           // BUG J FIX: Include swipePreferences with defaults
           swipePreferences: finalProfile.swipePreferences || {
             effort_sensitivity: 0.5,
