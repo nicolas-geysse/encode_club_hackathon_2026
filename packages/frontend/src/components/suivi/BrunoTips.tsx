@@ -35,6 +35,7 @@ import {
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 import type { Mission } from './MissionCard';
+import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 
 // ============================================================================
 // Types
@@ -456,13 +457,17 @@ export function BrunoTips(props: BrunoTipsProps) {
       <CardContent class="p-3">
         {/* Main row */}
         <div class="flex items-center gap-2.5">
-          {/* Tip Icon */}
-          <div class={cn('p-1.5 rounded-lg flex-shrink-0', config().bg)}>
+          {/* Bruno Avatar */}
+          <div class="flex-shrink-0">
             <Show
               when={!isLoadingAI()}
-              fallback={<Loader2 class="h-4 w-4 animate-spin text-muted-foreground" />}
+              fallback={
+                <div class={cn('p-1.5 rounded-lg', config().bg)}>
+                  <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              }
             >
-              <TipIcon />
+              <PlasmaAvatar size={32} color="green" />
             </Show>
           </div>
 
