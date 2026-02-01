@@ -52,9 +52,9 @@
 **Plans**: 3 plans
 
 Plans:
-- [ ] 16-01-PLAN.md — Location privacy utilities and consent UI component
-- [ ] 16-02-PLAN.md — Integrate consent flow and enforce privacy across stack
-- [ ] 16-03-PLAN.md — Human verification of end-to-end privacy compliance
+- [x] 16-01-PLAN.md — Location privacy utilities and consent UI component
+- [x] 16-02-PLAN.md — Integrate consent flow and enforce privacy across stack
+- [x] 16-03-PLAN.md — Human verification of end-to-end privacy compliance
 
 **Key Files**:
 - Create: `packages/frontend/src/components/onboarding/LocationConsent.tsx`
@@ -152,7 +152,7 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 |-------|-----------|----------------|--------|-----------|
 | 1-10 | v2.0 | 15/15 | Complete | 2026-01-31 |
 | 11-15 | v2.1 | 5/5 | Complete | 2026-01-31 |
-| 16. Privacy & Consent | v3.0 | 0/3 | Ready | - |
-| 17. Real Job Search API | v3.0 | 0/TBD | Not started | - |
+| 16. Privacy & Consent | v3.0 | 3/3 | Complete | 2026-02-01 |
+| 17. Real Job Search API | v3.0 | 0/TBD | Ready | - |
 | 18. Background Prefetch | v3.0 | 0/TBD | Not started | - |
 | 19. Commute & UI | v3.0 | 0/TBD | Not started | - |
