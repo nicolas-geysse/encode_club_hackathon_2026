@@ -1810,6 +1810,12 @@ async function handleConversationMode(
           const goalAmount = (context.goalAmount as number) || 0;
           const currentSaved = (context.currentSaved as number) || 0;
 
+          // Extract one-time gains from budget context (already-realized gains)
+          const oneTimeGainsTotal =
+            (budgetContext?.tradeSalesCompleted || 0) +
+            (budgetContext?.tradeBorrowSavings || 0) +
+            (budgetContext?.pausedSavings || 0);
+
           // Calculate income/expenses from budget context or arrays
           let income = budgetContext?.totalIncome || 0;
           let expenses = budgetContext?.activeExpenses || 0;
@@ -1837,8 +1843,9 @@ async function handleConversationMode(
 
           const weeklySavings = (income - expenses) / 4.33;
 
-          // Project currentSaved forward if simulating
-          const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx);
+          // Project currentSaved forward if simulating, then add one-time gains
+          const projectedSaved =
+            getProjectedSavings(currentSaved, weeklySavings, timeCtx) + oneTimeGainsTotal;
 
           if (goalAmount === 0) {
             response = `You haven't set a savings goal yet. Create a goal first!`;
@@ -1848,11 +1855,15 @@ async function handleConversationMode(
           const weeksRemaining =
             weeklySavings > 0 ? Math.ceil((goalAmount - projectedSaved) / weeklySavings) : 52;
 
-          // Add simulation note to response if simulating
+          // Add notes for simulation and trades
           const simNote = timeCtx.isSimulating
             ? `\n\n⏰ *Simulated: After ${timeCtx.offsetDays} days, you would have saved ~${currSymbol}${projectedSaved}*`
             : '';
-          response = `📈 **Progress Towards Your Goal**\n\nSaved: **${currSymbol}${projectedSaved}** of **${currSymbol}${goalAmount}**${simNote}`;
+          const tradesNote =
+            oneTimeGainsTotal > 0
+              ? ` (includes ${currSymbol}${oneTimeGainsTotal} from trades)`
+              : '';
+          response = `📈 **Progress Towards Your Goal**\n\nSaved: **${currSymbol}${projectedSaved}** of **${currSymbol}${goalAmount}**${tradesNote}${simNote}`;
 
           const progressChartResource = buildProgressChart(
             projectedSaved,
@@ -1864,7 +1875,8 @@ async function handleConversationMode(
               isSimulating: timeCtx.isSimulating,
               offsetDays: timeCtx.offsetDays,
               simulatedDate: timeCtx.simulatedDate,
-            }
+            },
+            oneTimeGainsTotal
           );
           const progressChartTraceId = ctx.getTraceId();
           ctx.setOutput({
@@ -1872,6 +1884,7 @@ async function handleConversationMode(
             currentSaved: projectedSaved,
             goalAmount,
             weeksRemaining,
+            oneTimeGains: oneTimeGainsTotal,
           });
           return {
             response,
