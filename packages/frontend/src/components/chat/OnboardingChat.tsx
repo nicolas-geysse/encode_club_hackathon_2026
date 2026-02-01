@@ -31,6 +31,7 @@ import { eventBus } from '~/lib/eventBus';
 import { OnboardingProgress } from './OnboardingProgress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import OnboardingFormStep from './OnboardingFormStep';
+import PlasmaAvatar from './PlasmaAvatar';
 import { hasStepForm } from '~/lib/chat/stepForms';
 import { useSimulation } from '~/lib/simulationContext';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
@@ -2551,8 +2552,8 @@ export function OnboardingChat() {
                 />
 
                 {/* Bruno Avatar (centered, above rings) */}
-                <div class="relative z-10 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-400 dark:to-emerald-500 flex items-center justify-center text-white text-3xl font-bold shadow-xl ring-4 ring-background">
-                  B
+                <div class="relative z-10 shadow-xl ring-4 ring-background rounded-full">
+                  <PlasmaAvatar size={96} color="green" />
                 </div>
               </div>
               <h2 class="text-2xl font-bold text-foreground">Bruno</h2>

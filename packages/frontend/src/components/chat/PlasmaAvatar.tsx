@@ -1,8 +1,9 @@
 /**
  * PlasmaAvatar Component
  *
- * An animated plasma/flame effect avatar for Bruno the AI coach.
+ * An animated plasma/blob effect avatar for Bruno the AI coach.
  * Uses canvas particles with SVG gooey filter for organic blob effect.
+ * Particles move organically in all directions (not flame-like).
  */
 
 import { onMount, onCleanup } from 'solid-js';
@@ -20,8 +21,10 @@ interface Particle {
   vx: number;
   vy: number;
   radius: number;
-  lifetime: number;
-  maxLifetime: number;
+  angle: number;
+  angularSpeed: number;
+  orbitRadius: number;
+  phase: number;
 }
 
 export default function PlasmaAvatar(props: PlasmaAvatarProps) {
@@ -30,43 +33,48 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
 
   let canvasRef: HTMLCanvasElement | undefined;
   let animationId: number;
-  let particles: Particle[] = [];
+  const particles: Particle[] = [];
+  let time = 0;
 
   // Color schemes
   const colorSchemes = {
     green: {
-      fill: 'rgba(74, 222, 128, 0.6)',
-      stroke: 'rgba(34, 197, 94, 0.8)',
+      fill: 'rgba(74, 222, 128, 0.7)',
+      stroke: 'rgba(34, 197, 94, 0.9)',
       glow: 'rgba(74, 222, 128, 0.4)',
-      core: 'rgba(187, 247, 208, 0.9)',
+      core: 'rgba(187, 247, 208, 0.95)',
     },
     blue: {
-      fill: 'rgba(96, 165, 250, 0.6)',
-      stroke: 'rgba(59, 130, 246, 0.8)',
+      fill: 'rgba(96, 165, 250, 0.7)',
+      stroke: 'rgba(59, 130, 246, 0.9)',
       glow: 'rgba(96, 165, 250, 0.4)',
-      core: 'rgba(191, 219, 254, 0.9)',
+      core: 'rgba(191, 219, 254, 0.95)',
     },
     purple: {
-      fill: 'rgba(192, 132, 252, 0.6)',
-      stroke: 'rgba(147, 51, 234, 0.8)',
+      fill: 'rgba(192, 132, 252, 0.7)',
+      stroke: 'rgba(147, 51, 234, 0.9)',
       glow: 'rgba(192, 132, 252, 0.4)',
-      core: 'rgba(233, 213, 255, 0.9)',
+      core: 'rgba(233, 213, 255, 0.95)',
     },
   };
 
-  const randomInt = (min: number, max: number) => Math.floor(min + Math.random() * (max - min + 1));
-
-  const createParticle = (centerX: number, centerY: number, scale: number): Particle => {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = randomInt(1, 3) * scale * 0.3;
+  const createParticle = (
+    centerX: number,
+    centerY: number,
+    scale: number,
+    index: number
+  ): Particle => {
+    const baseAngle = (index / 8) * Math.PI * 2; // Distribute evenly around center
     return {
-      x: centerX + (Math.random() - 0.5) * 4 * scale,
-      y: centerY + (Math.random() - 0.5) * 4 * scale,
-      vx: Math.cos(angle) * speed * 0.3,
-      vy: -Math.abs(Math.sin(angle) * speed) - 0.5 * scale, // Bias upward for flame effect
-      radius: randomInt(2, 5) * scale,
-      lifetime: randomInt(30, 60),
-      maxLifetime: 60,
+      x: centerX,
+      y: centerY,
+      vx: 0,
+      vy: 0,
+      radius: (2 + Math.random() * 3) * scale,
+      angle: baseAngle + Math.random() * 0.5,
+      angularSpeed: 0.01 + Math.random() * 0.02,
+      orbitRadius: (3 + Math.random() * 6) * scale,
+      phase: Math.random() * Math.PI * 2,
     };
   };
 
@@ -80,28 +88,41 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
     const h = size();
     const scale = w / 32;
     const centerX = w / 2;
-    const centerY = h / 2 + 2 * scale; // Slightly lower center for flame rising effect
+    const centerY = h / 2;
     const colors = colorSchemes[color()];
+
+    time += 0.016; // ~60fps time increment
 
     // Clear canvas
     ctx.clearRect(0, 0, w, h);
 
-    // Add new particles
-    if (particles.length < 12 && Math.random() < 0.4) {
-      particles.push(createParticle(centerX, centerY, scale));
+    // Initialize particles if needed
+    if (particles.length === 0) {
+      for (let i = 0; i < 8; i++) {
+        particles.push(createParticle(centerX, centerY, scale, i));
+      }
     }
 
-    // Update and draw particles
-    particles = particles.filter((p) => {
-      p.lifetime--;
-      p.x += p.vx;
-      p.y += p.vy;
+    // Update and draw particles - organic blob movement
+    particles.forEach((p, i) => {
+      // Organic movement: combination of orbital motion and noise-like wandering
+      p.angle += p.angularSpeed;
 
-      // Slow down and shrink as lifetime decreases
-      const lifeRatio = p.lifetime / p.maxLifetime;
-      const currentRadius = p.radius * lifeRatio;
+      // Pulsing orbit radius for breathing effect
+      const breathe = Math.sin(time * 2 + p.phase) * 0.3 + 1;
+      const currentOrbit = p.orbitRadius * breathe;
 
-      if (currentRadius < 1) return false;
+      // Add some wobble for organic feel
+      const wobbleX = Math.sin(time * 3 + i) * 2 * scale;
+      const wobbleY = Math.cos(time * 2.5 + i * 0.7) * 2 * scale;
+
+      // Calculate position
+      p.x = centerX + Math.cos(p.angle) * currentOrbit + wobbleX;
+      p.y = centerY + Math.sin(p.angle) * currentOrbit + wobbleY;
+
+      // Pulsing radius
+      const radiusPulse = Math.sin(time * 4 + p.phase) * 0.2 + 1;
+      const currentRadius = p.radius * radiusPulse;
 
       // Draw particle
       ctx.beginPath();
@@ -109,39 +130,37 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
       ctx.fillStyle = colors.fill;
       ctx.fill();
       ctx.strokeStyle = colors.stroke;
-      ctx.lineWidth = 1.5 * scale;
+      ctx.lineWidth = 1 * scale;
       ctx.stroke();
       ctx.closePath();
-
-      return p.lifetime > 0;
     });
 
     // Draw central core (always visible, pulsing)
-    const pulse = 0.9 + Math.sin(Date.now() / 200) * 0.1;
-    const coreRadius = 6 * scale * pulse;
+    const pulse = 0.85 + Math.sin(time * 3) * 0.15;
+    const coreRadius = 5 * scale * pulse;
 
-    // Outer glow
+    // Outer glow gradient
     const gradient = ctx.createRadialGradient(
       centerX,
       centerY,
       0,
       centerX,
       centerY,
-      coreRadius * 1.5
+      coreRadius * 2
     );
     gradient.addColorStop(0, colors.core);
-    gradient.addColorStop(0.5, colors.fill);
+    gradient.addColorStop(0.4, colors.fill);
     gradient.addColorStop(1, 'transparent');
 
     ctx.beginPath();
-    ctx.arc(centerX, centerY, coreRadius * 1.5, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, coreRadius * 2, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
     ctx.fill();
     ctx.closePath();
 
-    // Inner core
+    // Inner bright core
     ctx.beginPath();
-    ctx.arc(centerX, centerY, coreRadius * 0.6, 0, Math.PI * 2);
+    ctx.arc(centerX, centerY, coreRadius * 0.5, 0, Math.PI * 2);
     ctx.fillStyle = colors.core;
     ctx.fill();
     ctx.closePath();
@@ -169,7 +188,7 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
 
   return (
     <div
-      class="relative flex-shrink-0 rounded-full shadow-md ring-2 ring-background overflow-hidden"
+      class="relative flex-shrink-0 rounded-full overflow-hidden"
       style={{
         width: `${size()}px`,
         height: `${size()}px`,
@@ -181,11 +200,11 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
       <svg class="absolute" style={{ width: 0, height: 0 }}>
         <defs>
           <filter id={filterId}>
-            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
             <feColorMatrix
               in="blur"
               type="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"
               result="goo"
             />
             <feBlend in="SourceGraphic" in2="goo" />
@@ -198,12 +217,19 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
 
       {/* Subtle outer glow */}
       <div
-        class="absolute inset-0 rounded-full animate-pulse"
+        class="absolute inset-0 rounded-full"
         style={{
           'box-shadow': `0 0 ${size() / 4}px ${size() / 8}px ${colorSchemes[color()].glow}`,
-          'animation-duration': '2s',
+          animation: 'plasma-glow 2s ease-in-out infinite',
         }}
       />
+
+      <style>{`
+        @keyframes plasma-glow {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
