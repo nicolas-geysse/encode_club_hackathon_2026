@@ -43,6 +43,11 @@ import {
   type Currency,
 } from '~/lib/dateUtils';
 import { PageLoader } from '~/components/PageLoader';
+import {
+  type OneTimeGains,
+  calculateTotalProgress,
+  getEmptyOneTimeGains,
+} from '~/lib/progressCalculator';
 // Note: checkAutoCredit replaced by inline multi-month logic in Sprint 13.9
 
 const logger = createLogger('SuiviPage');
@@ -217,6 +222,10 @@ export default function SuiviPage() {
 
   // Sprint 9.5: Track completed goals for "all goals completed" message
   const [completedGoalsCount, setCompletedGoalsCount] = createSignal(0);
+
+  // Bugfix: One-time gains from trades and paused subscriptions (fetched from Budget API)
+  const [oneTimeGains, setOneTimeGains] = createSignal<OneTimeGains>(getEmptyOneTimeGains());
+
   const [showRetroplan, setShowRetroplan] = createSignal(false);
 
   // Sprint 13.8: Savings adjustment modal state
@@ -285,6 +294,24 @@ export default function SuiviPage() {
 
       if (profile) {
         setActiveProfile(profile);
+
+        // Bugfix: Fetch budget data for one-time gains (trades, paused subscriptions)
+        try {
+          const budgetResponse = await fetch(`/api/budget?profileId=${profile.id}`);
+          if (budgetResponse.ok) {
+            const budgetData = await budgetResponse.json();
+            const gains = budgetData.budget?.oneTimeGains || getEmptyOneTimeGains();
+            setOneTimeGains({
+              tradeSales: gains.tradeSales || 0,
+              tradeBorrow: gains.tradeBorrow || 0,
+              pausedSavings: gains.pausedSavings || 0,
+            });
+            logger.info('Loaded one-time gains from budget API', { oneTimeGains: gains });
+          }
+        } catch (err) {
+          logger.warn('Failed to fetch budget data for one-time gains', { error: err });
+          // Keep using empty gains as fallback
+        }
 
         // Sprint 2.3 Fix: Load goal from goals table (single source of truth)
         // NO localStorage fallback to prevent cross-profile contamination
@@ -649,13 +676,12 @@ export default function SuiviPage() {
 
       // Sprint 3 Bug B fix: Sync progress to goals table
       // This ensures Goals tab shows correct progress (not always 0%)
+      // Bugfix: Include one-time gains in progress calculation
       const goal = currentGoal();
       const goalAmount = setup()?.goalAmount;
       if (goal && goalAmount && goalAmount > 0) {
-        const progressPercent = Math.min(
-          100,
-          Math.round((updated.currentAmount / goalAmount) * 100)
-        );
+        const totalProgress = calculateTotalProgress(updated.currentAmount, oneTimeGains());
+        const progressPercent = Math.min(100, Math.round((totalProgress / goalAmount) * 100));
         await goalService.updateGoalProgress(goal.id, progressPercent);
 
         // Check achievements after progress update
@@ -1078,6 +1104,7 @@ export default function SuiviPage() {
               totalHours={totalHours()}
               currency={currency()}
               currentSimulatedDate={currentDate().toISOString()}
+              oneTimeGains={oneTimeGains()}
             />
           </Show>
 

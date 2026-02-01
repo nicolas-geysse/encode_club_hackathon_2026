@@ -5,18 +5,18 @@
 See: .planning/PROJECT.md (updated 2026-01-31)
 
 **Core value:** Frictionless onboarding in conversation flow
-**Current focus:** Planning next milestone
+**Current focus:** Bug fixes for budget projections
 
 ## Current Position
 
-Phase: — (v2.1 complete, planning next milestone)
-Plan: —
-Status: Milestone v2.1 archived
-Last activity: 2026-01-31 — Archived v2.1 milestone
+Phase: bugfix-budget-projections (1 of 1)
+Plan: 02 (chat chart integration)
+Status: Plan 02 complete
+Last activity: 2026-02-01 - Completed bugfix-02-PLAN.md
 
-Progress: [██████████] 100% (v2.1 shipped)
+Progress: [██--------] 20% (bugfix milestone in progress)
 
-Next: `/gsd:new-milestone`
+Next: Phase 1 completion (suivi + goals UI) or Phase 3 if planned
 
 ## Performance Metrics
 
@@ -24,6 +24,9 @@ Next: `/gsd:new-milestone`
 - Total plans completed: 5
 - Total phases: 5
 - Execution time: 2026-01-31
+
+**Bugfix Milestone:**
+- Plan 02: 12 min (3 tasks)
 
 ## Accumulated Context
 
@@ -41,25 +44,35 @@ See PROJECT.md Key Decisions table for full log.
 - Wide variant (2 sm:3 md:4) for certifications with wider container
 - Empty state message contextual to filter state
 
+**Bugfix-02 Decisions:**
+- oneTimeGains is a constant addition, not accumulated weekly
+- Chart title indicates "(incl. trades)" when oneTimeGains > 0
+- Trades note appended to response text showing breakdown
+
 ### Pending Todos
 
-None.
+- Complete Phase 1 (suivi.tsx + TimelineHero.tsx integration) - uncommitted changes exist
 
 ### Blockers/Concerns
 
-None.
+- Phase 1 has uncommitted local changes that import non-existent progressCalculator
+- Needs Phase 1 plan execution to complete progressCalculator and wire UI
 
 ### Roadmap Evolution
 
 v2.1 milestone complete:
-- Phase 11: Chart Rendering ✓
-- Phase 12: Form Fixes ✓
-- Phase 13: State Persistence ✓
-- Phase 14: UI Fixes ✓
-- Phase 15: GridMultiSelect Fixes ✓
+- Phase 11: Chart Rendering
+- Phase 12: Form Fixes
+- Phase 13: State Persistence
+- Phase 14: UI Fixes
+- Phase 15: GridMultiSelect Fixes
+
+Bugfix milestone (budget projections):
+- Phase 1: Suivi + Goals UI (in progress, uncommitted)
+- Phase 2: Chat Charts (complete)
 
 ## Session Continuity
 
-Last session: 2026-01-31
-Stopped at: Archived v2.1 milestone
+Last session: 2026-02-01 16:12
+Stopped at: Completed bugfix-02-PLAN.md
 Resume file: None
