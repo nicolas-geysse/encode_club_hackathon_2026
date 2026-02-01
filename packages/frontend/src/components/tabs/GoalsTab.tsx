@@ -7,7 +7,15 @@
  * Uses createCrudTab hook for common CRUD state management.
  */
 
-import { createSignal, createMemo, createEffect, Show, For, onMount } from 'solid-js';
+import {
+  createSignal,
+  createMemo,
+  createEffect,
+  createResource,
+  Show,
+  For,
+  onMount,
+} from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { goalService } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
@@ -48,6 +56,11 @@ import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import { FlaskConical } from 'lucide-solid';
 import GoalComponentsList from '~/components/GoalComponentsList';
 import type { Mission } from '~/components/suivi/MissionCard';
+import {
+  calculateTotalProgress,
+  type OneTimeGains,
+  getEmptyOneTimeGains,
+} from '~/lib/progressCalculator';
 
 // FollowupData structure from /suivi page (stored in profile.followupData)
 interface SavingsAdjustment {
@@ -175,6 +188,48 @@ export function GoalsTab(props: GoalsTabProps) {
 
     return [{ week: currentWeek, earned: totalEarned }];
   });
+
+  // Fetch budget data for one-time gains (trades + paused subscriptions)
+  const [budgetData] = createResource(
+    () => profileId(),
+    async (id) => {
+      if (!id) return null;
+      try {
+        const response = await fetch(`/api/budget?profileId=${id}`);
+        if (!response.ok) return null;
+        return response.json();
+      } catch {
+        return null;
+      }
+    }
+  );
+
+  // Extract oneTimeGains from budget response for progress calculation
+  const oneTimeGains = (): OneTimeGains => {
+    const budget = budgetData()?.budget;
+    if (!budget?.oneTimeGains) return getEmptyOneTimeGains();
+    return {
+      tradeSales: budget.oneTimeGains.tradeSales || 0,
+      tradeBorrow: budget.oneTimeGains.tradeBorrow || 0,
+      pausedSavings: budget.oneTimeGains.pausedSavings || 0,
+    };
+  };
+
+  // Calculate adjusted progress including one-time gains
+  const adjustedProgress = (goal: Goal): number => {
+    // Get base progress percentage from the goal
+    const baseProgress = goal.progress || 0;
+    const goalAmount = goal.amount || 0;
+
+    // Reverse calculate current amount from stored progress percentage
+    const currentAmount = (baseProgress / 100) * goalAmount;
+
+    // Calculate total progress including one-time gains
+    const totalProgress = calculateTotalProgress(currentAmount, oneTimeGains());
+
+    // Return percentage capped at 100%
+    return goalAmount > 0 ? Math.min(100, Math.round((totalProgress / goalAmount) * 100)) : 0;
+  };
 
   // Use createCrudTab hook for common CRUD state management
   const crud = createCrudTab<Goal>({
@@ -1088,13 +1143,13 @@ export function GoalsTab(props: GoalsTabProps) {
                             </Show>
                           </div>
 
-                          {/* Progress */}
+                          {/* Progress (includes one-time gains from trades/paused subs) */}
                           <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
                             <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                               Progress
                             </p>
                             <p class="text-lg font-bold text-primary-600 dark:text-primary-400">
-                              {goal().progress || 0}%
+                              {adjustedProgress(goal())}%
                             </p>
                           </div>
 
@@ -1165,12 +1220,12 @@ export function GoalsTab(props: GoalsTabProps) {
                           </div>
                         </Show>
 
-                        {/* Progress Bar */}
+                        {/* Progress Bar (includes one-time gains) */}
                         <div>
                           <div class="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
                             <div
                               class="h-full bg-gradient-to-r from-primary-400 to-primary-600 transition-all duration-500"
-                              style={{ width: `${goal().progress || 0}%` }}
+                              style={{ width: `${adjustedProgress(goal())}%` }}
                             />
                           </div>
                         </div>
