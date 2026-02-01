@@ -167,3 +167,16 @@ export type {
   LocalDiscoveryResult,
   DiscoveryContext,
 } from './local-discovery.js';
+
+// Google Maps
+export {
+  initGoogleMaps,
+  isGoogleMapsAvailable,
+  findNearbyPlaces,
+  getDistanceMatrix,
+  calculateDistance,
+  formatDistance,
+  formatDuration,
+  googleMaps,
+} from './google-maps.js';
+export type { Coordinates, Place, DistanceResult, PlaceType, TravelMode } from './google-maps.js';
