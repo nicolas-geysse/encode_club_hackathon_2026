@@ -1,6 +1,5 @@
 // @refresh reload
 import { mount, StartClient } from '@solidjs/start/client';
-import { initOnboardingState } from '~/lib/onboardingStateStore';
 
 // Apply theme immediately to prevent flash
 (function () {
@@ -14,7 +13,9 @@ import { initOnboardingState } from '~/lib/onboardingStateStore';
   }
 })();
 
-// Initialize onboarding state from localStorage (must run before app hydrates)
-initOnboardingState();
+// NOTE: Do NOT call initOnboardingState() here!
+// Calling it before mount() changes signals before hydration,
+// causing SSR mismatch ("template2 is not a function" error).
+// Components should call initOnboardingState() in their onMount() instead.
 
 mount(() => <StartClient />, document.getElementById('app')!);

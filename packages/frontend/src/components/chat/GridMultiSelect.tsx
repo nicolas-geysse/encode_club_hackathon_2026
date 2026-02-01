@@ -12,8 +12,8 @@ import { createSignal, For, Show } from 'solid-js';
 // =============================================================================
 
 interface GridMultiSelectProps {
-  /** Available options to display */
-  options: string[];
+  /** Available options to display - can be array or getter function for reactivity */
+  options: string[] | (() => string[]);
   /** Currently selected items */
   selected: string[];
   /** Callback when selection changes */
@@ -33,13 +33,17 @@ interface GridMultiSelectProps {
 export default function GridMultiSelect(props: GridMultiSelectProps) {
   const [filter, setFilter] = createSignal('');
 
+  // Get options - handles both array and getter function for reactivity
+  const getOptions = () => (typeof props.options === 'function' ? props.options() : props.options);
+
   // Filter options based on search input
   const filteredOptions = () => {
+    const options = getOptions();
     const query = filter().toLowerCase().trim();
     if (!query) {
-      return props.options;
+      return options;
     }
-    return props.options.filter((option) => option.toLowerCase().includes(query));
+    return options.filter((option) => option.toLowerCase().includes(query));
   };
 
   // Toggle selection of an item

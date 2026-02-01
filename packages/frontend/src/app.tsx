@@ -20,6 +20,7 @@ import {
   clearAllNotifications,
 } from '~/lib/notificationStore';
 import { eventBus } from '~/lib/eventBus';
+import { initOnboardingState } from '~/lib/onboardingStateStore';
 
 export default function App() {
   // Simulation state (managed by SimulationControls, shared with app)
@@ -34,8 +35,18 @@ export default function App() {
   // Debug panel state
   const [debugOpen, setDebugOpen] = createSignal(false);
 
+  // Client-side only flag for Portal-based components (avoids SSR hydration issues)
+  const [mounted, setMounted] = createSignal(false);
+
   // Add welcome notification on mount
   onMount(() => {
+    // Mark as mounted for client-only Portal components
+    setMounted(true);
+
+    // Initialize onboarding state from localStorage AFTER hydration
+    // This must happen after mount() to avoid SSR mismatch
+    initOnboardingState();
+
     // Only add welcome notification if no notifications exist yet
     if (notifications().length === 0) {
       addNotification('info', 'Welcome!', 'Start by defining your goal in My Plan.');
@@ -155,8 +166,11 @@ export default function App() {
           >
             <FileRoutes />
           </Router>
-          <ToastContainer />
-          <DebugPanel isOpen={debugOpen()} onClose={() => setDebugOpen(false)} />
+          {/* Portal-based components render only on client to avoid SSR hydration issues */}
+          <Show when={mounted()}>
+            <ToastContainer />
+            <DebugPanel isOpen={debugOpen()} onClose={() => setDebugOpen(false)} />
+          </Show>
         </ProfileProvider>
       </SimulationProvider>
     </ThemeProvider>

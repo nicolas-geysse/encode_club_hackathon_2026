@@ -246,6 +246,7 @@ export function ProfileSelector(props: Props) {
       localStorage.removeItem('followupData');
       localStorage.removeItem('achievements');
       localStorage.removeItem('forceNewProfile');
+      localStorage.removeItem('onboardingComplete'); // Reset onboarding state
 
       setIsOpen(false);
 

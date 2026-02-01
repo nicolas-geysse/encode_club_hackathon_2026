@@ -171,6 +171,8 @@ export interface ChatMessage {
   traceId?: string;
   /** Opik trace URL for "Explain This" feature - links to AI reasoning */
   traceUrl?: string;
+  /** Flag to indicate this message contains the completion CTA button */
+  isCompletionCta?: boolean;
 }
 
 /**

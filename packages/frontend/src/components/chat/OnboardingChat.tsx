@@ -884,17 +884,10 @@ export function OnboardingChat() {
   });
 
   // Helper to check if a profile has enough data to skip onboarding
-  const isProfileComplete = (p: {
-    name?: string;
-    diploma?: string;
-    city?: string;
-    skills?: string[];
-    goalName?: string;
-    goalAmount?: number;
-  }) => {
-    return (
-      p.name && p.diploma && p.city && p.skills && p.skills.length > 0 && p.goalName && p.goalAmount
-    );
+  // Only requires identity fields (name, diploma, city)
+  // Skills and goal are optional - user can add them later via the interface
+  const isProfileComplete = (p: { name?: string; diploma?: string; city?: string }) => {
+    return !!(p.name && p.diploma && p.city);
   };
 
   // Helper to determine which step to resume from based on existing profile data
@@ -1012,6 +1005,82 @@ export function OnboardingChat() {
           content: GREETING_MESSAGE,
         },
       ]);
+      return;
+    }
+
+    // Fast-path: If onboarding is marked complete in localStorage, go straight to conversation mode
+    // This prevents the onboarding from restarting when navigating back to /
+    if (onboardingIsComplete()) {
+      setChatMode('conversation');
+      setStep('complete');
+      setIsComplete(true);
+
+      // Still load the profile for display
+      try {
+        const apiProfile = await profileService.loadActiveProfile();
+        if (apiProfile) {
+          setProfileId(apiProfile.id);
+          setProfile({
+            name: apiProfile.name,
+            diploma: apiProfile.diploma,
+            field: apiProfile.field,
+            city: apiProfile.city,
+            citySize: apiProfile.citySize,
+            skills: apiProfile.skills,
+            incomes: apiProfile.incomeSources,
+            expenses: apiProfile.expenses,
+            maxWorkHours: apiProfile.maxWorkHoursWeekly,
+            minHourlyRate: apiProfile.minHourlyRate,
+            goalName: apiProfile.goalName,
+            goalAmount: apiProfile.goalAmount,
+            goalDeadline: apiProfile.goalDeadline,
+            followupData: apiProfile.followupData,
+          });
+
+          // Load chat history
+          const historyRes = await fetch(`/api/chat-history?profileId=${apiProfile.id}&limit=50`);
+          if (historyRes.ok) {
+            const dbMessages = await historyRes.json();
+            if (Array.isArray(dbMessages) && dbMessages.length > 0) {
+              setMessages(dbMessages);
+            } else {
+              setMessages([
+                {
+                  id: 'welcome-back',
+                  role: 'assistant',
+                  content: getWelcomeBackMessage(apiProfile.name || 'there'),
+                },
+              ]);
+            }
+          } else {
+            setMessages([
+              {
+                id: 'welcome-back',
+                role: 'assistant',
+                content: getWelcomeBackMessage(apiProfile.name || 'there'),
+              },
+            ]);
+          }
+        } else {
+          // No profile but onboarding marked complete - show welcome
+          setMessages([
+            {
+              id: 'welcome-back',
+              role: 'assistant',
+              content: getWelcomeBackMessage('there'),
+            },
+          ]);
+        }
+      } catch (e) {
+        logger.warn('Could not load profile for completed onboarding', { error: e });
+        setMessages([
+          {
+            id: 'welcome-back',
+            role: 'assistant',
+            content: getWelcomeBackMessage('there'),
+          },
+        ]);
+      }
       return;
     }
 
@@ -1950,11 +2019,14 @@ export function OnboardingChat() {
         }
       }
 
+      // Capture if this is the completion message BEFORE state changes
+      const isThisTheCompletionMessage = result.nextStep === 'complete';
+
       // Update step
       setStep(result.nextStep);
 
       // Handle completion
-      if (result.nextStep === 'complete') {
+      if (isThisTheCompletionMessage) {
         // Save profile to API (DuckDB)
         const finalProfile = profile() as ProfileData;
 
@@ -2141,6 +2213,7 @@ export function OnboardingChat() {
         uiResource: (result as { uiResource?: UIResource }).uiResource, // MCP-UI interactive component if present
         traceId: (result as { traceId?: string }).traceId, // Opik trace ID for feedback
         traceUrl: (result as { traceUrl?: string }).traceUrl, // Opik trace URL for "Explain This" feature
+        isCompletionCta: isThisTheCompletionMessage, // Only show CTA button on the completion message
       };
       setMessages([...messages(), assistantMsg]);
       saveMessageToDb(assistantMsg); // BUG 9 FIX: Persist to DuckDB
@@ -2605,7 +2678,7 @@ export function OnboardingChat() {
               <div class="max-w-3xl space-y-6 pb-40">
                 <For each={messages()}>
                   {(msg) => (
-                    <>
+                    <div class="message-wrapper">
                       <ChatMessage
                         role={msg.role}
                         content={msg.content}
@@ -2621,45 +2694,32 @@ export function OnboardingChat() {
                           <MCPUIRenderer resource={msg.uiResource!} onAction={handleUIAction} />
                         </div>
                       </Show>
-                    </>
+                      {/* Completion CTA button - only on the message that completed onboarding */}
+                      <Show when={msg.isCompletionCta}>
+                        <div class="ml-12 mt-2">
+                          <GlassButton onClick={goToPlan} class="w-fit">
+                            Start My Plan
+                            <svg
+                              class="animate-bounce-x ml-2"
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="3"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <path d="M5 12h14" />
+                              <path d="m12 5 7 7-7 7" />
+                            </svg>
+                          </GlassButton>
+                        </div>
+                      </Show>
+                    </div>
                   )}
                 </For>
-
-                {/* Completion CTA - appears in chat area when onboarding complete */}
-                <Show when={isComplete() && step() === 'complete'}>
-                  <div class="flex justify-start mb-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pl-2">
-                    <div class="flex items-start gap-3">
-                      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-400 dark:to-emerald-500 flex items-center justify-center text-white text-sm font-bold shadow-md ring-2 ring-background">
-                        B
-                      </div>
-                      <div class="flex flex-col gap-3">
-                        <div class="rounded-2xl px-5 py-3.5 shadow-sm text-sm leading-relaxed bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-border/50 text-foreground rounded-tl-sm">
-                          <p class="whitespace-pre-wrap">
-                            Your profile is complete! Ready to start working towards your goal.
-                          </p>
-                        </div>
-                        <GlassButton onClick={goToPlan} class="w-fit">
-                          Start My Plan
-                          <svg
-                            class="animate-bounce-x ml-2"
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="3"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <path d="M5 12h14" />
-                            <path d="m12 5 7 7-7 7" />
-                          </svg>
-                        </GlassButton>
-                      </div>
-                    </div>
-                  </div>
-                </Show>
 
                 <Show when={loading()}>
                   <div class="flex justify-start mb-4 pl-2">
@@ -2687,13 +2747,13 @@ export function OnboardingChat() {
                   }
                 >
                   <div
-                    class={`ml-12 mb-4 ${step() === 'certifications' ? 'max-w-2xl' : 'max-w-md'}`}
+                    class={`ml-12 mb-4 ${['skills', 'certifications'].includes(step()) ? 'max-w-3xl' : 'max-w-md'}`}
                   >
                     <OnboardingFormStep
                       step={step()}
                       initialValues={profile() as Record<string, unknown>}
                       currencySymbol={getCurrencySymbolForForm()}
-                      fieldOfStudy={profile().field}
+                      fieldOfStudy={() => profile().field}
                       onSubmit={handleFormSubmit}
                       onSkip={() => handleSend('none')}
                     />

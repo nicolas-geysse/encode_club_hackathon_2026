@@ -290,12 +290,28 @@ export async function GET(event: APIEvent) {
     }
 
     if (activeOnly) {
-      const rows = await query<ProfileRow>(`SELECT * FROM profiles WHERE is_active = TRUE LIMIT 1`);
+      let rows = await query<ProfileRow>(`SELECT * FROM profiles WHERE is_active = TRUE LIMIT 1`);
       if (rows.length === 0) {
-        return new Response(JSON.stringify(null), {
-          status: 200,
-          headers: NO_CACHE_HEADERS,
-        });
+        // No active profile - check if any profiles exist and auto-activate the first one
+        const allProfiles = await query<ProfileRow>(
+          `SELECT * FROM profiles ORDER BY created_at DESC LIMIT 1`
+        );
+        if (allProfiles.length > 0) {
+          // Auto-activate the most recent profile
+          const profileToActivate = allProfiles[0];
+          const escapedId = escapeSQL(profileToActivate.id);
+          await execute(`UPDATE profiles SET is_active = TRUE WHERE id = ${escapedId}`);
+          logger.info('Auto-activated profile (no active profile found)', {
+            profileId: profileToActivate.id,
+          });
+          rows = [{ ...profileToActivate, is_active: true }];
+        } else {
+          // Truly no profiles exist
+          return new Response(JSON.stringify(null), {
+            status: 200,
+            headers: NO_CACHE_HEADERS,
+          });
+        }
       }
       return new Response(JSON.stringify(rowToProfile(rows[0])), {
         status: 200,

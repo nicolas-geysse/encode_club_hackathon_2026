@@ -28,14 +28,14 @@ export const OnboardingProgress: Component<OnboardingProgressProps> = (props) =>
     // starts after greeting (city) -> name
     if (['name', 'studies', 'skills', 'certifications'].includes(step)) return 0;
 
-    // Phase 2: Money
-    if (['budget', 'work_preferences'].includes(step)) return 1;
+    // Phase 2: Money (budget, income timing, work preferences)
+    if (['budget', 'income_timing', 'work_preferences'].includes(step)) return 1;
 
-    // Phase 3: Your Goal
-    if (['goal', 'academic_events', 'inventory', 'trade', 'subscriptions'].includes(step)) return 2;
+    // Phase 3: Your Goal (goal, events, inventory, trade, lifestyle/subscriptions)
+    if (['goal', 'academic_events', 'inventory', 'trade', 'lifestyle'].includes(step)) return 2;
 
-    // Phase 4: Generating Plan
-    if (['lifestyle', 'complete'].includes(step)) return 3;
+    // Phase 4: Generating Plan (complete)
+    if (['complete'].includes(step)) return 3;
 
     return 0; // Default
   });

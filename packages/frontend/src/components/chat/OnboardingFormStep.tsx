@@ -37,8 +37,8 @@ interface OnboardingFormStepProps {
   /** Currency symbol for displaying amounts */
   currencySymbol?: string;
   /** User's field of study - used for contextual skill suggestions.
-   * Pass as a direct value (not getter) for proper reactivity. */
-  fieldOfStudy?: string;
+   * Pass as a getter function for SolidJS reactivity. */
+  fieldOfStudy?: string | (() => string | undefined);
   /** Called when form is submitted */
   onSubmit: (data: Record<string, unknown>) => void;
   /** Called when user starts typing (for text-based input fallback) */
@@ -837,19 +837,24 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
 
         // Use GridMultiSelect for skills and certifications steps
         if (isSkillsField || isCertificationsField) {
-          // Make options reactive by using a getter function
+          // Resolve fieldOfStudy - can be a value or getter function
+          const getFieldOfStudy = () =>
+            typeof props.fieldOfStudy === 'function' ? props.fieldOfStudy() : props.fieldOfStudy;
+
+          // Pass getter function for reactive options (fixes skills not showing when field changes)
           const getOptions = () =>
             isSkillsField
-              ? getSkillsForField(props.fieldOfStudy)
+              ? getSkillsForField(getFieldOfStudy())
               : POPULAR_CERTIFICATIONS.map((c) => c.label);
 
           return (
             <GridMultiSelect
-              options={getOptions()}
+              options={getOptions}
               selected={(value() as string[]) || []}
               onChange={(v) => updateField(field.name, v)}
               placeholder={field.placeholder}
               variant={isCertificationsField ? 'wide' : 'default'}
+              maxHeight="400px"
             />
           );
         }
