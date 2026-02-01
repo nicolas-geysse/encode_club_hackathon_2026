@@ -93,6 +93,27 @@ interface BudgetContext {
 }
 
 /**
+ * Project currentSaved forward based on simulation offset.
+ * If simulating +X days, add (X/7) weeks of savings.
+ *
+ * @param currentSaved - Current saved amount (static)
+ * @param weeklySavings - Weekly savings rate
+ * @param timeCtx - Time context with simulation info
+ * @returns Projected savings amount
+ */
+function getProjectedSavings(
+  currentSaved: number,
+  weeklySavings: number,
+  timeCtx: TimeContext
+): number {
+  if (!timeCtx.isSimulating || !timeCtx.offsetDays || weeklySavings <= 0) {
+    return currentSaved;
+  }
+  const weeksElapsed = timeCtx.offsetDays / 7;
+  return Math.round(currentSaved + weeklySavings * weeksElapsed);
+}
+
+/**
  * Fetch consolidated budget context for a profile
  * Returns null on failure (non-blocking)
  */
@@ -100,7 +121,7 @@ async function fetchBudgetContext(profileId?: string): Promise<BudgetContext | n
   if (!profileId) return null;
 
   try {
-    const url = `${process.env.INTERNAL_API_URL || 'http://localhost:3000'}/api/budget?profileId=${profileId}`;
+    const url = `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/budget?profileId=${profileId}`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -199,7 +220,7 @@ async function fetchRAGContext(queryText: string, profileId?: string): Promise<s
   try {
     // Try to get RAG context via internal API
     const response = await fetch(
-      `${process.env.INTERNAL_API_URL || 'http://localhost:3000'}/api/rag`,
+      `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/rag`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1723,41 +1744,37 @@ async function handleConversationMode(
         case 'show_budget_chart': {
           const currSymbol = getCurrencySymbol(context.currency as string);
 
-          // Handle both number and array formats for income/expenses
-          let income = 0;
-          let expenses = 0;
+          // Prioritize budgetContext (fresh data from /api/budget) over context (snapshot)
+          // This ensures paused expenses and other changes are reflected
+          let income = budgetContext?.totalIncome || 0;
+          let expenses = budgetContext?.activeExpenses || 0;
 
-          // Income can be a number or array of {source, amount}
-          if (typeof context.income === 'number') {
-            income = context.income;
-          } else if (Array.isArray(context.incomes)) {
-            income = (context.incomes as Array<{ amount: number }>).reduce(
-              (sum, i) => sum + (i.amount || 0),
-              0
-            );
-          } else if (Array.isArray(context.income)) {
-            income = (context.income as Array<{ amount: number }>).reduce(
-              (sum, i) => sum + (i.amount || 0),
-              0
-            );
+          // Fallback to context only if budgetContext unavailable
+          if (income === 0) {
+            if (typeof context.income === 'number') {
+              income = context.income;
+            } else if (Array.isArray(context.incomes)) {
+              income = (context.incomes as Array<{ amount: number }>).reduce(
+                (sum, i) => sum + (i.amount || 0),
+                0
+              );
+            } else if (Array.isArray(context.income)) {
+              income = (context.income as Array<{ amount: number }>).reduce(
+                (sum, i) => sum + (i.amount || 0),
+                0
+              );
+            }
           }
 
-          // Expenses can be a number or array of {category, amount}
-          if (typeof context.expenses === 'number') {
-            expenses = context.expenses;
-          } else if (Array.isArray(context.expenses)) {
-            expenses = (context.expenses as Array<{ amount: number }>).reduce(
-              (sum, e) => sum + (e.amount || 0),
-              0
-            );
-          }
-
-          // Also try to get from budget context if available
-          if (income === 0 && budgetContext) {
-            income = budgetContext.totalIncome || 0;
-          }
-          if (expenses === 0 && budgetContext) {
-            expenses = budgetContext.activeExpenses || 0;
+          if (expenses === 0) {
+            if (typeof context.expenses === 'number') {
+              expenses = context.expenses;
+            } else if (Array.isArray(context.expenses)) {
+              expenses = (context.expenses as Array<{ amount: number }>).reduce(
+                (sum, e) => sum + (e.amount || 0),
+                0
+              );
+            }
           }
 
           const savings = income - expenses;
@@ -1820,25 +1837,39 @@ async function handleConversationMode(
 
           const weeklySavings = (income - expenses) / 4.33;
 
+          // Project currentSaved forward if simulating
+          const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx);
+
           if (goalAmount === 0) {
             response = `You haven't set a savings goal yet. Create a goal first!`;
             break;
           }
 
           const weeksRemaining =
-            weeklySavings > 0 ? Math.ceil((goalAmount - currentSaved) / weeklySavings) : 52;
-          response = `📈 **Progress Towards Your Goal**\n\nAlready saved: **${currSymbol}${currentSaved}** of **${currSymbol}${goalAmount}**`;
+            weeklySavings > 0 ? Math.ceil((goalAmount - projectedSaved) / weeklySavings) : 52;
+
+          // Add simulation note to response if simulating
+          const simNote = timeCtx.isSimulating
+            ? `\n\n⏰ *Simulated: After ${timeCtx.offsetDays} days, you would have saved ~${currSymbol}${projectedSaved}*`
+            : '';
+          response = `📈 **Progress Towards Your Goal**\n\nSaved: **${currSymbol}${projectedSaved}** of **${currSymbol}${goalAmount}**${simNote}`;
+
           const progressChartResource = buildProgressChart(
-            currentSaved,
+            projectedSaved,
             goalAmount,
             weeksRemaining,
             weeklySavings,
-            currSymbol
+            currSymbol,
+            {
+              isSimulating: timeCtx.isSimulating,
+              offsetDays: timeCtx.offsetDays,
+              simulatedDate: timeCtx.simulatedDate,
+            }
           );
           const progressChartTraceId = ctx.getTraceId();
           ctx.setOutput({
             action: 'show_progress_chart',
-            currentSaved,
+            currentSaved: projectedSaved,
             goalAmount,
             weeksRemaining,
           });
@@ -1897,9 +1928,16 @@ async function handleConversationMode(
           };
 
           const projectionForChart = calculateProjection(financialDataForChart, timeCtx);
-          const projectionChartResource = buildProjectionChart(projectionForChart, currSymbol);
           const summaryText = buildProjectionSummary(projectionForChart, currSymbol);
-          response = `🎯 **Projection Towards Your Goal**\n\n${summaryText}`;
+          const simNote = timeCtx.isSimulating
+            ? `\n\n⏰ *Note: This projection is calculated from the simulated date (+${timeCtx.offsetDays} days)*`
+            : '';
+          response = `🎯 **Projection Towards Your Goal**\n\n${summaryText}${simNote}`;
+          const projectionChartResource = buildProjectionChart(projectionForChart, currSymbol, {
+            isSimulating: timeCtx.isSimulating,
+            offsetDays: timeCtx.offsetDays,
+            simulatedDate: timeCtx.simulatedDate,
+          });
           const projectionChartTraceId = ctx.getTraceId();
           ctx.setOutput({
             action: 'show_projection_chart',
@@ -2121,7 +2159,13 @@ async function handleConversationMode(
                   let timeSection = '';
                   if (timeCtx.isSimulating) {
                     const simDate = getReferenceDate(timeCtx);
-                    timeSection = `\nCurrent simulated date: ${simDate.toLocaleDateString()}.`;
+                    timeSection = `
+IMPORTANT - TIME SIMULATION ACTIVE:
+- Current simulated date: ${simDate.toLocaleDateString()}
+- Offset: +${timeCtx.offsetDays} days from real date
+- ALL financial data shown reflects this simulated future state
+- When answering about savings, progress, or financial status, you MUST mention that this is based on the simulated date (+${timeCtx.offsetDays} days in the future).
+- Example phrasing: "Based on the simulated date (+${timeCtx.offsetDays} days), you would have saved..." or "In this simulation (+${timeCtx.offsetDays}d)..."`;
                   }
                   if (goalDeadline) {
                     const deadlinePassed = isDeadlinePassed(goalDeadline, timeCtx);
@@ -2205,6 +2249,44 @@ Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed 
 
       const traceId = getCurrentTraceId();
       const traceUrl = traceId ? getTraceUrl(traceId) : undefined;
+
+      // Auto-attach progress chart if the message/response is about savings
+      let autoChartResource: UIResource | undefined;
+      const savingsKeywords = /\b(sav(e|ing|ed|ings)|progress|épargne|économ|goal|objectif)\b/i;
+      const messageMentionsSavings = savingsKeywords.test(message);
+      const responseMentionsSavings = savingsKeywords.test(response);
+
+      if (messageMentionsSavings || responseMentionsSavings) {
+        const goalAmount = (context.goalAmount as number) || 0;
+        const currentSaved = (context.currentSaved as number) || 0;
+
+        if (goalAmount > 0) {
+          const income = budgetContext?.totalIncome || 0;
+          const expenses = budgetContext?.activeExpenses || 0;
+          const weeklySavings = (income - expenses) / 4.33;
+
+          // Project savings forward if simulating
+          const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx);
+
+          const weeksRemaining =
+            weeklySavings > 0 ? Math.ceil((goalAmount - projectedSaved) / weeklySavings) : 12;
+
+          autoChartResource = buildProgressChart(
+            projectedSaved,
+            goalAmount,
+            weeksRemaining,
+            weeklySavings,
+            getCurrencySymbol(context.currency as string),
+            {
+              isSimulating: timeCtx.isSimulating,
+              offsetDays: timeCtx.offsetDays,
+              simulatedDate: timeCtx.simulatedDate,
+            }
+          );
+          ctx.setAttributes({ 'chart.auto_attached': true, 'chart.type': 'progress' });
+        }
+      }
+
       ctx.setAttributes({
         'chat.response_length': response.length,
         'chat.extracted_fields': Object.keys(extractedData).length,
@@ -2219,6 +2301,7 @@ Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed 
         traceId: traceId || undefined,
         traceUrl,
         source: 'groq' as const,
+        uiResource: autoChartResource,
       };
     },
     traceOptions

@@ -72,7 +72,7 @@ async function getAgents(): Promise<Map<string, any>> {
 async function loadProfile(profileId: string): Promise<Record<string, unknown> | null> {
   try {
     const response = await fetch(
-      `${process.env.INTERNAL_API_URL || 'http://localhost:3000'}/api/profiles?id=${profileId}`
+      `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/profiles?id=${profileId}`
     );
     if (!response.ok) {
       return null;

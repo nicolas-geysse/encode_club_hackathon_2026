@@ -16,6 +16,16 @@ import type { ProjectionResult } from './budgetEngine';
 
 export type ChartType = 'budget_breakdown' | 'progress' | 'projection' | 'comparison' | 'energy';
 
+/**
+ * Simulation context for charts - shows when data is from a simulated future date
+ * Properties are optional to match TimeContext from timeAwareDate.ts
+ */
+export interface SimulationInfo {
+  isSimulating?: boolean;
+  offsetDays?: number;
+  simulatedDate?: string;
+}
+
 export interface ChartGalleryItem {
   id: ChartType;
   label: string;
@@ -83,17 +93,24 @@ export function buildChartGallery(): UIResource {
 
 /**
  * Build a comparison chart UIResource from projection result
+ * @param simulationInfo Optional - when provided and isSimulating is true, adds simulation indicator to title
  */
 export function buildProjectionChart(
   projection: ProjectionResult,
-  currencySymbol: string = '$'
+  currencySymbol: string = '$',
+  simulationInfo?: SimulationInfo
 ): UIResource {
+  // Add simulation indicator to title if simulating
+  const simSuffix = simulationInfo?.isSimulating
+    ? ` (Simulated +${simulationInfo.offsetDays ?? 0}d)`
+    : '';
+
   if (!projection.scenarioPath) {
     // No scenario to compare - return simple metric instead
     return {
       type: 'metric',
       params: {
-        title: 'Current Projection',
+        title: `Current Projection${simSuffix}`,
         value: Math.round(projection.currentPath.projectedTotal),
         unit: currencySymbol,
         subtitle: projection.currentPath.success ? 'Goal achievable' : 'Need more savings',
@@ -105,7 +122,7 @@ export function buildProjectionChart(
     type: 'chart',
     params: {
       type: 'comparison',
-      title: 'Goal Projection Comparison',
+      title: `Goal Projection Comparison${simSuffix}`,
       data: {
         labels: ['Current Path', 'With Changes'],
         datasets: [
@@ -139,13 +156,15 @@ export function buildProjectionChart(
 
 /**
  * Build a progress chart showing saved amount over time
+ * @param simulationInfo Optional - when provided and isSimulating is true, adds simulation indicator to title
  */
 export function buildProgressChart(
   currentSaved: number,
   goalAmount: number,
   weeksRemaining: number,
   weeklyContribution: number,
-  _currencySymbol: string = '$'
+  _currencySymbol: string = '$',
+  simulationInfo?: SimulationInfo
 ): UIResource {
   // Generate data points for the next N weeks
   const numPoints = Math.min(weeksRemaining, 12);
@@ -161,11 +180,16 @@ export function buildProgressChart(
     accumulated += weeklyContribution;
   }
 
+  // Add simulation indicator to title if simulating
+  const title = simulationInfo?.isSimulating
+    ? `Savings Projection (Simulated +${simulationInfo.offsetDays ?? 0}d)`
+    : 'Savings Projection';
+
   return {
     type: 'chart',
     params: {
       type: 'line',
-      title: 'Savings Projection',
+      title,
       data: {
         labels,
         datasets: [

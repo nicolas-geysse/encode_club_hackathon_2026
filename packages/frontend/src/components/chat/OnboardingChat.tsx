@@ -739,6 +739,20 @@ export function OnboardingChat() {
 
           // Call API with explicit action to bypass intent detection
           setLoading(true);
+
+          // Build time context for simulation support (same as regular chat)
+          const simState = simulationState();
+          const simDate = currentDate();
+          const goalDeadline = profile().goalDeadline as string | undefined;
+          const timeContext = {
+            simulatedDate: simDate.toISOString(),
+            isSimulating: simState.isSimulating,
+            offsetDays: simState.offsetDays,
+            deadlinePassed: goalDeadline
+              ? isDeadlinePassed(goalDeadline, { simulatedDate: simDate.toISOString() })
+              : false,
+          };
+
           fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -749,6 +763,7 @@ export function OnboardingChat() {
               context: profile(),
               threadId: threadId(),
               profileId: profileId(),
+              timeContext, // Include simulation context
             }),
           })
             .then((res) => res.json())
@@ -2522,11 +2537,11 @@ export function OnboardingChat() {
           }
         }
       `}</style>
-      <div class="fixed inset-x-0 top-16 md:pl-64 bottom-16 md:bottom-0 z-30 bg-background">
-        <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] h-full">
+      <div class="fixed inset-x-0 top-16 md:pl-64 bottom-16 md:bottom-0 z-30 bg-background overflow-hidden">
+        <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] h-full overflow-hidden">
           {/* Left Sidebar (Desktop Only) */}
-          <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-6 h-full">
-            <div class="flex flex-col items-center text-center mb-10">
+          <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-6 h-full overflow-hidden">
+            <div class="flex flex-col items-center text-center mb-6 shrink-0">
               {/* Bruno Avatar with Orbital Pulse */}
               <div class="relative w-36 h-36 flex items-center justify-center mb-4">
                 {/* Orbital Rings - very slow, calm breathing effect */}
