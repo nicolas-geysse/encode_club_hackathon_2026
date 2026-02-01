@@ -45,6 +45,27 @@ export function TimelineHero(props: TimelineHeroProps) {
   const totalAmount = () =>
     calculateTotalProgress(props.currentAmount, props.oneTimeGains || getEmptyOneTimeGains());
 
+  // Check if we have any one-time gains to display in breakdown
+  const hasOneTimeGains = () => {
+    const otg = props.oneTimeGains;
+    return otg && (otg.tradeSales > 0 || otg.tradeBorrow > 0 || otg.pausedSavings > 0);
+  };
+
+  // Build breakdown text showing all sources of progress
+  const breakdownText = () => {
+    if (!hasOneTimeGains()) return null;
+    const otg = props.oneTimeGains!;
+    const parts: string[] = [];
+    if (props.currentAmount > 0)
+      parts.push(`Earned: ${formatCurrency(props.currentAmount, props.currency)}`);
+    if (otg.tradeSales > 0) parts.push(`Sold: ${formatCurrency(otg.tradeSales, props.currency)}`);
+    if (otg.tradeBorrow > 0)
+      parts.push(`Borrowed: ${formatCurrency(otg.tradeBorrow, props.currency)}`);
+    if (otg.pausedSavings > 0)
+      parts.push(`Paused: ${formatCurrency(otg.pausedSavings, props.currency)}`);
+    return parts.join(' + ');
+  };
+
   const timeProgress = () => Math.min((props.currentWeek / props.totalWeeks) * 100, 100);
   // Progress now uses totalAmount (mission earnings + one-time gains)
   const amountProgress = () => Math.min((totalAmount() / props.goalAmount) * 100, 100);
@@ -236,7 +257,7 @@ export function TimelineHero(props: TimelineHeroProps) {
               'rounded-lg p-3 text-center border',
               goalAchieved()
                 ? 'bg-yellow-400/30 border-yellow-400/20'
-                : props.currentAmount >= 0
+                : totalAmount() >= 0
                   ? 'bg-green-500/10 dark:bg-green-900/30 border-green-500/20'
                   : 'bg-red-500/10 dark:bg-red-900/30 border-red-500/20'
             )}
@@ -246,26 +267,60 @@ export function TimelineHero(props: TimelineHeroProps) {
                 'text-lg font-bold tabular-nums',
                 goalAchieved()
                   ? 'text-yellow-100' // Darker bg in achieved state
-                  : props.currentAmount >= 0
+                  : totalAmount() >= 0
                     ? 'text-green-700 dark:text-green-400'
                     : 'text-red-700 dark:text-red-400'
               )}
             >
-              {formatCurrency(props.currentAmount, props.currency, { showSign: goalAchieved() })}
-            </div>
-            <div
-              class={cn(
-                'text-xs flex items-center justify-center gap-1 mt-1',
-                goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground'
+              {formatCurrency(
+                hasOneTimeGains() ? totalAmount() : props.currentAmount,
+                props.currency,
+                { showSign: goalAchieved() }
               )}
-            >
-              {props.currentAmount >= 0 ? (
-                <ArrowRight class="h-3 w-3 rotate-[-45deg]" />
-              ) : (
-                <ArrowRight class="h-3 w-3 rotate-[45deg]" />
-              )}
-              earned
             </div>
+            {/* Breakdown text when one-time gains exist */}
+            <Show when={hasOneTimeGains()}>
+              <div
+                class={cn(
+                  'text-[10px] mt-0.5 leading-tight',
+                  goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground'
+                )}
+              >
+                {breakdownText()}
+              </div>
+            </Show>
+            {/* Simple label when no one-time gains */}
+            <Show when={!hasOneTimeGains()}>
+              <div
+                class={cn(
+                  'text-xs flex items-center justify-center gap-1 mt-1',
+                  goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground'
+                )}
+              >
+                {props.currentAmount >= 0 ? (
+                  <ArrowRight class="h-3 w-3 rotate-[-45deg]" />
+                ) : (
+                  <ArrowRight class="h-3 w-3 rotate-[45deg]" />
+                )}
+                earned
+              </div>
+            </Show>
+            {/* "total" label when breakdown is shown */}
+            <Show when={hasOneTimeGains()}>
+              <div
+                class={cn(
+                  'text-xs flex items-center justify-center gap-1 mt-1',
+                  goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground'
+                )}
+              >
+                {totalAmount() >= 0 ? (
+                  <ArrowRight class="h-3 w-3 rotate-[-45deg]" />
+                ) : (
+                  <ArrowRight class="h-3 w-3 rotate-[45deg]" />
+                )}
+                total
+              </div>
+            </Show>
           </div>
         </div>
 
