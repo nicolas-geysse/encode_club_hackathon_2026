@@ -5,7 +5,7 @@
  * Used for skills and certifications selection in onboarding.
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, createMemo, For, Show } from 'solid-js';
 
 // =============================================================================
 // Types
@@ -33,18 +33,22 @@ interface GridMultiSelectProps {
 export default function GridMultiSelect(props: GridMultiSelectProps) {
   const [filter, setFilter] = createSignal('');
 
-  // Get options - handles both array and getter function for reactivity
-  const getOptions = () => (typeof props.options === 'function' ? props.options() : props.options);
+  // Get options - wrapped in createMemo for proper SolidJS reactivity
+  // This ensures the component re-renders when the options getter returns new values
+  const options = createMemo(() => {
+    const opts = typeof props.options === 'function' ? props.options() : props.options;
+    // Ensure we always return an array (defensive, in case upstream returns undefined briefly)
+    return opts || [];
+  });
 
   // Filter options based on search input
-  const filteredOptions = () => {
-    const options = getOptions();
+  const filteredOptions = createMemo(() => {
     const query = filter().toLowerCase().trim();
     if (!query) {
-      return options;
+      return options();
     }
-    return options.filter((option) => option.toLowerCase().includes(query));
-  };
+    return options().filter((option) => option.toLowerCase().includes(query));
+  });
 
   // Toggle selection of an item
   const toggleItem = (item: string) => {

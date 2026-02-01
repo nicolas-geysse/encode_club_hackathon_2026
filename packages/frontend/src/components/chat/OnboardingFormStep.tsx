@@ -842,10 +842,15 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             typeof props.fieldOfStudy === 'function' ? props.fieldOfStudy() : props.fieldOfStudy;
 
           // Pass getter function for reactive options (fixes skills not showing when field changes)
-          const getOptions = () =>
-            isSkillsField
-              ? getSkillsForField(getFieldOfStudy())
-              : POPULAR_CERTIFICATIONS.map((c) => c.label);
+          // Always return skills - fallback to all skills if field-specific returns empty
+          const getOptions = () => {
+            if (isSkillsField) {
+              const fieldSkills = getSkillsForField(getFieldOfStudy());
+              // Defensive: if no skills returned, fall back to all skills
+              return fieldSkills.length > 0 ? fieldSkills : getAllSkills();
+            }
+            return POPULAR_CERTIFICATIONS.map((c) => c.label);
+          };
 
           return (
             <GridMultiSelect

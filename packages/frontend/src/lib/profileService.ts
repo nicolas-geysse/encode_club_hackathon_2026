@@ -228,6 +228,9 @@ export async function saveProfile(
         minHourlyRate: profile.minHourlyRate,
         hasLoan: profile.hasLoan,
         loanAmount: profile.loanAmount,
+        latitude: profile.latitude,
+        longitude: profile.longitude,
+        address: profile.address,
       };
       localStorage.setItem('studentProfile', JSON.stringify(localProfile));
       logger.debug('Profile saved to localStorage');
@@ -550,6 +553,9 @@ export async function syncLocalToDb(): Promise<boolean> {
       skills: localProfile.skills,
       city: localProfile.city,
       citySize: localProfile.citySize,
+      latitude: localProfile.latitude,
+      longitude: localProfile.longitude,
+      address: localProfile.address,
       incomeSources: localProfile.incomes || localProfile.incomeSources,
       expenses: localProfile.expenses,
       maxWorkHoursWeekly: localProfile.maxWorkHoursWeekly,
