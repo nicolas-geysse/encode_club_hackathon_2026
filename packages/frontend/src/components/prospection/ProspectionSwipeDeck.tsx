@@ -12,22 +12,19 @@ import { ProspectionCard } from './ProspectionCard';
 import { Button } from '~/components/ui/Button';
 import { X, Heart, ExternalLink } from 'lucide-solid';
 import { cn } from '~/lib/cn';
-import type {
-  ProspectionCard as CardType,
-  SwipeDirection,
-  SwipeResult,
-} from '~/lib/prospectionTypes';
+import type { SwipeDirection, SwipeResult } from '~/lib/prospectionTypes';
+import type { ScoredJob } from '~/lib/jobScoring';
 
 interface ProspectionSwipeDeckProps {
-  cards: CardType[];
+  cards: ScoredJob[];
   onSwipe: (result: SwipeResult) => void;
-  onComplete: (saved: CardType[], skipped: CardType[]) => void;
+  onComplete: (saved: ScoredJob[], skipped: ScoredJob[]) => void;
 }
 
 export function ProspectionSwipeDeck(props: ProspectionSwipeDeckProps) {
   const [currentIndex, setCurrentIndex] = createSignal(0);
-  const [savedCards, setSavedCards] = createSignal<CardType[]>([]);
-  const [skippedCards, setSkippedCards] = createSignal<CardType[]>([]);
+  const [savedCards, setSavedCards] = createSignal<ScoredJob[]>([]);
+  const [skippedCards, setSkippedCards] = createSignal<ScoredJob[]>([]);
   const [swipeDirection, setSwipeDirection] = createSignal<SwipeDirection | null>(null);
   const [cardPosition, setCardPosition] = createSignal({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = createSignal(false);

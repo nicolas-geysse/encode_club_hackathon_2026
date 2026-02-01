@@ -114,7 +114,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
   };
 
   // Handle swipe session complete
-  const handleSwipeComplete = async (saved: ProspectionCard[], _skipped: ProspectionCard[]) => {
+  const handleSwipeComplete = async (saved: ScoredJob[], _skipped: ScoredJob[]) => {
     // Save leads to database
     const newLeads: Lead[] = [];
 

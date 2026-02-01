@@ -5,7 +5,7 @@
  * Shows company, location, commute time, salary, and effort level.
  */
 
-import { Show } from 'solid-js';
+import { Show, For } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
   MapPin,
@@ -27,6 +27,7 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { cn } from '~/lib/cn';
 import type { ProspectionCard as CardType } from '~/lib/prospectionTypes';
 import { getEffortLabel, getCategoryById } from '~/config/prospectionCategories';
+import { formatStarRating, isTopPick } from '~/lib/jobScoring';
 
 // Icon mapping
 const ICON_MAP = {
@@ -43,7 +44,7 @@ const ICON_MAP = {
 };
 
 interface ProspectionCardProps {
-  card: CardType;
+  card: CardType & { score?: number };
   isActive?: boolean;
   style?: string;
   class?: string;
@@ -87,13 +88,19 @@ export function ProspectionCard(props: ProspectionCardProps) {
       )}
       style={props.style}
     >
-      {/* Header with category icon and source */}
+      {/* Header with category icon, source, and Top Pick badge */}
       <div class="bg-gradient-to-r from-primary/10 to-primary/5 px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="p-1.5 bg-primary/20 rounded-lg">
             <Dynamic component={IconComponent()} class="h-4 w-4 text-primary" />
           </div>
           <span class="text-sm font-medium text-foreground">{category()?.label}</span>
+          <Show when={props.card.score !== undefined && isTopPick(props.card.score!)}>
+            <span class="px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
+              <Star class="h-3 w-3 fill-white" />
+              Top Pick
+            </span>
+          </Show>
         </div>
         <span class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full">
           {props.card.source}
@@ -125,7 +132,35 @@ export function ProspectionCard(props: ProspectionCardProps) {
           </Show>
         </div>
 
-        {/* Salary and Rating */}
+        {/* Calculated Score (our matching algorithm) */}
+        <Show when={props.card.score !== undefined}>
+          <div class="flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent px-3 py-2 rounded-lg -mx-1">
+            <span class="text-sm text-muted-foreground">Match Score</span>
+            <div class="flex items-center gap-1">
+              <div class="flex">
+                <For each={[1, 2, 3, 4, 5]}>
+                  {(star) => (
+                    <Star
+                      class={cn(
+                        'h-4 w-4',
+                        star <= Math.floor(props.card.score!)
+                          ? 'text-primary fill-primary'
+                          : star <= props.card.score!
+                            ? 'text-primary fill-primary/50'
+                            : 'text-muted-foreground/30'
+                      )}
+                    />
+                  )}
+                </For>
+              </div>
+              <span class="text-sm font-bold text-primary ml-1">
+                {formatStarRating(props.card.score!)}
+              </span>
+            </div>
+          </div>
+        </Show>
+
+        {/* Salary and Google Rating */}
         <div class="flex items-center justify-between">
           <Show when={props.card.salaryText}>
             <div class="text-lg font-bold text-green-600 dark:text-green-400">
@@ -133,9 +168,10 @@ export function ProspectionCard(props: ProspectionCardProps) {
             </div>
           </Show>
           <Show when={props.card.rating}>
-            <div class="flex items-center gap-1 text-sm">
+            <div class="flex items-center gap-1 text-sm" title="Google rating">
               <Star class="h-4 w-4 text-amber-500 fill-amber-500" />
               <span class="text-foreground">{props.card.rating?.toFixed(1)}</span>
+              <span class="text-xs text-muted-foreground">Google</span>
             </div>
           </Show>
         </div>
