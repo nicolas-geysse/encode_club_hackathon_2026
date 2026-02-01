@@ -14,6 +14,17 @@ import { createLogger } from '~/lib/logger';
 import { PROSPECTION_CATEGORIES } from '~/config/prospectionCategories';
 import type { ProspectionCategory, ProspectionCard } from '~/lib/prospectionTypes';
 
+// Google Maps service (lazy loaded to avoid bundling issues)
+let googleMapsService: typeof import('@stride/mcp-server/services') | null = null;
+
+async function getGoogleMaps() {
+  if (!googleMapsService) {
+    googleMapsService = await import('@stride/mcp-server/services');
+    await googleMapsService.initGoogleMaps();
+  }
+  return googleMapsService;
+}
+
 const logger = createLogger('prospection-api');
 
 // Re-export for external consumers
@@ -71,9 +82,8 @@ export async function POST(event: APIEvent): Promise<Response> {
 
       logger.info('Prospection search', { categoryId, city, latitude, longitude, radius });
 
-      // Generate mock cards (in production, this would call MCP tools)
-      // For now, generate realistic cards based on category
-      const cards: ProspectionCard[] = generateMockCards(category, city, latitude, longitude);
+      // Search for real places using Google Maps API
+      const cards = await searchRealPlaces(category, latitude, longitude, city, radius);
 
       return new Response(JSON.stringify({ cards, category }), {
         status: 200,
@@ -95,80 +105,103 @@ export async function POST(event: APIEvent): Promise<Response> {
 }
 
 // =============================================================================
-// Mock Data Generator (replaced by real MCP calls in production)
+// Real Google Places API Search
 // =============================================================================
 
-function generateMockCards(
+/**
+ * Search for real places using Google Places API
+ */
+async function searchRealPlaces(
   category: ProspectionCategory,
+  latitude?: number,
+  longitude?: number,
   city?: string,
-  lat?: number,
-  lng?: number
-): ProspectionCard[] {
-  const cityName = city || 'Paris';
-
-  // Generate company names based on category
-  const companyNames: Record<string, string[]> = {
-    service: [
-      'Le Petit Bistrot',
-      'Café de Flore',
-      'Brasserie Lipp',
-      'Starbucks',
-      "McDonald's",
-      'Quick',
-      'Pizza Hut',
-      'Subway',
-    ],
-    retail: ['Carrefour', 'Monoprix', 'Fnac', 'Zara', 'H&M', 'Uniqlo', 'Decathlon', 'Sephora'],
-    cleaning: ['O2', 'Shiva', 'Ibis Hotel', 'Novotel', 'Fitness Park', 'Basic Fit'],
-    handyman: ['TaskRabbit Pro', 'Frizbiz', 'YoupiJob', 'Helpling'],
-    childcare: ['Yoopies', 'Babysits', 'Family in need', 'DogBuddy Paris'],
-    tutoring: ['Acadomia', 'Superprof User', 'Complétude', 'Private Student'],
-    events: ['Hotesse.com', 'EventStaff', 'Promo Agency', 'Brand Experience'],
-    interim: ['Adecco', 'Manpower', 'Randstad', 'Synergie'],
-    digital: ['Startup Client', 'Agency XYZ', 'E-commerce Co', 'SaaS Startup'],
-    campus: ['University Library', 'IT Services', 'Student Union', 'Research Lab'],
-  };
-
-  const companies = companyNames[category.id] || ['Local Business'];
-  const cards: ProspectionCard[] = [];
-
-  // Generate 6-10 cards
-  const count = 6 + Math.floor(Math.random() * 5);
-
-  for (let i = 0; i < count; i++) {
-    const company = companies[i % companies.length];
-    const example = category.examples[i % category.examples.length];
-    const hourlyRate =
-      category.avgHourlyRate.min +
-      Math.random() * (category.avgHourlyRate.max - category.avgHourlyRate.min);
-
-    // Random offset for coordinates (within ~2km)
-    const latOffset = (Math.random() - 0.5) * 0.02;
-    const lngOffset = (Math.random() - 0.5) * 0.02;
-
-    // Random commute time (5-40 min)
-    const commuteMinutes = 5 + Math.floor(Math.random() * 35);
-
-    cards.push({
-      id: `${category.id}_${i}_${Date.now()}`,
-      type: category.googlePlaceTypes.length > 0 ? 'place' : 'job',
-      title: example,
-      company,
-      location: `${cityName}, ${['Centre', 'Nord', 'Sud', 'Est', 'Ouest'][i % 5]}`,
-      lat: lat ? lat + latOffset : undefined,
-      lng: lng ? lng + lngOffset : undefined,
-      commuteMinutes,
-      commuteText: `${commuteMinutes} min`,
-      salaryText: `${hourlyRate.toFixed(2)}€/h`,
-      avgHourlyRate: Math.round(hourlyRate * 100) / 100,
-      effortLevel: category.effortLevel,
-      source: category.platforms[i % category.platforms.length],
-      url: `https://${category.platforms[i % category.platforms.length].toLowerCase().replace(/\s/g, '')}.com`,
-      categoryId: category.id,
-      rating: 3.5 + Math.random() * 1.5,
-      openNow: Math.random() > 0.3,
-    });
+  radius: number = 5000
+): Promise<ProspectionCard[]> {
+  // If category has no googlePlaceTypes, return platform-based suggestions
+  if (category.googlePlaceTypes.length === 0) {
+    return generatePlatformCards(category, city);
   }
 
-  return cards;
+  // If no coordinates, return empty (location required for Places API)
+  if (!latitude || !longitude) {
+    logger.warn('No coordinates provided for Places search', { city });
+    return generatePlatformCards(category, city);
+  }
+
+  const maps = await getGoogleMaps();
+
+  // Search for each Google Place type in the category
+  const allPlaces: ProspectionCard[] = [];
+
+  for (const placeType of category.googlePlaceTypes) {
+    try {
+      const places = await maps.findNearbyPlaces(
+        { lat: latitude, lng: longitude },
+        placeType as import('@stride/mcp-server/services').PlaceType,
+        {
+          radius,
+          keyword: category.queryTemplate,
+          maxResults: 10,
+          includePhotos: false, // Cost control
+        }
+      );
+
+      // Convert Place to ProspectionCard
+      for (const place of places) {
+        const distance = maps.calculateDistance({ lat: latitude, lng: longitude }, place.location);
+        const commuteMinutes = Math.round(distance / 80); // ~80m/min walking speed
+
+        // Random hourly rate within category range
+        const hourlyRate =
+          category.avgHourlyRate.min +
+          Math.random() * (category.avgHourlyRate.max - category.avgHourlyRate.min);
+
+        allPlaces.push({
+          id: `${category.id}_${place.placeId}`,
+          type: 'place',
+          title: category.examples[Math.floor(Math.random() * category.examples.length)],
+          company: place.name,
+          location: place.address,
+          lat: place.location.lat,
+          lng: place.location.lng,
+          commuteMinutes,
+          commuteText: `${commuteMinutes} min`,
+          salaryText: `${hourlyRate.toFixed(2)}€/h`,
+          avgHourlyRate: Math.round(hourlyRate * 100) / 100,
+          effortLevel: category.effortLevel,
+          source: 'Google Maps',
+          url: `https://www.google.com/maps/place/?q=place_id:${place.placeId}`,
+          categoryId: category.id,
+          rating: place.rating,
+          openNow: place.openNow,
+        });
+      }
+    } catch (error) {
+      logger.error('Places search error', { placeType, error });
+    }
+  }
+
+  return allPlaces;
+}
+
+/**
+ * Generate platform-based cards for categories without Google Place types
+ * (e.g., handyman, events, interim - these are platform-based, not location-based)
+ */
+function generatePlatformCards(category: ProspectionCategory, city?: string): ProspectionCard[] {
+  const cityName = city || 'your city';
+  return category.platforms.slice(0, 5).map((platform, i) => ({
+    id: `${category.id}_platform_${i}_${Date.now()}`,
+    type: 'job',
+    title: category.examples[i % category.examples.length],
+    company: platform,
+    location: cityName,
+    salaryText: `${category.avgHourlyRate.min}-${category.avgHourlyRate.max}€/h`,
+    avgHourlyRate: (category.avgHourlyRate.min + category.avgHourlyRate.max) / 2,
+    effortLevel: category.effortLevel,
+    source: platform,
+    url: `https://${platform.toLowerCase().replace(/\s/g, '')}.com`,
+    categoryId: category.id,
+  }));
 }
