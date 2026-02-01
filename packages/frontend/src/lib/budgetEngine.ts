@@ -23,6 +23,8 @@ export interface FinancialData {
   goalAmount: number;
   /** Goal deadline (ISO date string) */
   goalDeadline: string;
+  /** One-time gains from trades and paused subscriptions (optional for backward compat) */
+  oneTimeGains?: number;
 }
 
 /**
@@ -110,14 +112,16 @@ export function calculateProjection(
 
   // Current path calculation
   const currentMargin = data.income - data.expenses;
-  const currentProjected = data.currentSaved + currentMargin * monthsRemaining;
+  const oneTimeGains = data.oneTimeGains || 0;
+  const currentProjected = data.currentSaved + oneTimeGains + currentMargin * monthsRemaining;
   const currentWeeksToGoal = calculateWeeksToGoal(
     data.goalAmount,
-    data.currentSaved,
+    data.currentSaved + oneTimeGains,
     currentMargin,
     0
   );
-  const currentProgress = data.goalAmount > 0 ? (data.currentSaved / data.goalAmount) * 100 : 0;
+  const currentProgress =
+    data.goalAmount > 0 ? ((data.currentSaved + oneTimeGains) / data.goalAmount) * 100 : 0;
 
   const result: ProjectionResult = {
     currentPath: {
