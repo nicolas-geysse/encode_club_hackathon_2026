@@ -14,6 +14,7 @@ must_haves:
     - "TimelineHero shows breakdown tooltip: Earned X, Sold Y, Borrowed Z"
     - "User understands where their progress comes from"
     - "GoalsTab progress percentage includes one-time gains"
+    - "Paused subscriptions appear in breakdown display"
   artifacts:
     - path: "packages/frontend/src/components/suivi/TimelineHero.tsx"
       provides: "Breakdown tooltip on earned metric"
@@ -123,17 +124,32 @@ The GoalsTab shows `goal().progress` which comes directly from the database (~L1
 import { calculateTotalProgress, type OneTimeGains, getEmptyOneTimeGains } from '~/lib/progressCalculator';
 ```
 
-2. The GoalsTab needs access to oneTimeGains. Two options:
+2. The GoalsTab needs access to oneTimeGains. Since plan.tsx does NOT fetch budget data at the parent level, use Option B - fetch within GoalsTab:
 
-**Option A (Preferred):** Add a prop for oneTimeGains from parent (plan.tsx):
-- Add `oneTimeGains?: OneTimeGains` to the component props
-- Parent fetches budget and passes it down
+**Option B Implementation:**
+```typescript
+// At component level, create a resource to fetch budget data
+const [budgetData] = createResource(
+  () => props.profileId,
+  async (profileId) => {
+    if (!profileId) return null;
+    const response = await fetch(`/api/budget?profileId=${profileId}`);
+    if (!response.ok) return null;
+    return response.json();
+  }
+);
 
-**Option B:** Fetch budget data within GoalsTab:
-- Add a resource that fetches `/api/budget?profileId=${profileId}`
-- Extract oneTimeGains from response
-
-Go with Option A if plan.tsx already fetches budget (check), otherwise Option B.
+// Extract oneTimeGains from budget response
+const oneTimeGains = () => {
+  const budget = budgetData()?.budget;
+  if (!budget?.oneTimeGains) return getEmptyOneTimeGains();
+  return {
+    tradeSales: budget.oneTimeGains.tradeSales || 0,
+    tradeBorrow: budget.oneTimeGains.tradeBorrow || 0,
+    pausedSavings: budget.oneTimeGains.pausedSavings || 0,
+  };
+};
+```
 
 3. Create a computed for the adjusted progress:
 ```typescript
@@ -141,7 +157,7 @@ const adjustedProgress = () => {
   const baseProgress = goal()?.progress || 0;
   const goalAmount = goal()?.amount || 0;
   const currentAmount = (baseProgress / 100) * goalAmount; // Reverse calculate current amount
-  const totalProgress = calculateTotalProgress(currentAmount, props.oneTimeGains || getEmptyOneTimeGains());
+  const totalProgress = calculateTotalProgress(currentAmount, oneTimeGains());
   return goalAmount > 0 ? Math.min(100, Math.round((totalProgress / goalAmount) * 100)) : 0;
 };
 ```
@@ -191,8 +207,13 @@ Complete progress tracking integration across Suivi and Goals pages:
 5. Test without trades:
    - Create new profile with just mission earnings
    - Earned card should show simple "earned" label (no breakdown)
+
+6. **Test paused subscriptions:**
+   - Pause a 15 EUR/month subscription for 2 months
+   - Verify progress increases by 30 EUR
+   - Verify breakdown shows "Paused: 30 EUR"
   </how-to-verify>
-  <resume-signal>Type "approved" if progress matches across pages, or describe discrepancies</resume-signal>
+  <resume-signal>Type "approved" if progress matches across pages and paused subscriptions appear correctly, or describe discrepancies</resume-signal>
 </task>
 
 </tasks>
@@ -219,6 +240,7 @@ Run `pnpm lint` - no errors in modified files
 - GoalsTab progress matches Suivi page progress
 - Visual is clean and non-cluttered for users with only mission earnings
 - All numbers are consistent across the application
+- Paused subscription savings appear in breakdown (Paused: X EUR)
 </success_criteria>
 
 <output>

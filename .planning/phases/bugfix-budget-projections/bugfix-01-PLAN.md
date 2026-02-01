@@ -20,12 +20,15 @@ must_haves:
     - path: "packages/frontend/src/lib/progressCalculator.ts"
       provides: "Unified progress calculation utility"
       exports: ["OneTimeGains", "calculateTotalProgress"]
+      min_lines: 20
     - path: "packages/frontend/src/routes/suivi.tsx"
       provides: "Budget data fetching and progress calculation"
       contains: "fetch.*api/budget"
+      min_lines: 400
     - path: "packages/frontend/src/components/suivi/TimelineHero.tsx"
       provides: "oneTimeGains prop handling"
       contains: "oneTimeGains"
+      min_lines: 150
   key_links:
     - from: "packages/frontend/src/routes/suivi.tsx"
       to: "/api/budget"

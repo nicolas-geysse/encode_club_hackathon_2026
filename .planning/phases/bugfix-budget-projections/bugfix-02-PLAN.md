@@ -145,7 +145,7 @@ Fixed:
 let accumulated = currentSaved + oneTimeGains;
 ```
 
-This adds one-time gains to the starting point of the chart, so all subsequent weekly projections include them.
+**IMPORTANT:** oneTimeGains is a CONSTANT addition to the starting point. It does NOT get simulated forward - it represents already-realized gains (completed trades, current borrow savings). The weekly contribution handles future projections.
 
 3. Update the chart title when oneTimeGains > 0 to indicate it includes trades:
 ```typescript
@@ -168,19 +168,19 @@ buildProgressChart accepts and uses oneTimeGains parameter.
   <name>Task 3: Wire oneTimeGains into chat.ts show_progress_chart</name>
   <files>packages/frontend/src/routes/api/chat.ts</files>
   <action>
-1. In the `show_progress_chart` case (around line 1840-1885), extract oneTimeGains from budgetContext:
+1. In the `show_progress_chart` case (around line 1840-1885), extract oneTimeGains from budgetContext.
 
-Add after the existing variable declarations:
-```typescript
-// Extract one-time gains from budget context
-const oneTimeGains = (budgetContext?.tradeSalesCompleted || 0) +
-                     (budgetContext?.tradeBorrowSavings || 0) +
-                     (budgetContext?.pausedSavings || 0);
-```
+The BudgetContext interface (line ~82-93) has these relevant properties:
+- `tradeSalesCompleted: number`
+- `tradeBorrowSavings: number`
+- `pausedSavings: number`
 
-Note: Check the actual property names in budgetContext - they may be under a nested `oneTimeGains` object. If so:
+Extract the total:
 ```typescript
-const oneTimeGains = budgetContext?.oneTimeGains?.total || 0;
+// Extract one-time gains from budget context (already-realized gains)
+const oneTimeGainsTotal = (budgetContext?.tradeSalesCompleted || 0) +
+                          (budgetContext?.tradeBorrowSavings || 0) +
+                          (budgetContext?.pausedSavings || 0);
 ```
 
 2. Update the projectedSaved calculation to include oneTimeGains:
@@ -192,7 +192,7 @@ const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx)
 
 Fixed:
 ```typescript
-const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx) + oneTimeGains;
+const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx) + oneTimeGainsTotal;
 ```
 
 3. Update the buildProgressChart call (line ~1857) to pass oneTimeGains:
@@ -208,14 +208,14 @@ const progressChartResource = buildProgressChart(
     offsetDays: timeCtx.offsetDays,
     simulatedDate: timeCtx.simulatedDate,
   },
-  oneTimeGains  // Add this parameter
+  oneTimeGainsTotal  // Add this parameter
 );
 ```
 
 4. Update the response text to mention trades if present:
 ```typescript
-const tradesNote = oneTimeGains > 0
-  ? ` (includes ${currSymbol}${oneTimeGains} from trades)`
+const tradesNote = oneTimeGainsTotal > 0
+  ? ` (includes ${currSymbol}${oneTimeGainsTotal} from trades)`
   : '';
 response = `📈 **Progress Towards Your Goal**\n\nSaved: **${currSymbol}${projectedSaved}** of **${currSymbol}${goalAmount}**${tradesNote}${simNote}`;
 ```
