@@ -26,8 +26,10 @@ import { toastPopup } from '~/components/ui/Toast';
 import { GlassButton } from '~/components/ui/GlassButton';
 import { detectCityMetadata } from '~/lib/cityUtils';
 import { smartMergeArrays } from '~/lib/arrayMergeUtils';
-import { forwardGeocode } from '~/lib/geolocation';
+import { forwardGeocode, getCurrentLocation } from '~/lib/geolocation';
 import { eventBus } from '~/lib/eventBus';
+import { LocationConsent } from '../onboarding/LocationConsent';
+import { fuzzyCoordinates } from '~/lib/locationPrivacy';
 import { OnboardingProgress } from './OnboardingProgress';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import OnboardingFormStep from './OnboardingFormStep';
@@ -250,6 +252,12 @@ export function OnboardingChat() {
   };
   const [threadId, setThreadId] = createSignal<string>(generateThreadId());
   const [profileId, setProfileId] = createSignal<string | undefined>(undefined);
+
+  // Location consent state - show consent screen before requesting GPS
+  const [showLocationConsent, setShowLocationConsent] = createSignal(false);
+  const [locationConsentGiven, setLocationConsentGiven] = createSignal<
+    'allowed' | 'declined' | null
+  >(null);
 
   // Ref for auto-focusing input after response
   let chatInputRef: { focus: () => void } | null = null;
@@ -963,6 +971,72 @@ export function OnboardingChat() {
     return stepMessages[resumeStep] || GREETING_MESSAGE;
   };
 
+  // =============================================================================
+  // Location Consent Handlers
+  // PRIVACY: Users must explicitly consent before requesting GPS access
+  // =============================================================================
+
+  /**
+   * Handle user allowing location access.
+   * Triggers browser GPS request, stores fuzzy coordinates if successful.
+   */
+  const handleLocationAllow = async () => {
+    setLocationConsentGiven('allowed');
+    setShowLocationConsent(false);
+
+    try {
+      const result = await getCurrentLocation();
+      // PRIVACY: Apply fuzzy coordinates (~1.1km precision) before storing
+      const fuzzy = fuzzyCoordinates(result.coordinates.latitude, result.coordinates.longitude);
+
+      setProfile((prev) => ({
+        ...prev,
+        city: result.city,
+        latitude: fuzzy.latitude,
+        longitude: fuzzy.longitude,
+        address: result.address,
+        currency: result.currency,
+      }));
+
+      logger.info('[Onboarding] Location obtained via GPS, applied fuzzy coordinates', {
+        city: result.city,
+        fuzzyLat: fuzzy.latitude,
+        fuzzyLon: fuzzy.longitude,
+      });
+    } catch (error) {
+      // GPS failed - user will enter city manually via chat flow
+      logger.warn('[Onboarding] Location access failed, falling back to manual entry', { error });
+    }
+  };
+
+  /**
+   * Handle user declining location access.
+   * Proceeds to manual city entry via chat flow.
+   */
+  const handleLocationDecline = () => {
+    setLocationConsentGiven('declined');
+    setShowLocationConsent(false);
+    // Proceed with normal chat flow - user will enter city manually
+  };
+
+  // Effect: Show greeting message once consent is given
+  createEffect(() => {
+    const consent = locationConsentGiven();
+    const mode = chatMode();
+    const msgs = messages();
+
+    // Only trigger if consent was just given, we're in onboarding, and no messages yet
+    if (consent && mode === 'onboarding' && msgs.length === 0) {
+      setMessages([
+        {
+          id: 'greeting',
+          role: 'assistant',
+          content: GREETING_MESSAGE,
+        },
+      ]);
+    }
+  });
+
   // Check for existing profile on mount
   // Priority: 1. Check forceNewProfile flag, 2. API (DuckDB), 3. localStorage fallback
   onMount(async () => {
@@ -1015,13 +1089,9 @@ export function OnboardingChat() {
       setChatMode('onboarding');
       setStep('greeting');
       setIsComplete(false);
-      setMessages([
-        {
-          id: 'greeting',
-          role: 'assistant',
-          content: GREETING_MESSAGE,
-        },
-      ]);
+      setMessages([]); // Empty until consent is given
+      // PRIVACY: Show location consent screen before starting chat
+      setShowLocationConsent(true);
       return;
     }
 
@@ -1296,15 +1366,11 @@ export function OnboardingChat() {
       }
     }
 
-    // Start fresh onboarding
-    setMessages([
-      {
-        id: 'greeting',
-        role: 'assistant',
-        content: GREETING_MESSAGE,
-      },
-    ]);
-    setStep('greeting'); // Start at 'greeting' step - we'll collect name first
+    // Start fresh onboarding - show location consent first
+    setMessages([]); // Empty until consent is given
+    setStep('greeting');
+    // PRIVACY: Show location consent screen before starting chat
+    setShowLocationConsent(true);
   });
 
   // Listen for explicit data reset (e.g., "Reset all data" from ProfileSelector)
@@ -1897,15 +1963,22 @@ export function OnboardingChat() {
 
       // Auto-fill address and coordinates via geocoding (non-blocking)
       // Only fill MISSING data - don't overwrite existing address/coordinates from geolocation
+      // PRIVACY: Apply fuzzy coordinates for geocode results
       forwardGeocode(String(data.city)).then((geoResult) => {
         if (geoResult) {
+          // PRIVACY: Apply fuzzy coordinates (~1.1km precision) before storing
+          const fuzzy = fuzzyCoordinates(
+            geoResult.coordinates.latitude,
+            geoResult.coordinates.longitude
+          );
+
           setProfile((prev) => ({
             ...prev,
             // Keep existing address (from reverse geocoding) if available
             address: prev.address || geoResult.address,
-            // Keep existing coordinates if available
-            latitude: prev.latitude ?? geoResult.coordinates.latitude,
-            longitude: prev.longitude ?? geoResult.coordinates.longitude,
+            // Keep existing coordinates if available, otherwise use fuzzy geocoded ones
+            latitude: prev.latitude ?? fuzzy.latitude,
+            longitude: prev.longitude ?? fuzzy.longitude,
             // Also update currency from geocoding if not already set
             currency: prev.currency || geoResult.currency,
           }));
@@ -2538,6 +2611,13 @@ export function OnboardingChat() {
         }
       `}</style>
       <div class="fixed inset-x-0 top-16 md:pl-64 bottom-16 md:bottom-0 z-30 bg-background overflow-hidden">
+        {/* PRIVACY: Location consent screen - shown before onboarding starts */}
+        <Show when={showLocationConsent()}>
+          <div class="absolute inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm">
+            <LocationConsent onAllow={handleLocationAllow} onDecline={handleLocationDecline} />
+          </div>
+        </Show>
+
         <div class="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] h-full overflow-hidden">
           {/* Left Sidebar (Desktop Only) */}
           <div class="hidden md:flex flex-col border-r border-border bg-muted/10 p-6 h-full overflow-hidden">
