@@ -3,7 +3,7 @@
  * Generates vector embeddings for text using available providers.
  */
 
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11436';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11435';
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'm2v-bge-m3-1024d'; // TurboV2 Primary Model
 const IS_TEST_MODE = process.env.NODE_ENV === 'test' || process.env.VITE_TEST_MODE === 'true';
 
