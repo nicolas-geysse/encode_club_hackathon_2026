@@ -1309,6 +1309,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                   goalData.stats().totalEarned || followupData()?.currentAmount
                                 }
                                 weeklyEarnings={chartWeeklyEarnings()}
+                                milestones={goalData.milestones()}
                               />
                             )}
                           </Show>

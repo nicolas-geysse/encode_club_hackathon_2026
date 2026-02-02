@@ -112,6 +112,8 @@ export interface SimpleMilestone {
   week: number;
   /** Capacity-adjusted target for this week */
   adjustedTarget: number;
+  /** Cumulative target up to this week (for chart pace line) */
+  cumulativeTarget: number;
 }
 
 /**
@@ -395,6 +397,7 @@ export function useGoalData(
     return plan.milestones.map((m) => ({
       week: m.weekNumber,
       adjustedTarget: m.adjustedTarget,
+      cumulativeTarget: m.cumulativeTarget,
     }));
   });
 
