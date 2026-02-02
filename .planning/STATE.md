@@ -10,20 +10,20 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 23 of 23 (UX Polish)
-Plan: 1 of 1 complete (23-01 avatar fix done)
+Plan: 2 of 2 complete (23-02 label clarity done)
 Status: Phase complete
-Last activity: 2026-02-02 — Completed 23-01-PLAN.md (avatar positioning fix)
+Last activity: 2026-02-02 — Completed 23-02-PLAN.md (EarningsChart label clarity)
 
-Progress: [██████████] 100% (v4.0 milestone: 8/8 plans complete!)
+Progress: [██████████] 100% (v4.0 milestone: 9/8 plans complete - bonus UX polish!)
 
 Next: v4.0 milestone complete - ready for review/ship
 
 ## Performance Metrics
 
 **Milestone v4.0 (COMPLETE!):**
-- Plans completed: 8 (20-01, 21-01, 21-02, 21-03, 21-04, 22-01, 22-02, 23-01)
+- Plans completed: 9 (20-01, 21-01, 21-02, 21-03, 21-04, 22-01, 22-02, 23-01, 23-02)
 - Phases completed: 4 (20-foundation, 21-integration, 22-calculation-unification, 23-ux-polish)
-- Status: All plans executed
+- Status: All plans executed + bonus UX polish
 
 **Milestone v3.0:**
 - Total plans completed: 6 (16-01 to 16-03, 17-01 to 17-03)
@@ -51,6 +51,12 @@ Next: v4.0 milestone complete - ready for review/ship
 - Configurable status thresholds (avoid hardcoded magic numbers)
 - Avatar inside card for mobile responsiveness (Option C from analysis)
 - Capacity-aware calculations everywhere (replace linear approximations)
+
+**Phase 23-02 Decisions (UX polish - label clarity):**
+- Native HTML title attributes for tooltips (simple, no dependencies)
+- Chart legend uses line samples to match actual chart visualization
+- on-track status uses text-primary to match WeeklyProgressCards
+- Dynamic threshold display from GOAL_STATUS_THRESHOLDS
 
 **Phase 23-01 Decisions (UX polish - avatar fix):**
 - Inside-card pattern: pt-8 conditional padding for current week card
@@ -114,11 +120,12 @@ v4.0 milestone complete (Phases 20-23) — shipped 2026-02-02
 - Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03 **[COMPLETE]**
   - 22-01: Unified status calculation **[COMPLETE]**
   - 22-02: Gap closure (threshold unification) **[COMPLETE]**
-- Phase 23: UX Polish — UX-01 **[COMPLETE]**
+- Phase 23: UX Polish — UX-01, UX-02 **[COMPLETE]**
   - 23-01: Avatar positioning fix **[COMPLETE]**
+  - 23-02: EarningsChart label clarity **[COMPLETE]**
 
 ## Session Continuity
 
-Last session: 2026-02-02T18:55:00Z
-Stopped at: Completed 23-01-PLAN.md (avatar positioning fix) - v4.0 MILESTONE COMPLETE
+Last session: 2026-02-02T18:01:00Z
+Stopped at: Completed 23-02-PLAN.md (EarningsChart label clarity) - v4.0 MILESTONE COMPLETE
 Resume file: None
