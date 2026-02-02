@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-02)
 
 **Core value:** Unified and consistent goal progress display that builds user trust
-**Current focus:** v4.0 Goals Tab Fix — Phase 21 Integration
+**Current focus:** v4.0 Goals Tab Fix — Phase 21 Complete, Phase 22 next
 
 ## Current Position
 
 Phase: 21 of 23 (Integration)
-Plan: 2 of 3 complete (21-01 and 21-02 done, 21-03 remaining)
-Status: In progress
-Last activity: 2026-02-02 — Completed 21-02-PLAN.md
+Plan: 3 of 3 complete (Phase 21 complete!)
+Status: Phase complete
+Last activity: 2026-02-02 — Completed 21-03-PLAN.md
 
-Progress: [████░░░░░░] 43% (v4.0 milestone: 3/7 plans complete)
+Progress: [█████░░░░░] 50% (v4.0 milestone: 4/7 plans complete)
 
-Next: 21-03-PLAN.md (Wave 2)
+Next: 22-01-PLAN.md (Calculation Unification)
 
 ## Performance Metrics
 
 **Milestone v4.0 (in progress):**
-- Plans completed: 3 (20-01, 21-01, 21-02)
-- Current phase: 21 (Integration) - in progress
+- Plans completed: 4 (20-01, 21-01, 21-02, 21-03)
+- Current phase: 21 (Integration) - COMPLETE
 
 **Milestone v3.0:**
 - Total plans completed: 6 (16-01 to 16-03, 17-01 to 17-03)
@@ -50,6 +50,11 @@ Next: 21-03-PLAN.md (Wave 2)
 - Configurable status thresholds (avoid hardcoded magic numbers)
 - Avatar inside card for mobile responsiveness (Option C from analysis)
 - Capacity-aware calculations everywhere (replace linear approximations)
+
+**Phase 21-03 Decisions:**
+- Remove internal fetch from WeeklyProgressCards - receive retroplan via props
+- Add milestones prop to EarningsChart with fallback to linear pace
+- Use props.retroplan directly instead of signal - simpler reactive chain
 
 **Phase 21-02 Decisions:**
 - Replace inline retroplan fetch with hook derivation (cleaner separation)
@@ -87,15 +92,15 @@ v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
 
 **v4.0 Goals Tab Fix (Phases 20-23):**
 - Phase 20: Foundation (types, hook skeleton) — ARCH-01, ARCH-02 **[COMPLETE]**
-- Phase 21: Integration (hook completion, component rewiring) — ARCH-03, ARCH-04, EARN-01, EARN-02, EARN-03
+- Phase 21: Integration (hook completion, component rewiring) — ARCH-03, ARCH-04, EARN-01, EARN-02, EARN-03 **[COMPLETE]**
   - 21-01: useGoalData hook completion **[COMPLETE]**
   - 21-02: GoalsTab rewiring **[COMPLETE]**
-  - 21-03: EarningsChart integration (pending)
+  - 21-03: Pure display components **[COMPLETE]**
 - Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03
 - Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04
 
 ## Session Continuity
 
-Last session: 2026-02-02T16:43:15Z
-Stopped at: Completed 21-02-PLAN.md
+Last session: 2026-02-02T16:43:28Z
+Stopped at: Completed 21-03-PLAN.md
 Resume file: None
