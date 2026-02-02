@@ -8,6 +8,7 @@
 import { onMount, onCleanup, Show, createMemo } from 'solid-js';
 import type { Goal } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
+import { GOAL_STATUS_THRESHOLDS } from '~/lib/goalStatus';
 
 // Chart.js imports
 import {
@@ -438,18 +439,22 @@ export function EarningsChart(props: EarningsChartProps) {
           </div>
           <div
             class="bg-muted/50 rounded-lg p-2"
-            title="Based on cumulative progress: Ahead (105%+), On Track (90%+), Behind (40%+), Critical (<40%)"
+            title={`Based on cumulative progress: Ahead (${Math.round(GOAL_STATUS_THRESHOLDS.AHEAD * 100)}%+), On Track (${Math.round(GOAL_STATUS_THRESHOLDS.ON_TRACK * 100)}%+), Behind (${Math.round(GOAL_STATUS_THRESHOLDS.BEHIND * 100)}%+), Critical (<${Math.round(GOAL_STATUS_THRESHOLDS.BEHIND * 100)}%)`}
           >
             <p class="text-[10px] text-muted-foreground uppercase">Status</p>
             <p
               class={`text-sm font-bold ${
-                props.stats?.status === 'ahead' || stats().onPace
+                props.stats?.status === 'ahead'
                   ? 'text-green-600 dark:text-green-400'
-                  : props.stats?.status === 'critical'
-                    ? 'text-red-600 dark:text-red-400'
+                  : props.stats?.status === 'on-track'
+                    ? 'text-primary'
                     : props.stats?.status === 'behind'
                       ? 'text-amber-600 dark:text-amber-400'
-                      : 'text-red-600 dark:text-red-400'
+                      : props.stats?.status === 'critical'
+                        ? 'text-red-600 dark:text-red-400'
+                        : stats().onPace
+                          ? 'text-primary'
+                          : 'text-red-600 dark:text-red-400'
               }`}
             >
               {props.stats?.status === 'ahead'
