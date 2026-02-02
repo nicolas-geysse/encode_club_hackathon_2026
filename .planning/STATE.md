@@ -5,24 +5,24 @@
 See: .planning/PROJECT.md (updated 2026-02-02)
 
 **Core value:** Unified and consistent goal progress display that builds user trust
-**Current focus:** v4.0 Goals Tab Fix — Phase 21 Complete, Phase 22 next
+**Current focus:** v4.0 Goals Tab Fix — Phase 22 Complete, Phase 23 next
 
 ## Current Position
 
-Phase: 21 of 23 (Integration)
-Plan: 4 of 4 complete (Phase 21 complete, all gaps closed!)
+Phase: 22 of 23 (Calculation Unification)
+Plan: 1 of 1 complete (Phase 22 complete!)
 Status: Phase complete
-Last activity: 2026-02-02 — Completed 21-04-PLAN.md (gap closure)
+Last activity: 2026-02-02 — Completed 22-01-PLAN.md (calculation unification)
 
-Progress: [██████░░░░] 55% (v4.0 milestone: 5/7 plans complete)
+Progress: [███████░░░] 70% (v4.0 milestone: 6/7 plans complete)
 
-Next: 22-01-PLAN.md (Calculation Unification)
+Next: 23-01-PLAN.md (UX Polish)
 
 ## Performance Metrics
 
 **Milestone v4.0 (in progress):**
-- Plans completed: 5 (20-01, 21-01, 21-02, 21-03, 21-04)
-- Current phase: 21 (Integration) - COMPLETE (including gap closure)
+- Plans completed: 6 (20-01, 21-01, 21-02, 21-03, 21-04, 22-01)
+- Current phase: 22 (Calculation Unification) - COMPLETE
 
 **Milestone v3.0:**
 - Total plans completed: 6 (16-01 to 16-03, 17-01 to 17-03)
@@ -50,6 +50,11 @@ Next: 22-01-PLAN.md (Calculation Unification)
 - Configurable status thresholds (avoid hardcoded magic numbers)
 - Avatar inside card for mobile responsiveness (Option C from analysis)
 - Capacity-aware calculations everywhere (replace linear approximations)
+
+**Phase 22-01 Decisions (calculation unification):**
+- Configurable thresholds: AHEAD=1.05, ON_TRACK=0.90, BEHIND=0.40 matching WeeklyProgressCards
+- cumulativeTarget computed once in stats memo and reused for status/onPace/return
+- EarningsChart stats prop is optional with backward-compatible fallback
 
 **Phase 21-04 Decisions (gap closure):**
 - Extended SimpleMilestone type with cumulativeTarget field for ChartMilestone compatibility
@@ -100,11 +105,12 @@ v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
   - 21-02: GoalsTab rewiring **[COMPLETE]**
   - 21-03: Pure display components **[COMPLETE]**
   - 21-04: Gap closure (milestones prop wiring) **[COMPLETE]**
-- Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03
+- Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03 **[COMPLETE]**
+  - 22-01: Unified status calculation **[COMPLETE]**
 - Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04
 
 ## Session Continuity
 
-Last session: 2026-02-02T17:05:00Z
-Stopped at: Completed 21-04-PLAN.md (gap closure)
+Last session: 2026-02-02T17:22:07Z
+Stopped at: Completed 22-01-PLAN.md (calculation unification)
 Resume file: None
