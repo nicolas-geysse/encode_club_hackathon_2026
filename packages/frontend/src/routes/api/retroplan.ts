@@ -464,10 +464,20 @@ async function generateRetroplanForGoal(
   // Calculate total earning potential
   const maxTotalEarnings = weekCapacities.reduce((sum, w) => sum + w.maxEarningPotential, 0);
 
+  // Calculate how much needs to be earned through WORK (accounting for margin)
+  // If margin is positive, monthly savings reduce work needed
+  // If margin is negative, monthly deficit INCREASES work needed
+  const monthsInPeriod = Math.max(1, Math.ceil(totalWeeks / 4.33));
+  const marginContribution = (monthlyMargin ?? 0) * monthsInPeriod;
+  // effectiveGoalForWork = what we need to earn through work
+  // Positive margin: reduces work (1000 - 400 = 600 needed)
+  // Negative margin: increases work (1000 - (-3200) = 4200 needed)
+  const effectiveGoalForWork = Math.max(0, goalAmount - marginContribution);
+
   // Calculate total capacity for distribution
   const totalCapacity = weekCapacities.reduce((sum, w) => sum + w.capacityScore, 0);
   const targetPerCapacityPoint =
-    totalCapacity > 0 ? goalAmount / totalCapacity : goalAmount / totalWeeks;
+    totalCapacity > 0 ? effectiveGoalForWork / totalCapacity : effectiveGoalForWork / totalWeeks;
 
   // Generate milestones
   let cumulative = 0;
@@ -486,7 +496,7 @@ async function generateRetroplanForGoal(
 
     return {
       weekNumber: capacity.weekNumber,
-      baseTarget: Math.round(goalAmount / totalWeeks),
+      baseTarget: Math.round(effectiveGoalForWork / totalWeeks),
       adjustedTarget,
       cumulativeTarget: cumulative,
       capacity,
@@ -536,16 +546,53 @@ async function generateRetroplanForGoal(
     riskFactors.push(
       `Monthly savings: +${Math.round(monthlyMargin)}€/month (${Math.round(marginBasedCapacity)}€ total)`
     );
+  } else if (monthlyMargin && monthlyMargin < 0) {
+    // Sprint: Add warning for negative margin
+    riskFactors.push(
+      `⚠️ Monthly deficit: ${Math.round(monthlyMargin)}€/month (${Math.round(marginBasedCapacity)}€ total loss)`
+    );
   }
 
-  // Sprint 13.21: Calculate REMAINING goal (what's left to earn)
-  // This is critical - feasibility should be based on what's still needed, not total goal
+  // Calculate REMAINING goal for feasibility (what's left to accumulate)
+  // IMPORTANT: Use goalAmount - totalEarned (NOT effectiveGoalForWork)
+  // because totalEarned already includes past savings, and effectiveMaxEarnings
+  // already includes future savings via marginBasedCapacity
   const remainingGoal = Math.max(0, goalAmount - totalEarned);
 
   // Debug log for feasibility calculation
   console.log(
-    `[Feasibility] Goal: ${goalAmount}€, Earned: ${totalEarned}€, Remaining: ${remainingGoal}€, Capacity: ${effectiveMaxEarnings}€`
+    `[Feasibility] goalAmount: ${goalAmount}€, Earned: ${totalEarned}€, Remaining: ${remainingGoal}€, Capacity: ${effectiveMaxEarnings}€ (work: ${remainingMaxEarnings}€ + savings: ${marginBasedCapacity}€)`
   );
+
+  // SHORT-CIRCUIT: If goal is already achieved (remaining <= 0), feasibility is 100%
+  // No need to apply urgency/intensity/performance penalties
+  if (remainingGoal <= 0) {
+    console.log('[Feasibility] Goal already achieved! Returning 100%');
+    // Still generate the retroplan with milestones, but feasibility is perfect
+    const retroplan: Retroplan = {
+      id: generateId('rp'),
+      goalId,
+      milestones,
+      totalWeeks,
+      boostedWeeks,
+      highCapacityWeeks,
+      mediumCapacityWeeks,
+      lowCapacityWeeks,
+      protectedWeeks,
+      feasibilityScore: 1.0, // 100% - goal achieved!
+      frontLoadedPercentage:
+        effectiveGoalForWork > 0
+          ? (milestones
+              .slice(0, Math.ceil(totalWeeks / 2))
+              .reduce((sum, m) => sum + m.adjustedTarget, 0) /
+              effectiveGoalForWork) *
+            100
+          : 50,
+      riskFactors: [`✅ Goal achieved! ${totalEarned}€ earned (target: ${goalAmount}€)`],
+    };
+    retroplansStore.set(retroplan.id, retroplan);
+    return retroplan;
+  }
 
   // Sprint 13.21: Calculate ACTUAL earning rate vs REQUIRED rate
   // This penalizes when user is not keeping up with the pace, regardless of theoretical capacity
@@ -694,7 +741,8 @@ async function generateRetroplanForGoal(
   const firstHalfTarget = milestones
     .slice(0, halfWay)
     .reduce((sum, m) => sum + m.adjustedTarget, 0);
-  const frontLoadedPercentage = goalAmount > 0 ? (firstHalfTarget / goalAmount) * 100 : 50;
+  const frontLoadedPercentage =
+    effectiveGoalForWork > 0 ? (firstHalfTarget / effectiveGoalForWork) * 100 : 50;
 
   const retroplan: Retroplan = {
     id: generateId('rp'),

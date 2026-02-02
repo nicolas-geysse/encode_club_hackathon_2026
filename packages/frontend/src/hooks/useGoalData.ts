@@ -9,10 +9,11 @@
  * with single source of truth for all goal-related data.
  */
 
-import { createSignal, createMemo, createResource, createEffect, type Accessor } from 'solid-js';
+import { createSignal, createMemo, createResource, type Accessor } from 'solid-js';
 import type { EarningEvent, GoalStatus } from '../types/earnings';
 import type { Goal } from '../lib/goalService';
 import type { FullProfile } from '../lib/profileService';
+import type { IncomeItem, LifestyleItem } from '../lib/profileContext';
 import { aggregateAllEarnings, type MissionData, type TradeData } from '../lib/earningsAggregator';
 import { calculateGoalStatus, calculateOnPace } from '../lib/goalStatus';
 
@@ -251,6 +252,8 @@ function extractMissions(followupData: Record<string, unknown> | undefined): Mis
  * @param goal - Accessor to the goal being tracked
  * @param profile - Accessor to the user's profile
  * @param options - Optional configuration
+ * @param incomeAccessor - Optional reactive accessor for income items (for live margin calculation)
+ * @param lifestyleAccessor - Optional reactive accessor for lifestyle items (for live margin calculation)
  * @returns UseGoalDataResult with accessors for all goal data
  *
  * @example
@@ -270,7 +273,10 @@ function extractMissions(followupData: Record<string, unknown> | undefined): Mis
 export function useGoalData(
   goal: Accessor<Goal | undefined>,
   profile: Accessor<FullProfile | undefined>,
-  options: UseGoalDataOptions = {}
+  options: UseGoalDataOptions = {},
+  // Optional accessors for reactive margin calculation (sync with Budget tab)
+  incomeAccessor?: Accessor<IncomeItem[]>,
+  lifestyleAccessor?: Accessor<LifestyleItem[]>
 ): UseGoalDataResult {
   // Error state for manual errors
   const [manualError, setManualError] = createSignal<Error | undefined>(undefined);
@@ -299,12 +305,33 @@ export function useGoalData(
       const simDate = getSimulatedDate();
       if (!g?.id || !g?.amount || !g?.deadline || !p?.id) return null;
 
+      // Calculate monthlyMargin reactively from income/lifestyle accessors if provided
+      // This ensures Goals tab updates when Budget tab changes income/expenses
+      // Pattern from /suivi page (contextIncome/contextLifestyle)
+      const computedMargin = (() => {
+        if (incomeAccessor && lifestyleAccessor) {
+          const incomeItems = incomeAccessor();
+          const lifestyleItems = lifestyleAccessor();
+          const incomeTotal = incomeItems.reduce((sum, i) => sum + i.amount, 0);
+          const expensesTotal = lifestyleItems
+            .filter((i) => i.pausedMonths === 0) // Only active expenses
+            .reduce((sum, i) => sum + i.currentCost, 0);
+          const margin = incomeTotal - expensesTotal;
+          // If no data, fallback to profile value
+          if (incomeTotal === 0 && expensesTotal === 0) {
+            return p.monthlyMargin || 0;
+          }
+          return margin;
+        }
+        return p.monthlyMargin || 0; // Fallback for backward compatibility
+      })();
+
       // Calculate totalEarned for feasibility calculation
       // This is computed here so retroplan can factor in actual progress
       const goalStartDate = g.createdAt ? new Date(g.createdAt) : new Date();
       const goalDeadline = g.deadline ? new Date(g.deadline) : new Date();
       const missions = extractMissions(p.followupData);
-      const monthlyMargin = p.monthlyMargin || 0;
+      const monthlyMargin = computedMargin;
       const incomeDay = p.incomeDay || 15;
       const currentDate = simDate || new Date();
 
@@ -326,7 +353,7 @@ export function useGoalData(
         deadline: g.deadline,
         profileId: p.id,
         hourlyRate: p.minHourlyRate || 15,
-        monthlyMargin: p.monthlyMargin || 0,
+        monthlyMargin: computedMargin, // Use computed margin instead of p.monthlyMargin
         availableHoursPerWeek: p.maxWorkHoursWeekly, // User's configured available hours
         goalStartDate: g.createdAt,
         simulatedDate: simDate?.toISOString(),
@@ -398,6 +425,28 @@ export function useGoalData(
     return retroplanResource();
   });
 
+  // === COMPUTED MARGIN MEMO ===
+  // Reactive margin calculation from income/lifestyle accessors
+  // Ensures earnings calculations stay in sync with Budget tab changes
+  const computedMargin = createMemo(() => {
+    const p = profile();
+    if (incomeAccessor && lifestyleAccessor) {
+      const incomeItems = incomeAccessor();
+      const lifestyleItems = lifestyleAccessor();
+      const incomeTotal = incomeItems.reduce((sum, i) => sum + i.amount, 0);
+      const expensesTotal = lifestyleItems
+        .filter((i) => i.pausedMonths === 0) // Only active expenses
+        .reduce((sum, i) => sum + i.currentCost, 0);
+      const margin = incomeTotal - expensesTotal;
+      // If no data, fallback to profile value
+      if (incomeTotal === 0 && expensesTotal === 0) {
+        return p?.monthlyMargin || 0;
+      }
+      return margin;
+    }
+    return p?.monthlyMargin || 0; // Fallback for backward compatibility
+  });
+
   // === EARNINGS MEMO ===
   // Aggregates earnings from missions, savings, and trades
   const earnings = createMemo<EarningEvent[]>(() => {
@@ -413,8 +462,8 @@ export function useGoalData(
     // Extract missions from followupData
     const missions = extractMissions(p.followupData);
 
-    // Calculate monthly margin from profile
-    const monthlyMargin = p.monthlyMargin || 0;
+    // Use reactive computed margin (syncs with Budget tab)
+    const monthlyMargin = computedMargin();
 
     // Get income day (default to 15)
     const incomeDay = p.incomeDay || 15;
@@ -454,7 +503,8 @@ export function useGoalData(
     const goalStartDate = g.createdAt ? new Date(g.createdAt) : new Date();
     const goalDeadline = g.deadline ? new Date(g.deadline) : new Date();
     const missions = extractMissions(p.followupData);
-    const monthlyMargin = p.monthlyMargin || 0;
+    // Use reactive computed margin (syncs with Budget tab)
+    const monthlyMargin = computedMargin();
     const incomeDay = p.incomeDay || 15;
     const trades = tradesResource() || [];
     const tradeData = mapTradesToTradeData(trades);

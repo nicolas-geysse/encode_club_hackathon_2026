@@ -186,10 +186,18 @@ export function GoalsTab(props: GoalsTabProps) {
   // Note: ESLint reactivity warning is a false positive - hook uses these accessors
   // inside createResource which is a tracked scope. This is the correct SolidJS pattern.
   // eslint-disable-next-line solid/reactivity
-  const goalData = useGoalData(activeGoal, profileAccessor, {
-    includeSimulation: false,
-    simulatedDateAccessor, // Reactive: re-fetches retroplan when simulation date changes
-  });
+  const goalData = useGoalData(
+    activeGoal,
+    profileAccessor,
+    {
+      includeSimulation: false,
+      simulatedDateAccessor, // Reactive: re-fetches retroplan when simulation date changes
+    },
+    // Pass income/lifestyle accessors for reactive margin calculation
+    // This ensures Goals tab updates when Budget tab changes income/expenses
+    contextIncome,
+    contextLifestyle
+  );
 
   // Memoized retroplan for WeeklyProgressCards - ensures reactive updates when data loads
   // This fixes the initial load bug where exam week didn't show reduced target
@@ -1308,6 +1316,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                 projectedWeeklyEarnings={projectedChartWeeklyEarnings()}
                                 milestones={chartMilestones()}
                                 stats={chartStats()}
+                                monthlyMargin={monthlyMargin()}
                               />
                             )}
                           </Show>

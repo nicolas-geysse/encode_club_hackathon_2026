@@ -88,6 +88,8 @@ interface EarningsChartProps {
   milestones?: ChartMilestone[];
   /** v4.0 Phase 22: Unified stats from useGoalData hook */
   stats?: UnifiedStats;
+  /** Monthly margin (income - expenses). If negative, shows deficit impact on chart */
+  monthlyMargin?: number;
 }
 
 export function EarningsChart(props: EarningsChartProps) {
@@ -125,6 +127,11 @@ export function EarningsChart(props: EarningsChartProps) {
       ? props.weeklyEarnings.reduce((sum, w) => sum + w.earned, 0) / props.weeklyEarnings.length
       : 0;
 
+    // Calculate weekly deficit if margin is negative
+    // This will be subtracted from Projected/Actual to show net progress
+    const monthlyMargin = props.monthlyMargin ?? 0;
+    const weeklyDeficit = monthlyMargin < 0 ? Math.abs(monthlyMargin) / 4.33 : 0;
+
     for (let i = 0; i <= weeksCount; i++) {
       labels.push(i === 0 ? 'Now' : `W${i}`);
 
@@ -133,29 +140,33 @@ export function EarningsChart(props: EarningsChartProps) {
       const goalWeek = i + 1;
 
       // Required pace line: use capacity-aware milestones if provided, else linear
+      // Note: Don't cap at goalAmount - with negative margin, cumulativeTarget can exceed goal
+      // because it represents total WORK earnings needed (goal + deficit compensation)
       if (props.milestones && props.milestones.length > 0) {
         // v4.0: Capacity-aware pace from milestones
         const milestone = props.milestones.find((m) => m.week === goalWeek);
         if (milestone) {
-          requiredPace.push(Math.min(goalAmount, Math.round(milestone.cumulativeTarget)));
+          requiredPace.push(Math.round(milestone.cumulativeTarget));
         } else if (i === 0) {
           // No milestone for week 1 - start from 0
           requiredPace.push(0);
         } else {
-          // Week beyond milestones - use last milestone or cap at goal
+          // Week beyond milestones - use last milestone value
           const lastMilestone = props.milestones[props.milestones.length - 1];
-          requiredPace.push(
-            Math.min(goalAmount, Math.round(lastMilestone?.cumulativeTarget ?? goalAmount))
-          );
+          requiredPace.push(Math.round(lastMilestone?.cumulativeTarget ?? goalAmount));
         }
       } else {
         // Fallback: linear pace (existing behavior)
-        const requiredCumulative = Math.min(goalAmount, currentSaved + weeklyRequired * i);
+        const requiredCumulative = currentSaved + weeklyRequired * i;
         requiredPace.push(Math.round(requiredCumulative));
       }
 
+      // Cumulative deficit at this week (only if margin is negative)
+      const cumulativeDeficit = weeklyDeficit * i;
+
       // Projected earnings: use scheduled future earnings if available
       // This shows when savings will actually arrive (at income day each month)
+      // With negative margin, subtract cumulative deficit to show NET progress
       if (props.projectedWeeklyEarnings && props.projectedWeeklyEarnings.length > 0) {
         // Find the latest projected entry for week <= goalWeek
         const relevantProjected = [...props.projectedWeeklyEarnings]
@@ -163,31 +174,43 @@ export function EarningsChart(props: EarningsChartProps) {
           .find((w) => w.week <= goalWeek);
 
         if (relevantProjected) {
-          projectedEarnings.push(Math.min(goalAmount * 1.2, relevantProjected.cumulative));
+          // Subtract deficit to show net (can go negative)
+          const netProjected = relevantProjected.cumulative - cumulativeDeficit;
+          projectedEarnings.push(Math.round(netProjected));
         } else {
-          // Before first scheduled earning - 0
-          projectedEarnings.push(0);
+          // Before first scheduled earning - show deficit impact
+          projectedEarnings.push(Math.round(-cumulativeDeficit));
         }
       } else {
-        // Fallback: no projection data, stay at current
-        projectedEarnings.push(currentSaved);
+        // Fallback: no projection data, show current minus deficit
+        projectedEarnings.push(Math.round(currentSaved - cumulativeDeficit));
       }
 
       // Actual earnings (past earnings only)
       // weeklyEarnings already has cumulative totals calculated correctly
+      // With negative margin, subtract cumulative deficit to show NET progress
       if (props.weeklyEarnings && props.weeklyEarnings.length > 0) {
         // Find the latest earnings entry at or before this goal week
         const relevantEntry = [...props.weeklyEarnings].reverse().find((w) => w.week <= goalWeek);
 
         if (relevantEntry) {
-          // Use the pre-calculated cumulative from weeklyEarnings
-          actualEarnings.push(relevantEntry.cumulative);
+          // Use the pre-calculated cumulative, minus deficit to show net
+          const netActual = relevantEntry.cumulative - cumulativeDeficit;
+          actualEarnings.push(Math.round(netActual));
         } else {
-          // Before first earnings - show 0
-          actualEarnings.push(0);
+          // Before first earnings - show deficit impact
+          actualEarnings.push(Math.round(-cumulativeDeficit));
         }
       }
     }
+
+    // Calculate min/max values for Y-axis scaling
+    // Include all data series + goalAmount to ensure proper scale
+    // With negative margin, values can go negative
+    const allValues = [...requiredPace, ...projectedEarnings, ...actualEarnings, goalAmount];
+    const validValues = allValues.filter((v) => v != null && !isNaN(v));
+    const maxDataValue = Math.max(...validValues);
+    const minDataValue = Math.min(...validValues, 0); // Include 0 to ensure axis includes it
 
     return {
       labels,
@@ -199,6 +222,8 @@ export function EarningsChart(props: EarningsChartProps) {
       weeklyRequired,
       currentWeeklyRate,
       totalWeeks,
+      maxValue: Math.ceil(maxDataValue * 1.1), // 10% padding above max
+      minValue: minDataValue < 0 ? Math.floor(minDataValue * 1.1) : 0, // 10% padding below min if negative
     };
   };
 
@@ -328,8 +353,8 @@ export function EarningsChart(props: EarningsChartProps) {
         },
         y: {
           display: true,
-          beginAtZero: true,
-          max: Math.ceil(data.goalAmount * 1.1),
+          min: data.minValue, // Can be negative with monthly deficit
+          max: data.maxValue, // Dynamic: adapts to required pace (can exceed goalAmount with negative margin)
           grid: {
             color: 'rgba(148, 163, 184, 0.1)',
           },
