@@ -61,6 +61,8 @@ import {
   type OneTimeGains,
   getEmptyOneTimeGains,
 } from '~/lib/progressCalculator';
+import { useGoalData } from '~/hooks/useGoalData';
+import type { EarningEvent } from '~/types/earnings';
 
 // FollowupData structure from /suivi page (stored in profile.followupData)
 interface SavingsAdjustment {
@@ -173,20 +175,41 @@ export function GoalsTab(props: GoalsTabProps) {
   // Get followup data from profile for weekly earnings (used by WeeklyProgressCards)
   const followupData = () => profile()?.followupData as FollowupData | undefined;
 
-  // Transform completed missions to weekly earnings format for WeeklyProgressCards
+  // Get the active goal as an accessor for useGoalData hook
+  const activeGoal = createMemo(() => goals().find((g) => g.status === 'active'));
+
+  // Create profile accessor that normalizes null to undefined (for hook compatibility)
+  const profileAccessor = createMemo(() => profile() ?? undefined);
+
+  // Use centralized hook for goal data (v4.0 Goals Tab Fix)
+  // Note: ESLint reactivity warning is a false positive - hook uses these accessors
+  // inside createResource which is a tracked scope. This is the correct SolidJS pattern.
+  // eslint-disable-next-line solid/reactivity
+  const goalData = useGoalData(activeGoal, profileAccessor, { includeSimulation: false });
+
+  // === EARNINGS TRANSFORMATION UTILITIES ===
+  // Convert EarningEvent[] from hook to formats needed by child components
+
+  /**
+   * Transform EarningEvent[] to weekly format for WeeklyProgressCards
+   * Groups earnings by week number and sums amounts
+   */
+  const transformEarningsToWeekly = (
+    events: EarningEvent[]
+  ): Array<{ week: number; earned: number }> => {
+    const weekMap = new Map<number, number>();
+    for (const event of events) {
+      const current = weekMap.get(event.weekNumber) || 0;
+      weekMap.set(event.weekNumber, current + event.amount);
+    }
+    return Array.from(weekMap.entries())
+      .map(([week, earned]) => ({ week, earned }))
+      .sort((a, b) => a.week - b.week);
+  };
+
+  // Derive weekly earnings from hook data (replaces old missions-only transform)
   const weeklyEarnings = createMemo(() => {
-    const data = followupData();
-    if (!data?.missions?.length) return [];
-
-    const completed = data.missions.filter((m) => m.status === 'completed');
-    if (!completed.length) return [];
-
-    // For now, attribute all earnings to current week
-    // (missions don't have explicit weekNumber, would need date calculation)
-    const currentWeek = data.currentWeek || 1;
-    const totalEarned = completed.reduce((sum, m) => sum + m.earningsCollected, 0);
-
-    return [{ week: currentWeek, earned: totalEarned }];
+    return transformEarningsToWeekly(goalData.earnings());
   });
 
   // Fetch budget data for one-time gains (trades + paused subscriptions)
@@ -893,7 +916,7 @@ export function GoalsTab(props: GoalsTabProps) {
       {/* Active Goal with Weekly Progress + Chart */}
       <Show when={!loading() && goals().length > 0 && !showNewGoalForm()}>
         {(() => {
-          const activeGoal = () => goals().find((g) => g.status === 'active');
+          // Note: activeGoal memo is now defined at component level for hook use
           const otherGoals = () => goals().filter((g) => g.status !== 'active');
 
           return (
@@ -901,87 +924,33 @@ export function GoalsTab(props: GoalsTabProps) {
               {/* Active Goal Section */}
               <Show when={activeGoal()}>
                 {(goal) => {
-                  const goalPlanData = goal().planData as
-                    | { academicEvents?: AcademicEvent[] }
-                    | undefined;
-                  const goalAcademicEvents = goalPlanData?.academicEvents || academicEvents();
+                  // v4.0: Derive feasibility data from hook instead of inline fetch
+                  // The useGoalData hook handles retroplan fetching via createResource
+                  const feasibility = () => goalData.retroplan()?.feasibilityScore ?? null;
+                  const riskFactors = () => goalData.retroplan()?.riskFactors ?? [];
 
-                  // Feasibility score and risk factors from retroplan
-                  const [feasibility, setFeasibility] = createSignal<number | null>(null);
-                  const [riskFactors, setRiskFactors] = createSignal<string[]>([]);
-                  const [maxEarnings, setMaxEarnings] = createSignal<number | null>(null);
-                  const [avgAdjustedTarget, setAvgAdjustedTarget] = createSignal<number | null>(
-                    null
-                  );
+                  // Calculate max earnings from hook milestones
+                  const maxEarnings = createMemo(() => {
+                    const milestones = goalData.retroplan()?.milestones;
+                    if (!milestones) return null;
+                    const total = milestones.reduce(
+                      (sum, m) => sum + (m.capacity?.maxEarningPotential || 0),
+                      0
+                    );
+                    return Math.round(total);
+                  });
 
-                  // Fetch feasibility score
-                  createEffect(() => {
-                    const g = goal();
-                    const currentProfile = profile();
-                    // Sprint 13.7: Include monthlyMargin for margin-based feasibility calculation
-                    const currentMargin = monthlyMargin();
-                    // Sprint 13.17: Track simulatedDate to re-fetch when simulation changes
-                    const simDate = props.simulatedDate;
-                    // Sprint 13.19: Don't fetch if profile not loaded yet (prevents userId="default" bug)
-                    if (!currentProfile?.id) {
-                      return;
-                    }
-                    if (g.status === 'active' && g.deadline && g.amount) {
-                      // Get hourly rate from profile or use default
-                      const hourlyRate = currentProfile?.minHourlyRate || 15;
-                      fetch('/api/retroplan', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'generate_retroplan',
-                          goalId: g.id,
-                          goalAmount: g.amount,
-                          deadline: g.deadline,
-                          academicEvents: goalAcademicEvents,
-                          hourlyRate,
-                          // Sprint 13.7: Pass monthly margin for combined feasibility calculation
-                          monthlyMargin: currentMargin,
-                          userId: currentProfile?.id,
-                          // Sprint 13.17: Pass simulated date for time-aware feasibility calculation
-                          simulatedDate: simDate?.toISOString(),
-                        }),
-                      })
-                        .then((res) => (res.ok ? res.json() : null))
-                        .then((data) => {
-                          if (data?.retroplan) {
-                            if (data.retroplan.feasibilityScore != null) {
-                              setFeasibility(data.retroplan.feasibilityScore);
-                            }
-                            if (data.retroplan.riskFactors) {
-                              setRiskFactors(data.retroplan.riskFactors);
-                            }
-                            // Calculate max earnings and average adjusted target from milestones
-                            if (data.retroplan.milestones) {
-                              const milestones = data.retroplan.milestones as Array<{
-                                capacity?: { maxEarningPotential?: number };
-                                adjustedTarget?: number;
-                              }>;
-                              const total = milestones.reduce(
-                                (sum, m) => sum + (m.capacity?.maxEarningPotential || 0),
-                                0
-                              );
-                              setMaxEarnings(Math.round(total));
-
-                              // Calculate average adjusted target across milestones
-                              const adjustedTargets = milestones
-                                .map((m) => m.adjustedTarget)
-                                .filter((t): t is number => t != null && t > 0);
-                              if (adjustedTargets.length > 0) {
-                                const avgTarget =
-                                  adjustedTargets.reduce((a, b) => a + b, 0) /
-                                  adjustedTargets.length;
-                                setAvgAdjustedTarget(Math.round(avgTarget));
-                              }
-                            }
-                          }
-                        })
-                        .catch(() => {});
-                    }
+                  // Calculate average adjusted target from hook milestones
+                  const avgAdjustedTarget = createMemo(() => {
+                    const milestones = goalData.retroplan()?.milestones;
+                    if (!milestones) return null;
+                    const adjustedTargets = milestones
+                      .map((m) => m.adjustedTarget)
+                      .filter((t): t is number => t != null && t > 0);
+                    if (adjustedTargets.length === 0) return null;
+                    const avgTarget =
+                      adjustedTargets.reduce((a, b) => a + b, 0) / adjustedTargets.length;
+                    return Math.round(avgTarget);
                   });
 
                   // Calculate days remaining
@@ -1263,6 +1232,14 @@ export function GoalsTab(props: GoalsTabProps) {
                                   savingsAdjustments={followupData()?.savingsAdjustments}
                                   onAdjustSavings={handleOpenSavingsAdjust}
                                   userId={profileId() || undefined}
+                                  retroplan={
+                                    goalData.retroplan()
+                                      ? {
+                                          milestones: goalData.retroplan()!.milestones,
+                                          feasibilityScore: goalData.retroplan()!.feasibilityScore,
+                                        }
+                                      : null
+                                  }
                                 />
                               )}
                             </Show>
@@ -1280,7 +1257,9 @@ export function GoalsTab(props: GoalsTabProps) {
                                 goal={goals().find((g) => g.id === goalId)!}
                                 currency={currency()}
                                 adjustedWeeklyTarget={avgAdjustedTarget() ?? undefined}
-                                currentSaved={followupData()?.currentAmount}
+                                currentSaved={
+                                  goalData.stats().totalEarned || followupData()?.currentAmount
+                                }
                               />
                             )}
                           </Show>
