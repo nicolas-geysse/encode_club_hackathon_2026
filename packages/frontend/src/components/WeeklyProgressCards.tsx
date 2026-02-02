@@ -16,6 +16,7 @@ import {
   type MonthlySavingsInfo,
 } from '~/lib/savingsHelper';
 import { PiggyBank, Wrench } from 'lucide-solid';
+import { GOAL_STATUS_THRESHOLDS } from '~/lib/goalStatus';
 
 interface WeekData {
   weekNumber: number;
@@ -208,11 +209,11 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
         // No earnings data - show as "on-track" (neutral) instead of misleading "critical"
         // User hasn't logged earnings yet, we can't judge progress
         status = 'on-track';
-      } else if (cumulative >= m.cumulativeTarget * 1.05) {
+      } else if (cumulative >= m.cumulativeTarget * GOAL_STATUS_THRESHOLDS.AHEAD) {
         status = 'ahead';
-      } else if (cumulative >= m.cumulativeTarget * 0.9) {
+      } else if (cumulative >= m.cumulativeTarget * GOAL_STATUS_THRESHOLDS.ON_TRACK) {
         status = 'on-track';
-      } else if (cumulative >= m.cumulativeTarget * 0.4) {
+      } else if (cumulative >= m.cumulativeTarget * GOAL_STATUS_THRESHOLDS.BEHIND) {
         status = 'behind';
       } else {
         status = 'critical'; // < 40% of target
