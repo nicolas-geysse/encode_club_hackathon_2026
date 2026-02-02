@@ -145,14 +145,15 @@ Plans:
 4. Status colors (ahead/on-track/behind/critical) are consistent across all components
 5. User can understand where each number comes from without referring to documentation
 
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 23-01: TBD
+- [ ] 23-01-PLAN.md — Fix avatar positioning in WeeklyProgressCards (UX-01)
+- [ ] 23-02-PLAN.md — Clarify labels, add tooltips, and chart legend in EarningsChart (UX-02, UX-03, UX-04)
 
 **Key Files**:
-- Modify: `packages/frontend/src/components/WeeklyProgressCards.tsx` (avatar fix, labels)
-- Modify: `packages/frontend/src/components/EarningsChart.tsx` (legend, tooltips)
+- Modify: `packages/frontend/src/components/WeeklyProgressCards.tsx` (avatar fix)
+- Modify: `packages/frontend/src/components/EarningsChart.tsx` (legend, tooltips, labels)
 
 ---
 
@@ -170,4 +171,4 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 | 20. Foundation | v4.0 | 1/1 | Complete | 2026-02-02 |
 | 21. Integration | v4.0 | 4/4 | Complete | 2026-02-02 |
 | 22. Calculation Unification | v4.0 | 2/2 | Complete | 2026-02-02 |
-| 23. UX Polish | v4.0 | 0/TBD | Not started | - |
+| 23. UX Polish | v4.0 | 0/2 | Not started | - |
