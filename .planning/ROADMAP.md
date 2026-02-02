@@ -4,10 +4,35 @@
 
 - ✅ **v2.0 Stride Onboarding** — Phases 1-10 (shipped 2026-01-31)
 - ✅ **v2.1 Bugfixes** — Phases 11-15 (shipped 2026-01-31)
-- ✅ **v3.0 Early Engagement** — Phases 16-17 partial (shipped 2026-02-02)
-- 🚧 **v4.0 Goals Tab Fix** — Phases 20-23 (in progress)
+- ✅ **v3.0 Early Engagement** — Phases 16-17 (shipped 2026-02-02)
+- ✅ **v4.0 Goals Tab Fix** — Phases 20-23 (shipped 2026-02-02)
+- 📋 **v4.1 Job Search Enhancement** — Phases 24+ (planned)
 
 ## Archived Milestones
+
+<details>
+<summary>✅ v4.0 Goals Tab Fix (Phases 20-23) — SHIPPED 2026-02-02</summary>
+
+- [x] Phase 20: Foundation (1/1 plan) — completed 2026-02-02
+- [x] Phase 21: Integration (4/4 plans) — completed 2026-02-02
+- [x] Phase 22: Calculation Unification (2/2 plans) — completed 2026-02-02
+- [x] Phase 23: UX Polish (2/2 plans) — completed 2026-02-02
+
+**Full details:** [milestones/v4.0-ROADMAP.md](milestones/v4.0-ROADMAP.md)
+
+</details>
+
+<details>
+<summary>✅ v3.0 Early Engagement (Phases 16-17) — SHIPPED 2026-02-02</summary>
+
+- [x] Phase 16: Privacy & Consent (3/3 plans) — completed 2026-02-01
+- [x] Phase 17: Real Job Search API (3/3 plans) — completed 2026-02-02
+
+**Deferred to v4.1:**
+- Phase 18: Background Prefetch (PREF-01, PREF-02, PREF-03)
+- Phase 19: Commute & UI (COMM-01, COMM-02, COMM-03)
+
+</details>
 
 <details>
 <summary>✅ v2.1 Bugfixes (Phases 11-15) — SHIPPED 2026-01-31</summary>
@@ -31,129 +56,21 @@
 
 </details>
 
-<details>
-<summary>✅ v3.0 Early Engagement (Phases 16-17) — SHIPPED 2026-02-02</summary>
-
-- [x] Phase 16: Privacy & Consent (3/3 plans) — completed 2026-02-01
-- [x] Phase 17: Real Job Search API (3/3 plans) — completed 2026-02-02
-
-**Deferred to v4.1:**
-- Phase 18: Background Prefetch (PREF-01, PREF-02, PREF-03)
-- Phase 19: Commute & UI (COMM-01, COMM-02, COMM-03)
-
-</details>
-
 ---
 
-## 🚧 v4.0 Goals Tab Fix (In Progress)
+## 📋 v4.1 Job Search Enhancement (Planned)
 
-**Milestone Goal:** Unify the Goals tab calculation systems and fix data consistency issues through architectural refactoring. Two parallel calculation systems (capacity-aware in WeeklyProgressCards, linear in EarningsChart) create user confusion. A centralized hook ensures consistency across all components.
+**Milestone Goal:** Complete job search features deferred from v3.0 — background prefetch, commute time display, and radius slider.
 
-**Reference:** [docs/bugs-dev/goals-fix.md](../docs/bugs-dev/goals-fix.md)
+**Deferred Requirements:**
+- PREF-01: Job search prefetches in background after city/location captured
+- PREF-02: Prefetch does not block onboarding flow
+- PREF-03: User sees "X opportunities near you" message during onboarding
+- COMM-01: Job cards show estimated commute time
+- COMM-02: User can adjust search radius via slider
+- COMM-03: Distance Matrix API batches requests efficiently
 
-### Phase 20: Foundation
-
-**Goal**: Establish typed data structures and hook skeleton that will centralize all goal data orchestration
-
-**Depends on**: Nothing (milestone start)
-
-**Requirements**: ARCH-01, ARCH-02
-
-**Success Criteria** (what must be TRUE):
-1. `EarningEvent` type exists with date, amount, source, weekNumber, and label fields
-2. `useGoalData` hook exists and compiles (even if returning stubs)
-3. Type definitions enable IDE autocompletion for all earnings sources (mission, savings, trade_sale, trade_borrow)
-4. Hook signature accepts goal, profile, and optional simulation parameters
-
-**Plans**: 1 plan
-
-Plans:
-- [x] 20-01-PLAN.md — Create EarningEvent types and useGoalData hook skeleton
-
-**Key Files**:
-- Created: `packages/frontend/src/types/earnings.ts`
-- Created: `packages/frontend/src/hooks/useGoalData.ts` (skeleton)
-
-### Phase 21: Integration
-
-**Goal**: Complete the useGoalData hook with real data fetching and rewire all components to use it as single source of truth
-
-**Depends on**: Phase 20
-
-**Requirements**: ARCH-03, ARCH-04, EARN-01, EARN-02, EARN-03
-
-**Success Criteria** (what must be TRUE):
-1. GoalsTab.tsx is reduced by 200+ lines (data orchestration moved to hook)
-2. WeeklyProgressCards receives data via props instead of fetching internally
-3. EarningsChart receives data via props instead of computing independently
-4. Chart displays monthly savings at correct weeks (based on profile income day)
-5. Chart displays completed trades at their actual completion date
-6. Missions are attributed to correct week (using completedAt with updatedAt fallback)
-
-**Plans**: 4 plans
-
-Plans:
-- [x] 21-01-PLAN.md — Complete useGoalData hook + create earningsAggregator
-- [x] 21-02-PLAN.md — Rewire GoalsTab to use the hook (simplify by 200+ lines)
-- [x] 21-03-PLAN.md — Update WeeklyProgressCards and EarningsChart to be pure display components
-- [x] 21-04-PLAN.md — Gap closure: Wire milestones prop to EarningsChart
-
-**Key Files**:
-- Complete: `packages/frontend/src/hooks/useGoalData.ts`
-- Create: `packages/frontend/src/lib/earningsAggregator.ts`
-- Modify: `packages/frontend/src/components/tabs/GoalsTab.tsx`
-- Modify: `packages/frontend/src/components/WeeklyProgressCards.tsx`
-- Modify: `packages/frontend/src/components/EarningsChart.tsx`
-
-### Phase 22: Calculation Unification
-
-**Goal**: Replace all linear calculations with capacity-aware calculations and ensure consistent status display everywhere
-
-**Depends on**: Phase 21
-
-**Requirements**: CALC-01, CALC-02, CALC-03
-
-**Success Criteria** (what must be TRUE):
-1. "Weekly Need" value is identical in panel and cards (capacity-aware, not linear)
-2. Status thresholds are configurable via GOAL_STATUS_THRESHOLDS constant
-3. Panel and cards show identical status (ahead/on-track/behind/critical)
-4. Changing from linear to capacity-aware does not break existing retroplan data
-
-**Plans**: 2 plans
-
-Plans:
-- [x] 22-01-PLAN.md — Create goalStatus.ts and unify status calculation across components
-- [x] 22-02-PLAN.md — Gap closure: Import GOAL_STATUS_THRESHOLDS in WeeklyProgressCards
-
-**Key Files**:
-- Create: `packages/frontend/src/lib/goalStatus.ts`
-- Modify: `packages/frontend/src/hooks/useGoalData.ts` (add stats computation)
-- Modify: `packages/frontend/src/components/EarningsChart.tsx` (use capacity-aware pace)
-
-### Phase 23: UX Polish
-
-**Goal**: Fix visual issues and improve label clarity so users understand what each value means
-
-**Depends on**: Phase 22
-
-**Requirements**: UX-01, UX-02, UX-03, UX-04
-
-**Success Criteria** (what must be TRUE):
-1. Avatar is fully visible on both desktop and mobile (not cut off)
-2. Labels have tooltips explaining their meaning ("This Week's Target" instead of generic "Weekly Need")
-3. Chart has a legend explaining all lines (target, capacity-pace, projection, actual)
-4. Status colors (ahead/on-track/behind/critical) are consistent across all components
-5. User can understand where each number comes from without referring to documentation
-
-**Plans**: 2 plans
-
-Plans:
-- [x] 23-01-PLAN.md — Fix avatar positioning in WeeklyProgressCards (UX-01)
-- [x] 23-02-PLAN.md — Clarify labels, add tooltips, and chart legend in EarningsChart (UX-02, UX-03, UX-04)
-
-**Key Files**:
-- Modify: `packages/frontend/src/components/WeeklyProgressCards.tsx` (avatar fix)
-- Modify: `packages/frontend/src/components/EarningsChart.tsx` (legend, tooltips, labels)
+**Phases:** TBD (start with `/gsd:new-milestone`)
 
 ---
 

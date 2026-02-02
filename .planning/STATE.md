@@ -4,96 +4,51 @@
 
 See: .planning/PROJECT.md (updated 2026-02-02)
 
-**Core value:** Unified and consistent goal progress display that builds user trust
-**Current focus:** v4.0 Goals Tab Fix — Phase 23 (UX Polish) in progress
+**Core value:** Frictionless onboarding that keeps users in the conversation flow while taking financial planning actions
+**Current focus:** Planning next milestone (v4.1 Job Search Enhancement)
 
 ## Current Position
 
-Phase: 23 of 23 (UX Polish)
-Plan: 2 of 2 complete (23-02 label clarity done)
-Status: Phase complete
-Last activity: 2026-02-02 — Completed 23-02-PLAN.md (EarningsChart label clarity)
+Phase: Ready for next milestone
+Plan: N/A
+Status: v4.0 shipped, awaiting v4.1 planning
+Last activity: 2026-02-02 — v4.0 Goals Tab Fix milestone completed
 
-Progress: [██████████] 100% (v4.0 milestone: 9/8 plans complete - bonus UX polish!)
+Progress: [██████████] 100% (v4.0 shipped)
 
-Next: v4.0 milestone complete - ready for review/ship
+Next: `/gsd:new-milestone` to start v4.1
 
 ## Performance Metrics
 
-**Milestone v4.0 (COMPLETE!):**
-- Plans completed: 9 (20-01, 21-01, 21-02, 21-03, 21-04, 22-01, 22-02, 23-01, 23-02)
+**Milestone v4.0 (SHIPPED 2026-02-02):**
+- Plans completed: 9 (20-01, 21-01 to 21-04, 22-01, 22-02, 23-01, 23-02)
 - Phases completed: 4 (20-foundation, 21-integration, 22-calculation-unification, 23-ux-polish)
-- Status: All plans executed + bonus UX polish
+- Requirements: 14/14 satisfied
+- Archive: milestones/v4.0-ROADMAP.md, milestones/v4.0-REQUIREMENTS.md
 
-**Milestone v3.0:**
+**Milestone v3.0 (SHIPPED 2026-02-02):**
 - Total plans completed: 6 (16-01 to 16-03, 17-01 to 17-03)
 - Total phases: 2 (Phase 16, Phase 17)
-- Execution time: 2026-02-01 to 2026-02-02
 - Status: Shipped (partial — deferred prefetch/commute to v4.1)
 
-**Milestone v2.1:**
+**Milestone v2.1 (SHIPPED 2026-01-31):**
 - Total plans completed: 5
 - Total phases: 5
-- Execution time: 2026-01-31
 
-**Milestone v2.0:**
+**Milestone v2.0 (SHIPPED 2026-01-31):**
 - Total plans completed: 15
 - Total phases: 10
-- Execution time: 2026-01-31
 
 ## Accumulated Context
 
-### Decisions
+### Key Decisions (v4.0)
 
-**v4.0 Milestone Decisions:**
-- `useGoalData` hook pattern for centralized data orchestration (from goals-fix.md review)
-- EarningEvent type with strict date attribution (using completedAt with updatedAt fallback)
-- Configurable status thresholds (avoid hardcoded magic numbers)
-- Avatar inside card for mobile responsiveness (Option C from analysis)
-- Capacity-aware calculations everywhere (replace linear approximations)
-
-**Phase 23-02 Decisions (UX polish - label clarity):**
-- Native HTML title attributes for tooltips (simple, no dependencies)
-- Chart legend uses line samples to match actual chart visualization
-- on-track status uses text-primary to match WeeklyProgressCards
-- Dynamic threshold display from GOAL_STATUS_THRESHOLDS
-
-**Phase 23-01 Decisions (UX polish - avatar fix):**
-- Inside-card pattern: pt-8 conditional padding for current week card
-- Responsive avatar sizing: text-lg md:text-xl
-
-**Phase 22-01 Decisions (calculation unification):**
-- Configurable thresholds: AHEAD=1.05, ON_TRACK=0.90, BEHIND=0.40 matching WeeklyProgressCards
-- cumulativeTarget computed once in stats memo and reused for status/onPace/return
-- EarningsChart stats prop is optional with backward-compatible fallback
-
-**Phase 21-04 Decisions (gap closure):**
-- Extended SimpleMilestone type with cumulativeTarget field for ChartMilestone compatibility
-
-**Phase 21-03 Decisions:**
-- Remove internal fetch from WeeklyProgressCards - receive retroplan via props
-- Add milestones prop to EarningsChart with fallback to linear pace
-- Use props.retroplan directly instead of signal - simpler reactive chain
-
-**Phase 21-02 Decisions:**
-- Replace inline retroplan fetch with hook derivation (cleaner separation)
-- Pass hook retroplan data to WeeklyProgressCards via prop
-- Add chart-format transformation with cumulative totals for EarningsChart
-- Normalize profile accessor (null to undefined) for hook type compatibility
-
-**Phase 21-01 Decisions:**
-- createResource for API data fetching (not createEffect+createSignal)
-- Trades fetched via GET /api/trades (has proper date fields)
-- Mission type mapping: 'trade' -> 'sell' for aggregator compatibility
-
-**Phase 20-01 Decisions:**
-- EarningSource as union type with 5 values (mission, savings, trade_sale, trade_borrow, manual_adjustment)
-- GoalStats interface with capacity-aware weekly target alongside linear comparison
-- Retroplan types defined locally in hook (not shared from API route)
-
-**Previous Decisions (preserved):**
-- Privacy-first approach: Explicit consent screen before location access
-- No raw GPS storage: City name or fuzzy coordinates only
+- `useGoalData` hook pattern for centralized data orchestration
+- EarningEvent type with strict date attribution
+- Configurable GOAL_STATUS_THRESHOLDS constant
+- Avatar inside card for mobile responsiveness
+- Capacity-aware calculations everywhere
+- Native HTML tooltips (no dependencies)
 
 ### Pending Todos
 
@@ -105,27 +60,14 @@ None currently
 
 ### Roadmap Evolution
 
-v2.0 milestone complete (Phases 1-10) — shipped 2026-01-31
-v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
-v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
-v4.0 milestone complete (Phases 20-23) — shipped 2026-02-02
-
-**v4.0 Goals Tab Fix (Phases 20-23): COMPLETE**
-- Phase 20: Foundation (types, hook skeleton) — ARCH-01, ARCH-02 **[COMPLETE]**
-- Phase 21: Integration (hook completion, component rewiring) — ARCH-03, ARCH-04, EARN-01, EARN-02, EARN-03 **[COMPLETE]**
-  - 21-01: useGoalData hook completion **[COMPLETE]**
-  - 21-02: GoalsTab rewiring **[COMPLETE]**
-  - 21-03: Pure display components **[COMPLETE]**
-  - 21-04: Gap closure (milestones prop wiring) **[COMPLETE]**
-- Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03 **[COMPLETE]**
-  - 22-01: Unified status calculation **[COMPLETE]**
-  - 22-02: Gap closure (threshold unification) **[COMPLETE]**
-- Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04 **[COMPLETE]**
-  - 23-01: Avatar positioning fix **[COMPLETE]**
-  - 23-02: EarningsChart label clarity **[COMPLETE]**
+- v2.0 milestone complete (Phases 1-10) — shipped 2026-01-31
+- v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
+- v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
+- v4.0 milestone complete (Phases 20-23) — shipped 2026-02-02
+- v4.1 Job Search Enhancement — planned (prefetch, commute time, radius slider)
 
 ## Session Continuity
 
-Last session: 2026-02-02T18:01:00Z
-Stopped at: Completed 23-02-PLAN.md (EarningsChart label clarity) - v4.0 MILESTONE COMPLETE
+Last session: 2026-02-02T22:00:00Z
+Stopped at: v4.0 milestone completed and archived
 Resume file: None

@@ -1,5 +1,31 @@
 # Project Milestones: Stride Onboarding
 
+## v4.0 Goals Tab Fix (Shipped: 2026-02-02)
+
+**Delivered:** Unified goal progress calculations with centralized data hook, eliminating dual-system confusion
+
+**Phases completed:** 20-23 (9 plans total)
+
+**Key accomplishments:**
+- Created centralized `useGoalData` hook (601 LOC) as single source of truth
+- Built `earningsAggregator` (326 LOC) for unified date-attributed earnings
+- Established `goalStatus.ts` with configurable GOAL_STATUS_THRESHOLDS
+- Unified calculation systems across WeeklyProgressCards and EarningsChart
+- Fixed avatar positioning (no longer cut off on mobile)
+- Added chart clarity with tooltips and visible legend
+
+**Stats:**
+- 13 files modified
+- +1,603 / -859 lines TypeScript
+- 4 phases, 9 plans, 14 requirements
+- 1 day sprint (2026-02-02)
+
+**Git range:** `340349c` → `90b1bdc`
+
+**What's next:** v4.1 with deferred job search features (prefetch, commute time, radius slider)
+
+---
+
 ## v3.0 Early Engagement (Shipped: 2026-02-02)
 
 **Delivered:** Privacy-first location handling and real Google Places API integration for job discovery
