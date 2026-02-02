@@ -96,7 +96,7 @@ Plans:
 - [x] 21-01-PLAN.md — Complete useGoalData hook + create earningsAggregator
 - [x] 21-02-PLAN.md — Rewire GoalsTab to use the hook (simplify by 200+ lines)
 - [x] 21-03-PLAN.md — Update WeeklyProgressCards and EarningsChart to be pure display components
-- [ ] 21-04-PLAN.md — Gap closure: Wire milestones prop to EarningsChart
+- [x] 21-04-PLAN.md — Gap closure: Wire milestones prop to EarningsChart
 
 **Key Files**:
 - Complete: `packages/frontend/src/hooks/useGoalData.ts`
@@ -167,6 +167,6 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 | 16. Privacy & Consent | v3.0 | 3/3 | Complete | 2026-02-01 |
 | 17. Real Job Search API | v3.0 | 3/3 | Complete | 2026-02-02 |
 | 20. Foundation | v4.0 | 1/1 | Complete | 2026-02-02 |
-| 21. Integration | v4.0 | 3/4 | Gap closure | - |
+| 21. Integration | v4.0 | 4/4 | Complete | 2026-02-02 |
 | 22. Calculation Unification | v4.0 | 0/TBD | Not started | - |
 | 23. UX Polish | v4.0 | 0/TBD | Not started | - |
