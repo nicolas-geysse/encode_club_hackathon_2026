@@ -12,6 +12,12 @@ export interface ScrollAreaProps extends ArkScrollArea.RootProps {
   vertical?: boolean;
 }
 
+// Hide native scrollbar styles (required by Ark UI)
+const viewportStyles = `
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+`;
+
 export const ScrollArea: Component<ScrollAreaProps> = (props) => {
   const [local, rest] = splitProps(props, [
     'class',
@@ -47,32 +53,64 @@ export const ScrollArea: Component<ScrollAreaProps> = (props) => {
       <ArkScrollArea.Root class={cn('relative overflow-hidden', local.class)} {...rest}>
         <ArkScrollArea.Viewport
           ref={local.viewportRef}
-          class={cn('h-full w-full rounded-[inherit]', local.viewportClass)}
+          class={cn(
+            'h-full w-full rounded-[inherit]',
+            // Hide native scrollbar with Tailwind utilities
+            '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
+            local.viewportClass
+          )}
+          style={viewportStyles}
         >
           {local.children}
         </ArkScrollArea.Viewport>
 
-        {/* Vertical Scrollbar - minimal style */}
+        {/* Vertical Scrollbar */}
         <Show when={showVertical()}>
           <ArkScrollArea.Scrollbar
             orientation="vertical"
-            class="flex select-none touch-none w-1.5 p-px transition-opacity data-[state=hidden]:opacity-0"
+            class={cn(
+              'absolute right-0 top-0 bottom-0',
+              'flex select-none touch-none',
+              'w-2 p-0.5',
+              'transition-opacity duration-150',
+              'data-[state=hidden]:opacity-0',
+              'bg-transparent'
+            )}
           >
-            <ArkScrollArea.Thumb class="flex-1 rounded-full bg-[#27272A] dark:bg-[#52525B]" />
+            <ArkScrollArea.Thumb
+              class={cn(
+                'relative flex-1 rounded-full',
+                'bg-border/60 hover:bg-border',
+                'transition-colors duration-150'
+              )}
+            />
           </ArkScrollArea.Scrollbar>
         </Show>
 
-        {/* Horizontal Scrollbar - minimal style */}
+        {/* Horizontal Scrollbar */}
         <Show when={showHorizontal()}>
           <ArkScrollArea.Scrollbar
             orientation="horizontal"
-            class="flex select-none touch-none flex-col h-1.5 p-px transition-opacity data-[state=hidden]:opacity-0"
+            class={cn(
+              'absolute left-0 right-0 bottom-0',
+              'flex select-none touch-none flex-col',
+              'h-2 p-0.5',
+              'transition-opacity duration-150',
+              'data-[state=hidden]:opacity-0',
+              'bg-transparent'
+            )}
           >
-            <ArkScrollArea.Thumb class="flex-1 rounded-full bg-[#27272A] dark:bg-[#52525B]" />
+            <ArkScrollArea.Thumb
+              class={cn(
+                'relative flex-1 rounded-full',
+                'bg-border/60 hover:bg-border',
+                'transition-colors duration-150'
+              )}
+            />
           </ArkScrollArea.Scrollbar>
         </Show>
 
-        <ArkScrollArea.Corner />
+        <ArkScrollArea.Corner class="bg-transparent" />
       </ArkScrollArea.Root>
     </Show>
   );

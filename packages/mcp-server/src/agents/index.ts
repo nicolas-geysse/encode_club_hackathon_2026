@@ -96,6 +96,10 @@ export type {
   LocalOpportunity,
 } from './tips-orchestrator.js';
 
+// Daily Briefing Agent
+export { generateDailyBriefing } from './daily-briefing.js';
+export type { DailyBriefingInput, DailyBriefingOutput } from './daily-briefing.js';
+
 // Initialize all tools (must be called before creating agents)
 import './budget-coach.js';
 import './job-matcher.js';
@@ -105,3 +109,4 @@ import './money-maker.js';
 import './strategy-comparator.js';
 import './onboarding-agent.js';
 import './tips-orchestrator.js';
+import './daily-briefing.js';

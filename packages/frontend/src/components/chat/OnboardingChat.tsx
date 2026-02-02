@@ -35,6 +35,7 @@ import { ScrollArea } from '~/components/ui/ScrollArea';
 import OnboardingFormStep from './OnboardingFormStep';
 import PlasmaAvatar from './PlasmaAvatar';
 import { OnboardingTips } from './OnboardingTips';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { hasStepForm } from '~/lib/chat/stepForms';
 import { useSimulation } from '~/lib/simulationContext';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
@@ -258,6 +259,10 @@ export function OnboardingChat() {
   const [locationConsentGiven, setLocationConsentGiven] = createSignal<
     'allowed' | 'declined' | null
   >(null);
+
+  // Restart confirmation state (double confirmation like "Reset all data")
+  const [showRestartConfirm1, setShowRestartConfirm1] = createSignal(false);
+  const [showRestartConfirm2, setShowRestartConfirm2] = createSignal(false);
 
   // Ref for auto-focusing input after response
   let chatInputRef: { focus: () => void } | null = null;
@@ -1704,6 +1709,72 @@ export function OnboardingChat() {
     setThreadId(generateThreadId());
   };
 
+  // Execute restart onboarding (called after double confirmation)
+  const executeRestartOnboarding = async () => {
+    setShowRestartConfirm2(false);
+
+    setProfile({
+      name: undefined,
+      diploma: undefined,
+      field: undefined,
+      city: undefined,
+      skills: [],
+      certifications: [],
+      incomes: [],
+      expenses: [],
+      maxWorkHours: 15,
+      minHourlyRate: 12,
+      hasLoan: false,
+      loanAmount: 0,
+      academicEvents: [],
+      inventoryItems: [],
+      subscriptions: [],
+      tradeOpportunities: [],
+      swipePreferences: {
+        effort_sensitivity: 0.5,
+        hourly_rate_priority: 0.5,
+        time_flexibility: 0.5,
+        income_stability: 0.5,
+      },
+    });
+
+    localStorage.removeItem('studentProfile');
+    localStorage.removeItem('planData');
+    localStorage.removeItem('activeProfileId');
+    localStorage.removeItem('followupData');
+    localStorage.removeItem('achievements');
+
+    const oldProfileId = profileId();
+    if (oldProfileId) {
+      try {
+        await Promise.all([
+          fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
+          fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
+          fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
+          fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
+          fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
+        ]);
+        await Promise.all([
+          refreshSkills(),
+          refreshInventory(),
+          refreshLifestyle(),
+          refreshIncome(),
+        ]);
+      } catch (e) {
+        logger.warn('Failed to clear old data', { error: e });
+      }
+    }
+
+    setThreadId(generateThreadId());
+    setProfileId(undefined);
+    setIsComplete(false);
+    setChatMode('onboarding');
+    setStep('greeting');
+    setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+
+    toast.success('Onboarding restarted', "All your data has been cleared. Let's start fresh!");
+  };
+
   // Update profile from extracted data
   // currentStep is used for smart merging of arrays
   const updateProfileFromExtracted = (
@@ -2708,69 +2779,11 @@ export function OnboardingChat() {
             </div>
 
             <div class="mt-auto p-6 w-full flex items-center justify-center gap-4">
-              {/* Restart Button - Always Visible */}
+              {/* Restart Button - Always Visible (with double confirmation) */}
               <GlassButton
                 class="icon-mode group transform-gpu"
                 title="Restart Onboarding"
-                // eslint-disable-next-line solid/reactivity
-                onClick={async () => {
-                  setProfile({
-                    name: undefined,
-                    diploma: undefined,
-                    field: undefined, // Reset field to get fresh skill suggestions
-                    city: undefined,
-                    skills: [],
-                    certifications: [],
-                    incomes: [],
-                    expenses: [],
-                    maxWorkHours: 15,
-                    minHourlyRate: 12,
-                    hasLoan: false,
-                    loanAmount: 0,
-                    academicEvents: [],
-                    inventoryItems: [],
-                    subscriptions: [],
-                    tradeOpportunities: [],
-                    swipePreferences: {
-                      effort_sensitivity: 0.5,
-                      hourly_rate_priority: 0.5,
-                      time_flexibility: 0.5,
-                      income_stability: 0.5,
-                    },
-                  });
-                  localStorage.removeItem('studentProfile');
-                  localStorage.removeItem('planData');
-                  localStorage.removeItem('activeProfileId');
-                  localStorage.removeItem('followupData');
-                  localStorage.removeItem('achievements');
-
-                  const oldProfileId = profileId();
-                  if (oldProfileId) {
-                    try {
-                      await Promise.all([
-                        fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                        fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
-                      ]);
-                      await Promise.all([
-                        refreshSkills(),
-                        refreshInventory(),
-                        refreshLifestyle(),
-                        refreshIncome(),
-                      ]);
-                    } catch (e) {
-                      logger.warn('Failed to clear old data', { error: e });
-                    }
-                  }
-                  setThreadId(generateThreadId());
-                  setProfileId(undefined);
-                  setIsComplete(false);
-                  setChatMode('onboarding');
-                  setStep('greeting');
-                  setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
-                }}
+                onClick={() => setShowRestartConfirm1(true)}
               >
                 <Repeat class="h-6 w-6 text-muted-foreground group-hover:text-primary group-hover:rotate-180 transition-all duration-500" />
               </GlassButton>
@@ -2908,6 +2921,31 @@ export function OnboardingChat() {
           </div>
         </div>
       </div>
+
+      {/* Restart Confirmation Step 1 */}
+      <ConfirmDialog
+        isOpen={showRestartConfirm1()}
+        title="⚠️ Restart onboarding?"
+        message="This will delete all your profile data and start fresh. You'll need to re-enter all your information."
+        confirmLabel="Continue"
+        variant="warning"
+        onConfirm={() => {
+          setShowRestartConfirm1(false);
+          setShowRestartConfirm2(true);
+        }}
+        onCancel={() => setShowRestartConfirm1(false)}
+      />
+
+      {/* Restart Confirmation Step 2 */}
+      <ConfirmDialog
+        isOpen={showRestartConfirm2()}
+        title="🗑️ Are you absolutely sure?"
+        message="This action cannot be undone. All your goals, skills, budget data, and progress will be permanently deleted."
+        confirmLabel="Yes, Delete Everything"
+        variant="danger"
+        onConfirm={executeRestartOnboarding}
+        onCancel={() => setShowRestartConfirm2(false)}
+      />
     </>
   );
 }
