@@ -327,6 +327,7 @@ export function useGoalData(
         profileId: p.id,
         hourlyRate: p.minHourlyRate || 15,
         monthlyMargin: p.monthlyMargin || 0,
+        availableHoursPerWeek: p.maxWorkHoursWeekly, // User's configured available hours
         goalStartDate: g.createdAt,
         simulatedDate: simDate?.toISOString(),
         totalEarned, // Pass to API for feasibility calculation
@@ -347,6 +348,7 @@ export function useGoalData(
           deadline: params.deadline,
           hourlyRate: params.hourlyRate,
           monthlyMargin: params.monthlyMargin,
+          availableHoursPerWeek: params.availableHoursPerWeek,
           goalStartDate: params.goalStartDate,
           simulatedDate: params.simulatedDate,
           totalEarned: params.totalEarned, // For accurate feasibility

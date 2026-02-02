@@ -49,11 +49,9 @@ import {
   RotateCcw,
 } from 'lucide-solid';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
-import { WhatIfSimulator } from '~/components/WhatIfSimulator';
 import { WeeklyProgressCards } from '~/components/WeeklyProgressCards';
 import { EarningsChart } from '~/components/EarningsChart';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
-import { FlaskConical } from 'lucide-solid';
 import GoalComponentsList from '~/components/GoalComponentsList';
 import type { Mission } from '~/components/suivi/MissionCard';
 import {
@@ -428,9 +426,6 @@ export function GoalsTab(props: GoalsTabProps) {
 
   // Retroplan panel state
   const [showRetroplan, setShowRetroplan] = createSignal<Goal | null>(null);
-
-  // What-If Simulator state
-  const [showWhatIf, setShowWhatIf] = createSignal(false);
 
   // Savings adjustment modal state
   const [showSavingsAdjust, setShowSavingsAdjust] = createSignal(false);
@@ -966,14 +961,6 @@ export function GoalsTab(props: GoalsTabProps) {
           <Button onClick={openNewGoalForm}>
             <Plus class="h-4 w-4 mr-2" /> New Goal
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowWhatIf(true)}
-            class="border-purple-500/30 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
-          >
-            <FlaskConical class="h-4 w-4 mr-2" /> What-If
-          </Button>
         </Show>
       </div>
 
@@ -1263,16 +1250,6 @@ export function GoalsTab(props: GoalsTabProps) {
                           </div>
                         </Show>
 
-                        {/* Progress Bar (includes one-time gains) */}
-                        <div>
-                          <div class="h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
-                            <div
-                              class="h-full bg-gradient-to-r from-primary-400 to-primary-600 transition-all duration-500"
-                              style={{ width: `${adjustedProgress(goal())}%` }}
-                            />
-                          </div>
-                        </div>
-
                         {/* Goal Components */}
                         <Show when={(goal().components?.length ?? 0) > 0}>
                           <div class="border-t border-border pt-4">
@@ -1452,20 +1429,6 @@ export function GoalsTab(props: GoalsTabProps) {
             </div>
           );
         }}
-      </Show>
-
-      {/* What-If Simulator Modal */}
-      <Show when={showWhatIf() && profile()}>
-        <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div class="w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <WhatIfSimulator
-              profile={profile()!}
-              currency={currency()}
-              onClose={() => setShowWhatIf(false)}
-              onSimulationCreated={() => setShowWhatIf(false)}
-            />
-          </div>
-        </div>
       </Show>
 
       {/* Empty State / New Goal Form */}

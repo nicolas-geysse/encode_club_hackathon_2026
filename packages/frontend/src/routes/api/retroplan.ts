@@ -255,7 +255,9 @@ async function calculateWeekCapacity(
   // Optional: pass pre-fetched data to avoid repeated DB queries in loops
   prefetchedEvents?: AcademicEvent[],
   prefetchedCommitments?: Commitment[],
-  prefetchedEnergyLogs?: EnergyLog[]
+  prefetchedEnergyLogs?: EnergyLog[],
+  // User's configured max work hours per week (undefined = use default calculation)
+  availableHoursPerWeek?: number
 ): Promise<WeekCapacity> {
   // Sprint 13.18 Fix: Use date-only comparison to avoid timezone issues
   // When comparing dates, we only care about the calendar day, not the time.
@@ -356,8 +358,14 @@ async function calculateWeekCapacity(
   const energyMultiplier = 0.6 + ((avgEnergy + avgMood + (6 - avgStress)) / 15) * 0.8;
 
   // Calculate hours
+  // If user has configured availableHoursPerWeek, use that as the starting point
+  // Otherwise, calculate from: 168h (week) - 56h (sleep) - 21h (personal buffer) = 91h max free time
   const totalCommitmentHours = commitments.reduce((sum, c) => sum + c.hoursPerWeek, 0);
-  const baseHours = Math.max(0, 168 - 56 - totalCommitmentHours - 21);
+  const defaultMaxFreeHours = 168 - 56 - 21; // ~91h of theoretically available time
+  const userAvailableHours = availableHoursPerWeek ?? defaultMaxFreeHours;
+  // Subtract commitments from available hours (but not more than available)
+  const baseHours = Math.max(0, userAvailableHours - totalCommitmentHours);
+  // Apply multipliers and conversion factor (0.3 = only 30% of time can realistically be worked)
   const effectiveHours = Math.round(baseHours * academicMultiplier * energyMultiplier * 0.3);
 
   // Calculate earning potential (hours × hourly rate)
@@ -398,7 +406,8 @@ async function generateRetroplanForGoal(
   simulatedDate?: Date, // Sprint 13.8 Fix: Accept simulated date for testing
   goalStartDate?: Date, // Bug 2 Fix: Accept goal start date for historical weeks
   monthlyMargin?: number, // Sprint 13.7: Add margin-based capacity factor
-  totalEarned: number = 0 // Sprint 13.21: Progress already made toward goal
+  totalEarned: number = 0, // Sprint 13.21: Progress already made toward goal
+  availableHoursPerWeek?: number // User's configured max work hours per week
 ): Promise<Retroplan> {
   const deadlineDate = new Date(deadline);
   // Sprint 13.8 Fix: Use simulated date if provided, otherwise use real time
@@ -444,7 +453,8 @@ async function generateRetroplanForGoal(
       hourlyRate,
       prefetchedEvents,
       prefetchedCommitments,
-      prefetchedEnergyLogs
+      prefetchedEnergyLogs,
+      availableHoursPerWeek
     );
     capacity.weekNumber = week;
     weekCapacities.push(capacity);
@@ -959,6 +969,7 @@ export async function POST(event: APIEvent) {
           deadline,
           academicEvents,
           hourlyRate,
+          availableHoursPerWeek, // User's configured max work hours per week
           simulatedDate,
           goalStartDate,
           monthlyMargin,
@@ -1012,6 +1023,9 @@ export async function POST(event: APIEvent) {
         const effectiveSimulatedDate = simulatedDate ? new Date(simulatedDate) : undefined;
         // Bug 2 Fix: Parse goal start date if provided
         const effectiveGoalStartDate = goalStartDate ? new Date(goalStartDate) : undefined;
+        // User's configured available hours (undefined = use default calculation)
+        const effectiveAvailableHours =
+          availableHoursPerWeek && availableHoursPerWeek > 0 ? availableHoursPerWeek : undefined;
         // Sprint 13.7: Pass monthlyMargin for margin-based feasibility
         // Sprint 13.21: Pass totalEarned for accurate remaining-goal feasibility
         const retroplan = await generateRetroplanForGoal(
@@ -1023,7 +1037,8 @@ export async function POST(event: APIEvent) {
           effectiveSimulatedDate,
           effectiveGoalStartDate,
           monthlyMargin,
-          totalEarned
+          totalEarned,
+          effectiveAvailableHours
         );
 
         return new Response(JSON.stringify({ success: true, retroplan }), {
