@@ -43,6 +43,16 @@ interface WeeklyEarning {
   cumulative: number;
 }
 
+/**
+ * Capacity-aware milestone for chart pace calculation
+ * When provided, uses non-linear targets based on weekly capacity
+ */
+interface ChartMilestone {
+  week: number;
+  adjustedTarget: number;
+  cumulativeTarget: number;
+}
+
 interface EarningsChartProps {
   goal: Goal;
   /** Weekly earnings data (if available) */
@@ -54,6 +64,8 @@ interface EarningsChartProps {
   compact?: boolean;
   /** Capacity-adjusted weekly target (from retroplan) */
   adjustedWeeklyTarget?: number;
+  /** v4.0: Capacity-aware milestones from retroplan for non-linear pace line */
+  milestones?: ChartMilestone[];
 }
 
 export function EarningsChart(props: EarningsChartProps) {
@@ -93,9 +105,28 @@ export function EarningsChart(props: EarningsChartProps) {
     for (let i = 0; i <= weeksCount; i++) {
       labels.push(i === 0 ? 'Now' : `W${i}`);
 
-      // Required pace line (linear to goal)
-      const requiredCumulative = Math.min(goalAmount, currentSaved + weeklyRequired * i);
-      requiredPace.push(Math.round(requiredCumulative));
+      // Required pace line: use capacity-aware milestones if provided, else linear
+      if (props.milestones && props.milestones.length > 0) {
+        // v4.0: Capacity-aware pace from milestones
+        // Find milestone for week i (milestones are 1-indexed)
+        const milestone = props.milestones.find((m) => m.week === i);
+        if (milestone) {
+          requiredPace.push(Math.min(goalAmount, Math.round(milestone.cumulativeTarget)));
+        } else if (i === 0) {
+          // Week 0 = current savings
+          requiredPace.push(currentSaved);
+        } else {
+          // Week beyond milestones - use last milestone or cap at goal
+          const lastMilestone = props.milestones[props.milestones.length - 1];
+          requiredPace.push(
+            Math.min(goalAmount, Math.round(lastMilestone?.cumulativeTarget ?? goalAmount))
+          );
+        }
+      } else {
+        // Fallback: linear pace (existing behavior)
+        const requiredCumulative = Math.min(goalAmount, currentSaved + weeklyRequired * i);
+        requiredPace.push(Math.round(requiredCumulative));
+      }
 
       // Projected at current rate
       const projectedCumulative = Math.min(goalAmount * 1.2, currentSaved + currentWeeklyRate * i);
