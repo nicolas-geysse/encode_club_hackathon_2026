@@ -400,21 +400,20 @@ export function EarningsChart(props: EarningsChartProps) {
       {/* Stats summary */}
       <Show when={!props.compact}>
         <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="bg-muted/50 rounded-lg p-2">
-            <p class="text-[10px] text-muted-foreground uppercase">Saved</p>
+          <div
+            class="bg-muted/50 rounded-lg p-2"
+            title="Sum of all your income sources toward this goal (missions, savings, sales)"
+          >
+            <p class="text-[10px] text-muted-foreground uppercase">Total Earned</p>
             <p class="text-sm font-bold text-green-600 dark:text-green-400">
               {formatCurrency(stats().currentSaved, currency())}
             </p>
           </div>
           <div
             class="bg-muted/50 rounded-lg p-2"
-            title={
-              props.adjustedWeeklyTarget
-                ? 'Linear average vs capacity-adjusted target'
-                : 'Linear average to reach goal'
-            }
+            title="Amount adjusted based on your availability this week (capacity-aware calculation)"
           >
-            <p class="text-[10px] text-muted-foreground uppercase">Weekly Need</p>
+            <p class="text-[10px] text-muted-foreground uppercase">This Week's Target</p>
             <p class="text-sm font-bold text-amber-600 dark:text-amber-400">
               {formatCurrency(Math.round(stats().weeklyRequired), currency())}
               <Show
@@ -437,7 +436,10 @@ export function EarningsChart(props: EarningsChartProps) {
               </p>
             </Show>
           </div>
-          <div class="bg-muted/50 rounded-lg p-2">
+          <div
+            class="bg-muted/50 rounded-lg p-2"
+            title="Based on cumulative progress: Ahead (105%+), On Track (90%+), Behind (40%+), Critical (<40%)"
+          >
             <p class="text-[10px] text-muted-foreground uppercase">Status</p>
             <p
               class={`text-sm font-bold ${
@@ -458,8 +460,11 @@ export function EarningsChart(props: EarningsChartProps) {
                     ? '⚠ Behind'
                     : '🔴 Critical'}
             </p>
-            <p class="text-[9px] text-muted-foreground mt-0.5">
-              {stats().weeksToGoal ? `~${stats().weeksToGoal}w remaining` : ''}
+            <p
+              class="text-[9px] text-muted-foreground mt-0.5"
+              title="Estimate based on your current earning rate"
+            >
+              {stats().weeksToGoal ? `Est. ${stats().weeksToGoal} weeks` : ''}
             </p>
           </div>
         </div>
