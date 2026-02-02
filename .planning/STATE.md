@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 22 of 23 (Calculation Unification)
-Plan: 1 of 1 complete (Phase 22 complete!)
+Plan: 2 of 2 complete (Phase 22 complete with gap closure!)
 Status: Phase complete
-Last activity: 2026-02-02 — Completed 22-01-PLAN.md (calculation unification)
+Last activity: 2026-02-02 — Completed 22-02-PLAN.md (gap closure - threshold unification)
 
-Progress: [███████░░░] 70% (v4.0 milestone: 6/7 plans complete)
+Progress: [████████░░] 80% (v4.0 milestone: 7/8 plans complete)
 
 Next: 23-01-PLAN.md (UX Polish)
 
 ## Performance Metrics
 
 **Milestone v4.0 (in progress):**
-- Plans completed: 6 (20-01, 21-01, 21-02, 21-03, 21-04, 22-01)
-- Current phase: 22 (Calculation Unification) - COMPLETE
+- Plans completed: 7 (20-01, 21-01, 21-02, 21-03, 21-04, 22-01, 22-02)
+- Current phase: 22 (Calculation Unification) - COMPLETE (including gap closure)
 
 **Milestone v3.0:**
 - Total plans completed: 6 (16-01 to 16-03, 17-01 to 17-03)
@@ -107,10 +107,11 @@ v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
   - 21-04: Gap closure (milestones prop wiring) **[COMPLETE]**
 - Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03 **[COMPLETE]**
   - 22-01: Unified status calculation **[COMPLETE]**
+  - 22-02: Gap closure (threshold unification) **[COMPLETE]**
 - Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04
 
 ## Session Continuity
 
-Last session: 2026-02-02T17:22:07Z
-Stopped at: Completed 22-01-PLAN.md (calculation unification)
+Last session: 2026-02-02T17:35:00Z
+Stopped at: Completed 22-02-PLAN.md (gap closure - threshold unification)
 Resume file: None
