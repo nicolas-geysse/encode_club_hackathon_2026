@@ -10,19 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 21 of 23 (Integration)
-Plan: — (phase not yet planned)
-Status: Ready to plan
-Last activity: 2026-02-02 — Phase 20 Foundation complete, verified
+Plan: 1 of 3 complete (21-01 done, 21-02 and 21-03 remaining)
+Status: In progress
+Last activity: 2026-02-02 — Completed 21-01-PLAN.md
 
-Progress: [██░░░░░░░░] 25% (v4.0 milestone: 1/4 phases complete)
+Progress: [███░░░░░░░] 35% (v4.0 milestone: 2/7 plans complete)
 
-Next: `/gsd:plan-phase 21`
+Next: 21-02-PLAN.md (Wave 1 parallel)
 
 ## Performance Metrics
 
 **Milestone v4.0 (in progress):**
-- Plans completed: 1 (20-01)
-- Current phase: 20 (Foundation) - complete
+- Plans completed: 2 (20-01, 21-01)
+- Current phase: 21 (Integration) - in progress
 
 **Milestone v3.0:**
 - Total plans completed: 6 (16-01 to 16-03, 17-01 to 17-03)
@@ -51,6 +51,11 @@ Next: `/gsd:plan-phase 21`
 - Avatar inside card for mobile responsiveness (Option C from analysis)
 - Capacity-aware calculations everywhere (replace linear approximations)
 
+**Phase 21-01 Decisions:**
+- createResource for API data fetching (not createEffect+createSignal)
+- Trades fetched via GET /api/trades (has proper date fields)
+- Mission type mapping: 'trade' -> 'sell' for aggregator compatibility
+
 **Phase 20-01 Decisions:**
 - EarningSource as union type with 5 values (mission, savings, trade_sale, trade_borrow, manual_adjustment)
 - GoalStats interface with capacity-aware weekly target alongside linear comparison
@@ -77,11 +82,14 @@ v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
 **v4.0 Goals Tab Fix (Phases 20-23):**
 - Phase 20: Foundation (types, hook skeleton) — ARCH-01, ARCH-02 **[COMPLETE]**
 - Phase 21: Integration (hook completion, component rewiring) — ARCH-03, ARCH-04, EARN-01, EARN-02, EARN-03
+  - 21-01: useGoalData hook completion **[COMPLETE]**
+  - 21-02: GoalsTab rewiring (pending)
+  - 21-03: EarningsChart integration (pending)
 - Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03
 - Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04
 
 ## Session Continuity
 
-Last session: 2026-02-02
-Stopped at: Phase 20 Foundation complete, verified
+Last session: 2026-02-02T16:34:50Z
+Stopped at: Completed 21-01-PLAN.md
 Resume file: None
