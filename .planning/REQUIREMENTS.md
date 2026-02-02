@@ -12,20 +12,20 @@ Requirements for Goals Tab Fix milestone. Derived from comprehensive analysis in
 
 - [x] **ARCH-01**: `useGoalData` hook centralizes all goal data fetching and computation
 - [x] **ARCH-02**: `EarningEvent` type with strict date attribution (date, amount, source, weekNumber)
-- [ ] **ARCH-03**: GoalsTab reduced by 200+ lines through hook extraction
-- [ ] **ARCH-04**: WeeklyProgressCards and EarningsChart become pure display components
+- [x] **ARCH-03**: GoalsTab reduced by 200+ lines through hook extraction
+- [x] **ARCH-04**: WeeklyProgressCards and EarningsChart become pure display components
 
 ### Calculation Unification
 
-- [ ] **CALC-01**: Weekly Need uses capacity-aware calculation everywhere (not linear)
-- [ ] **CALC-02**: Status calculation uses configurable thresholds (GOAL_STATUS_THRESHOLDS)
-- [ ] **CALC-03**: Both panel and cards show identical status (ahead/on-track/behind/critical)
+- [x] **CALC-01**: Weekly Need uses capacity-aware calculation everywhere (not linear)
+- [x] **CALC-02**: Status calculation uses configurable thresholds (GOAL_STATUS_THRESHOLDS)
+- [x] **CALC-03**: Both panel and cards show identical status (ahead/on-track/behind/critical)
 
 ### Earnings Aggregation
 
-- [ ] **EARN-01**: Chart displays monthly savings at correct weeks (based on income day)
-- [ ] **EARN-02**: Chart displays completed trades at their completion date
-- [ ] **EARN-03**: Missions attributed to correct week (using completedAt with updatedAt fallback)
+- [x] **EARN-01**: Chart displays monthly savings at correct weeks (based on income day)
+- [x] **EARN-02**: Chart displays completed trades at their completion date
+- [x] **EARN-03**: Missions attributed to correct week (using completedAt with updatedAt fallback)
 
 ### UX Polish
 
@@ -73,14 +73,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | ARCH-01 | Phase 20 | Complete |
 | ARCH-02 | Phase 20 | Complete |
-| ARCH-03 | Phase 21 | Pending |
-| ARCH-04 | Phase 21 | Pending |
-| EARN-01 | Phase 21 | Pending |
-| EARN-02 | Phase 21 | Pending |
-| EARN-03 | Phase 21 | Pending |
-| CALC-01 | Phase 22 | Pending |
-| CALC-02 | Phase 22 | Pending |
-| CALC-03 | Phase 22 | Pending |
+| ARCH-03 | Phase 21 | Complete |
+| ARCH-04 | Phase 21 | Complete |
+| EARN-01 | Phase 21 | Complete |
+| EARN-02 | Phase 21 | Complete |
+| EARN-03 | Phase 21 | Complete |
+| CALC-01 | Phase 22 | Complete |
+| CALC-02 | Phase 22 | Complete |
+| CALC-03 | Phase 22 | Complete |
 | UX-01 | Phase 23 | Pending |
 | UX-02 | Phase 23 | Pending |
 | UX-03 | Phase 23 | Pending |
@@ -93,4 +93,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-02*
-*Traceability updated: 2026-02-02 after Phase 20 completion*
+*Traceability updated: 2026-02-02 after Phase 22 completion*

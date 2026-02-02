@@ -119,10 +119,11 @@ Plans:
 3. Panel and cards show identical status (ahead/on-track/behind/critical)
 4. Changing from linear to capacity-aware does not break existing retroplan data
 
-**Plans**: 1 plan
+**Plans**: 2 plans
 
 Plans:
-- [ ] 22-01-PLAN.md — Create goalStatus.ts and unify status calculation across components
+- [x] 22-01-PLAN.md — Create goalStatus.ts and unify status calculation across components
+- [x] 22-02-PLAN.md — Gap closure: Import GOAL_STATUS_THRESHOLDS in WeeklyProgressCards
 
 **Key Files**:
 - Create: `packages/frontend/src/lib/goalStatus.ts`
@@ -168,5 +169,5 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 | 17. Real Job Search API | v3.0 | 3/3 | Complete | 2026-02-02 |
 | 20. Foundation | v4.0 | 1/1 | Complete | 2026-02-02 |
 | 21. Integration | v4.0 | 4/4 | Complete | 2026-02-02 |
-| 22. Calculation Unification | v4.0 | 0/1 | Not started | - |
+| 22. Calculation Unification | v4.0 | 2/2 | Complete | 2026-02-02 |
 | 23. UX Polish | v4.0 | 0/TBD | Not started | - |
