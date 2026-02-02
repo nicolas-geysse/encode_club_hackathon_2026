@@ -29,10 +29,10 @@ Requirements for Goals Tab Fix milestone. Derived from comprehensive analysis in
 
 ### UX Polish
 
-- [ ] **UX-01**: Avatar not cut off (inside card approach for mobile responsiveness)
-- [ ] **UX-02**: Labels clarified with tooltips ("This Week's Target" vs generic "Weekly Need")
-- [ ] **UX-03**: Graph legend explains all lines (target, capacity-pace, projection, actual)
-- [ ] **UX-04**: Consistent color coding for status across all components
+- [x] **UX-01**: Avatar not cut off (inside card approach for mobile responsiveness)
+- [x] **UX-02**: Labels clarified with tooltips ("This Week's Target" vs generic "Weekly Need")
+- [x] **UX-03**: Graph legend explains all lines (target, capacity-pace, projection, actual)
+- [x] **UX-04**: Consistent color coding for status across all components
 
 ## Future Requirements
 
@@ -81,10 +81,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CALC-01 | Phase 22 | Complete |
 | CALC-02 | Phase 22 | Complete |
 | CALC-03 | Phase 22 | Complete |
-| UX-01 | Phase 23 | Pending |
-| UX-02 | Phase 23 | Pending |
-| UX-03 | Phase 23 | Pending |
-| UX-04 | Phase 23 | Pending |
+| UX-01 | Phase 23 | Complete |
+| UX-02 | Phase 23 | Complete |
+| UX-03 | Phase 23 | Complete |
+| UX-04 | Phase 23 | Complete |
 
 **Coverage:**
 - v4.0 requirements: 14 total
@@ -93,4 +93,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-02*
-*Traceability updated: 2026-02-02 after Phase 22 completion*
+*Traceability updated: 2026-02-02 after Phase 23 completion*

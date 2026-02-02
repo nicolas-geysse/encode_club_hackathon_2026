@@ -120,7 +120,7 @@ v4.0 milestone complete (Phases 20-23) — shipped 2026-02-02
 - Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03 **[COMPLETE]**
   - 22-01: Unified status calculation **[COMPLETE]**
   - 22-02: Gap closure (threshold unification) **[COMPLETE]**
-- Phase 23: UX Polish — UX-01, UX-02 **[COMPLETE]**
+- Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04 **[COMPLETE]**
   - 23-01: Avatar positioning fix **[COMPLETE]**
   - 23-02: EarningsChart label clarity **[COMPLETE]**
 
