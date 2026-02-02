@@ -1310,6 +1310,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                 }
                                 weeklyEarnings={chartWeeklyEarnings()}
                                 milestones={goalData.milestones()}
+                                stats={goalData.stats()}
                               />
                             )}
                           </Show>

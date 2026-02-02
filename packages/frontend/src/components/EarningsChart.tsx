@@ -53,6 +53,21 @@ interface ChartMilestone {
   cumulativeTarget: number;
 }
 
+/**
+ * v4.0 Phase 22: Unified stats from useGoalData hook
+ * When provided, EarningsChart uses these values instead of internal calculations
+ */
+interface UnifiedStats {
+  totalEarned: number;
+  weeklyTarget: number;
+  linearWeeklyNeed: number;
+  cumulativeTarget: number;
+  status: 'ahead' | 'on-track' | 'behind' | 'critical';
+  weeksRemaining: number;
+  percentComplete: number;
+  onPace: boolean;
+}
+
 interface EarningsChartProps {
   goal: Goal;
   /** Weekly earnings data (if available) */
@@ -66,6 +81,8 @@ interface EarningsChartProps {
   adjustedWeeklyTarget?: number;
   /** v4.0: Capacity-aware milestones from retroplan for non-linear pace line */
   milestones?: ChartMilestone[];
+  /** v4.0 Phase 22: Unified stats from useGoalData hook */
+  stats?: UnifiedStats;
 }
 
 export function EarningsChart(props: EarningsChartProps) {
@@ -336,8 +353,28 @@ export function EarningsChart(props: EarningsChartProps) {
     destroyExistingChart();
   });
 
-  // Calculate summary stats
+  // Calculate summary stats - prefer unified stats from hook if provided
   const stats = createMemo(() => {
+    // Phase 22: Use unified stats from hook if available
+    if (props.stats) {
+      const weeksToGoal =
+        props.stats.onPace && props.stats.weeklyTarget > 0
+          ? Math.ceil((props.goal.amount - props.stats.totalEarned) / props.stats.weeklyTarget)
+          : null;
+
+      return {
+        currentSaved: props.stats.totalEarned,
+        goalAmount: props.goal.amount,
+        weeklyRequired: props.stats.weeklyTarget, // Use capacity-aware target, not linear
+        currentWeeklyRate: props.stats.weeklyTarget,
+        onPace: props.stats.onPace,
+        percentComplete: props.stats.percentComplete,
+        weeksToGoal,
+        totalWeeks: props.stats.weeksRemaining,
+      };
+    }
+
+    // Fallback to internal calculation (backward compatibility)
     const data = generateChartData();
     const onPace = data.currentWeeklyRate >= data.weeklyRequired * 0.9;
     const percentComplete = Math.round((data.currentSaved / data.goalAmount) * 100);
@@ -403,9 +440,23 @@ export function EarningsChart(props: EarningsChartProps) {
           <div class="bg-muted/50 rounded-lg p-2">
             <p class="text-[10px] text-muted-foreground uppercase">Status</p>
             <p
-              class={`text-sm font-bold ${stats().onPace ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+              class={`text-sm font-bold ${
+                props.stats?.status === 'ahead' || stats().onPace
+                  ? 'text-green-600 dark:text-green-400'
+                  : props.stats?.status === 'critical'
+                    ? 'text-red-600 dark:text-red-400'
+                    : props.stats?.status === 'behind'
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-red-600 dark:text-red-400'
+              }`}
             >
-              {stats().onPace ? '✓ On Track' : '⚠ Behind'}
+              {props.stats?.status === 'ahead'
+                ? '🚀 Ahead'
+                : props.stats?.status === 'on-track' || stats().onPace
+                  ? '✓ On Track'
+                  : props.stats?.status === 'behind'
+                    ? '⚠ Behind'
+                    : '🔴 Critical'}
             </p>
             <p class="text-[9px] text-muted-foreground mt-0.5">
               {stats().weeksToGoal ? `~${stats().weeksToGoal}w remaining` : ''}
