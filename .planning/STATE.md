@@ -10,15 +10,19 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 20 of 23 (Foundation)
-Plan: — (phase not yet planned)
-Status: Ready to plan
-Last activity: 2026-02-02 — Roadmap created for v4.0 milestone
+Plan: 01 of 01
+Status: Plan complete
+Last activity: 2026-02-02 — Completed 20-01-PLAN.md (Foundation types and hook skeleton)
 
-Progress: [░░░░░░░░░░] 0% (v4.0 milestone: 0/TBD plans)
+Progress: [██░░░░░░░░] 25% (v4.0 milestone: 1/4 phases)
 
-Next: `/gsd:plan-phase 20`
+Next: `/gsd:plan-phase 21`
 
 ## Performance Metrics
+
+**Milestone v4.0 (in progress):**
+- Plans completed: 1 (20-01)
+- Current phase: 20 (Foundation) - complete
 
 **Milestone v3.0:**
 - Total plans completed: 6 (16-01 to 16-03, 17-01 to 17-03)
@@ -47,6 +51,11 @@ Next: `/gsd:plan-phase 20`
 - Avatar inside card for mobile responsiveness (Option C from analysis)
 - Capacity-aware calculations everywhere (replace linear approximations)
 
+**Phase 20-01 Decisions:**
+- EarningSource as union type with 5 values (mission, savings, trade_sale, trade_borrow, manual_adjustment)
+- GoalStats interface with capacity-aware weekly target alongside linear comparison
+- Retroplan types defined locally in hook (not shared from API route)
+
 **Previous Decisions (preserved):**
 - Privacy-first approach: Explicit consent screen before location access
 - No raw GPS storage: City name or fuzzy coordinates only
@@ -66,13 +75,13 @@ v2.1 milestone complete (Phases 11-15) — shipped 2026-01-31
 v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
 
 **v4.0 Goals Tab Fix (Phases 20-23):**
-- Phase 20: Foundation (types, hook skeleton) — ARCH-01, ARCH-02
+- Phase 20: Foundation (types, hook skeleton) — ARCH-01, ARCH-02 **[COMPLETE]**
 - Phase 21: Integration (hook completion, component rewiring) — ARCH-03, ARCH-04, EARN-01, EARN-02, EARN-03
 - Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03
 - Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04
 
 ## Session Continuity
 
-Last session: 2026-02-02
-Stopped at: Roadmap created for v4.0 Goals Tab Fix milestone
+Last session: 2026-02-02T15:48:40Z
+Stopped at: Completed 20-01-PLAN.md
 Resume file: None
