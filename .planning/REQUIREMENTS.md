@@ -10,8 +10,8 @@ Requirements for Goals Tab Fix milestone. Derived from comprehensive analysis in
 
 ### Data Architecture
 
-- [ ] **ARCH-01**: `useGoalData` hook centralizes all goal data fetching and computation
-- [ ] **ARCH-02**: `EarningEvent` type with strict date attribution (date, amount, source, weekNumber)
+- [x] **ARCH-01**: `useGoalData` hook centralizes all goal data fetching and computation
+- [x] **ARCH-02**: `EarningEvent` type with strict date attribution (date, amount, source, weekNumber)
 - [ ] **ARCH-03**: GoalsTab reduced by 200+ lines through hook extraction
 - [ ] **ARCH-04**: WeeklyProgressCards and EarningsChart become pure display components
 
@@ -71,8 +71,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | Phase 20 | Pending |
-| ARCH-02 | Phase 20 | Pending |
+| ARCH-01 | Phase 20 | Complete |
+| ARCH-02 | Phase 20 | Complete |
 | ARCH-03 | Phase 21 | Pending |
 | ARCH-04 | Phase 21 | Pending |
 | EARN-01 | Phase 21 | Pending |
@@ -93,4 +93,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-02*
-*Traceability updated: 2026-02-02 after roadmap creation*
+*Traceability updated: 2026-02-02 after Phase 20 completion*
