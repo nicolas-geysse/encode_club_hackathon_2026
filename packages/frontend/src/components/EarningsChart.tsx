@@ -475,6 +475,30 @@ export function EarningsChart(props: EarningsChartProps) {
         <canvas ref={canvasRef} />
       </div>
 
+      {/* Chart Legend */}
+      <Show when={!props.compact}>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground mt-2 pt-2 border-t border-border/50">
+          <span class="flex items-center gap-1">
+            <span class="inline-block w-4 h-0.5 bg-red-500" style={{ 'border-style': 'dashed' }} />
+            Goal target ({formatCurrency(props.goal.amount, currency())})
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="inline-block w-4 h-0.5 bg-yellow-500" />
+            Required pace
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="inline-block w-4 h-0.5 bg-green-500" />
+            Projected
+          </span>
+          <Show when={props.weeklyEarnings && props.weeklyEarnings.length > 0}>
+            <span class="flex items-center gap-1">
+              <span class="inline-block w-4 h-0.5 bg-blue-500" />
+              Actual
+            </span>
+          </Show>
+        </div>
+      </Show>
+
       {/* Compact summary */}
       <Show when={props.compact}>
         <div class="flex justify-between text-xs text-muted-foreground">
