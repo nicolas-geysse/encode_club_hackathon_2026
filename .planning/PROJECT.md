@@ -8,21 +8,40 @@ A student financial health navigator with an LLM-powered onboarding chat experie
 
 Frictionless onboarding that keeps users in the conversation flow while taking financial planning actions.
 
-## Current Milestone: v3.0 Early Engagement
+## Current Milestone: v4.0 Goals Tab Fix
 
-**Goal:** Exploit geolocation from onboarding step 1 to show real job opportunities during profile setup.
+**Goal:** Unify the Goals tab calculation systems and fix data consistency issues through architectural refactoring.
 
 **Target features:**
-- Privacy-first location consent (allow GPS or enter city)
-- Real Google Places API results (replace mocks)
-- Skill-based job matching from onboarding skills
-- Background prefetch during onboarding
-- Commute time display and radius slider
-- Star rating with scoring algorithm
+- `useGoalData` hook centralizing all goal data orchestration
+- Unified capacity-aware calculations (replace linear approximations)
+- All earnings sources aggregated (missions + savings + trades)
+- EarningEvent type with proper date attribution
+- Configurable status thresholds
+- Avatar display fix and label clarity improvements
 
-**Key insight:** The infrastructure exists (MCP tools, Google Maps service) but wasn't connected. This milestone wires the frontend to real data.
+**Key insight:** Two parallel calculation systems (capacity-aware in WeeklyProgressCards, linear in EarningsChart) create user confusion. A centralized hook will ensure consistency across all components.
+
+**Reference:** [docs/bugs-dev/goals-fix.md](../docs/bugs-dev/goals-fix.md)
 
 ## Previous Milestones
+
+### v3.0 (shipped 2026-02-02)
+
+**Status:** Partial completion — Privacy infrastructure and real API integration
+
+**Shipped:**
+- ✓ Privacy consent flow with FERPA/GDPR compliance
+- ✓ Fuzzy coordinate storage (city-level only)
+- ✓ PII sanitization in Opik traces
+- ✓ Google Maps service export for frontend
+- ✓ Photo billing control (opt-in)
+- ✓ Job scoring utilities and category mapping
+
+**Deferred to v4.1:**
+- Background prefetch during onboarding
+- Commute time display
+- Radius slider UI
 
 ### v2.1 (shipped 2026-01-31)
 
@@ -64,15 +83,18 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - ✓ Form data serialization — v2.1
 - ✓ Onboarding state persistence — v2.1
 - ✓ Dark mode visibility — v2.1
+- ✓ Privacy consent flow — v3.0
+- ✓ Fuzzy coordinate storage — v3.0
+- ✓ PII sanitization — v3.0
+- ✓ Google Maps service integration — v3.0
 
 ### Active
 
-See `.planning/REQUIREMENTS.md` for v3.0 requirements:
-- Privacy & Consent (PRIV-01 to PRIV-04)
-- Real Job Search (JOBS-01 to JOBS-05)
-- Background Prefetch (PREF-01 to PREF-03)
-- Commute & Distance (COMM-01 to COMM-03)
-- UI Enhancements (UI-01 to UI-03)
+See `.planning/REQUIREMENTS.md` for v4.0 requirements:
+- Data Architecture (ARCH-01 to ARCH-04)
+- Calculation Unification (CALC-01 to CALC-03)
+- Earnings Aggregation (EARN-01 to EARN-03)
+- UX Polish (UX-01 to UX-04)
 
 ### Out of Scope
 
@@ -114,4 +136,4 @@ See `.planning/REQUIREMENTS.md` for v3.0 requirements:
 | No raw GPS storage | Privacy by design for hackathon | — Pending |
 
 ---
-*Last updated: 2026-02-01 after v3.0 milestone initialization*
+*Last updated: 2026-02-02 after v4.0 Goals Fix milestone initialization*

@@ -1,59 +1,57 @@
-# Requirements: Stride v3.0 Early Engagement
+# Requirements: Stride v4.0 Goals Tab Fix
 
-**Defined:** 2026-02-01
-**Core Value:** Show real job opportunities to users during onboarding to maximize engagement
+**Defined:** 2026-02-02
+**Core Value:** Unified and consistent goal progress display that builds user trust
+**Reference:** [docs/bugs-dev/goals-fix.md](../docs/bugs-dev/goals-fix.md)
 
-## v3.0 Requirements
+## v4.0 Requirements
 
-Requirements for Early Engagement milestone. Each maps to roadmap phases.
+Requirements for Goals Tab Fix milestone. Derived from comprehensive analysis in goals-fix.md.
 
-### Privacy & Consent
+### Data Architecture
 
-- [ ] **PRIV-01**: User sees consent screen before location access ("Allow" or "Enter city instead")
-- [ ] **PRIV-02**: User can decline GPS and manually enter city
-- [ ] **PRIV-03**: No raw latitude/longitude stored in DuckDB or Opik traces
-- [ ] **PRIV-04**: Location data reduced to city name or radius-from-point (no precise GPS)
+- [ ] **ARCH-01**: `useGoalData` hook centralizes all goal data fetching and computation
+- [ ] **ARCH-02**: `EarningEvent` type with strict date attribution (date, amount, source, weekNumber)
+- [ ] **ARCH-03**: GoalsTab reduced by 200+ lines through hook extraction
+- [ ] **ARCH-04**: WeeklyProgressCards and EarningsChart become pure display components
 
-### Real Job Search
+### Calculation Unification
 
-- [ ] **JOBS-01**: Prospection API returns real Google Places results (not mocks)
-- [ ] **JOBS-02**: Job cards show business name, address, rating, and distance
-- [ ] **JOBS-03**: User can filter jobs by category (hospitality, retail, tutoring, cleaning, etc.)
-- [ ] **JOBS-04**: Jobs are matched to user's onboarding skills automatically
-- [ ] **JOBS-05**: Each job displays star rating based on scoring algorithm (distance + profile + arbitrage)
+- [ ] **CALC-01**: Weekly Need uses capacity-aware calculation everywhere (not linear)
+- [ ] **CALC-02**: Status calculation uses configurable thresholds (GOAL_STATUS_THRESHOLDS)
+- [ ] **CALC-03**: Both panel and cards show identical status (ahead/on-track/behind/critical)
 
-### Background Prefetch
+### Earnings Aggregation
 
-- [ ] **PREF-01**: Job search prefetches in background after city/location captured
-- [ ] **PREF-02**: Prefetch does not block onboarding flow
-- [ ] **PREF-03**: User sees "X opportunities near you" message during onboarding
+- [ ] **EARN-01**: Chart displays monthly savings at correct weeks (based on income day)
+- [ ] **EARN-02**: Chart displays completed trades at their completion date
+- [ ] **EARN-03**: Missions attributed to correct week (using completedAt with updatedAt fallback)
 
-### Commute & Distance
+### UX Polish
 
-- [ ] **COMM-01**: Job cards show estimated commute time (walking/transit)
-- [ ] **COMM-02**: User can adjust search radius via slider
-- [ ] **COMM-03**: Distance Matrix API batches requests efficiently
-
-### UI Enhancements
-
-- [ ] **UI-01**: "Top Pick" badge appears on jobs with score ≥ 4.5/5
-- [ ] **UI-02**: Radius slider allows 1-10km range adjustment
-- [ ] **UI-03**: Commute time badge displays on each job card
+- [ ] **UX-01**: Avatar not cut off (inside card approach for mobile responsiveness)
+- [ ] **UX-02**: Labels clarified with tooltips ("This Week's Target" vs generic "Weekly Need")
+- [ ] **UX-03**: Graph legend explains all lines (target, capacity-pace, projection, actual)
+- [ ] **UX-04**: Consistent color coding for status across all components
 
 ## Future Requirements
 
 Deferred to later milestones.
 
-### Advanced Matching
+### v4.1 (Deferred from v3.0)
 
-- **ADV-01**: Same-day gig partnerships integration
-- **ADV-02**: Work-study schedule filter
-- **ADV-03**: Push notifications for new jobs in area
+- **PREF-01**: Job search prefetches in background after city/location captured
+- **PREF-02**: Prefetch does not block onboarding flow
+- **PREF-03**: User sees "X opportunities near you" message during onboarding
+- **COMM-01**: Job cards show estimated commute time
+- **COMM-02**: User can adjust search radius via slider
+- **COMM-03**: Distance Matrix API batches requests efficiently
 
-### Social Features
+### What-If Scenarios (v4.2+)
 
-- **SOC-01**: "Friends work here" indicator (if social graph available)
-- **SOC-02**: Share job listings
+- **WHAT-01**: User can simulate "No exams" scenario and see updated projections
+- **WHAT-02**: User can simulate extra hours/week and see impact
+- **WHAT-03**: Simulations update chart and cards instantly
 
 ## Out of Scope
 
@@ -61,11 +59,11 @@ Explicitly excluded for this milestone.
 
 | Feature | Reason |
 |---------|--------|
-| OAuth login for job sites | High complexity, not core to demo |
-| Job application tracking | Requires external API integrations |
-| Real-time job availability | Too complex for hackathon timeline |
-| Photo caching beyond 30 days | Google Places photo URLs expire |
-| Detailed employer profiles | Would need additional API calls |
+| Database schema changes | No migration needed — calculations done at runtime |
+| New API endpoints | Using existing retroplan/budget/goals APIs |
+| Mobile app changes | Web-first, this is frontend-only |
+| Backend algorithm changes | retroplanning.ts unchanged, just better data consumption |
+| Cross-tab state sharing | Each tab remains isolated by design |
 
 ## Traceability
 
@@ -73,30 +71,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PRIV-01 | Phase 16 | Pending |
-| PRIV-02 | Phase 16 | Pending |
-| PRIV-03 | Phase 16 | Pending |
-| PRIV-04 | Phase 16 | Pending |
-| JOBS-01 | Phase 17 | Pending |
-| JOBS-02 | Phase 17 | Pending |
-| JOBS-03 | Phase 17 | Pending |
-| JOBS-04 | Phase 17 | Pending |
-| JOBS-05 | Phase 17 | Pending |
-| PREF-01 | Phase 18 | Pending |
-| PREF-02 | Phase 18 | Pending |
-| PREF-03 | Phase 18 | Pending |
-| COMM-01 | Phase 19 | Pending |
-| COMM-02 | Phase 19 | Pending |
-| COMM-03 | Phase 19 | Pending |
-| UI-01 | Phase 19 | Pending |
-| UI-02 | Phase 19 | Pending |
-| UI-03 | Phase 19 | Pending |
+| ARCH-01 | Phase 20 | Pending |
+| ARCH-02 | Phase 20 | Pending |
+| ARCH-03 | Phase 21 | Pending |
+| ARCH-04 | Phase 21 | Pending |
+| EARN-01 | Phase 21 | Pending |
+| EARN-02 | Phase 21 | Pending |
+| EARN-03 | Phase 21 | Pending |
+| CALC-01 | Phase 22 | Pending |
+| CALC-02 | Phase 22 | Pending |
+| CALC-03 | Phase 22 | Pending |
+| UX-01 | Phase 23 | Pending |
+| UX-02 | Phase 23 | Pending |
+| UX-03 | Phase 23 | Pending |
+| UX-04 | Phase 23 | Pending |
 
 **Coverage:**
-- v3.0 requirements: 18 total
-- Mapped to phases: 18
-- Unmapped: 0 ✓
+- v4.0 requirements: 14 total
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
-*Requirements defined: 2026-02-01*
-*Last updated: 2026-02-01 after milestone initialization*
+*Requirements defined: 2026-02-02*
+*Traceability updated: 2026-02-02 after roadmap creation*
