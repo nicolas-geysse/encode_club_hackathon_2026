@@ -7,6 +7,12 @@
  * Model: m2v-bge-m3-1024d (1024 dimensions) for multilingual support.
  */
 
+// Load dotenv FIRST before reading any env vars
+import { config } from 'dotenv';
+import { resolve } from 'path';
+config({ path: resolve(process.cwd(), '.env') });
+config({ path: resolve(process.cwd(), '../../.env') });
+
 import { maybeTrace, maybeCreateSpan } from './opik.js';
 
 // Configuration - same format as frontend/src/lib/mastra/embeddings.ts

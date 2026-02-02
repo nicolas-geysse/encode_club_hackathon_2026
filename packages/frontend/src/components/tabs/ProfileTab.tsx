@@ -13,26 +13,19 @@ import { createDirtyState } from '~/hooks/createDirtyState';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
 import { toast } from '~/lib/notificationStore';
-import {
-  formatDate,
-  formatCurrency,
-  formatCurrencyWithSuffix,
-  getCurrencySymbol,
-  type Currency,
-} from '~/lib/dateUtils';
+import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
+import { POPULAR_CERTIFICATIONS } from '~/lib/chat/stepForms';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import {
   User,
-  Target,
   ClipboardList,
   GraduationCap,
   Briefcase,
   Clock,
   X,
   Plus,
-  Wallet,
   Search,
   Loader2,
   LocateFixed,
@@ -252,69 +245,6 @@ export function ProfileTab(props: ProfileTabProps) {
 
       {/* Profile Display */}
       <Show when={!loading() && profile() && !editing()}>
-        {/* Current Goal - wrapped container */}
-        <Show when={profile()?.goalName}>
-          <Card class="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-            <CardContent class="p-6">
-              <h3 class="text-sm font-medium text-primary mb-4 flex items-center gap-2">
-                <Target class="h-4 w-4" /> Current Goal
-              </h3>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Goal Name */}
-                <div class="bg-background/50 rounded-lg p-4 border border-border/50">
-                  <div class="text-sm text-muted-foreground">Goal</div>
-                  <div class="text-xl font-bold text-foreground mt-1">{profile()?.goalName}</div>
-                </div>
-
-                {/* Amount */}
-                <div class="bg-background/50 rounded-lg p-4 border border-border/50">
-                  <div class="text-sm text-muted-foreground">Target</div>
-                  <div class="text-xl font-bold text-foreground mt-1">
-                    {formatCurrency(profile()?.goalAmount || 0, currency())}
-                  </div>
-                </div>
-
-                {/* Deadline */}
-                <div class="bg-background/50 rounded-lg p-4 border border-border/50">
-                  <div class="text-sm text-muted-foreground">Deadline</div>
-                  <div class="text-xl font-bold text-foreground mt-1">
-                    {profile()?.goalDeadline
-                      ? formatDate(profile()!.goalDeadline!, 'MMM D, YYYY')
-                      : 'Not set'}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </Show>
-
-        {/* Budget Link Card */}
-        <Card class="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-          <CardContent class="p-6">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Wallet class="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <div class="text-sm font-medium text-primary">Budget & Finances</div>
-                  <p class="text-xs text-muted-foreground mt-0.5">
-                    View income, expenses, savings, and trades
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => props.onNavigateToBudget?.()}
-                class="shrink-0"
-              >
-                View Budget
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Personal Info Card - 2 Column Layout */}
         <Card>
           <CardContent class="p-6">
@@ -650,48 +580,95 @@ export function ProfileTab(props: ProfileTabProps) {
                 </Show>
               </div>
 
-              {/* Add new certification input */}
-              <div class="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="Add certification (e.g., BAFA, CPR, TEFL)"
-                  value={newCertification()}
-                  onInput={(e) => setNewCertification(e.currentTarget.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && newCertification().trim()) {
-                      e.preventDefault();
-                      const certs = [...(editedProfile().certifications || [])];
-                      const newCert = newCertification().trim();
-                      if (!certs.includes(newCert)) {
-                        certs.push(newCert);
-                        setEditedProfile({ ...editedProfile(), certifications: certs });
-                      }
-                      setNewCertification('');
+              {/* Quick-add from popular certifications */}
+              <div class="space-y-2">
+                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Quick add
+                </label>
+                <div class="flex flex-wrap gap-2">
+                  <For
+                    each={POPULAR_CERTIFICATIONS.filter(
+                      (c) => !(editedProfile().certifications || []).includes(c.label)
+                    )}
+                  >
+                    {(cert) => (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const certs = [...(editedProfile().certifications || [])];
+                          if (!certs.includes(cert.label)) {
+                            certs.push(cert.label);
+                            setEditedProfile({ ...editedProfile(), certifications: certs });
+                          }
+                        }}
+                        class="px-3 py-1.5 bg-muted hover:bg-primary/10 hover:border-primary/30 text-muted-foreground hover:text-primary rounded-md text-sm border border-border transition-colors flex items-center gap-1"
+                      >
+                        <Plus class="h-3 w-3" />
+                        {cert.label}
+                      </button>
+                    )}
+                  </For>
+                  <Show
+                    when={
+                      POPULAR_CERTIFICATIONS.filter(
+                        (c) => !(editedProfile().certifications || []).includes(c.label)
+                      ).length === 0
                     }
-                  }}
-                  class="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    if (newCertification().trim()) {
-                      const certs = [...(editedProfile().certifications || [])];
-                      const newCert = newCertification().trim();
-                      if (!certs.includes(newCert)) {
-                        certs.push(newCert);
-                        setEditedProfile({ ...editedProfile(), certifications: certs });
+                  >
+                    <p class="text-muted-foreground italic text-sm">
+                      All popular certifications added!
+                    </p>
+                  </Show>
+                </div>
+              </div>
+
+              {/* Add custom certification input */}
+              <div class="space-y-2">
+                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Or add custom
+                </label>
+                <div class="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Type a certification name"
+                    value={newCertification()}
+                    onInput={(e) => setNewCertification(e.currentTarget.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && newCertification().trim()) {
+                        e.preventDefault();
+                        const certs = [...(editedProfile().certifications || [])];
+                        const newCert = newCertification().trim();
+                        if (!certs.includes(newCert)) {
+                          certs.push(newCert);
+                          setEditedProfile({ ...editedProfile(), certifications: certs });
+                        }
+                        setNewCertification('');
                       }
-                      setNewCertification('');
-                    }
-                  }}
-                  disabled={!newCertification().trim()}
-                >
-                  <Plus class="h-4 w-4" />
-                </Button>
+                    }}
+                    class="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (newCertification().trim()) {
+                        const certs = [...(editedProfile().certifications || [])];
+                        const newCert = newCertification().trim();
+                        if (!certs.includes(newCert)) {
+                          certs.push(newCert);
+                          setEditedProfile({ ...editedProfile(), certifications: certs });
+                        }
+                        setNewCertification('');
+                      }
+                    }}
+                    disabled={!newCertification().trim()}
+                  >
+                    <Plus class="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <p class="text-xs text-muted-foreground">
-                Press Enter or click + to add. Certifications can boost your hourly rate!
+                Certifications can boost your hourly rate!
               </p>
             </CardContent>
           </Card>
