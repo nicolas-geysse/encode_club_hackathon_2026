@@ -212,6 +212,54 @@ export function GoalsTab(props: GoalsTabProps) {
     return transformEarningsToWeekly(goalData.earnings());
   });
 
+  /**
+   * Interface for EarningsChart weekly data
+   * Includes weekLabel and cumulative for chart rendering
+   */
+  interface ChartWeeklyEarning {
+    week: number;
+    weekLabel: string;
+    earned: number;
+    cumulative: number;
+  }
+
+  /**
+   * Transform EarningEvent[] to chart format for EarningsChart
+   * Includes cumulative totals and week labels
+   *
+   * Ensures correct week attribution (EARN-01, EARN-02, EARN-03):
+   * - Monthly savings at correct weeks (via hook earnings)
+   * - Completed trades at completion date (via hook earnings)
+   * - Missions at correct week (via completedAt/updatedAt in aggregator)
+   */
+  const transformEarningsToChartFormat = (events: EarningEvent[]): ChartWeeklyEarning[] => {
+    const weekMap = new Map<number, number>();
+
+    for (const event of events) {
+      const current = weekMap.get(event.weekNumber) || 0;
+      weekMap.set(event.weekNumber, current + event.amount);
+    }
+
+    const weeks = Array.from(weekMap.keys()).sort((a, b) => a - b);
+    let cumulative = 0;
+
+    return weeks.map((week) => {
+      const earned = weekMap.get(week) || 0;
+      cumulative += earned;
+      return {
+        week,
+        weekLabel: `W${week}`,
+        earned,
+        cumulative,
+      };
+    });
+  };
+
+  // Derive chart-format earnings from hook data
+  const chartWeeklyEarnings = createMemo(() => {
+    return transformEarningsToChartFormat(goalData.earnings());
+  });
+
   // Fetch budget data for one-time gains (trades + paused subscriptions)
   const [budgetData] = createResource(
     () => profileId(),
@@ -1260,6 +1308,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                 currentSaved={
                                   goalData.stats().totalEarned || followupData()?.currentAmount
                                 }
+                                weeklyEarnings={chartWeeklyEarnings()}
                               />
                             )}
                           </Show>
