@@ -90,17 +90,19 @@ Plans:
 5. Chart displays completed trades at their actual completion date
 6. Missions are attributed to correct week (using completedAt with updatedAt fallback)
 
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 21-01: TBD
+- [ ] 21-01-PLAN.md — Complete useGoalData hook + create earningsAggregator
+- [ ] 21-02-PLAN.md — Rewire GoalsTab to use the hook (simplify by 200+ lines)
+- [ ] 21-03-PLAN.md — Update WeeklyProgressCards and EarningsChart to be pure display components
 
 **Key Files**:
 - Complete: `packages/frontend/src/hooks/useGoalData.ts`
 - Create: `packages/frontend/src/lib/earningsAggregator.ts`
 - Modify: `packages/frontend/src/components/tabs/GoalsTab.tsx`
-- Modify: `packages/frontend/src/components/goals/WeeklyProgressCards.tsx`
-- Modify: `packages/frontend/src/components/goals/EarningsChart.tsx`
+- Modify: `packages/frontend/src/components/WeeklyProgressCards.tsx`
+- Modify: `packages/frontend/src/components/EarningsChart.tsx`
 
 ### Phase 22: Calculation Unification
 
@@ -124,7 +126,7 @@ Plans:
 **Key Files**:
 - Create: `packages/frontend/src/lib/goalStatus.ts`
 - Modify: `packages/frontend/src/hooks/useGoalData.ts` (add stats computation)
-- Modify: `packages/frontend/src/components/goals/EarningsChart.tsx` (use capacity-aware pace)
+- Modify: `packages/frontend/src/components/EarningsChart.tsx` (use capacity-aware pace)
 
 ### Phase 23: UX Polish
 
@@ -147,8 +149,8 @@ Plans:
 - [ ] 23-01: TBD
 
 **Key Files**:
-- Modify: `packages/frontend/src/components/goals/WeeklyProgressCards.tsx` (avatar fix, labels)
-- Modify: `packages/frontend/src/components/goals/EarningsChart.tsx` (legend, tooltips)
+- Modify: `packages/frontend/src/components/WeeklyProgressCards.tsx` (avatar fix, labels)
+- Modify: `packages/frontend/src/components/EarningsChart.tsx` (legend, tooltips)
 
 ---
 
@@ -164,6 +166,6 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 | 16. Privacy & Consent | v3.0 | 3/3 | Complete | 2026-02-01 |
 | 17. Real Job Search API | v3.0 | 3/3 | Complete | 2026-02-02 |
 | 20. Foundation | v4.0 | 1/1 | Complete | 2026-02-02 |
-| 21. Integration | v4.0 | 0/TBD | Not started | - |
+| 21. Integration | v4.0 | 0/3 | Not started | - |
 | 22. Calculation Unification | v4.0 | 0/TBD | Not started | - |
 | 23. UX Polish | v4.0 | 0/TBD | Not started | - |
