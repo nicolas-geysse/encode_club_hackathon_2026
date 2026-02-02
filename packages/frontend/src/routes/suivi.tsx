@@ -912,6 +912,7 @@ export default function SuiviPage() {
   };
 
   const handleMissionUpdate = (id: string, updates: Partial<Mission>) => {
+    const now = new Date().toISOString();
     const missions = followup().missions.map((m) => {
       if (m.id !== id) return m;
 
@@ -925,6 +926,8 @@ export default function SuiviPage() {
             hoursCompleted: m.previousState.hoursCompleted,
             earningsCollected: m.previousState.earningsCollected,
             previousState: undefined, // Clear backup after restore
+            completedAt: undefined, // Clear completion timestamp on undo
+            updatedAt: now,
           };
         }
         // If no backup (legacy), we must decide.
@@ -940,7 +943,7 @@ export default function SuiviPage() {
       // Skip preserves values. So restoring from skip is easy (just status change).
       // existing code `...m, ...updates` handles this if we don't override input.
 
-      return { ...m, ...updates };
+      return { ...m, ...updates, updatedAt: now };
     });
 
     // Calculate new total
@@ -964,6 +967,8 @@ export default function SuiviPage() {
       progress: 100,
       hoursCompleted: mission.weeklyHours,
       earningsCollected: mission.weeklyEarnings,
+      // Set completion timestamp for earnings date attribution
+      completedAt: new Date().toISOString(),
       // Save backup state before overwriting
       previousState: {
         hoursCompleted: mission.hoursCompleted,

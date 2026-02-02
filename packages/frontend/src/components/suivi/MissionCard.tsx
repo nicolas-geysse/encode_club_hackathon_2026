@@ -36,6 +36,10 @@ export interface Mission {
   startDate: string;
   hoursCompleted: number;
   earningsCollected: number;
+  /** ISO timestamp when mission was completed (for earnings date attribution) */
+  completedAt?: string;
+  /** ISO timestamp when mission was last updated */
+  updatedAt?: string;
   previousState?: {
     hoursCompleted: number;
     earningsCollected: number;
