@@ -397,7 +397,8 @@ async function generateRetroplanForGoal(
   hourlyRate: number = DEFAULT_HOURLY_RATE,
   simulatedDate?: Date, // Sprint 13.8 Fix: Accept simulated date for testing
   goalStartDate?: Date, // Bug 2 Fix: Accept goal start date for historical weeks
-  monthlyMargin?: number // Sprint 13.7: Add margin-based capacity factor
+  monthlyMargin?: number, // Sprint 13.7: Add margin-based capacity factor
+  totalEarned: number = 0 // Sprint 13.21: Progress already made toward goal
 ): Promise<Retroplan> {
   const deadlineDate = new Date(deadline);
   // Sprint 13.8 Fix: Use simulated date if provided, otherwise use real time
@@ -494,13 +495,32 @@ async function generateRetroplanForGoal(
 
   // ============================================
   // Sprint 13.17: Improved feasibility with urgency and intensity factors
+  // Bug fix: Use REMAINING weeks from now to deadline, not total weeks from goal start
   // ============================================
   const riskFactors: string[] = [];
 
-  // Include monthly margin (savings) in capacity calculation
-  const totalMonths = Math.max(1, Math.ceil(totalWeeks / 4.33)); // ~4.33 weeks per month
-  const marginBasedCapacity = (monthlyMargin ?? 0) * totalMonths;
-  const effectiveMaxEarnings = maxTotalEarnings + marginBasedCapacity;
+  // Calculate weeks REMAINING from current time (simulated or real) to deadline
+  // This is crucial for feasibility - as time passes, fewer weeks remain to earn the goal
+  const weeksRemaining = Math.max(
+    1,
+    Math.ceil((deadlineDate.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
+  );
+
+  // Calculate remaining capacity (only from future weeks)
+  // Past weeks (before 'now') shouldn't count toward earning potential
+  const futureWeekCapacities = weekCapacities.filter((w) => {
+    const weekStartDate = new Date(w.weekStartDate);
+    return weekStartDate >= now;
+  });
+  const remainingMaxEarnings = futureWeekCapacities.reduce(
+    (sum, w) => sum + w.maxEarningPotential,
+    0
+  );
+
+  // Include monthly margin (savings) in capacity calculation - only for remaining months
+  const remainingMonths = Math.max(1, Math.ceil(weeksRemaining / 4.33)); // ~4.33 weeks per month
+  const marginBasedCapacity = (monthlyMargin ?? 0) * remainingMonths;
+  const effectiveMaxEarnings = remainingMaxEarnings + marginBasedCapacity;
 
   if (monthlyMargin && monthlyMargin > 0) {
     riskFactors.push(
@@ -508,16 +528,97 @@ async function generateRetroplanForGoal(
     );
   }
 
+  // Sprint 13.21: Calculate REMAINING goal (what's left to earn)
+  // This is critical - feasibility should be based on what's still needed, not total goal
+  const remainingGoal = Math.max(0, goalAmount - totalEarned);
+
+  // Debug log for feasibility calculation
+  console.log(
+    `[Feasibility] Goal: ${goalAmount}€, Earned: ${totalEarned}€, Remaining: ${remainingGoal}€, Capacity: ${effectiveMaxEarnings}€`
+  );
+
+  // Sprint 13.21: Calculate ACTUAL earning rate vs REQUIRED rate
+  // This penalizes when user is not keeping up with the pace, regardless of theoretical capacity
+  const elapsedWeeks = Math.max(1, totalWeeks - weeksRemaining);
+  const actualWeeklyRate = totalEarned / elapsedWeeks;
+  const requiredWeeklyRate = remainingGoal / Math.max(1, weeksRemaining);
+
+  // How far through the goal period are we? (0.0 = start, 1.0 = deadline)
+  const progressThroughGoal = elapsedWeeks / totalWeeks;
+
+  // Performance ratio: how well is the user keeping up?
+  // 1.0 = on pace, 0.5 = earning at half the needed rate, etc.
+  let performancePenalty = 1.0;
+
+  // Apply performance penalty progressively - homothetic scaling
+  // - Start at 20% of goal period (warm-up phase)
+  // - Full effect at 80% of goal period
+  // - Scales linearly between these points
+  const PENALTY_START = 0.2; // Start applying penalty after 20% of period
+  const PENALTY_FULL = 0.8; // Full penalty effect at 80% of period
+
+  if (progressThroughGoal >= PENALTY_START && requiredWeeklyRate > 0) {
+    const performanceRatio = actualWeeklyRate / requiredWeeklyRate;
+
+    // Scale factor: 0 at PENALTY_START, 1 at PENALTY_FULL
+    const scaleFactor = Math.min(
+      1.0,
+      (progressThroughGoal - PENALTY_START) / (PENALTY_FULL - PENALTY_START)
+    );
+
+    // Calculate penalty based on how far behind we are
+    // performanceRatio 1.0 = on pace (no penalty)
+    // performanceRatio 0.5 = 50% of needed pace
+    // performanceRatio 0.0 = no earnings at all
+    if (performanceRatio < 1.0) {
+      // Max penalty at 0% performance = 0.5 (50% reduction)
+      // No penalty at 100% performance
+      // Linear interpolation between
+      const maxPenaltyReduction = 0.5; // Maximum 50% reduction at worst case
+      const penaltyReduction = maxPenaltyReduction * (1.0 - performanceRatio) * scaleFactor;
+      performancePenalty = 1.0 - penaltyReduction;
+
+      // Add risk factor message based on severity
+      if (performanceRatio < 0.3) {
+        riskFactors.push(
+          `⚠️ Critical pace: ${Math.round(actualWeeklyRate)}€/week vs ${Math.round(requiredWeeklyRate)}€/week needed`
+        );
+      } else if (performanceRatio < 0.6) {
+        riskFactors.push(
+          `⚠️ Behind pace: ${Math.round(actualWeeklyRate)}€/week vs ${Math.round(requiredWeeklyRate)}€/week needed`
+        );
+      } else if (performanceRatio < 0.9) {
+        riskFactors.push(
+          `Pace warning: ${Math.round(actualWeeklyRate)}€/week vs ${Math.round(requiredWeeklyRate)}€/week needed`
+        );
+      }
+    }
+
+    console.log(
+      `[Feasibility] Progress: ${Math.round(progressThroughGoal * 100)}%, Performance: ${Math.round(performanceRatio * 100)}%, Scale: ${scaleFactor.toFixed(2)}, Penalty: ${performancePenalty.toFixed(2)}`
+    );
+  }
+
+  // Add progress context to risk factors
+  if (totalEarned > 0) {
+    const progressPercent = Math.round((totalEarned / goalAmount) * 100);
+    riskFactors.push(
+      `Progress: ${totalEarned}€ earned (${progressPercent}%), ${remainingGoal}€ remaining`
+    );
+  }
+
   // 1. Urgency Factor - penalize as deadline approaches
+  // Use weeksRemaining (not totalWeeks) - this decreases as time passes
   // 1.0 at 8+ weeks, scales down to 0.5 at 1 week
-  const urgencyFactor = Math.min(1.0, 0.5 + 0.5 * Math.min(1, totalWeeks / 8));
-  if (totalWeeks < 4) {
-    riskFactors.push(`Short timeline: only ${totalWeeks} week(s) remaining`);
+  const urgencyFactor = Math.min(1.0, 0.5 + 0.5 * Math.min(1, weeksRemaining / 8));
+  if (weeksRemaining < 4) {
+    riskFactors.push(`Short timeline: only ${weeksRemaining} week(s) remaining`);
   }
 
   // 2. Intensity Penalty - penalize when weekly load is high
-  const avgWeeklyRequired = goalAmount / totalWeeks;
-  const avgWeeklyCapacity = maxTotalEarnings / totalWeeks;
+  // Use REMAINING goal for accurate intensity calculation
+  const avgWeeklyRequired = remainingGoal / weeksRemaining;
+  const avgWeeklyCapacity = remainingMaxEarnings / weeksRemaining;
   const intensityRatio = avgWeeklyCapacity > 0 ? avgWeeklyRequired / avgWeeklyCapacity : 1;
 
   let intensityPenalty = 1.0;
@@ -525,20 +626,23 @@ async function generateRetroplanForGoal(
     // Penalty increases from 1.0 to 0.8 as intensity goes from 70% to 100%
     intensityPenalty = Math.max(0.8, 1.0 - 0.2 * ((intensityRatio - 0.7) / 0.3));
     riskFactors.push(
-      `High weekly intensity: ${Math.round(intensityRatio * 100)}% of weekly capacity`
+      `High weekly intensity: ${Math.round(intensityRatio * 100)}% of weekly capacity needed`
     );
   }
   if (intensityRatio > 1.0) {
     // Exceeds capacity - severe penalty
     intensityPenalty = 0.6;
+    riskFactors.push(
+      `⚠️ Weekly target exceeds capacity by ${Math.round((intensityRatio - 1) * 100)}%`
+    );
   }
 
-  // 3. Progressive base score (vs binary 70% threshold)
-  const capacityRatio = effectiveMaxEarnings > 0 ? goalAmount / effectiveMaxEarnings : 1;
+  // 3. Progressive base score based on REMAINING goal vs remaining capacity
+  const capacityRatio = effectiveMaxEarnings > 0 ? remainingGoal / effectiveMaxEarnings : 1;
 
   let baseScore: number;
   if (capacityRatio <= 0.5) {
-    // Very comfortable - goal is less than half of max capacity
+    // Very comfortable - remaining goal is less than half of max capacity
     baseScore = 1.0;
   } else if (capacityRatio <= 0.7) {
     // Comfortable to moderate: 0.95 → 0.85
@@ -548,18 +652,19 @@ async function generateRetroplanForGoal(
     baseScore = 0.85 - 0.35 * ((capacityRatio - 0.7) / 0.3);
     if (capacityRatio > 0.85) {
       riskFactors.push(
-        `Requires max effort: goal ${goalAmount}€ vs comfortable ${Math.round(effectiveMaxEarnings * 0.7)}€`
+        `Requires max effort: remaining ${remainingGoal}€ vs comfortable ${Math.round(effectiveMaxEarnings * 0.7)}€`
       );
     }
   } else {
     // Exceeds capacity
-    baseScore = effectiveMaxEarnings / goalAmount;
-    const shortage = goalAmount - effectiveMaxEarnings;
-    riskFactors.push(`⚠️ Goal exceeds max capacity by ${Math.round(shortage)}€`);
+    baseScore = effectiveMaxEarnings / remainingGoal;
+    const shortage = remainingGoal - effectiveMaxEarnings;
+    riskFactors.push(`⚠️ Remaining goal exceeds max capacity by ${Math.round(shortage)}€`);
   }
 
-  // Apply all factors
-  let feasibilityScore = baseScore * urgencyFactor * intensityPenalty;
+  // Apply all factors including performance penalty
+  // Performance penalty is crucial - it reflects ACTUAL progress vs THEORETICAL capacity
+  let feasibilityScore = baseScore * urgencyFactor * intensityPenalty * performancePenalty;
 
   // Secondary factors
   if (protectedWeeks > totalWeeks * 0.3) {
@@ -857,6 +962,7 @@ export async function POST(event: APIEvent) {
           simulatedDate,
           goalStartDate,
           monthlyMargin,
+          totalEarned = 0, // Progress already made toward goal
         } = body;
 
         if (!goalId || !goalAmount || !deadline) {
@@ -907,6 +1013,7 @@ export async function POST(event: APIEvent) {
         // Bug 2 Fix: Parse goal start date if provided
         const effectiveGoalStartDate = goalStartDate ? new Date(goalStartDate) : undefined;
         // Sprint 13.7: Pass monthlyMargin for margin-based feasibility
+        // Sprint 13.21: Pass totalEarned for accurate remaining-goal feasibility
         const retroplan = await generateRetroplanForGoal(
           goalId,
           goalAmount,
@@ -915,7 +1022,8 @@ export async function POST(event: APIEvent) {
           effectiveHourlyRate,
           effectiveSimulatedDate,
           effectiveGoalStartDate,
-          monthlyMargin
+          monthlyMargin,
+          totalEarned
         );
 
         return new Response(JSON.stringify({ success: true, retroplan }), {

@@ -181,11 +181,32 @@ export function GoalsTab(props: GoalsTabProps) {
   // Create profile accessor that normalizes null to undefined (for hook compatibility)
   const profileAccessor = createMemo(() => profile() ?? undefined);
 
+  // Create simulated date accessor for reactive time simulation
+  const simulatedDateAccessor = () => props.simulatedDate;
+
   // Use centralized hook for goal data (v4.0 Goals Tab Fix)
   // Note: ESLint reactivity warning is a false positive - hook uses these accessors
   // inside createResource which is a tracked scope. This is the correct SolidJS pattern.
   // eslint-disable-next-line solid/reactivity
-  const goalData = useGoalData(activeGoal, profileAccessor, { includeSimulation: false });
+  const goalData = useGoalData(activeGoal, profileAccessor, {
+    includeSimulation: false,
+    simulatedDateAccessor, // Reactive: re-fetches retroplan when simulation date changes
+  });
+
+  // Memoized retroplan for WeeklyProgressCards - ensures reactive updates when data loads
+  // This fixes the initial load bug where exam week didn't show reduced target
+  const weeklyCardsRetroplan = createMemo(() => {
+    const rp = goalData.retroplan();
+    if (!rp) return null;
+    return {
+      milestones: rp.milestones,
+      feasibilityScore: rp.feasibilityScore,
+    };
+  });
+
+  // Memoized data for EarningsChart - ensures reactive updates
+  const chartMilestones = createMemo(() => goalData.milestones());
+  const chartStats = createMemo(() => goalData.stats());
 
   // === EARNINGS TRANSFORMATION UTILITIES ===
   // Convert EarningEvent[] from hook to formats needed by child components
@@ -255,9 +276,14 @@ export function GoalsTab(props: GoalsTabProps) {
     });
   };
 
-  // Derive chart-format earnings from hook data
+  // Derive chart-format earnings from hook data (past earnings for "Actual" line)
   const chartWeeklyEarnings = createMemo(() => {
     return transformEarningsToChartFormat(goalData.earnings());
+  });
+
+  // Derive projected earnings including future scheduled (for "Projected" line)
+  const projectedChartWeeklyEarnings = createMemo(() => {
+    return transformEarningsToChartFormat(goalData.projectedEarnings());
   });
 
   // Fetch budget data for one-time gains (trades + paused subscriptions)
@@ -1280,14 +1306,7 @@ export function GoalsTab(props: GoalsTabProps) {
                                   savingsAdjustments={followupData()?.savingsAdjustments}
                                   onAdjustSavings={handleOpenSavingsAdjust}
                                   userId={profileId() || undefined}
-                                  retroplan={
-                                    goalData.retroplan()
-                                      ? {
-                                          milestones: goalData.retroplan()!.milestones,
-                                          feasibilityScore: goalData.retroplan()!.feasibilityScore,
-                                        }
-                                      : null
-                                  }
+                                  retroplan={weeklyCardsRetroplan()}
                                 />
                               )}
                             </Show>
@@ -1306,11 +1325,12 @@ export function GoalsTab(props: GoalsTabProps) {
                                 currency={currency()}
                                 adjustedWeeklyTarget={avgAdjustedTarget() ?? undefined}
                                 currentSaved={
-                                  goalData.stats().totalEarned || followupData()?.currentAmount
+                                  chartStats().totalEarned || followupData()?.currentAmount
                                 }
                                 weeklyEarnings={chartWeeklyEarnings()}
-                                milestones={goalData.milestones()}
-                                stats={goalData.stats()}
+                                projectedWeeklyEarnings={projectedChartWeeklyEarnings()}
+                                milestones={chartMilestones()}
+                                stats={chartStats()}
                               />
                             )}
                           </Show>

@@ -382,17 +382,9 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
                     'flex-shrink-0 w-28 p-2 rounded-lg border-2 transition-all relative',
                     config.bg,
                     config.border,
-                    isCurrentWeek && 'ring-2 ring-green-500 ring-offset-2 animate-pulse-subtle',
-                    isCurrentWeek && 'pt-8'
+                    isCurrentWeek && 'ring-2 ring-green-500 ring-offset-2 animate-pulse-subtle'
                   )}
                 >
-                  {/* Mascot emoji for current week */}
-                  <Show when={isCurrentWeek}>
-                    <div class="absolute -top-3 left-1/2 -translate-x-1/2 animate-bounce-slow z-10">
-                      <span class="text-lg md:text-xl">🚶</span>
-                    </div>
-                  </Show>
-
                   {/* Week header with date */}
                   <div class="flex items-center justify-between mb-1">
                     <div class="flex flex-col">

@@ -9,7 +9,7 @@
  * with single source of truth for all goal-related data.
  */
 
-import { createSignal, createMemo, createResource, type Accessor } from 'solid-js';
+import { createSignal, createMemo, createResource, createEffect, type Accessor } from 'solid-js';
 import type { EarningEvent, GoalStatus } from '../types/earnings';
 import type { Goal } from '../lib/goalService';
 import type { FullProfile } from '../lib/profileService';
@@ -77,10 +77,18 @@ export interface UseGoalDataOptions {
   includeSimulation?: boolean;
 
   /**
-   * Simulated date for testing purposes.
+   * Simulated date for testing purposes (static value).
    * If provided, uses this date instead of current date for calculations.
+   * @deprecated Use simulatedDateAccessor for reactive updates
    */
   simulatedDate?: Date;
+
+  /**
+   * Reactive accessor for simulated date.
+   * When the accessor returns a new date, the hook will re-fetch data.
+   * Preferred over simulatedDate for dynamic simulation controls.
+   */
+  simulatedDateAccessor?: Accessor<Date | undefined>;
 }
 
 // === HOOK RESULT ===
@@ -126,8 +134,10 @@ export interface UseGoalDataResult {
   // Data accessors
   /** Capacity-aware retroplan for the goal */
   retroplan: Accessor<Retroplan | undefined>;
-  /** All earnings events attributed by date */
+  /** Earnings events that have occurred (date <= currentDate) */
   earnings: Accessor<EarningEvent[]>;
+  /** All earnings including future scheduled (for chart projection) */
+  projectedEarnings: Accessor<EarningEvent[]>;
   /** Simplified milestones for UI rendering */
   milestones: Accessor<SimpleMilestone[]>;
 
@@ -265,8 +275,18 @@ export function useGoalData(
   // Error state for manual errors
   const [manualError, setManualError] = createSignal<Error | undefined>(undefined);
 
+  // Reactive simulated date - supports both accessor and static value
+  // The accessor pattern enables reactive updates when simulation controls change
+  const getSimulatedDate = (): Date | undefined => {
+    // Prefer accessor (reactive) over static value
+    if (options.simulatedDateAccessor) {
+      return options.simulatedDateAccessor();
+    }
+    return options.simulatedDate;
+  };
+
   // Determine current date (support simulation)
-  const getCurrentDate = () => options.simulatedDate || new Date();
+  const getCurrentDate = () => getSimulatedDate() || new Date();
 
   // === RETROPLAN RESOURCE ===
   // Fetches retroplan from POST /api/retroplan
@@ -275,7 +295,31 @@ export function useGoalData(
     () => {
       const g = goal();
       const p = profile();
+      // Access simulated date inside source function for reactivity
+      const simDate = getSimulatedDate();
       if (!g?.id || !g?.amount || !g?.deadline || !p?.id) return null;
+
+      // Calculate totalEarned for feasibility calculation
+      // This is computed here so retroplan can factor in actual progress
+      const goalStartDate = g.createdAt ? new Date(g.createdAt) : new Date();
+      const goalDeadline = g.deadline ? new Date(g.deadline) : new Date();
+      const missions = extractMissions(p.followupData);
+      const monthlyMargin = p.monthlyMargin || 0;
+      const incomeDay = p.incomeDay || 15;
+      const currentDate = simDate || new Date();
+
+      // Calculate earnings (simplified - trades handled separately)
+      const earningsEvents = aggregateAllEarnings({
+        missions,
+        monthlyMargin,
+        incomeDay,
+        trades: [], // Trades loaded separately, minor impact on feasibility
+        goalStartDate,
+        goalDeadline,
+        currentDate,
+      });
+      const totalEarned = earningsEvents.reduce((sum, e) => sum + e.amount, 0);
+
       return {
         goalId: g.id,
         goalAmount: g.amount,
@@ -284,7 +328,8 @@ export function useGoalData(
         hourlyRate: p.minHourlyRate || 15,
         monthlyMargin: p.monthlyMargin || 0,
         goalStartDate: g.createdAt,
-        simulatedDate: options.simulatedDate?.toISOString(),
+        simulatedDate: simDate?.toISOString(),
+        totalEarned, // Pass to API for feasibility calculation
       };
     },
     // Fetcher
@@ -304,6 +349,7 @@ export function useGoalData(
           monthlyMargin: params.monthlyMargin,
           goalStartDate: params.goalStartDate,
           simulatedDate: params.simulatedDate,
+          totalEarned: params.totalEarned, // For accurate feasibility
         }),
       });
 
@@ -388,6 +434,42 @@ export function useGoalData(
       goalStartDate,
       goalDeadline,
       savingsAdjustments,
+      // Pass current date (simulated or real) to filter future earnings
+      // Only events with date <= currentDate are included
+      currentDate: getCurrentDate(),
+    });
+  });
+
+  // === PROJECTED EARNINGS MEMO ===
+  // All earnings INCLUDING future scheduled ones (for chart projection)
+  // This shows where earnings WILL come from based on scheduled savings
+  const projectedEarnings = createMemo<EarningEvent[]>(() => {
+    const g = goal();
+    const p = profile();
+
+    if (!g || !p) return [];
+
+    const goalStartDate = g.createdAt ? new Date(g.createdAt) : new Date();
+    const goalDeadline = g.deadline ? new Date(g.deadline) : new Date();
+    const missions = extractMissions(p.followupData);
+    const monthlyMargin = p.monthlyMargin || 0;
+    const incomeDay = p.incomeDay || 15;
+    const trades = tradesResource() || [];
+    const tradeData = mapTradesToTradeData(trades);
+    const savingsAdjustments = p.followupData?.savingsAdjustments as
+      | Record<number, { amount: number; note?: string; adjustedAt: string }>
+      | undefined;
+
+    // Use far future date to include ALL scheduled earnings
+    return aggregateAllEarnings({
+      missions,
+      monthlyMargin,
+      incomeDay,
+      trades: tradeData,
+      goalStartDate,
+      goalDeadline,
+      savingsAdjustments,
+      currentDate: goalDeadline, // Include all events up to deadline
     });
   });
 
@@ -505,6 +587,7 @@ export function useGoalData(
   return {
     retroplan,
     earnings,
+    projectedEarnings,
     milestones,
     stats,
     loading,

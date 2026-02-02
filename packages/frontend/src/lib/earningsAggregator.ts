@@ -64,6 +64,12 @@ export interface AggregateEarningsParams {
   goalDeadline: Date;
   /** Optional savings adjustments by week number */
   savingsAdjustments?: Record<number, SavingsAdjustment>;
+  /**
+   * Current date for filtering earnings (defaults to now).
+   * Only earnings with date <= currentDate are included in "earned" total.
+   * Pass simulatedDate here for time simulation support.
+   */
+  currentDate?: Date;
 }
 
 // === HELPER FUNCTIONS ===
@@ -280,6 +286,7 @@ export function aggregateAllEarnings(params: AggregateEarningsParams): EarningEv
     goalStartDate,
     goalDeadline,
     savingsAdjustments,
+    currentDate = new Date(), // Default to now
   } = params;
 
   const events: EarningEvent[] = [];
@@ -307,5 +314,13 @@ export function aggregateAllEarnings(params: AggregateEarningsParams): EarningEv
   events.push(...tradeBorrowEvents);
 
   // Sort by date (earliest first)
-  return events.sort((a, b) => a.date.getTime() - b.date.getTime());
+  const sortedEvents = events.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Filter to only include events that have already occurred (date <= end of currentDate)
+  // This ensures "Total Earned" only counts actual earnings, not future projections
+  // Use end-of-day to include all events from "today" regardless of time component
+  const endOfCurrentDay = new Date(currentDate);
+  endOfCurrentDay.setHours(23, 59, 59, 999);
+
+  return sortedEvents.filter((event) => event.date <= endOfCurrentDay);
 }

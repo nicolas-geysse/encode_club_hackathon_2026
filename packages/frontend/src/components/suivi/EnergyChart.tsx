@@ -6,14 +6,37 @@
  */
 
 // Note: solid-js reactivity is handled by solid-chartjs internally
-import { Chart, Title, Tooltip, Legend, Colors, Filler } from 'chart.js';
+import {
+  Chart,
+  Title,
+  Tooltip,
+  Legend,
+  Colors,
+  Filler,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  LineController,
+} from 'chart.js';
 import { Line } from 'solid-chartjs';
 import { Card, CardContent } from '~/components/ui/Card';
 import { BarChart3, TrendingUp } from 'lucide-solid';
 import { Show } from 'solid-js';
 
-// Register Chart.js components
-Chart.register(Title, Tooltip, Legend, Colors, Filler);
+// Register Chart.js components - must include all required for Line chart
+Chart.register(
+  Title,
+  Tooltip,
+  Legend,
+  Colors,
+  Filler,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  LineController
+);
 
 interface EnergyEntry {
   week: number;

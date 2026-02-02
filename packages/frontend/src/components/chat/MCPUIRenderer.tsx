@@ -20,7 +20,9 @@ import {
   Legend,
   Colors,
   BarElement,
+  BarController,
   LineElement,
+  LineController,
   PointElement,
   CategoryScale,
   LinearScale,
@@ -29,14 +31,16 @@ import { Bar, Line } from 'solid-chartjs';
 
 import { UIResource } from '~/types/chat';
 
-// Register Chart.js components
+// Register Chart.js components - include controllers for Bar and Line charts
 Chart.register(
   Title,
   Tooltip,
   Legend,
   Colors,
   BarElement,
+  BarController,
   LineElement,
+  LineController,
   PointElement,
   CategoryScale,
   LinearScale

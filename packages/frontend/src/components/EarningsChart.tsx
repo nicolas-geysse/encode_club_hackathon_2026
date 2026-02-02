@@ -17,6 +17,7 @@ import {
   LinearScale,
   PointElement,
   LineElement,
+  LineController,
   Title,
   Tooltip,
   Legend,
@@ -25,12 +26,13 @@ import {
   type ChartOptions,
 } from 'chart.js';
 
-// Register Chart.js components once
+// Register Chart.js components once - LineController is required for line charts
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  LineController,
   Title,
   Tooltip,
   Legend,
@@ -71,8 +73,10 @@ interface UnifiedStats {
 
 interface EarningsChartProps {
   goal: Goal;
-  /** Weekly earnings data (if available) */
+  /** Weekly earnings data (if available) - past earnings only */
   weeklyEarnings?: WeeklyEarning[];
+  /** Projected weekly earnings including future scheduled (for projection line) */
+  projectedWeeklyEarnings?: WeeklyEarning[];
   /** Current total saved towards goal */
   currentSaved?: number;
   currency?: Currency;
@@ -116,23 +120,27 @@ export function EarningsChart(props: EarningsChartProps) {
     const actualEarnings: number[] = [];
 
     const weeklyRequired = (goalAmount - currentSaved) / Math.max(1, totalWeeks);
+    // Calculate actual earning rate from past data (for stats display)
     const currentWeeklyRate = props.weeklyEarnings?.length
       ? props.weeklyEarnings.reduce((sum, w) => sum + w.earned, 0) / props.weeklyEarnings.length
-      : weeklyRequired; // Assume on pace if no data
+      : 0;
 
     for (let i = 0; i <= weeksCount; i++) {
       labels.push(i === 0 ? 'Now' : `W${i}`);
 
+      // IMPORTANT: Chart index i maps to goal week (i + 1)
+      // because weeks are 1-indexed: chart[0]="Now"=week1, chart[1]="W1"=week2, etc.
+      const goalWeek = i + 1;
+
       // Required pace line: use capacity-aware milestones if provided, else linear
       if (props.milestones && props.milestones.length > 0) {
         // v4.0: Capacity-aware pace from milestones
-        // Find milestone for week i (milestones are 1-indexed)
-        const milestone = props.milestones.find((m) => m.week === i);
+        const milestone = props.milestones.find((m) => m.week === goalWeek);
         if (milestone) {
           requiredPace.push(Math.min(goalAmount, Math.round(milestone.cumulativeTarget)));
         } else if (i === 0) {
-          // Week 0 = current savings
-          requiredPace.push(currentSaved);
+          // No milestone for week 1 - start from 0
+          requiredPace.push(0);
         } else {
           // Week beyond milestones - use last milestone or cap at goal
           const lastMilestone = props.milestones[props.milestones.length - 1];
@@ -146,16 +154,38 @@ export function EarningsChart(props: EarningsChartProps) {
         requiredPace.push(Math.round(requiredCumulative));
       }
 
-      // Projected at current rate
-      const projectedCumulative = Math.min(goalAmount * 1.2, currentSaved + currentWeeklyRate * i);
-      projectedEarnings.push(Math.round(projectedCumulative));
+      // Projected earnings: use scheduled future earnings if available
+      // This shows when savings will actually arrive (at income day each month)
+      if (props.projectedWeeklyEarnings && props.projectedWeeklyEarnings.length > 0) {
+        // Find the latest projected entry for week <= goalWeek
+        const relevantProjected = [...props.projectedWeeklyEarnings]
+          .reverse()
+          .find((w) => w.week <= goalWeek);
 
-      // Actual earnings (only for past weeks)
-      if (props.weeklyEarnings && i <= props.weeklyEarnings.length) {
-        const actualCumulative = props.weeklyEarnings
-          .slice(0, i)
-          .reduce((sum, w) => sum + w.earned, currentSaved);
-        actualEarnings.push(actualCumulative);
+        if (relevantProjected) {
+          projectedEarnings.push(Math.min(goalAmount * 1.2, relevantProjected.cumulative));
+        } else {
+          // Before first scheduled earning - 0
+          projectedEarnings.push(0);
+        }
+      } else {
+        // Fallback: no projection data, stay at current
+        projectedEarnings.push(currentSaved);
+      }
+
+      // Actual earnings (past earnings only)
+      // weeklyEarnings already has cumulative totals calculated correctly
+      if (props.weeklyEarnings && props.weeklyEarnings.length > 0) {
+        // Find the latest earnings entry at or before this goal week
+        const relevantEntry = [...props.weeklyEarnings].reverse().find((w) => w.week <= goalWeek);
+
+        if (relevantEntry) {
+          // Use the pre-calculated cumulative from weeklyEarnings
+          actualEarnings.push(relevantEntry.cumulative);
+        } else {
+          // Before first earnings - show 0
+          actualEarnings.push(0);
+        }
       }
     }
 
