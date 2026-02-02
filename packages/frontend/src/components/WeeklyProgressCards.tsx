@@ -5,7 +5,7 @@
  * Each card shows: week number, target, actual earnings, status (ahead/behind).
  */
 
-import { For, Show, createMemo, createSignal, createEffect, onMount, onCleanup } from 'solid-js';
+import { For, Show, createMemo, onMount, onCleanup } from 'solid-js';
 import type { Goal } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { getCurrentWeekInfo } from '~/lib/weekCalculator';
@@ -59,14 +59,15 @@ interface WeeklyProgressCardsProps {
   onAdjustSavings?: (weekNumber: number, currentAmount: number) => void;
   /** Sprint 13.19: User profile ID (required for academic events lookup) */
   userId?: string;
+  /** v4.0: Retroplan data from parent (via useGoalData hook) instead of fetching internally */
+  retroplan?: {
+    milestones: RetroplanMilestone[];
+    feasibilityScore?: number;
+  } | null;
 }
 
 export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
   const currency = () => props.currency || 'USD';
-  const [retroplan, setRetroplan] = createSignal<{
-    milestones: RetroplanMilestone[];
-    feasibilityScore?: number;
-  } | null>(null);
   let scrollContainerRef: HTMLDivElement | undefined;
 
   // Enable horizontal scroll with mouse wheel and drag-to-scroll
@@ -131,43 +132,9 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
     });
   });
 
-  // Fetch retroplan data
-  createEffect(() => {
-    const goal = props.goal;
-    // Sprint 13.19: Don't fetch if userId not loaded yet (prevents "default" bug)
-    if (goal.status === 'active' && goal.deadline && goal.amount && props.userId) {
-      fetch('/api/retroplan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate_retroplan',
-          goalId: goal.id,
-          goalAmount: goal.amount,
-          deadline: goal.deadline,
-          academicEvents: (goal.planData as { academicEvents?: unknown[] })?.academicEvents || [],
-          // Pass hourlyRate from profile for consistent feasibility calculations
-          hourlyRate: props.hourlyRate,
-          // Sprint 13.8 Fix: Pass simulated date for correct week calculations
-          simulatedDate: props.simulatedDate?.toISOString(),
-          // Bug 2 Fix: Pass goal creation date to generate weeks from original start
-          goalStartDate: goal.createdAt,
-          // Sprint 13.7: Pass monthly margin for combined feasibility calculation
-          monthlyMargin: props.monthlyMargin,
-          // Sprint 13.19: Pass userId for academic events lookup
-          userId: props.userId,
-        }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data?.retroplan) setRetroplan(data.retroplan);
-        })
-        .catch(() => {});
-    }
-  });
-
   // Calculate current week info from simulated date
   const weekInfo = createMemo(() => {
-    const plan = retroplan();
+    const plan = props.retroplan;
     if (!plan?.milestones?.length) return null;
 
     // Get start date from first milestone
@@ -179,7 +146,7 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
 
   // Calculate which weeks receive monthly savings
   const savingsWeeks = createMemo<Map<number, MonthlySavingsInfo>>(() => {
-    const plan = retroplan();
+    const plan = props.retroplan;
     if (!plan?.milestones?.length) return new Map();
     if (!props.monthlyMargin || props.monthlyMargin <= 0) return new Map();
 
@@ -199,7 +166,7 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
 
   // Generate week data from retroplan
   const weeks = createMemo<WeekData[]>(() => {
-    const plan = retroplan();
+    const plan = props.retroplan;
     if (!plan?.milestones) return [];
 
     const now = props.simulatedDate || new Date();
