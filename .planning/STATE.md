@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-02)
 ## Current Position
 
 Phase: 21 of 23 (Integration)
-Plan: 1 of 3 complete (21-01 done, 21-02 and 21-03 remaining)
+Plan: 2 of 3 complete (21-01 and 21-02 done, 21-03 remaining)
 Status: In progress
-Last activity: 2026-02-02 — Completed 21-01-PLAN.md
+Last activity: 2026-02-02 — Completed 21-02-PLAN.md
 
-Progress: [███░░░░░░░] 35% (v4.0 milestone: 2/7 plans complete)
+Progress: [████░░░░░░] 43% (v4.0 milestone: 3/7 plans complete)
 
-Next: 21-02-PLAN.md (Wave 1 parallel)
+Next: 21-03-PLAN.md (Wave 2)
 
 ## Performance Metrics
 
 **Milestone v4.0 (in progress):**
-- Plans completed: 2 (20-01, 21-01)
+- Plans completed: 3 (20-01, 21-01, 21-02)
 - Current phase: 21 (Integration) - in progress
 
 **Milestone v3.0:**
@@ -50,6 +50,12 @@ Next: 21-02-PLAN.md (Wave 1 parallel)
 - Configurable status thresholds (avoid hardcoded magic numbers)
 - Avatar inside card for mobile responsiveness (Option C from analysis)
 - Capacity-aware calculations everywhere (replace linear approximations)
+
+**Phase 21-02 Decisions:**
+- Replace inline retroplan fetch with hook derivation (cleaner separation)
+- Pass hook retroplan data to WeeklyProgressCards via prop
+- Add chart-format transformation with cumulative totals for EarningsChart
+- Normalize profile accessor (null to undefined) for hook type compatibility
 
 **Phase 21-01 Decisions:**
 - createResource for API data fetching (not createEffect+createSignal)
@@ -83,13 +89,13 @@ v3.0 milestone complete (Phases 16-17) — shipped 2026-02-02
 - Phase 20: Foundation (types, hook skeleton) — ARCH-01, ARCH-02 **[COMPLETE]**
 - Phase 21: Integration (hook completion, component rewiring) — ARCH-03, ARCH-04, EARN-01, EARN-02, EARN-03
   - 21-01: useGoalData hook completion **[COMPLETE]**
-  - 21-02: GoalsTab rewiring (pending)
+  - 21-02: GoalsTab rewiring **[COMPLETE]**
   - 21-03: EarningsChart integration (pending)
 - Phase 22: Calculation Unification — CALC-01, CALC-02, CALC-03
 - Phase 23: UX Polish — UX-01, UX-02, UX-03, UX-04
 
 ## Session Continuity
 
-Last session: 2026-02-02T16:34:50Z
-Stopped at: Completed 21-01-PLAN.md
+Last session: 2026-02-02T16:43:15Z
+Stopped at: Completed 21-02-PLAN.md
 Resume file: None
