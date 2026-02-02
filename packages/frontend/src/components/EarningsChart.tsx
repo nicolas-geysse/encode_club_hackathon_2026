@@ -5,7 +5,7 @@
  * Shows cumulative earnings, required pace, and goal amount.
  */
 
-import { onMount, onCleanup, Show, createMemo } from 'solid-js';
+import { onMount, onCleanup, Show, createMemo, createEffect, on } from 'solid-js';
 import type { Goal } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { GOAL_STATUS_THRESHOLDS } from '~/lib/goalStatus';
@@ -403,6 +403,60 @@ export function EarningsChart(props: EarningsChartProps) {
 
     return () => clearTimeout(timer);
   });
+
+  // Update chart when relevant props change
+  // This ensures the chart reflects the latest data without requiring a page refresh
+  createEffect(
+    on(
+      // Track these reactive props
+      () => [
+        props.milestones,
+        props.stats,
+        props.weeklyEarnings,
+        props.projectedWeeklyEarnings,
+        props.monthlyMargin,
+        props.goal?.amount,
+        props.goal?.deadline,
+      ],
+      () => {
+        // Skip if chart hasn't been created yet (onMount handles initial creation)
+        if (!chartInstance || !canvasRef) return;
+
+        // Regenerate chart data with new props
+        const data = generateChartData();
+        const chartData = chartInstance.data;
+
+        // Update datasets
+        if (chartData.labels) {
+          chartData.labels = data.labels;
+        }
+
+        // Update each dataset's data
+        if (chartData.datasets[0]) chartData.datasets[0].data = data.requiredPace;
+        if (chartData.datasets[1]) chartData.datasets[1].data = data.projectedEarnings;
+        if (chartData.datasets[2]) chartData.datasets[2].data = data.actualEarnings;
+
+        // Update Y-axis scale if needed
+        const maxDataValue = Math.max(
+          data.goalAmount,
+          ...data.requiredPace,
+          ...data.projectedEarnings,
+          ...data.actualEarnings
+        );
+        const minDataValue = Math.min(0, ...data.projectedEarnings, ...data.actualEarnings);
+
+        if (chartInstance.options.scales?.y) {
+          chartInstance.options.scales.y.max = Math.ceil(maxDataValue * 1.1);
+          chartInstance.options.scales.y.min =
+            minDataValue < 0 ? Math.floor(minDataValue * 1.1) : 0;
+        }
+
+        // Trigger chart update
+        chartInstance.update('none'); // 'none' disables animations for immediate update
+      },
+      { defer: true } // Don't run on initial mount (onMount handles that)
+    )
+  );
 
   // Cleanup on unmount
   onCleanup(() => {

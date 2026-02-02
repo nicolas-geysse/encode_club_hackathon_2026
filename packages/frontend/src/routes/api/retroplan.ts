@@ -358,15 +358,31 @@ async function calculateWeekCapacity(
   const energyMultiplier = 0.6 + ((avgEnergy + avgMood + (6 - avgStress)) / 15) * 0.8;
 
   // Calculate hours
-  // If user has configured availableHoursPerWeek, use that as the starting point
-  // Otherwise, calculate from: 168h (week) - 56h (sleep) - 21h (personal buffer) = 91h max free time
+  // Two modes:
+  // 1. User explicitly set availableHoursPerWeek → use directly (no 0.3 conversion)
+  // 2. Default calculation from free time → apply 0.3 conversion factor
   const totalCommitmentHours = commitments.reduce((sum, c) => sum + c.hoursPerWeek, 0);
-  const defaultMaxFreeHours = 168 - 56 - 21; // ~91h of theoretically available time
-  const userAvailableHours = availableHoursPerWeek ?? defaultMaxFreeHours;
-  // Subtract commitments from available hours (but not more than available)
-  const baseHours = Math.max(0, userAvailableHours - totalCommitmentHours);
-  // Apply multipliers and conversion factor (0.3 = only 30% of time can realistically be worked)
-  const effectiveHours = Math.round(baseHours * academicMultiplier * energyMultiplier * 0.3);
+
+  let effectiveHours: number;
+  if (availableHoursPerWeek !== undefined && availableHoursPerWeek > 0) {
+    // User explicitly specified "hours I can work per week"
+    // Only apply academicMultiplier (exams reduce available time)
+    // DON'T apply energyMultiplier - user's stated hours are their actual availability
+    // Energy affects productivity, not time availability
+    effectiveHours = Math.round(availableHoursPerWeek * academicMultiplier);
+  } else {
+    // Default: calculate from theoretical free time
+    const defaultMaxFreeHours = 168 - 56 - 21; // ~91h of theoretically available time
+    const baseHours = Math.max(0, defaultMaxFreeHours - totalCommitmentHours);
+    // Apply 0.3 conversion: only ~30% of "free time" is realistic work time
+    effectiveHours = Math.round(baseHours * academicMultiplier * energyMultiplier * 0.3);
+    console.log('[Capacity] Default calculation:', {
+      defaultMaxFreeHours,
+      totalCommitmentHours,
+      baseHours,
+      effectiveHours,
+    });
+  }
 
   // Calculate earning potential (hours × hourly rate)
   const maxEarningPotential = effectiveHours * hourlyRate;
@@ -406,6 +422,7 @@ async function generateRetroplanForGoal(
   simulatedDate?: Date, // Sprint 13.8 Fix: Accept simulated date for testing
   goalStartDate?: Date, // Bug 2 Fix: Accept goal start date for historical weeks
   monthlyMargin?: number, // Sprint 13.7: Add margin-based capacity factor
+  actualTotalSavings?: number, // ACTUAL total savings after adjustments (from useGoalData)
   totalEarned: number = 0, // Sprint 13.21: Progress already made toward goal
   availableHoursPerWeek?: number // User's configured max work hours per week
 ): Promise<Retroplan> {
@@ -464,20 +481,47 @@ async function generateRetroplanForGoal(
   // Calculate total earning potential
   const maxTotalEarnings = weekCapacities.reduce((sum, w) => sum + w.maxEarningPotential, 0);
 
-  // Calculate how much needs to be earned through WORK (accounting for margin)
-  // If margin is positive, monthly savings reduce work needed
-  // If margin is negative, monthly deficit INCREASES work needed
+  // Calculate how much needs to be earned through WORK (accounting for savings)
+  // Use actualTotalSavings if provided (includes adjustments), otherwise calculate from margin
   const monthsInPeriod = Math.max(1, Math.ceil(totalWeeks / 4.33));
-  const marginContribution = (monthlyMargin ?? 0) * monthsInPeriod;
+
+  let savingsContribution: number;
+  if (actualTotalSavings !== undefined) {
+    // Use actual savings (accounts for user adjustments like 200→0)
+    savingsContribution = actualTotalSavings;
+  } else if (monthlyMargin && monthlyMargin > 0) {
+    // Fallback: calculate from base margin
+    savingsContribution = monthlyMargin * monthsInPeriod;
+  } else if (monthlyMargin && monthlyMargin < 0) {
+    // Negative margin (deficit) - this ADDS to work needed
+    savingsContribution = monthlyMargin * monthsInPeriod; // Will be negative
+  } else {
+    savingsContribution = 0;
+  }
+
   // effectiveGoalForWork = what we need to earn through work
-  // Positive margin: reduces work (1000 - 400 = 600 needed)
-  // Negative margin: increases work (1000 - (-3200) = 4200 needed)
-  const effectiveGoalForWork = Math.max(0, goalAmount - marginContribution);
+  // Positive savings: reduces work (1000 - 800 = 200 needed)
+  // Negative savings (deficit): increases work (1000 - (-400) = 1400 needed)
+  const effectiveGoalForWork = Math.max(0, goalAmount - savingsContribution);
 
   // Calculate total capacity for distribution
   const totalCapacity = weekCapacities.reduce((sum, w) => sum + w.capacityScore, 0);
   const targetPerCapacityPoint =
     totalCapacity > 0 ? effectiveGoalForWork / totalCapacity : effectiveGoalForWork / totalWeeks;
+
+  // DEBUG: Log target calculation
+  console.log('[Retroplan] Target calculation:', {
+    goalAmount,
+    monthlyMargin,
+    actualTotalSavings,
+    monthsInPeriod,
+    savingsContribution,
+    effectiveGoalForWork,
+    totalWeeks,
+    totalCapacity,
+    targetPerCapacityPoint,
+    avgWeeklyTarget: Math.round(effectiveGoalForWork / totalWeeks),
+  });
 
   // Generate milestones
   let cumulative = 0;
@@ -1021,8 +1065,21 @@ export async function POST(event: APIEvent) {
           simulatedDate,
           goalStartDate,
           monthlyMargin,
+          actualTotalSavings, // ACTUAL total savings after adjustments (from useGoalData)
           totalEarned = 0, // Progress already made toward goal
         } = body;
+
+        // DEBUG: Log received parameters
+        console.log('[Retroplan API] Received params:', {
+          goalId,
+          goalAmount,
+          deadline,
+          hourlyRate,
+          availableHoursPerWeek,
+          monthlyMargin,
+          actualTotalSavings,
+          totalEarned,
+        });
 
         if (!goalId || !goalAmount || !deadline) {
           return new Response(
@@ -1085,6 +1142,7 @@ export async function POST(event: APIEvent) {
           effectiveSimulatedDate,
           effectiveGoalStartDate,
           monthlyMargin,
+          actualTotalSavings, // ACTUAL savings after adjustments
           totalEarned,
           effectiveAvailableHours
         );

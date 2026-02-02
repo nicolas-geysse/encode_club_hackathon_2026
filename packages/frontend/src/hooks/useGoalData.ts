@@ -16,6 +16,12 @@ import type { FullProfile } from '../lib/profileService';
 import type { IncomeItem, LifestyleItem } from '../lib/profileContext';
 import { aggregateAllEarnings, type MissionData, type TradeData } from '../lib/earningsAggregator';
 import { calculateGoalStatus, calculateOnPace } from '../lib/goalStatus';
+import {
+  calculateSavingsWeeks,
+  applySavingsAdjustments,
+  getEffectiveSavingsAmount,
+  type SavingsAdjustment,
+} from '../lib/savingsHelper';
 
 // === RETROPLAN TYPES ===
 // Simplified types for hook return values.
@@ -335,6 +341,24 @@ export function useGoalData(
       const incomeDay = p.incomeDay || 15;
       const currentDate = simDate || new Date();
 
+      // Calculate ACTUAL total savings (accounting for adjustments)
+      // This ensures weekly targets update when user adjusts savings in WeeklyProgressCards
+      const savingsAdjustments = (p.followupData?.savingsAdjustments || {}) as Record<
+        number,
+        SavingsAdjustment
+      >;
+      const baseSavingsWeeks = calculateSavingsWeeks(
+        goalStartDate,
+        goalDeadline,
+        incomeDay,
+        monthlyMargin > 0 ? monthlyMargin : 0 // Only positive margin generates savings
+      );
+      const adjustedSavingsWeeks = applySavingsAdjustments(baseSavingsWeeks, savingsAdjustments);
+      const actualTotalSavings = adjustedSavingsWeeks.reduce(
+        (sum, s) => sum + getEffectiveSavingsAmount(s),
+        0
+      );
+
       // Calculate earnings (simplified - trades handled separately)
       const earningsEvents = aggregateAllEarnings({
         missions,
@@ -353,7 +377,8 @@ export function useGoalData(
         deadline: g.deadline,
         profileId: p.id,
         hourlyRate: p.minHourlyRate || 15,
-        monthlyMargin: computedMargin, // Use computed margin instead of p.monthlyMargin
+        monthlyMargin: computedMargin, // Base margin for display
+        actualTotalSavings, // ACTUAL savings after adjustments - use this for effectiveGoalForWork
         availableHoursPerWeek: p.maxWorkHoursWeekly, // User's configured available hours
         goalStartDate: g.createdAt,
         simulatedDate: simDate?.toISOString(),
@@ -375,6 +400,7 @@ export function useGoalData(
           deadline: params.deadline,
           hourlyRate: params.hourlyRate,
           monthlyMargin: params.monthlyMargin,
+          actualTotalSavings: params.actualTotalSavings, // ACTUAL savings after adjustments
           availableHoursPerWeek: params.availableHoursPerWeek,
           goalStartDate: params.goalStartDate,
           simulatedDate: params.simulatedDate,

@@ -877,6 +877,8 @@ export function GoalsTab(props: GoalsTabProps) {
         { setActive: false }
       );
       await refreshProfile();
+      // Force retroplan refetch to update weekly targets with new savings adjustments
+      goalData.refetch();
     }
 
     setShowSavingsAdjust(false);
