@@ -14,6 +14,7 @@ import type { EarningEvent, GoalStatus } from '../types/earnings';
 import type { Goal } from '../lib/goalService';
 import type { FullProfile } from '../lib/profileService';
 import { aggregateAllEarnings, type MissionData, type TradeData } from '../lib/earningsAggregator';
+import { calculateGoalStatus, calculateOnPace } from '../lib/goalStatus';
 
 // === RETROPLAN TYPES ===
 // Simplified types for hook return values.
@@ -94,6 +95,8 @@ export interface GoalStats {
   weeklyTarget: number;
   /** Linear weekly need (total / weeks) for comparison */
   linearWeeklyNeed: number;
+  /** Cumulative target up to current week (for status calculation) */
+  cumulativeTarget: number;
   /** Current goal status */
   status: GoalStatus;
   /** Weeks remaining until deadline */
@@ -422,7 +425,6 @@ export function useGoalData(
     const linearWeeklyNeed = weeksRemaining > 0 ? goalAmount / weeksRemaining : 0;
 
     // Get capacity-aware weekly target from retroplan if available
-    // For now, use linear (Phase 22 will improve this)
     let weeklyTarget = linearWeeklyNeed;
 
     if (plan && plan.milestones.length > 0) {
@@ -437,29 +439,35 @@ export function useGoalData(
     // Progress calculation
     const percentComplete = goalAmount > 0 ? Math.min(100, (totalEarned / goalAmount) * 100) : 0;
 
-    // Calculate expected progress based on time elapsed
-    const remaining = goalAmount - totalEarned;
-    const expectedRemaining = linearWeeklyNeed * weeksRemaining;
-    const onPace = remaining <= expectedRemaining || percentComplete >= 100;
-
-    // Determine status based on progress and pace
-    // TODO [Phase 22]: Use configurable thresholds
-    let status: GoalStatus = 'on-track';
-    if (percentComplete >= 100) {
-      status = 'ahead';
-    } else if (!onPace && goalAmount > 0) {
-      const behindPercentage = ((remaining - expectedRemaining) / goalAmount) * 100;
-      if (behindPercentage > 20) {
-        status = 'critical';
-      } else if (behindPercentage > 10) {
-        status = 'behind';
+    // Step 3a: Calculate cumulative target for current week
+    // This const is computed once and used for both status calculation and return value
+    const cumulativeTarget = (() => {
+      if (plan && plan.milestones.length > 0) {
+        const currentWeekNumber = plan.totalWeeks - weeksRemaining + 1;
+        const currentMilestone = plan.milestones.find((m) => m.weekNumber === currentWeekNumber);
+        if (currentMilestone) {
+          return currentMilestone.cumulativeTarget;
+        } else {
+          // Fallback: use linear target for weeks beyond milestones
+          return goalAmount * (currentWeekNumber / plan.totalWeeks);
+        }
+      } else {
+        // No retroplan - use linear estimate
+        const totalWeeks = plan?.totalWeeks || Math.max(1, weeksRemaining);
+        const elapsedWeeks = totalWeeks - weeksRemaining;
+        return linearWeeklyNeed * elapsedWeeks;
       }
-    }
+    })();
+
+    // Step 3b: Use unified status calculation with configurable thresholds
+    const status = calculateGoalStatus(totalEarned, cumulativeTarget);
+    const onPace = calculateOnPace(totalEarned, cumulativeTarget);
 
     return {
       totalEarned,
       weeklyTarget,
       linearWeeklyNeed,
+      cumulativeTarget,
       status,
       weeksRemaining,
       percentComplete,
