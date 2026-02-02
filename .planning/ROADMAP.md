@@ -65,13 +65,13 @@
 3. Type definitions enable IDE autocompletion for all earnings sources (mission, savings, trade_sale, trade_borrow)
 4. Hook signature accepts goal, profile, and optional simulation parameters
 
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 20-01: TBD
+- [ ] 20-01-PLAN.md — Create EarningEvent types and useGoalData hook skeleton
 
 **Key Files**:
-- Create: `packages/frontend/src/lib/types/earnings.ts`
+- Create: `packages/frontend/src/types/earnings.ts`
 - Create: `packages/frontend/src/hooks/useGoalData.ts` (skeleton)
 
 ### Phase 21: Integration
@@ -163,7 +163,7 @@ Phase numbering continues from previous milestones: 1-10 (v2.0), 11-15 (v2.1), 1
 | 11-15 | v2.1 | 5/5 | Complete | 2026-01-31 |
 | 16. Privacy & Consent | v3.0 | 3/3 | Complete | 2026-02-01 |
 | 17. Real Job Search API | v3.0 | 3/3 | Complete | 2026-02-02 |
-| 20. Foundation | v4.0 | 0/TBD | Not started | - |
+| 20. Foundation | v4.0 | 0/1 | Planned | - |
 | 21. Integration | v4.0 | 0/TBD | Not started | - |
 | 22. Calculation Unification | v4.0 | 0/TBD | Not started | - |
 | 23. UX Polish | v4.0 | 0/TBD | Not started | - |
