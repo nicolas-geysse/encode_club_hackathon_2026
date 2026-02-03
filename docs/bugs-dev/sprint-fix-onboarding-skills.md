@@ -214,7 +214,7 @@ generateScenarios():
 
 ### Phase 6: Système de Feedback (Thumb Up/Down) ✅ COMPLETE
 > Objectif: L'utilisateur peut noter les suggestions pour améliorer les recommandations
-> **Commit**: TBD - feat(feedback): Phase 6 user feedback system for suggestions
+> **Commit**: `becb252` - feat(feedback): Phase 6 user feedback system for suggestions
 
 | ID | Tâche | Détails | Fichiers | Status |
 |----|-------|---------|----------|--------|
