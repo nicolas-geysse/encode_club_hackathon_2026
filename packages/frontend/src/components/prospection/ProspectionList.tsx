@@ -5,7 +5,7 @@
  * Jobs are sorted by score (descending) with star ratings and Top Pick badges.
  */
 
-import { createSignal, Show, For } from 'solid-js';
+import { createSignal, createMemo, Show, For } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
   MapPin,
@@ -25,6 +25,8 @@ import {
   Laptop,
   Building,
   Award,
+  Globe,
+  Navigation,
 } from 'lucide-solid';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -53,6 +55,20 @@ const ICON_MAP = {
 
 type SortOption = 'score' | 'distance' | 'salary';
 
+/** P3: View mode for hybrid Places/Remote filtering */
+export type ViewMode = 'all' | 'nearby' | 'remote';
+
+/** Check if job is from a remote source (Remotive, Arbeitnow, etc.) */
+function isRemoteJob(job: ScoredJob): boolean {
+  const remoteSources = ['remotive', 'arbeitnow', 'adzuna', 'jooble'];
+  return remoteSources.includes(job.source?.toLowerCase() ?? '');
+}
+
+/** Check if job is from a local source (Google Places) */
+function isNearbyJob(job: ScoredJob): boolean {
+  return !isRemoteJob(job);
+}
+
 interface ProspectionListProps {
   jobs: ScoredJob[];
   onSave: (job: ScoredJob) => void;
@@ -67,14 +83,31 @@ interface ProspectionListProps {
   categoryLabel?: string;
   /** All jobs from all searched categories (for global TOP 10) */
   allCategoryJobs?: ScoredJob[];
+  /** P3: Enable hybrid view tabs (Nearby Places / Remote Jobs / All) */
+  showViewTabs?: boolean;
+  /** P3: Default view mode */
+  defaultViewMode?: ViewMode;
 }
 
 export function ProspectionList(props: ProspectionListProps) {
   const [sortBy, setSortBy] = createSignal<SortOption>('score');
+  const [viewMode, setViewMode] = createSignal<ViewMode>(props.defaultViewMode ?? 'all');
+
+  // P3: Count jobs by source type
+  const nearbyCount = createMemo(() => props.jobs.filter(isNearbyJob).length);
+  const remoteCount = createMemo(() => props.jobs.filter(isRemoteJob).length);
+
+  // P3: Filter jobs based on view mode
+  const filteredJobs = createMemo(() => {
+    const mode = viewMode();
+    if (mode === 'nearby') return props.jobs.filter(isNearbyJob);
+    if (mode === 'remote') return props.jobs.filter(isRemoteJob);
+    return props.jobs; // 'all'
+  });
 
   // Sort jobs based on selected option
   const sortedJobs = () => {
-    const jobs = [...props.jobs];
+    const jobs = [...filteredJobs()];
     switch (sortBy()) {
       case 'score':
         return jobs.sort((a, b) => b.score - a.score);
@@ -110,9 +143,9 @@ export function ProspectionList(props: ProspectionListProps) {
     }
   };
 
-  // Phase 8: Jobs with certification matches
+  // Phase 8: Jobs with certification matches (filtered by view mode)
   const certificationMatches = () => {
-    const matches = props.jobs.filter(
+    const matches = filteredJobs().filter(
       (job) => job.matchedCertifications && job.matchedCertifications.length > 0
     );
     return matches;
@@ -132,17 +165,85 @@ export function ProspectionList(props: ProspectionListProps) {
 
   return (
     <div class="space-y-4">
+      {/* P3: View Mode Tabs (Hybrid View) */}
+      <Show when={props.showViewTabs && (nearbyCount() > 0 || remoteCount() > 0)}>
+        <div class="flex gap-1 p-1 bg-muted rounded-lg">
+          {/* All */}
+          <button
+            onClick={() => setViewMode('all')}
+            class={cn(
+              'flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+              viewMode() === 'all'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            )}
+          >
+            <Star class="h-4 w-4" />
+            All
+            <span class="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">
+              {props.jobs.length}
+            </span>
+          </button>
+
+          {/* Nearby Places */}
+          <button
+            onClick={() => setViewMode('nearby')}
+            class={cn(
+              'flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+              viewMode() === 'nearby'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            )}
+          >
+            <Navigation class="h-4 w-4" />
+            Nearby
+            <Show when={nearbyCount() > 0}>
+              <span class="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">
+                {nearbyCount()}
+              </span>
+            </Show>
+          </button>
+
+          {/* Remote Jobs */}
+          <button
+            onClick={() => setViewMode('remote')}
+            class={cn(
+              'flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors',
+              viewMode() === 'remote'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            )}
+          >
+            <Globe class="h-4 w-4" />
+            Remote
+            <Show when={remoteCount() > 0}>
+              <span class="text-xs bg-violet-500/10 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded-full">
+                {remoteCount()}
+              </span>
+            </Show>
+          </button>
+        </div>
+      </Show>
+
       {/* Sort controls */}
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm text-muted-foreground">
-            {props.jobs.length} {props.jobs.length === 1 ? 'opportunity' : 'opportunities'} found
+            {filteredJobs().length} {filteredJobs().length === 1 ? 'opportunity' : 'opportunities'}{' '}
+            {viewMode() !== 'all' ? `(${viewMode()})` : 'found'}
           </p>
           {/* Show search location for debugging */}
-          <Show when={props.meta?.searchLocation}>
+          <Show when={props.meta?.searchLocation && viewMode() !== 'remote'}>
             <p class="text-xs text-muted-foreground/60 flex items-center gap-1">
               <MapPin class="h-3 w-3" />
               Searching near {props.meta!.searchLocation!.city}
+            </p>
+          </Show>
+          {/* Show remote info */}
+          <Show when={viewMode() === 'remote'}>
+            <p class="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1">
+              <Globe class="h-3 w-3" />
+              Work from anywhere - no commute required
             </p>
           </Show>
         </div>
@@ -365,42 +466,73 @@ export function ProspectionList(props: ProspectionListProps) {
       </Show>
 
       {/* Empty state with diagnostic messages */}
-      <Show when={props.jobs.length === 0}>
+      <Show when={filteredJobs().length === 0}>
         <Card>
           <CardContent class="p-8 text-center">
             <div class="text-muted-foreground">
-              <Building class="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <h3 class="text-lg font-semibold mb-2">No opportunities found</h3>
-
-              {/* Context-aware diagnostic message */}
-              <Show when={props.meta?.source === 'platforms'}>
+              {/* P3: View-specific empty states */}
+              <Show when={viewMode() === 'nearby' && props.jobs.length > 0}>
+                <Navigation class="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 class="text-lg font-semibold mb-2">No nearby places in this category</h3>
                 <p class="text-sm mb-3">
-                  This category uses job platforms rather than nearby places.
+                  All {props.jobs.length} opportunities in this search are remote jobs.
                 </p>
-                <p class="text-xs text-muted-foreground/70">
-                  Try visiting the platforms listed in the category details.
-                </p>
+                <button
+                  onClick={() => setViewMode('remote')}
+                  class="text-sm text-violet-600 dark:text-violet-400 hover:underline"
+                >
+                  View {remoteCount()} remote opportunities instead →
+                </button>
               </Show>
 
-              <Show when={props.meta?.source === 'google_places' && props.meta?.searchPerformed}>
-                <p class="text-sm mb-3">Google Places returned no results for this location.</p>
-                <p class="text-xs text-muted-foreground/70">
-                  Check that the Google Places API is enabled and billing is configured in your GCP
-                  console.
+              <Show when={viewMode() === 'remote' && props.jobs.length > 0}>
+                <Globe class="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 class="text-lg font-semibold mb-2">No remote jobs in this category</h3>
+                <p class="text-sm mb-3">
+                  All {props.jobs.length} opportunities in this search are nearby places.
                 </p>
+                <button
+                  onClick={() => setViewMode('nearby')}
+                  class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  View {nearbyCount()} nearby opportunities instead →
+                </button>
               </Show>
 
-              <Show when={props.meta?.source === 'google_places' && !props.meta?.hasCoordinates}>
-                <p class="text-sm mb-3">Location coordinates are required for this search.</p>
-                <p class="text-xs text-muted-foreground/70">
-                  Please enable location access or enter your city in your profile.
-                </p>
-              </Show>
+              <Show when={props.jobs.length === 0}>
+                <Building class="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <h3 class="text-lg font-semibold mb-2">No opportunities found</h3>
 
-              <Show when={!props.meta}>
-                <p class="text-sm">
-                  Try selecting a different category or adjusting your location settings.
-                </p>
+                {/* Context-aware diagnostic message */}
+                <Show when={props.meta?.source === 'platforms'}>
+                  <p class="text-sm mb-3">
+                    This category uses job platforms rather than nearby places.
+                  </p>
+                  <p class="text-xs text-muted-foreground/70">
+                    Try visiting the platforms listed in the category details.
+                  </p>
+                </Show>
+
+                <Show when={props.meta?.source === 'google_places' && props.meta?.searchPerformed}>
+                  <p class="text-sm mb-3">Google Places returned no results for this location.</p>
+                  <p class="text-xs text-muted-foreground/70">
+                    Check that the Google Places API is enabled and billing is configured in your
+                    GCP console.
+                  </p>
+                </Show>
+
+                <Show when={props.meta?.source === 'google_places' && !props.meta?.hasCoordinates}>
+                  <p class="text-sm mb-3">Location coordinates are required for this search.</p>
+                  <p class="text-xs text-muted-foreground/70">
+                    Please enable location access or enter your city in your profile.
+                  </p>
+                </Show>
+
+                <Show when={!props.meta}>
+                  <p class="text-sm">
+                    Try selecting a different category or adjusting your location settings.
+                  </p>
+                </Show>
               </Show>
             </div>
           </CardContent>
@@ -580,13 +712,20 @@ function JobListItem(props: JobListItemProps) {
 
             {/* Location and commute */}
             <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-2">
+              {/* P3: Source badge */}
+              <Show when={isRemoteJob(props.job)}>
+                <span class="flex items-center gap-1 px-2 py-0.5 bg-violet-100 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300 rounded-full">
+                  <Globe class="h-3 w-3" />
+                  Remote
+                </span>
+              </Show>
               <Show when={props.job.location}>
                 <div class="flex items-center gap-1">
                   <MapPin class="h-3 w-3 shrink-0" />
                   <span class="truncate max-w-[150px]">{props.job.location}</span>
                 </div>
               </Show>
-              <Show when={props.job.commuteText}>
+              <Show when={props.job.commuteText && !isRemoteJob(props.job)}>
                 <div class="flex items-center gap-1">
                   <Clock class="h-3 w-3 shrink-0" />
                   <span>{props.job.commuteText}</span>

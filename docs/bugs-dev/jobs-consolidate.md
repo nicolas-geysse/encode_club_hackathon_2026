@@ -298,15 +298,23 @@ This is actually a **feature**, not a bug - remote jobs are perfect for students
 - [x] Handle special category in ProspectionTab
 - [x] Add Opik tracing for job listing searches
 
-### Phase 2: Hybrid Search (Future)
-- [ ] Add "Job Listings" tab in ProspectionList
-- [ ] Combine with existing Google Places results
-- [ ] Apply scoring algorithm to real jobs
+### Phase 2: Job Caching (P2) ✅
+- [x] Add `job_cache` table in DuckDB
+- [x] TTL-based cache invalidation (24h places, 6h job listings)
+- [x] Cache bypass with `?refresh=true` query param
+- [x] Integrate caching into `/api/job-listings` endpoint
 
-### Phase 3: Caching (Future)
-- [ ] Add `job_listings_cache` table
-- [ ] TTL-based cache invalidation
-- [ ] Background refresh option
+### Phase 3: Hybrid View (P3) ✅
+- [x] Add view tabs in ProspectionList (All / Nearby / Remote)
+- [x] Filter jobs by source type (Google Places vs Remotive/Arbeitnow)
+- [x] Add source badges on job cards (Remote badge)
+- [x] View-specific empty states with cross-navigation
+
+### Phase 4: Improved Scoring (P4) ✅
+- [x] Add `goalFit` factor to scoring algorithm (20% weight)
+- [x] Calculate how well job earnings help reach savings target
+- [x] Add UserProfile fields: `monthlySavingsTarget`, `availableHoursPerWeek`
+- [x] Rebalance weights: distance(25%), profile(20%), effort(20%), rate(15%), goalFit(20%)
 
 ---
 

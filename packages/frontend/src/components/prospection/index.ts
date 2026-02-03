@@ -7,6 +7,6 @@
 export { CategoryExplorer, TOP10_ALL_CATEGORY_ID, REAL_JOBS_CATEGORY_ID } from './CategoryExplorer';
 export { ProspectionCard } from './ProspectionCard';
 export { ProspectionSwipeDeck } from './ProspectionSwipeDeck';
-export { ProspectionList } from './ProspectionList';
+export { ProspectionList, type ViewMode } from './ProspectionList';
 export { ProspectionMap } from './ProspectionMap';
 export { SavedLeads } from './SavedLeads';

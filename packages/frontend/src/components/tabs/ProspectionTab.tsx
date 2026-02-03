@@ -609,6 +609,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
             profileId={props.profileId}
             categoryLabel={categoryLabel()}
             allCategoryJobs={allCategoryJobs()}
+            showViewTabs={true}
           />
         </div>
 
