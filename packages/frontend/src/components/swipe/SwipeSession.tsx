@@ -8,7 +8,7 @@
  * - DOWN: Negative feedback (card stays, logs sentiment)
  */
 
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, createMemo, For, Show } from 'solid-js';
 import { SwipeCard, type SwipeDirection, type CardAdjustments } from './SwipeCard';
 import type { Scenario, UserPreferences } from '../tabs/SwipeTab';
 import { getCurrencySymbol, type Currency } from '~/lib/dateUtils';
@@ -16,6 +16,7 @@ import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { Card } from '~/components/ui/Card';
+import { cn } from '~/lib/cn';
 import {
   X,
   ThumbsDown,
@@ -27,6 +28,7 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowDown,
+  AlertCircle,
 } from 'lucide-solid';
 
 interface SwipeSessionProps {
@@ -132,6 +134,39 @@ export function SwipeSession(props: SwipeSessionProps) {
   };
   const [adjustments, setAdjustments] = createSignal<CardAdjustments>(getDefaultAdjustments());
 
+  // Validation: rate and hours must be > 0 for work scenarios (not lifestyle)
+  const [showValidationError, setShowValidationError] = createSignal(false);
+
+  const currentScenario = createMemo(() => props.scenarios[currentIndex()]);
+
+  const isCardValid = createMemo(() => {
+    const scenario = currentScenario();
+    if (!scenario) return true;
+
+    // Lifestyle scenarios (savings) can have 0 rate and 0 hours
+    if (scenario.category === 'lifestyle') return true;
+
+    const rate = adjustments().customHourlyRate ?? scenario.hourlyRate;
+    const hours = adjustments().customWeeklyHours ?? scenario.weeklyHours;
+
+    // For work scenarios, both rate and hours must be > 0
+    return rate > 0 && hours > 0;
+  });
+
+  const isRateInvalid = createMemo(() => {
+    const scenario = currentScenario();
+    if (!scenario || scenario.category === 'lifestyle') return false;
+    const rate = adjustments().customHourlyRate ?? scenario.hourlyRate;
+    return rate <= 0;
+  });
+
+  const isHoursInvalid = createMemo(() => {
+    const scenario = currentScenario();
+    if (!scenario || scenario.category === 'lifestyle') return false;
+    const hours = adjustments().customWeeklyHours ?? scenario.weeklyHours;
+    return hours <= 0;
+  });
+
   // Check if undo is available
   const canUndo = () => swipeHistory().length > 0;
 
@@ -179,6 +214,23 @@ export function SwipeSession(props: SwipeSessionProps) {
   const handleSwipe = (direction: SwipeDirection, timeSpent: number) => {
     setTriggerSwipe(null); // Reset trigger to prevent double firing on next card
     const scenario = props.scenarios[currentIndex()];
+
+    // Validation: block accept (right/up) if card is invalid
+    const isAcceptDirection = direction === 'right' || direction === 'up';
+    if (isAcceptDirection && !isCardValid()) {
+      // Show validation error and return card
+      setShowValidationError(true);
+      setReturnFromDirection(direction);
+      setTimeout(() => {
+        setReturnFromDirection(null);
+        // Keep error visible for a bit longer
+        setTimeout(() => setShowValidationError(false), 2000);
+      }, 400);
+      return; // Don't proceed with the swipe
+    }
+
+    // Clear any validation error on successful swipe
+    setShowValidationError(false);
     const previousPrefs = { ...preferences() };
 
     // For 'down' swipe: reject + record as "meh" (strong dislike)
@@ -291,7 +343,8 @@ export function SwipeSession(props: SwipeSessionProps) {
     } else {
       const nextIndex = currentIndex() + 1;
       setCurrentIndex(nextIndex);
-      // Reset adjustments for next card
+      // Reset adjustments and validation for next card
+      setShowValidationError(false);
       const nextScenario = props.scenarios[nextIndex];
       if (nextScenario) {
         setAdjustments({
@@ -320,36 +373,72 @@ export function SwipeSession(props: SwipeSessionProps) {
 
               <div class="grid grid-cols-2 gap-3">
                 <div class="space-y-1">
-                  <label class="text-[10px] text-muted-foreground">
+                  <label
+                    class={cn(
+                      'text-[10px]',
+                      isRateInvalid() && showValidationError()
+                        ? 'text-red-500 font-medium'
+                        : 'text-muted-foreground'
+                    )}
+                  >
                     Rate ({currencySymbol()}/h)
                   </label>
                   <Input
                     type="number"
-                    class="h-8 bg-background border-border text-xs"
+                    class={cn(
+                      'h-8 bg-background text-xs transition-colors',
+                      isRateInvalid() && showValidationError()
+                        ? 'border-red-500 border-2 ring-2 ring-red-500/20'
+                        : 'border-border'
+                    )}
                     value={adjustments().customHourlyRate}
-                    onInput={(e) =>
+                    onInput={(e) => {
+                      setShowValidationError(false);
                       setAdjustments({
                         ...adjustments(),
                         customHourlyRate: Number(e.currentTarget.value),
-                      })
-                    }
+                      });
+                    }}
                   />
                 </div>
                 <div class="space-y-1">
-                  <label class="text-[10px] text-muted-foreground">Hours/week</label>
+                  <label
+                    class={cn(
+                      'text-[10px]',
+                      isHoursInvalid() && showValidationError()
+                        ? 'text-red-500 font-medium'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    Hours/week
+                  </label>
                   <Input
                     type="number"
-                    class="h-8 bg-background border-border text-xs"
+                    class={cn(
+                      'h-8 bg-background text-xs transition-colors',
+                      isHoursInvalid() && showValidationError()
+                        ? 'border-red-500 border-2 ring-2 ring-red-500/20'
+                        : 'border-border'
+                    )}
                     value={adjustments().customWeeklyHours}
-                    onInput={(e) =>
+                    onInput={(e) => {
+                      setShowValidationError(false);
                       setAdjustments({
                         ...adjustments(),
                         customWeeklyHours: Number(e.currentTarget.value),
-                      })
-                    }
+                      });
+                    }}
                   />
                 </div>
               </div>
+
+              {/* Validation error message */}
+              <Show when={showValidationError() && !isCardValid()}>
+                <div class="flex items-center gap-1.5 text-red-500 text-[10px] mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <AlertCircle class="h-3 w-3 shrink-0" />
+                  <span>Set rate and hours before accepting</span>
+                </div>
+              </Show>
             </div>
           </Card>
         </Show>
