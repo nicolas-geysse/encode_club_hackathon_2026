@@ -24,7 +24,9 @@ import {
   PartyPopper,
   Laptop,
   Building,
+  Award,
 } from 'lucide-solid';
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
@@ -210,40 +212,101 @@ function JobListItem(props: JobListItemProps) {
             <div class="p-2 bg-primary/10 rounded-lg">
               <Dynamic component={IconComponent()} class="h-5 w-5 text-primary" />
             </div>
-            {/* Star rating */}
-            <div class="flex flex-col items-center">
-              <div class="flex">
-                <For each={[1, 2, 3, 4, 5]}>
-                  {(star) => (
-                    <Star
-                      class={cn(
-                        'h-3 w-3',
-                        star <= Math.floor(props.job.score)
-                          ? 'text-primary fill-primary'
-                          : star <= props.job.score
-                            ? 'text-primary fill-primary/50'
-                            : 'text-muted-foreground/30'
+            {/* Star rating with score breakdown tooltip */}
+            <Tooltip>
+              <TooltipTrigger class="cursor-help">
+                <div class="flex flex-col items-center">
+                  <div class="flex">
+                    <For each={[1, 2, 3, 4, 5]}>
+                      {(star) => (
+                        <Star
+                          class={cn(
+                            'h-3 w-3',
+                            star <= Math.floor(props.job.score)
+                              ? 'text-primary fill-primary'
+                              : star <= props.job.score
+                                ? 'text-primary fill-primary/50'
+                                : 'text-muted-foreground/30'
+                          )}
+                        />
                       )}
-                    />
-                  )}
-                </For>
-              </div>
-              <span class="text-xs font-bold text-primary">
-                {formatStarRating(props.job.score)}
-              </span>
-            </div>
+                    </For>
+                  </div>
+                  <span class="text-xs font-bold text-primary">
+                    {formatStarRating(props.job.score)}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent class="max-w-xs">
+                <div class="text-xs space-y-1">
+                  <div class="font-semibold mb-1">Why this job matches:</div>
+                  <div class="flex justify-between gap-4">
+                    <span>Distance</span>
+                    <span class="font-mono">
+                      {Math.round(props.job.scoreBreakdown.distance * 100)}%
+                    </span>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>Profile match</span>
+                    <span class="font-mono">
+                      {Math.round(props.job.scoreBreakdown.profile * 100)}%
+                    </span>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>Low effort</span>
+                    <span class="font-mono">
+                      {Math.round(props.job.scoreBreakdown.effort * 100)}%
+                    </span>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span>Good rate</span>
+                    <span class="font-mono">
+                      {Math.round(props.job.scoreBreakdown.rate * 100)}%
+                    </span>
+                  </div>
+                  <Show when={props.job.scoreBreakdown.profileDetails?.certificationBonus}>
+                    <div class="flex justify-between gap-4 text-green-600 dark:text-green-400">
+                      <span>Certification boost</span>
+                      <span class="font-mono">
+                        +
+                        {Math.round(
+                          (props.job.scoreBreakdown.profileDetails?.certificationBonus || 0) * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                  </Show>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Middle: Job details */}
           <div class="flex-1 min-w-0">
-            {/* Title row with Top Pick badge */}
-            <div class="flex items-start gap-2 mb-1">
+            {/* Title row with Top Pick + Certification badges */}
+            <div class="flex items-start gap-2 mb-1 flex-wrap">
               <h3 class="font-semibold text-foreground truncate">{props.job.title}</h3>
               <Show when={isTopPick(props.job.score)}>
                 <span class="shrink-0 px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
                   <Star class="h-3 w-3 fill-white" />
                   Top Pick
                 </span>
+              </Show>
+              {/* Phase 5: Certification badge */}
+              <Show
+                when={props.job.matchedCertifications && props.job.matchedCertifications.length > 0}
+              >
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span class="shrink-0 px-2 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
+                      <Award class="h-3 w-3" />
+                      {props.job.matchedCertifications![0].name}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Your {props.job.matchedCertifications![0].name} certification boosts this job!
+                  </TooltipContent>
+                </Tooltip>
               </Show>
             </div>
 

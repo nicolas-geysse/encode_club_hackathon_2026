@@ -693,6 +693,7 @@ export default function PlanPage() {
                   city={activeProfile()?.city}
                   currency={activeProfile()?.currency}
                   userSkills={activeProfile()?.skills}
+                  userCertifications={activeProfile()?.certifications}
                   minHourlyRate={activeProfile()?.minHourlyRate}
                   onLeadsChange={setLeads}
                 />

@@ -3,31 +3,47 @@
  *
  * Scores job opportunities based on:
  * - Distance (30%): Closer is better
- * - Profile match (25%): Matches user skills and preferences
+ * - Profile match (25%): Matches user skills and preferences + certifications
  * - Effort level (25%): Lower effort is better for sustainability
  * - Rate (20%): Higher pay is better
  *
  * Returns score 1-5 (star rating format)
  *
+ * Phase 5: Added certification bonus support
+ *
  * Adapted from skill-arbitrage algorithm in mcp-server.
  */
 
 import type { ProspectionCard } from './prospectionTypes';
+import {
+  calculateCertificationBonus,
+  type CertificationDefinition,
+} from './data/certificationMapping';
 
 export interface JobScoreBreakdown {
   distance: number; // 0-1 normalized
   profile: number; // 0-1 normalized
   effort: number; // 0-1 normalized
   rate: number; // 0-1 normalized
+  /** Detailed profile breakdown for UI tooltip */
+  profileDetails?: {
+    skillMatch: number; // 0-1 skill relevance
+    certificationBonus: number; // 0-0.3 certification bonus
+    rateMatch: boolean; // meets minimum rate
+  };
 }
 
 export interface ScoredJob extends ProspectionCard {
   score: number; // 1-5 star rating
   scoreBreakdown: JobScoreBreakdown;
+  /** Certifications that boost this job (for badge display) */
+  matchedCertifications?: CertificationDefinition[];
 }
 
 export interface UserProfile {
   skills?: string[];
+  /** Phase 5: Professional certifications (BAFA, PSC1, etc.) */
+  certifications?: string[];
   maxWorkHoursWeekly?: number;
   minHourlyRate?: number;
 }
@@ -54,8 +70,8 @@ export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob
   const commuteMinutes = job.commuteMinutes ?? 30;
   const distanceNorm = Math.max(0, 1 - commuteMinutes / MAX_COMMUTE_MINUTES);
 
-  // Profile match score: check if job matches user skills/preferences
-  const profileNorm = calculateProfileMatch(job, profile);
+  // Profile match score: check if job matches user skills/preferences + certifications
+  const profileResult = calculateProfileMatch(job, profile);
 
   // Effort score: lower effort is better (invert)
   const effortLevel = job.effortLevel ?? 3;
@@ -68,7 +84,7 @@ export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob
   // Weighted sum
   const rawScore =
     WEIGHTS.distance * distanceNorm +
-    WEIGHTS.profile * profileNorm +
+    WEIGHTS.profile * profileResult.score +
     WEIGHTS.effort * effortNorm +
     WEIGHTS.rate * rateNorm;
 
@@ -80,37 +96,73 @@ export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob
     score: Math.min(5, Math.max(1, score)),
     scoreBreakdown: {
       distance: distanceNorm,
-      profile: profileNorm,
+      profile: profileResult.score,
       effort: effortNorm,
       rate: rateNorm,
+      profileDetails: profileResult.details,
     },
+    matchedCertifications: profileResult.matchedCertifications,
   };
+}
+
+interface ProfileMatchResult {
+  score: number;
+  details: {
+    skillMatch: number;
+    certificationBonus: number;
+    rateMatch: boolean;
+  };
+  matchedCertifications: CertificationDefinition[];
 }
 
 /**
  * Calculate profile match score
  * Returns 0-1 based on how well the job matches user profile
+ * Phase 5: Now includes certification bonus
  */
-function calculateProfileMatch(job: ProspectionCard, profile?: UserProfile): number {
-  if (!profile) return 0.5; // Neutral if no profile
+function calculateProfileMatch(job: ProspectionCard, profile?: UserProfile): ProfileMatchResult {
+  const defaultResult: ProfileMatchResult = {
+    score: 0.5,
+    details: { skillMatch: 0, certificationBonus: 0, rateMatch: false },
+    matchedCertifications: [],
+  };
 
-  let score = 0.5; // Base score
+  if (!profile) return defaultResult;
+
+  let score = 0.4; // Base score (reduced to leave room for bonuses)
+  let skillMatch = 0;
+  let certificationBonus = 0;
+  let rateMatch = false;
+  let matchedCertifications: CertificationDefinition[] = [];
 
   // Skill match bonus
   if (profile.skills && profile.skills.length > 0) {
     const jobCategory = job.categoryId;
-    const skillMatches = matchSkillsToCategory(profile.skills, jobCategory);
-    score += skillMatches * 0.3; // Up to +0.3 for skill match
+    skillMatch = matchSkillsToCategory(profile.skills, jobCategory);
+    score += skillMatch * 0.25; // Up to +0.25 for skill match
+  }
+
+  // Phase 5: Certification bonus
+  if (profile.certifications && profile.certifications.length > 0) {
+    const certResult = calculateCertificationBonus(profile.certifications, job.categoryId);
+    certificationBonus = certResult.bonus;
+    matchedCertifications = certResult.matchedCertifications;
+    score += certificationBonus; // Up to +0.3 for certification match
   }
 
   // Rate preference match
   if (profile.minHourlyRate && job.avgHourlyRate) {
     if (job.avgHourlyRate >= profile.minHourlyRate) {
-      score += 0.2; // Meets minimum rate requirement
+      rateMatch = true;
+      score += 0.15; // Meets minimum rate requirement
     }
   }
 
-  return Math.min(1, Math.max(0, score));
+  return {
+    score: Math.min(1, Math.max(0, score)),
+    details: { skillMatch, certificationBonus, rateMatch },
+    matchedCertifications,
+  };
 }
 
 /**

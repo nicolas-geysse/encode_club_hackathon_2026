@@ -194,6 +194,8 @@ export interface ProspectionTabProps {
   onLeadsChange?: (leads: Lead[]) => void;
   // JOBS-04: Skills for matching algorithm
   userSkills?: string[];
+  /** Phase 5: Certifications for job boost (BAFA, PSC1, etc.) */
+  userCertifications?: string[];
   minHourlyRate?: number;
 }
 

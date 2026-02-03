@@ -111,8 +111,10 @@ export function ProspectionTab(props: ProspectionTabProps) {
       const data = await response.json();
 
       // JOBS-04/05: Build user profile for scoring and score/sort jobs
+      // Phase 5: Now includes certifications for job boost
       const userProfile: UserProfile = {
         skills: props.userSkills,
+        certifications: props.userCertifications,
         minHourlyRate: props.minHourlyRate,
       };
       const scoredCards = scoreJobsForProfile(data.cards, userProfile);
