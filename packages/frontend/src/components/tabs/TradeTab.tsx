@@ -1046,17 +1046,21 @@ export function TradeTab(props: TradeTabProps) {
                 <Button variant="outline" class="flex-1" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <Button
-                  variant="default"
+                <button
+                  type="button"
                   class={cn(
-                    'flex-1 font-bold shadow-sm',
+                    'flex-1 inline-flex items-center justify-center rounded-md h-10 px-4 py-2 text-sm font-bold shadow-sm disabled:opacity-50 disabled:pointer-events-none',
                     !newTrade().name ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
                   )}
+                  style={{
+                    'background-color': 'hsl(var(--primary))',
+                    color: 'hsl(var(--primary-foreground))',
+                  }}
                   onClick={() => (editingTradeId() ? updateTrade() : addTrade())}
                   disabled={!newTrade().name}
                 >
                   {editingTradeId() ? 'Update' : 'Add Item'}
-                </Button>
+                </button>
               </div>
             </CardContent>
           </Card>
