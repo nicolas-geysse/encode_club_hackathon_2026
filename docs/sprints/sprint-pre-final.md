@@ -3,14 +3,39 @@
 ## Executive Summary
 
 **Date**: 2026-02-03
-**Status**: Planning
+**Status**: Planning (Revised after Senior Review)
 **Priority**: High - Hackathon Demo Readiness
 
 This sprint addresses 4 critical areas before the hackathon demo:
 1. **Bruno's Catch-up Advice** - Contextual guidance on tracking page
 2. **Performance Optimization** - Page transition slowdowns
 3. **Opik Value Demonstration** - Concrete use cases for judges
-4. **Agent Unification** - Proactive, unified multi-agent experience
+4. **Agent Proactivity** - "Wizard of Oz" triggers using existing eventBus
+
+---
+
+## Senior Review Feedback (Applied)
+
+### 🚨 Critical: Opik Security Issue (FIXED)
+**Problem**: Original plan to add Opik tracing to `jobScoring.ts` (client-side) would expose `OPIK_API_KEY` in browser bundle.
+
+**Resolution**:
+- ❌ DROP client-side job scoring tracing
+- ✅ Focus on server-side traces (Chat, Tips Orchestrator) - already impressive
+- ✅ If job scoring traces needed → proxy via `/api/trace` endpoint
+
+### ⚠️ P3 Scope Reduction (APPLIED)
+**Problem**: Full `agentContext.ts` + `proactiveTriggers.ts` introduces new bugs before demo.
+
+**Resolution**: "Wizard of Oz" approach using **existing `eventBus`** infrastructure:
+- ✅ EventBus already emits: `DATA_CHANGED`, `PROFILE_SWITCHED`, `SIMULATION_UPDATED`, `DATA_RESET`
+- ✅ Add 3 specific "happy path" triggers (not generic engine)
+- ✅ No new state synchronization complexity
+
+### ✅ P1 Suspense Requirement (ADDED)
+**Problem**: Lazy loading without `<Suspense>` causes blank screen.
+
+**Resolution**: Wrap lazy components in `<Suspense fallback={<TabSkeleton />}>`
 
 ---
 
@@ -107,8 +132,10 @@ Strong slowdowns between page transitions (`/` → `/plan` → `/suivi`).
 
 ### Solutions
 
-#### P1.1: Lazy Load Heavy Tabs
+#### P1.1: Lazy Load Heavy Tabs (with Suspense)
 **File**: `packages/frontend/src/routes/plan.tsx`
+
+**🚨 CRITICAL**: Must wrap lazy components in `<Suspense>` or app will crash/blank!
 
 ```typescript
 // Before: All tabs loaded immediately
@@ -116,9 +143,31 @@ import { ProspectionTab } from '~/components/tabs/ProspectionTab';
 import { SwipeTab } from '~/components/tabs/SwipeTab';
 
 // After: Lazy load non-default tabs
+import { lazy, Suspense } from 'solid-js';
+
 const ProspectionTab = lazy(() => import('~/components/tabs/ProspectionTab'));
 const SwipeTab = lazy(() => import('~/components/tabs/SwipeTab'));
 const TradeTab = lazy(() => import('~/components/tabs/TradeTab'));
+
+// In JSX - wrap each lazy component:
+<TabsContent value="prospection">
+  <Suspense fallback={<TabSkeleton />}>
+    <ProspectionTab {...props} />
+  </Suspense>
+</TabsContent>
+```
+
+**TabSkeleton Component** (add to `~/components/ui/Skeleton.tsx`):
+```typescript
+export function TabSkeleton() {
+  return (
+    <div class="space-y-4 p-6">
+      <div class="h-8 w-48 bg-muted rounded animate-pulse" />
+      <div class="h-32 bg-muted rounded animate-pulse" />
+      <div class="h-32 bg-muted rounded animate-pulse" />
+    </div>
+  );
+}
 ```
 
 #### P1.2: Defer Non-Critical API Calls
@@ -263,238 +312,282 @@ const ORCHESTRATION_TIMEOUT = 5000; // 5s max, fallback to Level 2
 3. **Create Opik dashboard screenshots** for slides
 4. **Prepare 2-3 "interesting" traces** to show live
 
-### Quick Wins for Demo
+### Quick Wins for Demo (Server-Side Only)
 
+**🚨 SECURITY NOTE**: Do NOT add Opik tracing to client-side code (`jobScoring.ts` runs in browser). API keys would be exposed.
+
+**Safe approach - trace via API proxy if needed:**
 ```typescript
-// Add to jobScoring.ts - scoreJobsForProfile()
-import { trace } from '~/lib/opik';
+// packages/frontend/src/routes/api/trace-scoring.ts (NEW - optional)
+export async function POST(event: APIEvent) {
+  const { jobs, profile, scores } = await event.request.json();
 
-export function scoreJobsForProfile(jobs, profile) {
   return trace('scoring.job_batch', async (ctx) => {
     ctx.setAttributes({
       'scoring.jobs_count': jobs.length,
       'scoring.has_preferences': !!profile.swipePreferences,
-      'scoring.preference_version': getPreferenceVersion(profile.swipePreferences),
     });
-
-    const scored = jobs.map(job => scoreJob(job, profile));
-
-    ctx.setOutput({
-      'scoring.top_score': scored[0]?.score,
-      'scoring.avg_score': scored.reduce((a, b) => a + b.score, 0) / scored.length,
-    });
-
-    return scored;
+    ctx.setOutput({ topScore: scores[0]?.score });
+    return new Response(JSON.stringify({ traced: true }));
   });
 }
 ```
+
+**Recommended for demo**: Focus on existing server traces (Chat, Tips) - they're already impressive enough.
 
 ---
 
-## P3: Agent Unification & Proactivity
+## P3: Agent Proactivity ("Wizard of Oz" Approach)
 
-### Current Agent Architecture
+### Senior Review Guidance
+> "Don't build the generic engine yet. Build 3 specific Happy Paths that look proactive."
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CURRENT STATE                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  /api/tips ────► Tips Orchestrator ────► 4 Agents          │
-│                      │                    │                 │
-│                      │                    ├─ Budget Coach   │
-│                      │                    ├─ Job Matcher    │
-│                      │                    ├─ Strategy Comp  │
-│                      │                    └─ Guardian       │
-│                      │                                      │
-│                      └─► Single tip output                  │
-│                                                             │
-│  /api/chat ────► Onboarding Agent ────► Profile extraction │
-│                                                             │
-│  /api/agent ───► Generic (unused in frontend)              │
-│                                                             │
-│  DORMANT: Money Maker, Projection ML, Daily Briefing       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+### Existing Infrastructure (No New State!)
+
+**✅ EventBus already exists** (`packages/frontend/src/lib/eventBus.ts`):
+```typescript
+export type AppEvent =
+  | 'DATA_CHANGED'      // 35+ emit sites across services
+  | 'DATA_RESET'        // Reset all data
+  | 'PROFILE_SWITCHED'  // Profile change
+  | 'SIMULATION_UPDATED'; // Time simulation
 ```
 
-### Problems
+**✅ ProfileContext already provides** (`packages/frontend/src/lib/profileContext.tsx`):
+- `profile()`, `goals()`, `skills()`, `inventory()`, `lifestyle()`, `income()`, `trades()`
+- All refreshed reactively on `DATA_CHANGED`
 
-1. **Fragmented Invocation**: Each page calls agents independently
-2. **Reactive Only**: Agents wait for user action, never proactive
-3. **No Cross-Panel Insights**: Budget analysis doesn't inform Jobs tab
-4. **Dormant Agents**: Money Maker, Projection ML never called
-5. **No Agent Memory**: Each call starts fresh, no conversation context
+### Strategy: Event-Driven "Happy Paths"
 
-### Vision: Unified Agent Layer
+Instead of a polling `setInterval`, hook specific events to specific alerts:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    TARGET STATE                             │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │           UNIFIED AGENT CONTEXT LAYER               │   │
-│  │                                                     │   │
-│  │  Profile + Energy + Goals + Budget + Skills + Jobs  │   │
-│  │                                                     │   │
-│  │  ┌─────────────────────────────────────────────┐   │   │
-│  │  │         PROACTIVE TRIGGER ENGINE            │   │   │
-│  │  │                                             │   │   │
-│  │  │  - Behind schedule? → Catch-up agent        │   │   │
-│  │  │  - Energy low? → Rest recommendation        │   │   │
-│  │  │  - New skill? → Job opportunity scan        │   │   │
-│  │  │  - Goal achieved? → Celebration + next goal │   │   │
-│  │  │                                             │   │   │
-│  │  └─────────────────────────────────────────────┘   │   │
-│  │                                                     │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                          │                                  │
-│         ┌────────────────┼────────────────┐                │
-│         ▼                ▼                ▼                │
-│    ┌─────────┐     ┌─────────┐     ┌─────────┐            │
-│    │  Tips   │     │  Chat   │     │  Alerts │            │
-│    │ (suivi) │     │ (onboard)│    │ (global)│            │
-│    └─────────┘     └─────────┘     └─────────┘            │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+User Action              →  Event Emitted      →  Proactive Response
+─────────────────────────────────────────────────────────────────────
+Saves new skill          →  DATA_CHANGED       →  "Want to find matching jobs?"
+Completes a goal         →  DATA_CHANGED       →  "🎉 Goal achieved! Set next?"
+Energy drops to low      →  DATA_CHANGED       →  "Take a break, Bruno says..."
+Resets simulation        →  SIMULATION_UPDATED →  "Fresh start! Here's your plan"
 ```
 
-### Implementation Roadmap
+### Implementation: 3 Quickwin Happy Paths
 
-#### Phase 1: Unified Context Store (P3.1)
-**Create shared agent context accessible from all pages**
+#### P3.1: New Skill → Job Scan Suggestion (1h)
+
+**File**: `packages/frontend/src/components/tabs/SkillsTab.tsx`
 
 ```typescript
-// packages/frontend/src/lib/agentContext.ts
-export interface AgentContext {
-  profile: Profile;
-  energy: { current: number; history: EnergyEntry[]; debt: EnergyDebt | null };
-  goals: { progress: number; behind: number; weeklyTarget: number };
-  budget: { margin: number; status: string };
-  skills: string[];
-  lastAnalysis: {
-    budgetCoach: BudgetAnalysis | null;
-    jobMatcher: JobMatchResult | null;
-    timestamp: number;
-  };
-}
+// After saving new skill, show proactive toast
+const handleSaveSkill = async (skill: Skill) => {
+  await skillService.addSkill(skill);
 
-// Singleton store, hydrated on app load
-export const agentContext = createStore<AgentContext>({...});
+  // Proactive trigger
+  toastPopup.info(
+    '💡 Bruno noticed a new skill!',
+    `Want me to find ${skill.name} opportunities?`,
+    {
+      action: {
+        label: 'Scan Jobs',
+        onClick: () => navigate('/plan?tab=prospection'),
+      },
+      duration: 8000,
+    }
+  );
+};
+```
 
-// Reactive updates from profile changes
-createEffect(() => {
-  const profile = activeProfile();
-  if (profile) {
-    agentContext.setProfile(profile);
-    agentContext.setEnergy({...});
+#### P3.2: Goal Achieved → Celebration + Next Goal (1h)
+
+**File**: `packages/frontend/src/components/tabs/GoalsTab.tsx` or `LogProgressDialog.tsx`
+
+```typescript
+// When progress hits 100%, trigger celebration
+const handleLogProgress = async (amount: number) => {
+  const newProgress = currentProgress + amount;
+
+  if (newProgress >= goalAmount && currentProgress < goalAmount) {
+    // Goal just achieved!
+    celebrateBig();
+
+    // Delayed proactive suggestion
+    setTimeout(() => {
+      toastPopup.success(
+        '🎯 Goal Complete!',
+        'Ready to set your next financial goal?',
+        {
+          action: {
+            label: 'New Goal',
+            onClick: () => setShowNewGoalDialog(true),
+          },
+          duration: 10000,
+        }
+      );
+    }, 3000); // After confetti settles
   }
-});
+};
 ```
 
-#### Phase 2: Proactive Trigger Engine (P3.2)
-**Background checks that spawn agent advice**
+#### P3.3: Energy Warning → Rest Suggestion (1h)
+
+**File**: `packages/frontend/src/components/suivi/EnergyHistory.tsx`
 
 ```typescript
-// packages/frontend/src/lib/proactiveTriggers.ts
-export function initProactiveTriggers() {
-  // Check every 30 seconds
-  setInterval(async () => {
-    const ctx = agentContext;
+// When energy logged below 40, proactive rest advice
+const handleLogEnergy = async (level: number) => {
+  await logEnergy(level);
 
-    // Trigger 1: Behind schedule + high energy
-    if (ctx.goals.behind > 10 && ctx.energy.current > 70) {
-      showProactiveAlert({
-        agent: 'catch-up-advisor',
-        title: 'Good energy! Time to catch up?',
-        message: `You're ${ctx.goals.behind}% behind but feeling strong.`,
-        action: { label: 'See catch-up plan', href: '/suivi#comeback' },
-      });
-    }
-
-    // Trigger 2: New skill detected → scan jobs
-    if (ctx.skills !== lastSkills) {
-      const newSkills = ctx.skills.filter(s => !lastSkills.includes(s));
-      if (newSkills.length > 0) {
-        showProactiveAlert({
-          agent: 'job-matcher',
-          title: `New skill: ${newSkills[0]}!`,
-          message: 'Want me to find matching opportunities?',
-          action: { label: 'Scan jobs', href: '/plan?tab=jobs' },
-        });
+  if (level < 40) {
+    toastPopup.warning(
+      '⚠️ Bruno is concerned',
+      'Low energy detected. Your weekly targets have been adjusted.',
+      {
+        action: {
+          label: 'See Adjusted Plan',
+          onClick: () => scrollToElement('#weekly-targets'),
+        },
+        duration: 8000,
       }
-    }
-
-    // Trigger 3: Energy debt threshold
-    if (ctx.energy.debt?.detected && ctx.energy.debt.severity === 'high') {
-      showProactiveAlert({
-        agent: 'guardian',
-        title: 'Energy debt critical',
-        message: 'Your goals have been auto-adjusted. Focus on rest.',
-        action: { label: 'See adjustments', href: '/plan?tab=goals' },
-      });
-    }
-  }, 30000);
-}
+    );
+  }
+};
 ```
 
-#### Phase 3: Cross-Panel Agent Insights (P3.3)
-**Share agent analysis across tabs**
+### Bonus: Global ProactiveAlerts Component (Optional, 2h)
+
+If time permits, centralize with a lightweight component:
+
+**File**: `packages/frontend/src/components/ProactiveAlerts.tsx`
 
 ```typescript
-// When Budget tab analyzes margin, store result
-// packages/frontend/src/components/tabs/BudgetTab.tsx
-const budgetAnalysis = await analyzeBudget(profile);
-agentContext.setLastAnalysis('budgetCoach', budgetAnalysis);
+import { createSignal, onMount, For, Show } from 'solid-js';
+import { eventBus } from '~/lib/eventBus';
+import { useProfile } from '~/lib/profileContext';
 
-// Jobs tab can use this without re-calling agent
-// packages/frontend/src/components/tabs/ProspectionTab.tsx
-const budgetInsight = agentContext.lastAnalysis.budgetCoach;
-if (budgetInsight?.status === 'deficit') {
-  // Prioritize high-paying jobs
-  scoringWeights.rate += 0.1;
+interface ProactiveAlert {
+  id: string;
+  title: string;
+  message: string;
+  action?: { label: string; href: string };
+  agent: string;
+  timestamp: number;
 }
-```
 
-#### Phase 4: Global Alert System (P3.4)
-**Proactive notifications across the app**
-
-```typescript
-// packages/frontend/src/components/ProactiveAlerts.tsx
 export function ProactiveAlerts() {
   const [alerts, setAlerts] = createSignal<ProactiveAlert[]>([]);
+  const { skills, goals } = useProfile();
+
+  // Track previous values to detect changes
+  let prevSkillCount = 0;
+  let prevGoalProgress = 0;
 
   onMount(() => {
-    // Subscribe to proactive trigger events
-    window.addEventListener('proactive-alert', (e) => {
-      setAlerts(prev => [...prev, e.detail]);
+    // Listen to DATA_CHANGED and check for specific conditions
+    const unsub = eventBus.on('DATA_CHANGED', () => {
+      const currentSkills = skills();
+      const currentGoals = goals();
+
+      // Trigger: New skill added
+      if (currentSkills.length > prevSkillCount && prevSkillCount > 0) {
+        const newSkill = currentSkills[currentSkills.length - 1];
+        addAlert({
+          title: `New skill: ${newSkill.name}!`,
+          message: 'Want me to find matching job opportunities?',
+          action: { label: 'Scan Jobs', href: '/plan?tab=prospection' },
+          agent: 'job-matcher',
+        });
+      }
+      prevSkillCount = currentSkills.length;
+
+      // Trigger: Goal completed
+      const completedGoal = currentGoals.find(g =>
+        g.progress >= 100 && prevGoalProgress < 100
+      );
+      if (completedGoal) {
+        addAlert({
+          title: '🎉 Goal achieved!',
+          message: `Congrats on completing "${completedGoal.name}"!`,
+          action: { label: 'Set Next Goal', href: '/plan?tab=goals' },
+          agent: 'celebration',
+        });
+      }
+      prevGoalProgress = currentGoals[0]?.progress || 0;
     });
+
+    return unsub;
   });
 
+  const addAlert = (alert: Omit<ProactiveAlert, 'id' | 'timestamp'>) => {
+    setAlerts(prev => [...prev, {
+      ...alert,
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+    }]);
+
+    // Auto-dismiss after 10s
+    setTimeout(() => {
+      setAlerts(prev => prev.filter(a => a.timestamp !== alert.timestamp));
+    }, 10000);
+  };
+
   return (
-    <div class="fixed bottom-4 right-4 space-y-2 z-50">
-      <For each={alerts()}>
-        {(alert) => (
-          <AlertCard
-            alert={alert}
-            onDismiss={() => dismissAlert(alert.id)}
-            onAction={() => handleAction(alert)}
-          />
-        )}
-      </For>
-    </div>
+    <Show when={alerts().length > 0}>
+      <div class="fixed bottom-20 right-4 space-y-2 z-50 max-w-sm">
+        <For each={alerts()}>
+          {(alert) => (
+            <div class="bg-card border rounded-lg shadow-lg p-4 animate-slide-up">
+              <div class="flex items-start gap-3">
+                <span class="text-2xl">🤖</span>
+                <div class="flex-1">
+                  <h4 class="font-semibold text-sm">{alert.title}</h4>
+                  <p class="text-xs text-muted-foreground">{alert.message}</p>
+                  <Show when={alert.action}>
+                    <a
+                      href={alert.action!.href}
+                      class="text-xs text-primary hover:underline mt-1 inline-block"
+                    >
+                      {alert.action!.label} →
+                    </a>
+                  </Show>
+                </div>
+                <button
+                  onClick={() => setAlerts(prev => prev.filter(a => a.id !== alert.id))}
+                  class="text-muted-foreground hover:text-foreground"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+        </For>
+      </div>
+    </Show>
   );
 }
 ```
 
-### Quick Win for Demo: Wake Up Dormant Agents
+**Add to app.tsx**:
+```typescript
+import { ProactiveAlerts } from '~/components/ProactiveAlerts';
 
-**Money Maker on Trade Tab**:
+// In layout:
+<ProactiveAlerts />
+```
+
+### Why This Works for Demo
+
+1. **No new state management** - Uses existing `eventBus` + `profileContext`
+2. **No polling** - Event-driven, fires exactly when data changes
+3. **Specific happy paths** - 3 scenarios that "just work" for demo
+4. **Easy to expand later** - Foundation for full engine post-hackathon
+
+### Dormant Agents: Quick Activation (Optional)
+
+If time permits, add buttons to invoke dormant agents:
+
+**Money Maker on Trade Tab** (+30min):
 ```typescript
 // packages/frontend/src/components/tabs/TradeTab.tsx
-// Add "AI Suggestion" button that calls Money Maker
-const suggestSideHustles = async () => {
+<Button onClick={async () => {
   const result = await fetch('/api/agent', {
     method: 'POST',
     body: JSON.stringify({
@@ -503,15 +596,17 @@ const suggestSideHustles = async () => {
       profileId,
     }),
   });
-  // Display suggestions in panel
-};
+  const data = await result.json();
+  setSuggestions(data.suggestions);
+}}>
+  🤖 AI Suggestions
+</Button>
 ```
 
-**Projection ML on Goals Tab**:
+**Projection ML on Goals Tab** (+30min):
 ```typescript
 // packages/frontend/src/components/tabs/GoalsTab.tsx
-// Add "Predict graduation balance" widget
-const predictBalance = async () => {
+<Button onClick={async () => {
   const result = await fetch('/api/agent', {
     method: 'POST',
     body: JSON.stringify({
@@ -520,33 +615,134 @@ const predictBalance = async () => {
       profileId,
     }),
   });
-  // Show projection chart
-};
+  setProjection(await result.json());
+}}>
+  📈 Predict Balance
+</Button>
 ```
 
 ---
 
-## Sprint Summary
+## Refactoring Recommendations (Post-Hackathon)
 
-| Priority | Objective | Effort | Demo Impact |
-|----------|-----------|--------|-------------|
-| **P0** | Bruno catch-up advice | 2h | HIGH - User sees contextual guidance |
-| **P1** | Performance optimization | 3h | HIGH - Smooth demo experience |
-| **P2** | Opik value demonstration | 2h | HIGH - Judges see LLMOps value |
-| **P3** | Agent unification | 4h+ | MEDIUM - Future architecture |
+### Enable Future P3 Full Implementation
 
-### Recommended Order
-1. **P0**: Quick win, immediate user value
-2. **P1.4**: Reduce tips timeout (fast fix)
-3. **P2**: Prepare Opik demo traces
-4. **P1.1-P1.3**: Lazy loading, skeletons
-5. **P3**: Time permitting, add proactive triggers
+These refactors would make full agent unification easier after the hackathon:
+
+#### 1. Extend EventBus with Typed Payloads
+**Current**: Events are type-only (`DATA_CHANGED`), no payload.
+**Improved**: Add typed payloads for better context.
+
+```typescript
+// packages/frontend/src/lib/eventBus.ts
+export type AppEventPayload = {
+  DATA_CHANGED: { entity: 'skill' | 'goal' | 'income' | 'trade'; action: 'create' | 'update' | 'delete'; id: string };
+  GOAL_ACHIEVED: { goalId: string; goalName: string; amount: number };
+  ENERGY_LOGGED: { level: number; previousLevel: number };
+  SKILL_ADDED: { skillId: string; skillName: string };
+  // ...
+};
+
+// Then emit with payload:
+eventBus.emit('SKILL_ADDED', { skillId: skill.id, skillName: skill.name });
+```
+
+**Impact**: Proactive triggers can react to specific changes without polling/diffing.
+
+#### 2. Add Agent Cache to ProfileContext
+**Current**: Each agent call starts fresh.
+**Improved**: Cache last analysis results.
+
+```typescript
+// packages/frontend/src/lib/profileContext.tsx
+interface ProfileContextValue {
+  // ... existing
+  agentCache: () => {
+    budgetAnalysis: BudgetAnalysis | null;
+    jobMatches: JobMatch[] | null;
+    lastUpdated: number;
+  };
+  setAgentCache: (key: string, value: unknown) => void;
+}
+```
+
+**Impact**: Cross-panel insights without re-calling agents.
+
+#### 3. Extract Toast Actions as Reusable Patterns
+**Current**: Toast actions are inline closures.
+**Improved**: Create action registry for navigation + state changes.
+
+```typescript
+// packages/frontend/src/lib/toastActions.ts
+export const toastActions = {
+  openTab: (tab: string) => () => navigate(`/plan?tab=${tab}`),
+  scrollTo: (id: string) => () => document.getElementById(id)?.scrollIntoView(),
+  openDialog: (setOpen: Setter<boolean>) => () => setOpen(true),
+};
+
+// Usage:
+toastPopup.info('Title', 'Message', {
+  action: { label: 'View', onClick: toastActions.openTab('goals') }
+});
+```
+
+**Impact**: Consistent navigation from proactive alerts.
+
+#### 4. Add Lazy Tab Registry
+**Current**: Tabs hardcoded in plan.tsx imports.
+**Improved**: Registry pattern for dynamic loading.
+
+```typescript
+// packages/frontend/src/config/tabRegistry.ts
+export const TAB_REGISTRY = {
+  profile: { component: () => import('~/components/tabs/ProfileTab'), eager: true },
+  goals: { component: () => import('~/components/tabs/GoalsTab'), eager: true },
+  skills: { component: () => import('~/components/tabs/SkillsTab'), eager: false },
+  budget: { component: () => import('~/components/tabs/BudgetTab'), eager: false },
+  trade: { component: () => import('~/components/tabs/TradeTab'), eager: false },
+  prospection: { component: () => import('~/components/tabs/ProspectionTab'), eager: false },
+  swipe: { component: () => import('~/components/tabs/SwipeTab'), eager: false },
+};
+```
+
+**Impact**: Centralized lazy loading config, easier to add new tabs.
+
+---
+
+## Sprint Summary (Revised)
+
+| Priority | Objective | Effort | Demo Impact | Risk |
+|----------|-----------|--------|-------------|------|
+| **P0** | Bruno catch-up advice | 1.5h | HIGH | LOW |
+| **P1.4** | Reduce tips timeout | 15min | HIGH | LOW |
+| **P1.1** | Lazy tabs + Suspense | 1h | HIGH | MEDIUM (test!) |
+| **P1.2** | Defer tips API | 30min | MEDIUM | LOW |
+| **P2** | Prepare Opik demo | 1h | HIGH (judges) | LOW |
+| **P3.1** | Skill → Job scan trigger | 30min | HIGH | LOW |
+| **P3.2** | Goal achieved trigger | 30min | HIGH | LOW |
+| **P3.3** | Energy warning trigger | 30min | MEDIUM | LOW |
+| **P3.bonus** | Global ProactiveAlerts | 1h | MEDIUM | MEDIUM |
+
+**Total Estimated**: ~7h for full sprint
+
+### Recommended Order (Quickwins First)
+1. **P1.4**: Reduce tips timeout 15s→5s (5 min fix, instant perf win)
+2. **P0**: Bruno catch-up advice (immediate user value)
+3. **P3.1**: Skill → job scan (proactive demo for judges)
+4. **P2**: Prepare 3 Opik traces for live demo
+5. **P1.1**: Lazy tabs + Suspense (test thoroughly after!)
+6. **P3.2**: Goal achieved celebration trigger
+7. **P3.3**: Energy warning trigger
+8. **P3.bonus**: If time, add centralized ProactiveAlerts component
 
 ### Definition of Done
 - [ ] Bruno gives catch-up advice when behind schedule
 - [ ] Page transitions feel snappy (<1s)
+- [ ] Tips API responds in <5s (with graceful fallback)
 - [ ] 3 Opik use cases ready to demo with real traces
-- [ ] At least 1 proactive agent trigger implemented
+- [ ] At least 2 proactive triggers working (skill + goal)
+- [ ] **No client-side Opik tracing** (security verified)
+- [ ] Lazy tabs wrapped in `<Suspense>` (no blank screens)
 
 ---
 
@@ -566,8 +762,10 @@ const predictBalance = async () => {
 - `packages/frontend/src/lib/opik.ts` - Frontend tracing
 - `packages/frontend/src/lib/jobScoring.ts` - Add scoring traces
 
-### P3 (Agents)
-- `packages/mcp-server/src/agents/` - All agent definitions
-- `packages/frontend/src/routes/api/tips.ts` - Orchestrator entry
-- NEW: `packages/frontend/src/lib/agentContext.ts` - Unified context
-- NEW: `packages/frontend/src/lib/proactiveTriggers.ts` - Trigger engine
+### P3 (Proactive Triggers - Wizard of Oz)
+- `packages/frontend/src/lib/eventBus.ts` - Existing event infrastructure
+- `packages/frontend/src/lib/profileContext.tsx` - Existing reactive data
+- `packages/frontend/src/components/tabs/SkillsTab.tsx` - Add skill trigger
+- `packages/frontend/src/components/tabs/GoalsTab.tsx` - Add goal trigger
+- `packages/frontend/src/components/suivi/EnergyHistory.tsx` - Add energy trigger
+- OPTIONAL: `packages/frontend/src/components/ProactiveAlerts.tsx` - Global alerts
