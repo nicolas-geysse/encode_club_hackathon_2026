@@ -190,6 +190,8 @@ export interface ProspectionTabProps {
   city?: string;
   currency?: 'USD' | 'EUR' | 'GBP';
   onLeadSaved?: (lead: Lead) => void;
+  /** Phase 4: Callback when leads array changes (for Swipe integration) */
+  onLeadsChange?: (leads: Lead[]) => void;
   // JOBS-04: Skills for matching algorithm
   userSkills?: string[];
   minHourlyRate?: number;

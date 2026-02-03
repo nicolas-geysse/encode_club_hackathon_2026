@@ -75,6 +75,17 @@ export function ProspectionTab(props: ProspectionTabProps) {
     )
   );
 
+  // Phase 4: Notify parent when leads change (for Swipe integration)
+  createEffect(
+    on(
+      leads,
+      (currentLeads) => {
+        props.onLeadsChange?.(currentLeads);
+      },
+      { defer: true } // Don't fire on initial empty array
+    )
+  );
+
   // Handle category selection
   const handleCategorySelect = async (categoryId: string) => {
     setLoadingCategory(categoryId);

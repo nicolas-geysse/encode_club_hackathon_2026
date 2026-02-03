@@ -16,18 +16,23 @@ import { Button } from '~/components/ui/Button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
 import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot } from 'lucide-solid';
 import { toastPopup } from '~/components/ui/Toast';
+import type { Lead } from '~/lib/prospectionTypes';
 
 export interface Scenario {
   id: string;
   title: string;
   description: string;
-  category: 'freelance' | 'tutoring' | 'selling' | 'lifestyle' | 'trade';
+  category: 'freelance' | 'tutoring' | 'selling' | 'lifestyle' | 'trade' | 'job';
   weeklyHours: number;
   weeklyEarnings: number;
   effortLevel: number; // 1-5
   flexibilityScore: number; // 1-5
   hourlyRate: number;
   isDefault?: boolean; // true for suggested/fallback scenarios
+  /** Source of the scenario for badge display */
+  source?: 'skill' | 'item' | 'lifestyle' | 'jobs' | 'default';
+  /** Original lead ID if source is 'jobs' */
+  leadId?: string;
 }
 
 export interface UserPreferences {
@@ -42,6 +47,8 @@ interface SwipeTabProps {
   items?: { name: string; estimatedValue: number }[];
   lifestyle?: { name: string; currentCost: number; pausedMonths?: number }[];
   trades?: { name: string; value: number }[];
+  /** Leads marked as "interested" from Jobs tab (Phase 4: Leads → Swipe) */
+  leads?: Lead[];
   currency?: Currency;
   /** Whether component is rendered in embed mode (iframe context) */
   embedMode?: boolean;
@@ -53,13 +60,56 @@ interface SwipeTabProps {
   onScenariosSelected?: (scenarios: Scenario[]) => void;
 }
 
+/**
+ * Generate scenarios from leads marked as "interested" (Phase 4: Leads → Swipe)
+ */
+function generateLeadScenarios(leads: Lead[] | undefined): Scenario[] {
+  if (!leads || leads.length === 0) return [];
+
+  return leads
+    .filter((lead) => lead.status === 'interested')
+    .map((lead, index) => {
+      // Calculate hourly rate from salary range (assume monthly, 160h/month)
+      const avgSalary =
+        lead.salaryMin && lead.salaryMax
+          ? (lead.salaryMin + lead.salaryMax) / 2
+          : lead.salaryMin || lead.salaryMax || 0;
+      const hourlyRate = avgSalary > 0 ? Math.round(avgSalary / 160) : 15;
+
+      // Estimate weekly hours based on job type (part-time assumption for students)
+      const weeklyHours = 10; // Default for part-time student job
+
+      return {
+        id: `lead_${lead.id}_${index}`,
+        title: lead.title,
+        description: lead.company
+          ? `${lead.title} at ${lead.company}${lead.locationRaw ? ` - ${lead.locationRaw}` : ''}`
+          : `${lead.title}${lead.locationRaw ? ` in ${lead.locationRaw}` : ''}`,
+        category: 'job' as const,
+        weeklyHours,
+        weeklyEarnings: hourlyRate * weeklyHours,
+        effortLevel: lead.effortLevel || 3,
+        flexibilityScore: 3, // Jobs are less flexible than freelance
+        hourlyRate,
+        source: 'jobs' as const,
+        leadId: lead.id,
+      };
+    });
+}
+
 // Generate scenarios based on user data
 function generateScenarios(
   skills: SwipeTabProps['skills'],
   items: SwipeTabProps['items'],
-  lifestyle: SwipeTabProps['lifestyle']
+  lifestyle: SwipeTabProps['lifestyle'],
+  leads?: Lead[]
 ): Scenario[] {
   const scenarios: Scenario[] = [];
+
+  // Phase 4: Lead-based scenarios (jobs marked as "interested")
+  // These appear first as they represent concrete opportunities
+  const leadScenarios = generateLeadScenarios(leads);
+  scenarios.push(...leadScenarios);
 
   // Skill-based scenarios
   skills?.forEach((skill, index) => {
@@ -73,6 +123,7 @@ function generateScenarios(
       effortLevel: 4,
       flexibilityScore: 5,
       hourlyRate: skill.hourlyRate,
+      source: 'skill',
     });
 
     scenarios.push({
@@ -85,6 +136,7 @@ function generateScenarios(
       effortLevel: 3,
       flexibilityScore: 4,
       hourlyRate: skill.hourlyRate - 3,
+      source: 'skill',
     });
   });
 
@@ -100,6 +152,7 @@ function generateScenarios(
       effortLevel: 1,
       flexibilityScore: 5,
       hourlyRate: Math.round(item.estimatedValue / 2),
+      source: 'item',
     });
   });
 
@@ -121,6 +174,7 @@ function generateScenarios(
       effortLevel: 1,
       flexibilityScore: 5,
       hourlyRate: 0,
+      source: 'lifestyle',
     });
   }
 
@@ -139,6 +193,7 @@ function generateScenarios(
         flexibilityScore: 3,
         hourlyRate: 12,
         isDefault: true,
+        source: 'default',
       },
       {
         id: 'default_2',
@@ -151,6 +206,7 @@ function generateScenarios(
         flexibilityScore: 5,
         hourlyRate: 10,
         isDefault: true,
+        source: 'default',
       },
       {
         id: 'default_3',
@@ -163,6 +219,7 @@ function generateScenarios(
         flexibilityScore: 4,
         hourlyRate: 15,
         isDefault: true,
+        source: 'default',
       },
       {
         id: 'default_4',
@@ -175,6 +232,7 @@ function generateScenarios(
         flexibilityScore: 5,
         hourlyRate: 15,
         isDefault: true,
+        source: 'default',
       },
     ];
 
@@ -204,8 +262,8 @@ export function SwipeTab(props: SwipeTabProps) {
   const handleRoll = () => {
     setPhase('rolling');
 
-    // Generate scenarios based on user data
-    const generated = generateScenarios(props.skills, props.items, props.lifestyle);
+    // Generate scenarios based on user data (Phase 4: now includes leads)
+    const generated = generateScenarios(props.skills, props.items, props.lifestyle, props.leads);
     setScenarios(generated);
 
     // Simulate rolling animation

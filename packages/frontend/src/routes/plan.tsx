@@ -16,6 +16,7 @@ import { BudgetTab } from '~/components/tabs/BudgetTab';
 import { TradeTab } from '~/components/tabs/TradeTab';
 import { SwipeTab, type UserPreferences } from '~/components/tabs/SwipeTab';
 import { ProspectionTab } from '~/components/tabs/ProspectionTab';
+import type { Lead } from '~/lib/prospectionTypes';
 import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
@@ -190,6 +191,9 @@ export default function PlanPage() {
   });
   const [isSaving] = createSignal(false);
   const [isSheetOpen, setIsSheetOpen] = createSignal(false);
+
+  // Phase 4: Leads from Jobs tab (for Swipe integration)
+  const [leads, setLeads] = createSignal<Lead[]>([]);
 
   // Sprint 13.8 Fix: Use SimulationContext for reactive date updates
   // This replaces the local signal + createEffect that never updated when simulation changed
@@ -652,6 +656,7 @@ export default function PlanPage() {
                     name: t.name,
                     value: t.value,
                   }))}
+                  leads={leads()}
                   currency={activeProfile()?.currency}
                   profileId={activeProfile()?.id}
                   // BUG 3 FIX: Pass saved preferences from profile
@@ -689,6 +694,7 @@ export default function PlanPage() {
                   currency={activeProfile()?.currency}
                   userSkills={activeProfile()?.skills}
                   minHourlyRate={activeProfile()?.minHourlyRate}
+                  onLeadsChange={setLeads}
                 />
               </TabsContent>
             </div>

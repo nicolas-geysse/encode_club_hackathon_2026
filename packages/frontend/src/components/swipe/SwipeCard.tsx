@@ -1,4 +1,4 @@
-import { createSignal, onMount, createEffect, on } from 'solid-js';
+import { createSignal, onMount, createEffect, on, Show } from 'solid-js';
 import { Card, CardContent } from '~/components/ui/Card';
 import { cn } from '~/lib/cn';
 import {
@@ -13,6 +13,7 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowDown,
+  MapPin,
 } from 'lucide-solid';
 import { formatCurrency, formatCurrencyWithSuffix, type Currency } from '~/lib/dateUtils';
 import './HoloCard.css';
@@ -34,6 +35,8 @@ export interface SwipeCardProps {
   isActive?: boolean;
   triggerSwipe?: SwipeDirection | null;
   returnFrom?: SwipeDirection | null; // For undo animation - card returns from this direction
+  /** Source of the scenario (Phase 4: shows badge for jobs) */
+  source?: 'skill' | 'item' | 'lifestyle' | 'jobs' | 'default';
 }
 
 export interface CardAdjustments {
@@ -346,7 +349,15 @@ export function SwipeCard(props: SwipeCardProps) {
             </div>
 
             {/* Title */}
-            <h3 class="text-2xl font-bold text-foreground leading-tight mb-3">{props.title}</h3>
+            <h3 class="text-2xl font-bold text-foreground leading-tight mb-2">{props.title}</h3>
+
+            {/* Source Badge */}
+            <Show when={props.source === 'jobs'}>
+              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full mb-2">
+                <MapPin class="h-3 w-3" />
+                From Jobs
+              </div>
+            </Show>
 
             {/* Description */}
             <p class="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
