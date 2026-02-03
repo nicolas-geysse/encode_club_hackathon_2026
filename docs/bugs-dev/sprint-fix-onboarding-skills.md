@@ -251,7 +251,7 @@ generateScenarios():
 
 ### Phase 7: Traçage Opik ✅ COMPLETE
 > Objectif: Toutes les suggestions et feedbacks sont tracés
-> **Commit**: `pending` - feat(opik): Phase 7 tracing for skills, jobs, and feedback
+> **Commit**: `b6c8b12` - feat(opik): Phase 7 tracing for skills, jobs, and feedback
 
 | ID | Tâche | Détails | Fichiers | Status |
 |----|-------|---------|----------|--------|
