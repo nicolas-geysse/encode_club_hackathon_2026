@@ -8,35 +8,17 @@
  * - User preference weights
  *
  * Sprint 13.5: Now reads from profiles.followup_data.energyHistory (not energy_logs table)
- *              and uses the same algorithms as tips-orchestrator for consistency.
+ * P1-Health: Now uses unified algorithms from API routes (no more duplication)
  */
 
 import type { APIEvent } from '@solidjs/start/server';
 import { query, initDatabase } from './_db';
+// P1-Health: Import unified algorithms from lib
+import { detectEnergyDebt, detectComebackWindow, type EnergyEntry } from '~/lib/algorithms';
 
 // ============================================
-// TYPES (aligned with mcp-server algorithms)
+// TYPES
 // ============================================
-
-interface EnergyEntry {
-  week: number;
-  level: number; // 0-100
-  date: string;
-}
-
-type DebtSeverity = 'low' | 'medium' | 'high';
-
-interface EnergyDebtResult {
-  detected: boolean;
-  consecutiveLowWeeks: number;
-  severity: DebtSeverity;
-}
-
-interface ComebackResult {
-  detected: boolean;
-  confidenceScore: number;
-  deficitWeeks: number;
-}
 
 interface DebugState {
   // Energy state
@@ -62,96 +44,6 @@ interface DebugState {
     hourlyRatePriority: number;
     timeFlexibility: number;
     incomeStability: number;
-  };
-}
-
-// ============================================
-// ALGORITHMS (copied from mcp-server for consistency)
-// ============================================
-
-/**
- * Detect energy debt from energy history
- * Matches: packages/mcp-server/src/algorithms/energy-debt.ts:80-121
- */
-function detectEnergyDebt(history: EnergyEntry[], threshold = 40): EnergyDebtResult {
-  const minConsecutiveWeeks = 3;
-
-  // Need at least minConsecutiveWeeks of data
-  if (history.length < minConsecutiveWeeks) {
-    return { detected: false, consecutiveLowWeeks: 0, severity: 'low' };
-  }
-
-  // Count consecutive low weeks from most recent
-  let consecutiveLow = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].level < threshold) {
-      consecutiveLow++;
-    } else {
-      break; // Chain broken
-    }
-  }
-
-  // Not enough consecutive low weeks
-  if (consecutiveLow < minConsecutiveWeeks) {
-    return { detected: false, consecutiveLowWeeks: 0, severity: 'low' };
-  }
-
-  // Determine severity (matches mcp-server logic)
-  const severity: DebtSeverity =
-    consecutiveLow >= 5 ? 'high' : consecutiveLow >= 4 ? 'medium' : 'low';
-
-  return {
-    detected: true,
-    consecutiveLowWeeks: consecutiveLow,
-    severity,
-  };
-}
-
-/**
- * Detect a comeback window from energy history
- * Matches: packages/mcp-server/src/algorithms/comeback-detection.ts:100-143
- *
- * A comeback is detected when:
- * 1. At least 3 data points
- * 2. At least 2 low weeks (energy < 40%)
- * 3. Current energy > 80%
- * 4. Previous energy < 50%
- */
-function detectComebackWindow(energyLevels: number[]): ComebackResult | null {
-  const lowThreshold = 40;
-  const recoveryThreshold = 80;
-  const previousThreshold = 50;
-  const minLowWeeks = 2;
-
-  // Need at least 3 data points
-  if (energyLevels.length < 3) {
-    return null;
-  }
-
-  // Count low weeks
-  const lowWeeks = energyLevels.filter((e) => e < lowThreshold);
-
-  // Get current and previous energy
-  const currentEnergy = energyLevels[energyLevels.length - 1];
-  const previousEnergy = energyLevels[energyLevels.length - 2] || 50;
-
-  // Check comeback conditions
-  const hasEnoughLowWeeks = lowWeeks.length >= minLowWeeks;
-  const isRecovered = currentEnergy > recoveryThreshold;
-  const wasLow = previousEnergy < previousThreshold;
-
-  if (!hasEnoughLowWeeks || !isRecovered || !wasLow) {
-    return null;
-  }
-
-  // Calculate confidence based on recovery strength
-  const recoveryDelta = currentEnergy - previousEnergy;
-  const confidenceScore = Math.min(1, recoveryDelta / 50); // 50+ point jump = max confidence
-
-  return {
-    detected: true,
-    confidenceScore,
-    deficitWeeks: lowWeeks.length,
   };
 }
 
@@ -213,14 +105,19 @@ export async function GET(event: APIEvent) {
     const currentEnergy = energyHistory[energyHistory.length - 1] || 50;
 
     // ============================================
-    // SPRINT 13.5 FIX: Use real algorithms
+    // P1-Health: Use unified algorithms from API routes
     // ============================================
 
-    // Energy Debt detection (using EnergyEntry format for proper algorithm)
+    // Calculate deficit for comeback detection
+    const weeklyTarget = profile.weekly_target ? Number(profile.weekly_target) : 100;
+    const lowWeeksCount = energyHistory.filter((e) => e < 40).length;
+    const estimatedDeficit = lowWeeksCount * (weeklyTarget * 0.5);
+
+    // Energy Debt detection (using EnergyEntry format)
     const energyDebt = detectEnergyDebt(energyEntries);
 
-    // Comeback detection (using number[] for that algorithm)
-    const comeback = detectComebackWindow(energyHistory);
+    // Comeback detection (using number[] and deficit)
+    const comeback = detectComebackWindow(energyHistory, estimatedDeficit);
 
     // Determine state (mutually exclusive: Comeback > Debt > Normal)
     let energyState: DebugState['energyState'] = 'Normal';
@@ -266,9 +163,9 @@ export async function GET(event: APIEvent) {
       }
     }
 
-    // Calculate comeback metrics
-    const deficitWeeks = comeback?.deficitWeeks || energyHistory.filter((e) => e < 40).length;
-    const comebackDeficit = calculateDeficit(energyHistory, profile);
+    // Calculate comeback metrics (using pre-calculated values)
+    const deficitWeeks = comeback?.deficitWeeks || lowWeeksCount;
+    const comebackDeficit = estimatedDeficit;
     const recoveryProgress = comebackActive ? Math.round((currentEnergy / 100) * 100) : 0;
 
     const debugState: DebugState = {
@@ -308,16 +205,4 @@ export async function GET(event: APIEvent) {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
-}
-
-// ============================================
-// HELPERS
-// ============================================
-
-// Estimate deficit based on low weeks and goal
-function calculateDeficit(history: number[], profile: Record<string, unknown>): number {
-  const lowWeeks = history.filter((e) => e < 40).length;
-  const weeklyTarget = profile.weekly_target ? Number(profile.weekly_target) : 100;
-  // Assume 50% reduction during low energy weeks
-  return lowWeeks * (weeklyTarget * 0.5);
 }

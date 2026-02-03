@@ -3,6 +3,8 @@
  *
  * 2-column layout: Current energy + emoji input | Inline mini-bars + stats
  * Integrates Energy Debt alerts inline.
+ *
+ * P1-Health: Now uses unified algorithms from API routes
  */
 
 import { For, Show, createMemo } from 'solid-js';
@@ -10,18 +12,13 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Zap, AlertTriangle, Info, TrendingDown, TrendingUp } from 'lucide-solid';
 import { cn } from '~/lib/cn';
-
-interface EnergyEntry {
-  week: number;
-  level: number; // 0-100
-  date: string;
-}
-
-interface EnergyDebt {
-  consecutiveLowWeeks: number;
-  severity: 'low' | 'medium' | 'high';
-  accumulatedDebt: number;
-}
+// P1-Health: Import unified algorithms from lib
+import {
+  detectEnergyDebt,
+  detectComebackWindow,
+  type EnergyEntry,
+  type EnergyDebt,
+} from '~/lib/algorithms';
 
 interface EnergyHistoryProps {
   history: EnergyEntry[];
@@ -31,42 +28,22 @@ interface EnergyHistoryProps {
   currentWeek?: number;
 }
 
-// Energy Debt Detection Algorithm
-function detectEnergyDebt(history: EnergyEntry[], threshold = 40): EnergyDebt | null {
-  if (history.length < 3) return null;
-
-  let consecutiveLow = 0;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].level < threshold) {
-      consecutiveLow++;
-    } else {
-      break;
-    }
-  }
-
-  if (consecutiveLow >= 3) {
-    return {
-      consecutiveLowWeeks: consecutiveLow,
-      severity: consecutiveLow >= 5 ? 'high' : consecutiveLow >= 4 ? 'medium' : 'low',
-      accumulatedDebt: consecutiveLow * 30,
-    };
-  }
-  return null;
-}
-
-// Comeback Detection (energy recovery after low period)
+// P1-Health: Wrapper for comeback detection (simplified for UI use)
 function detectComeback(history: EnergyEntry[], threshold = 40): boolean {
   if (history.length < 3) return false;
-  const current = history[history.length - 1]?.level ?? 0;
-  const previous = history[history.length - 2]?.level ?? 50;
-  const lowWeeks = history.filter((e) => e.level < threshold).length;
-  return lowWeeks >= 2 && current > 80 && previous < 50;
+  const levels = history.map((e) => e.level);
+  const result = detectComebackWindow(levels, 0); // deficit not needed for boolean check
+  return result?.detected || false;
 }
 
 export function EnergyHistory(props: EnergyHistoryProps) {
   const threshold = () => props.threshold || 40;
 
-  const debt = createMemo(() => detectEnergyDebt(props.history, threshold()));
+  // P1-Health: Use unified algorithm with config object, return null if not detected
+  const debt = createMemo(() => {
+    const result = detectEnergyDebt(props.history, { threshold: threshold() });
+    return result.detected ? result : null;
+  });
   const isComeback = createMemo(() => detectComeback(props.history, threshold()));
 
   // Energy trend insight (comparing last 2 weeks) - prefixed with _ as it's for future use

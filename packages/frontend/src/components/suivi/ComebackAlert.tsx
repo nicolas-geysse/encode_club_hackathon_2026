@@ -3,6 +3,8 @@
  *
  * Detects comeback windows after low energy periods and proposes catch-up plans.
  * Includes celebration effects when comeback mode is activated.
+ *
+ * P1-Health: Now uses unified algorithms from API routes
  */
 
 import { Show, For, createMemo, createEffect, createSignal } from 'solid-js';
@@ -14,20 +16,13 @@ import { Rocket, Sparkles, Trophy } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 import { ACHIEVEMENTS, onAchievementUnlock } from '~/lib/achievements';
 import { toast } from '~/lib/notificationStore';
-
-interface ComebackWindow {
-  detected: boolean;
-  recoveryWeek: number;
-  deficitWeeks: number;
-  suggestedCatchUpWeeks: number;
-  deficit: number;
-}
-
-interface CatchUpPlan {
-  week: number;
-  target: number;
-  capacity: number;
-}
+// P1-Health: Import unified algorithms from lib
+import {
+  detectComebackWindow,
+  generateCatchUpPlan,
+  type ComebackWindow,
+  type CatchUpPlan,
+} from '~/lib/algorithms';
 
 interface ComebackAlertProps {
   energyHistory: number[];
@@ -36,40 +31,6 @@ interface ComebackAlertProps {
   currency?: Currency;
   onAcceptPlan?: (plan: CatchUpPlan[]) => void;
   onDeclinePlan?: () => void;
-}
-
-// Comeback Window Detection Algorithm
-function detectComebackWindow(energyHistory: number[], deficit: number): ComebackWindow | null {
-  if (energyHistory.length < 3) return null;
-
-  // Identify low weeks (energy < 40%)
-  const lowWeeks = energyHistory.filter((e) => e < 40);
-
-  // Detect recovery (current > 80%, previous < 50%)
-  const currentEnergy = energyHistory[energyHistory.length - 1];
-  const previousEnergy = energyHistory[energyHistory.length - 2] || 50;
-
-  if (lowWeeks.length >= 2 && currentEnergy > 80 && previousEnergy < 50) {
-    return {
-      detected: true,
-      recoveryWeek: energyHistory.length,
-      deficitWeeks: lowWeeks.length,
-      suggestedCatchUpWeeks: Math.min(3, Math.ceil(lowWeeks.length * 1.5)),
-      deficit,
-    };
-  }
-  return null;
-}
-
-// Catch-up Plan Generation
-function generateCatchUpPlan(deficit: number, capacities: number[]): CatchUpPlan[] {
-  const totalCapacity = capacities.reduce((a, b) => a + b, 0);
-
-  return capacities.map((cap, index) => ({
-    week: index + 1,
-    target: Math.round((cap / totalCapacity) * deficit),
-    capacity: cap,
-  }));
 }
 
 export function ComebackAlert(props: ComebackAlertProps) {
