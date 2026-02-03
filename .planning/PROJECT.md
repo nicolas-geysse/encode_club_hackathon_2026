@@ -10,8 +10,9 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 
 ## Current State
 
-**Version:** v4.0 Goals Tab Fix (shipped 2026-02-02)
-**Next:** v4.1 Job Search Enhancement (prefetch, commute time, radius slider)
+**Version:** v4.1 Job Search Enhancement (in progress)
+**Shipped:** Radius slider UI
+**Pending:** Background prefetch during onboarding
 
 **Tech stack:** SolidStart, SolidJS, TailwindCSS, ~62,000 LOC TypeScript
 
@@ -37,10 +38,10 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - Photo billing control (opt-in)
 - Job scoring utilities and category mapping
 
-**Deferred to v4.1:**
-- Background prefetch during onboarding
-- Commute time display
-- Radius slider UI
+**v4.1 Progress:**
+- ✓ Commute time display (already implemented in ProspectionCard, SavedLeads, Map)
+- ✓ Radius slider UI (implemented 2026-02-03)
+- ⏳ Background prefetch during onboarding
 
 ### v2.1 Bugfixes (shipped 2026-01-31)
 

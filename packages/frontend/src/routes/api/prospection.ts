@@ -118,6 +118,7 @@ export async function POST(event: APIEvent): Promise<Response> {
           });
 
           // Build response with diagnostic metadata
+          // v4.1: Show actual radius used (user-specified + fallbacks)
           const meta = {
             source: isPlatformOnly ? 'platforms' : 'google_places',
             searchPerformed: hasCoordinates && !isPlatformOnly,
@@ -126,7 +127,10 @@ export async function POST(event: APIEvent): Promise<Response> {
             searchLocation: hasCoordinates
               ? { lat: latitude, lng: longitude, city: city || 'unknown' }
               : null,
-            radiusUsed: hasCoordinates && !isPlatformOnly ? 'progressive (5-15km)' : null,
+            radiusUsed:
+              hasCoordinates && !isPlatformOnly
+                ? `${radius / 1000}km (with fallback to ${(radius + 10000) / 1000}km)`
+                : null,
           };
 
           // Set trace attributes for job suggestions
@@ -182,8 +186,12 @@ export async function POST(event: APIEvent): Promise<Response> {
 // Real Google Places API Search
 // =============================================================================
 
-// Progressive radius fallback: try larger areas if initial search is empty
-const RADIUS_FALLBACK = [5000, 10000, 15000]; // 5km → 10km → 15km
+// v4.1: Progressive radius fallback based on user-provided radius
+// If user sets 5km, try 5km → 10km → 15km
+// If user sets 10km, try 10km → 15km → 20km
+function getRadiusFallbacks(userRadius: number): number[] {
+  return [userRadius, userRadius + 5000, userRadius + 10000];
+}
 
 // Text Search queries by category (more natural language, better results)
 const TEXT_SEARCH_QUERIES: Record<string, string[]> = {
@@ -202,15 +210,17 @@ const TEXT_SEARCH_QUERIES: Record<string, string[]> = {
 /**
  * Search for real places using Google Places API
  * Strategy:
- * 1. Nearby Search with progressive radius (5km → 10km → 15km)
+ * 1. Nearby Search with progressive radius (starting from user-provided radius)
  * 2. If still empty, fallback to Text Search (more flexible queries)
+ *
+ * v4.1: Now respects user-provided radius instead of always starting at 5km
  */
 async function searchRealPlaces(
   category: ProspectionCategory,
   latitude?: number,
   longitude?: number,
   city?: string,
-  _initialRadius: number = 5000
+  initialRadius: number = 5000
 ): Promise<ProspectionCard[]> {
   // If category has no googlePlaceTypes, return platform-based suggestions
   if (category.googlePlaceTypes.length === 0) {
@@ -226,8 +236,11 @@ async function searchRealPlaces(
   const maps = await getGoogleMaps();
   const location = { lat: latitude, lng: longitude };
 
+  // v4.1: Progressive radius starting from user-provided value
+  const radiusFallbacks = getRadiusFallbacks(initialRadius);
+
   // Strategy 1: Try Nearby Search with progressive radius
-  for (const radius of RADIUS_FALLBACK) {
+  for (const radius of radiusFallbacks) {
     const allPlaces = await searchWithRadius(maps, category, location, radius);
 
     if (allPlaces.length > 0) {
@@ -243,7 +256,7 @@ async function searchRealPlaces(
     logger.info('No results at radius, trying larger', {
       categoryId: category.id,
       radius,
-      nextRadius: RADIUS_FALLBACK[RADIUS_FALLBACK.indexOf(radius) + 1] || 'text_search',
+      nextRadius: radiusFallbacks[radiusFallbacks.indexOf(radius) + 1] || 'text_search',
     });
   }
 

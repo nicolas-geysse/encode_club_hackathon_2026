@@ -29,7 +29,9 @@ import {
   Bookmark,
   ChevronDown,
   ChevronUp,
+  MapPin,
 } from 'lucide-solid';
+import { Slider } from '~/components/ui/Slider';
 import { toastPopup } from '~/components/ui/Toast';
 import { celebrateBig } from '~/lib/confetti';
 import type {
@@ -62,6 +64,8 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const [searchedCategories, setSearchedCategories] = createSignal<string[]>([]);
   // Track deep search progress
   const [deepSearchProgress, setDeepSearchProgress] = createSignal<string | null>(null);
+  // v4.1: User-configurable search radius (in meters)
+  const [searchRadius, setSearchRadius] = createSignal(5000);
 
   // Load existing leads on mount
   createEffect(
@@ -141,6 +145,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
               latitude: props.userLocation?.lat,
               longitude: props.userLocation?.lng,
               city: props.city,
+              radius: searchRadius(), // v4.1: User-selected radius
             }),
           });
 
@@ -289,6 +294,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
           latitude: props.userLocation?.lat,
           longitude: props.userLocation?.lng,
           city: props.city,
+          radius: searchRadius(), // v4.1: User-selected radius
         }),
       });
 
@@ -538,6 +544,29 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
       {/* Idle Phase - Category Explorer */}
       <Show when={phase() === 'idle'}>
+        {/* v4.1: Radius slider when location is available */}
+        <Show when={props.userLocation}>
+          <Card class="mb-4">
+            <CardContent class="p-4">
+              <div class="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
+                <MapPin class="h-4 w-4" />
+                <span>
+                  Searching near {props.city || 'your location'} (
+                  {props.userLocation?.lat.toFixed(3)}, {props.userLocation?.lng.toFixed(3)})
+                </span>
+              </div>
+              <Slider
+                label="Search radius"
+                min={1}
+                max={20}
+                step={1}
+                value={[searchRadius() / 1000]}
+                onChange={(v) => setSearchRadius(v[0] * 1000)}
+                valueDisplay={(v) => `${v} km`}
+              />
+            </CardContent>
+          </Card>
+        </Show>
         <CategoryExplorer
           onCategorySelect={handleCategorySelect}
           currency={props.currency}
@@ -567,11 +596,10 @@ export function ProspectionTab(props: ProspectionTabProps) {
             <div>
               <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
               <p class="text-sm text-muted-foreground">Save opportunities you're interested in</p>
-              {/* Show search location */}
+              {/* Show search location and radius */}
               <Show when={props.userLocation}>
                 <p class="text-xs text-muted-foreground mt-1">
-                  📍 {props.city || 'Near you'} ({props.userLocation?.lat.toFixed(4)},{' '}
-                  {props.userLocation?.lng.toFixed(4)})
+                  📍 {props.city || 'Near you'} • {searchRadius() / 1000}km radius
                 </p>
               </Show>
             </div>
