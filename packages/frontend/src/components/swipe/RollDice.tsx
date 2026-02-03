@@ -30,7 +30,8 @@ export function RollDice(props: RollDiceProps) {
       <div class="text-center mb-6">
         <h2 class="text-2xl font-bold text-foreground mb-2">Swipe Scenarios</h2>
         <p class="text-muted-foreground max-w-md">
-          We'll suggest strategies based on your profile. Swipe right to accept, left to decline.
+          We'll suggest strategies based on your profile.
+          <br />
           The app learns your preferences!
         </p>
       </div>
@@ -47,7 +48,7 @@ export function RollDice(props: RollDiceProps) {
         </div>
         <div class="flex flex-col items-center text-center">
           <Zap class="h-8 w-8 text-primary mb-1" />
-          <p class="text-sm text-muted-foreground">4 swipes max</p>
+          <p class="text-sm text-muted-foreground">Quick & Easy</p>
         </div>
       </div>
 

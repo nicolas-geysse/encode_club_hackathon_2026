@@ -218,6 +218,25 @@ export default function PlanPage() {
   // Phase 4: Leads from Jobs tab (for Swipe integration)
   const [leads, setLeads] = createSignal<Lead[]>([]);
 
+  // Memoize userLocation to avoid recreating object on every render/access
+  const userLocation = () => {
+    const p = activeProfile();
+    return p?.latitude && p?.longitude ? { lat: p.latitude!, lng: p.longitude! } : undefined;
+  };
+
+  // Memoize swipePreferences
+  const swipePreferences = () => {
+    const p = activeProfile();
+    return p?.swipePreferences
+      ? {
+          effortSensitivity: p.swipePreferences.effort_sensitivity ?? 0.5,
+          hourlyRatePriority: p.swipePreferences.hourly_rate_priority ?? 0.5,
+          timeFlexibility: p.swipePreferences.time_flexibility ?? 0.5,
+          incomeStability: p.swipePreferences.income_stability ?? 0.5,
+        }
+      : undefined;
+  };
+
   // Sprint 13.8 Fix: Use SimulationContext for reactive date updates
   // This replaces the local signal + createEffect that never updated when simulation changed
   const { currentDate } = useSimulation();
@@ -710,34 +729,19 @@ export default function PlanPage() {
                 <Suspense fallback={<TabSkeleton />}>
                   <ProspectionTab
                     profileId={activeProfile()?.id}
-                    userLocation={
-                      activeProfile()?.latitude && activeProfile()?.longitude
-                        ? {
-                            lat: activeProfile()!.latitude!,
-                            lng: activeProfile()!.longitude!,
-                          }
-                        : undefined
-                    }
+                    userLocation={userLocation()}
                     city={activeProfile()?.city}
                     currency={activeProfile()?.currency}
                     userSkills={activeProfile()?.skills}
                     userCertifications={activeProfile()?.certifications}
                     minHourlyRate={activeProfile()?.minHourlyRate}
                     onLeadsChange={setLeads}
-                    swipePreferences={
-                      activeProfile()?.swipePreferences
-                        ? {
-                            effortSensitivity:
-                              activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
-                            hourlyRatePriority:
-                              activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
-                            timeFlexibility:
-                              activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
-                            incomeStability:
-                              activeProfile()?.swipePreferences?.income_stability ?? 0.5,
-                          }
-                        : undefined
-                    }
+                    swipePreferences={swipePreferences()}
+                    onLeadSaved={(lead) => {
+                      if (lead.status === 'interested') {
+                        // Optional: Navigate to Swipe tab or show notification
+                      }
+                    }}
                   />
                 </Suspense>
               </TabsContent>

@@ -357,7 +357,9 @@ export function SwipeTab(props: SwipeTabProps) {
     <div class={props.embedMode ? 'p-2' : 'p-6'}>
       {/* Idle Phase - Roll the Dice */}
       <Show when={phase() === 'idle'}>
-        <RollDice onRoll={handleRoll} />
+        <div class="space-y-2">
+          <RollDice onRoll={handleRoll} />
+        </div>
       </Show>
 
       {/* Rolling Animation */}
@@ -382,7 +384,7 @@ export function SwipeTab(props: SwipeTabProps) {
 
       {/* Complete Phase - Summary before validation */}
       <Show when={phase() === 'complete'}>
-        <div class="space-y-6">
+        <div class="space-y-6 pb-24">
           <div class="text-center">
             <ClipboardList class="h-12 w-12 mx-auto mb-4 text-primary" />
             <h2 class="text-2xl font-bold text-foreground">Review Your Plan</h2>
@@ -391,158 +393,166 @@ export function SwipeTab(props: SwipeTabProps) {
             </p>
           </div>
 
-          {/* Preference Summary - Vertical Bars Layout (AI Context) */}
-          <Card>
-            <CardContent class="p-6">
-              <div class="flex items-center gap-2 mb-6">
-                <div class="p-1.5 bg-purple-500/10 rounded-lg">
-                  <Bot class="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            {/* Preference Summary - Vertical Bars Layout (AI Context) */}
+            <Card>
+              <CardContent class="p-6">
+                <div class="flex items-center gap-2 mb-6">
+                  <div class="p-1.5 bg-purple-500/10 rounded-lg">
+                    <Bot class="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h3 class="font-bold text-foreground">AI Profile Analysis</h3>
                 </div>
-                <h3 class="font-bold text-foreground">AI Profile Analysis</h3>
-              </div>
 
-              {/* Pillars Container */}
-              <div class="flex items-end justify-around h-48 pt-4 px-2 sm:px-8 gap-4">
-                {/* Effort Pillar */}
-                <Tooltip>
-                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                      {Math.round((1 - (preferences().effortSensitivity ?? 0.5)) * 100)}%
-                    </div>
-                    <div class="w-3 sm:w-4 bg-blue-100 dark:bg-blue-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-blue-500/20 transition-colors">
-                      <div
-                        class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                        style={{
-                          height: `${(1 - (preferences().effortSensitivity ?? 0.5)) * 100}%`,
-                        }}
-                      />
-                    </div>
-                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-tight">
-                      Effort
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Higher effort tolerance</TooltipContent>
-                </Tooltip>
-
-                {/* Pay Pillar */}
-                <Tooltip>
-                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                      {Math.round((preferences().hourlyRatePriority ?? 0.5) * 100)}%
-                    </div>
-                    <div class="w-3 sm:w-4 bg-green-100 dark:bg-green-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-green-500/20 transition-colors">
-                      <div
-                        class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                        style={{ height: `${(preferences().hourlyRatePriority ?? 0.5) * 100}%` }}
-                      />
-                    </div>
-                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-green-500 transition-colors uppercase tracking-tight">
-                      Pay
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Importance of high pay</TooltipContent>
-                </Tooltip>
-
-                {/* Flex Pillar */}
-                <Tooltip>
-                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                      {Math.round((preferences().timeFlexibility ?? 0.5) * 100)}%
-                    </div>
-                    <div class="w-3 sm:w-4 bg-purple-100 dark:bg-purple-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-purple-500/20 transition-colors">
-                      <div
-                        class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                        style={{ height: `${(preferences().timeFlexibility ?? 0.5) * 100}%` }}
-                      />
-                    </div>
-                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-purple-500 transition-colors uppercase tracking-tight">
-                      Flex
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Need for flexibility</TooltipContent>
-                </Tooltip>
-
-                {/* Stability Pillar */}
-                <Tooltip>
-                  <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                    <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                      {Math.round((preferences().incomeStability ?? 0.5) * 100)}%
-                    </div>
-                    <div class="w-3 sm:w-4 bg-amber-100 dark:bg-amber-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-amber-500/20 transition-colors">
-                      <div
-                        class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                        style={{ height: `${(preferences().incomeStability ?? 0.5) * 100}%` }}
-                      />
-                    </div>
-                    <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-tight">
-                      Stable
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>Income stability priority</TooltipContent>
-                </Tooltip>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Selected Scenarios */}
-          <Card>
-            <CardContent class="p-6">
-              <h3 class="font-medium text-foreground mb-4">
-                Selected scenarios ({selectedScenarios().length})
-              </h3>
-              <div class="space-y-2">
-                <For each={selectedScenarios()}>
-                  {(scenario) => (
-                    <div class="group flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border hover:border-border/80 transition-colors">
-                      <div class="flex-1 min-w-0">
-                        <p class="font-medium text-foreground">{scenario.title}</p>
-                        <p class="text-sm text-muted-foreground">
-                          {scenario.weeklyHours}h/wk •{' '}
-                          {formatCurrency(scenario.weeklyEarnings, currency())}/wk
-                        </p>
+                {/* Pillars Container */}
+                <div class="flex items-end justify-around h-48 pt-4 px-2 sm:px-8 gap-4">
+                  {/* Effort Pillar */}
+                  <Tooltip>
+                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                        {Math.round((1 - (preferences().effortSensitivity ?? 0.5)) * 100)}%
                       </div>
-                      <div class="flex items-center gap-2">
-                        <Check class="h-5 w-5 text-green-600 dark:text-green-400" />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDeleteConfirm({ id: scenario.id, title: scenario.title })
-                          }
-                          class="p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                          title="Remove scenario"
-                        >
-                          <Trash2 class="h-4 w-4" />
-                        </button>
+                      <div class="w-3 sm:w-4 bg-blue-100 dark:bg-blue-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-blue-500/20 transition-colors">
+                        <div
+                          class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                          style={{
+                            height: `${(1 - (preferences().effortSensitivity ?? 0.5)) * 100}%`,
+                          }}
+                        />
                       </div>
-                    </div>
-                  )}
-                </For>
-              </div>
+                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-tight">
+                        Effort
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Higher effort tolerance</TooltipContent>
+                  </Tooltip>
 
-              <div class="mt-4 pt-4 border-t border-border">
-                <div class="flex justify-between text-lg font-bold text-foreground">
-                  <span>Total potential:</span>
-                  <span class="text-green-600 dark:text-green-400">
-                    {formatCurrency(
-                      selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
-                      currency()
+                  {/* Pay Pillar */}
+                  <Tooltip>
+                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                        {Math.round((preferences().hourlyRatePriority ?? 0.5) * 100)}%
+                      </div>
+                      <div class="w-3 sm:w-4 bg-green-100 dark:bg-green-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-green-500/20 transition-colors">
+                        <div
+                          class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                          style={{ height: `${(preferences().hourlyRatePriority ?? 0.5) * 100}%` }}
+                        />
+                      </div>
+                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-green-500 transition-colors uppercase tracking-tight">
+                        Pay
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Importance of high pay</TooltipContent>
+                  </Tooltip>
+
+                  {/* Flex Pillar */}
+                  <Tooltip>
+                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                        {Math.round((preferences().timeFlexibility ?? 0.5) * 100)}%
+                      </div>
+                      <div class="w-3 sm:w-4 bg-purple-100 dark:bg-purple-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-purple-500/20 transition-colors">
+                        <div
+                          class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                          style={{ height: `${(preferences().timeFlexibility ?? 0.5) * 100}%` }}
+                        />
+                      </div>
+                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-purple-500 transition-colors uppercase tracking-tight">
+                        Flex
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Need for flexibility</TooltipContent>
+                  </Tooltip>
+
+                  {/* Stability Pillar */}
+                  <Tooltip>
+                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
+                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
+                        {Math.round((preferences().incomeStability ?? 0.5) * 100)}%
+                      </div>
+                      <div class="w-3 sm:w-4 bg-amber-100 dark:bg-amber-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-amber-500/20 transition-colors">
+                        <div
+                          class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                          style={{ height: `${(preferences().incomeStability ?? 0.5) * 100}%` }}
+                        />
+                      </div>
+                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-tight">
+                        Stable
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Income stability priority</TooltipContent>
+                  </Tooltip>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Selected Scenarios */}
+            <Card class="h-full">
+              <CardContent class="p-6">
+                <h3 class="font-medium text-foreground mb-4">
+                  Selected scenarios ({selectedScenarios().length})
+                </h3>
+                <div class="space-y-2">
+                  <For each={selectedScenarios()}>
+                    {(scenario) => (
+                      <div class="group flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border hover:border-border/80 transition-colors">
+                        <div class="flex-1 min-w-0">
+                          <p class="font-medium text-foreground">{scenario.title}</p>
+                          <p class="text-sm text-muted-foreground">
+                            {scenario.weeklyHours}h/wk •{' '}
+                            {formatCurrency(scenario.weeklyEarnings, currency())}/wk
+                          </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <Check class="h-5 w-5 text-green-600 dark:text-green-400" />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeleteConfirm({ id: scenario.id, title: scenario.title })
+                            }
+                            class="p-1.5 rounded-md opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                            title="Remove scenario"
+                          >
+                            <Trash2 class="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
                     )}
-                    /wk
-                  </span>
+                  </For>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Actions */}
-          <div class="flex gap-4">
-            <Button variant="outline" class="flex-1" onClick={handleReset}>
+                <div class="mt-4 pt-4 border-t border-border">
+                  <div class="flex flex-col items-center justify-center text-center">
+                    <span class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                      Total potential
+                    </span>
+                    <span class="text-3xl font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(
+                        selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
+                        currency()
+                      )}
+                      <span class="text-sm font-medium text-muted-foreground ml-1">/wk</span>
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Actions - Sticky Footer */}
+          <div class="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 w-[90%] max-w-md z-50">
+            <Button
+              variant="outline"
+              class="flex-1 shadow-lg bg-background/80 backdrop-blur-md border-border/50"
+              onClick={handleReset}
+            >
               <RotateCcw class="h-4 w-4 mr-2" />
               Start over
             </Button>
-            <Button class="flex-1" onClick={handleValidate}>
+            <Button class="flex-1 shadow-lg" onClick={handleValidate}>
               <Check class="h-4 w-4 mr-2" />
-              Validate my plan
+              Validate plan
             </Button>
           </div>
         </div>

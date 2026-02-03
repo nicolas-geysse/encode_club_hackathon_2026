@@ -87,6 +87,8 @@ interface ProspectionListProps {
   showViewTabs?: boolean;
   /** P3: Default view mode */
   defaultViewMode?: ViewMode;
+  /** Phase 8b: Limit the number of displayed jobs (e.g. for Top 10 view) */
+  limit?: number;
 }
 
 export function ProspectionList(props: ProspectionListProps) {
@@ -229,8 +231,13 @@ export function ProspectionList(props: ProspectionListProps) {
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm text-muted-foreground">
-            {filteredJobs().length} {filteredJobs().length === 1 ? 'opportunity' : 'opportunities'}{' '}
-            {viewMode() !== 'all' ? `(${viewMode()})` : 'found'}
+            <Show
+              when={props.limit}
+              fallback={`${filteredJobs().length} ${filteredJobs().length === 1 ? 'opportunity' : 'opportunities'} found`}
+            >
+              Showing Top {props.limit} of {filteredJobs().length} opportunities
+            </Show>
+            {viewMode() !== 'all' ? ` (${viewMode()})` : ''}
           </p>
           {/* Show search location for debugging */}
           <Show when={props.meta?.searchLocation && viewMode() !== 'remote'}>
@@ -279,7 +286,10 @@ export function ProspectionList(props: ProspectionListProps) {
       </Show>
 
       {/* Global TOP 10: Best from ALL searched categories */}
-      <Show when={globalTop10Jobs().length > 0}>
+      {/* Only show if we are NOT already viewing the Top 10 category */}
+      <Show
+        when={globalTop10Jobs().length > 0 && props.categoryLabel !== 'TOP 10 of All Categories'}
+      >
         <Card class="border-2 border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20">
           <CardContent class="p-4">
             <div class="flex items-center gap-2 mb-3">
@@ -369,19 +379,16 @@ export function ProspectionList(props: ProspectionListProps) {
         </Card>
       </Show>
 
-      {/* Category TOP 10 Section - Respects current sort option */}
-      <Show when={top10Jobs().length > 0}>
-        <Card class="border-2 border-primary/20 bg-primary/5">
+      {/* Category TOP 10 Section */}
+      {/* Only show if list is long enough to warrant a highlight section (> 15 items) */}
+      <Show when={top10Jobs().length > 0 && props.jobs.length > 15}>
+        <Card class="border border-primary/20 bg-primary/5 shadow-sm">
           <CardContent class="p-4">
             <div class="flex items-center gap-2 mb-3">
-              <Star class="h-5 w-5 text-primary fill-primary" />
-              <h3 class="font-semibold text-foreground">
-                TOP 10 — {top10Label()} —{' '}
-                {props.categoryLabel ? `from ${props.categoryLabel}` : 'this category'}
+              <Star class="h-4 w-4 text-primary fill-primary" />
+              <h3 class="font-semibold text-foreground text-sm">
+                Top Picks in {props.categoryLabel || 'Category'}
               </h3>
-              <span class="text-xs text-muted-foreground ml-auto">
-                {top10Jobs().length} of {props.jobs.length} jobs
-              </span>
             </div>
             <div class="space-y-2">
               <For each={top10Jobs()}>
@@ -541,7 +548,7 @@ export function ProspectionList(props: ProspectionListProps) {
 
       {/* Job list */}
       <div class="space-y-3">
-        <For each={sortedJobs()}>
+        <For each={props.limit ? sortedJobs().slice(0, props.limit) : sortedJobs()}>
           {(job) => (
             <JobListItem
               job={job}
@@ -733,47 +740,37 @@ function JobListItem(props: JobListItemProps) {
               </Show>
             </div>
 
-            {/* Tags row */}
-            <div class="flex flex-wrap items-center gap-2">
+            {/* Tags row - Simplified */}
+            <div class="flex flex-wrap items-center gap-2 mt-auto">
               {/* Salary */}
               <Show when={props.job.salaryText}>
-                <span class="text-sm font-bold text-green-600 dark:text-green-400">
+                <span class="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/10 px-1.5 py-0.5 rounded">
                   {props.job.salaryText}
                 </span>
               </Show>
 
-              {/* Effort level */}
+              {/* Effort level (Compact) */}
               <Show when={props.job.effortLevel}>
                 <span
                   class={cn(
-                    'flex items-center gap-1 px-2 py-0.5 rounded-full text-xs',
+                    'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border border-transparent',
                     effortColor()
                   )}
+                  title="Effort Level"
                 >
                   <Zap class="h-3 w-3" />
                   {getEffortLabel(props.job.effortLevel || 3)}
                 </span>
               </Show>
 
-              {/* Google rating */}
+              {/* Google rating (Simplified) */}
               <Show when={props.job.rating}>
-                <span class="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Star class="h-3 w-3 text-amber-500 fill-amber-500" />
-                  {props.job.rating?.toFixed(1)}
-                </span>
-              </Show>
-
-              {/* Open status */}
-              <Show when={typeof props.job.openNow === 'boolean'}>
                 <span
-                  class={cn(
-                    'text-xs px-2 py-0.5 rounded-full',
-                    props.job.openNow
-                      ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300'
-                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                  )}
+                  class="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded"
+                  title="Google Places Rating"
                 >
-                  {props.job.openNow ? 'Open' : 'Closed'}
+                  <Star class="h-3 w-3 text-amber-500/70" />
+                  {props.job.rating?.toFixed(1)}
                 </span>
               </Show>
             </div>

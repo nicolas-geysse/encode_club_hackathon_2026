@@ -10,6 +10,7 @@
  */
 
 import { createSignal, Show, createEffect, on } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import {
   CategoryExplorer,
   TOP10_ALL_CATEGORY_ID,
@@ -46,6 +47,9 @@ import { scoreJobsForProfile, type ScoredJob, type UserProfile } from '~/lib/job
 type Phase = 'idle' | 'loading' | 'results' | 'complete';
 type ViewMode = 'list' | 'map';
 
+// Constant for Wide Search (Top 10 Highlights) - 30km (User requested max)
+const DEEP_SEARCH_RADIUS_METERS = 30000;
+
 export function ProspectionTab(props: ProspectionTabProps) {
   const [phase, setPhase] = createSignal<Phase>('idle');
   const [viewMode, setViewMode] = createSignal<ViewMode>('list');
@@ -57,6 +61,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const [highlightedLeadId, setHighlightedLeadId] = createSignal<string | null>(null);
   const [savedJobIds, setSavedJobIds] = createSignal<Set<string>>(new Set());
   const [savedCount, setSavedCount] = createSignal(0);
+  // Phase 8b: "My Selection" collapsed by default
   const [showLeadsPanel, setShowLeadsPanel] = createSignal(false);
   // Track ALL jobs from ALL searched categories (for global TOP 10)
   const [allCategoryJobs, setAllCategoryJobs] = createSignal<ScoredJob[]>([]);
@@ -105,11 +110,16 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
     // Special case: TOP 10 of all categories
     if (categoryId === TOP10_ALL_CATEGORY_ID) {
-      // If we have cached jobs, show them immediately
-      if (allCategoryJobs().length > 0) {
-        const globalTop10 = [...allCategoryJobs()].sort((a, b) => b.score - a.score).slice(0, 10);
-
-        setCurrentCards(globalTop10);
+      // If we have cached jobs AND we are searching with the default large radius (50km),
+      // use the cache to avoid re-fetching.
+      // If the user requests a different radius (e.g. 5km via slider), we bypass cache to fetch new results.
+      if (
+        allCategoryJobs().length > 0 &&
+        searchRadius() === DEEP_SEARCH_RADIUS_METERS &&
+        searchMeta()?.radiusUsed === 'deep_search'
+      ) {
+        // Pass ALL jobs to allow filtering/sorting on the client (List will limit to 10)
+        setCurrentCards(allCategoryJobs());
         setCurrentCategory(categoryId);
         setSearchMeta({
           source: 'platforms',
@@ -119,7 +129,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
           searchLocation: props.userLocation
             ? { lat: props.userLocation.lat, lng: props.userLocation.lng, city: props.city || '' }
             : null,
-          radiusUsed: null,
+          radiusUsed: 'deep_search', // Mark as deep search (implies 50km usually)
         });
         setSavedJobIds(new Set<string>());
         setSavedCount(0);
@@ -127,6 +137,8 @@ export function ProspectionTab(props: ProspectionTabProps) {
         setLoadingCategory(null);
         return;
       }
+
+      // Proceed to fetch...
 
       // No cached jobs - do a deep search across ALL categories
       try {
@@ -145,7 +157,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
               latitude: props.userLocation?.lat,
               longitude: props.userLocation?.lng,
               city: props.city,
-              radius: searchRadius(), // v4.1: User-selected radius
+              radius: searchRadius(), // v4.1: User-selected radius (default 50km for initial Top 10)
             }),
           });
 
@@ -167,10 +179,10 @@ export function ProspectionTab(props: ProspectionTabProps) {
         setAllCategoryJobs(allJobs);
         setSearchedCategories(searchedCats);
 
-        // Show top 10
-        const globalTop10 = [...allJobs].sort((a, b) => b.score - a.score).slice(0, 10);
+        setSearchedCategories(searchedCats);
 
-        setCurrentCards(globalTop10);
+        // Pass ALL jobs to allow filtering/sorting on the client (List will limit to 10)
+        setCurrentCards(allJobs);
         setCurrentCategory(categoryId);
         setSearchMeta({
           source: 'google_places',
@@ -180,7 +192,8 @@ export function ProspectionTab(props: ProspectionTabProps) {
           searchLocation: props.userLocation
             ? { lat: props.userLocation.lat, lng: props.userLocation.lng, city: props.city || '' }
             : null,
-          radiusUsed: 'deep_search',
+          radiusUsed:
+            searchRadius() === DEEP_SEARCH_RADIUS_METERS ? 'deep_search' : String(searchRadius()),
         });
         setSavedJobIds(new Set<string>());
         setSavedCount(0);
@@ -457,122 +470,178 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
   return (
     <div class="p-6 space-y-6">
-      {/* Floating Saved Leads Badge - Always visible when there are leads */}
-      <Show when={leads().length > 0 && phase() !== 'loading'}>
-        <div class="fixed bottom-20 sm:bottom-8 right-4 sm:right-6 z-50">
+      {/* Top Dashboard - Visible when Idle or Results (but not loading deep search) */}
+      <Show when={phase() !== 'loading'}>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Panel 1: My Selection Shortcut */}
+          <button
+            onClick={() => setShowLeadsPanel(true)}
+            class="group relative overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm transition-all hover:shadow-md text-left h-full min-h-[100px]"
+          >
+            <div class="p-4 flex flex-col justify-between h-full">
+              <div class="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
+                <Bookmark class="h-4 w-4" />
+                <span>My Selection</span>
+              </div>
+              <div>
+                <div class="text-2xl font-bold text-foreground group-hover:translate-x-1 transition-transform">
+                  {leads().length}
+                </div>
+                <div class="text-xs text-muted-foreground mt-1">Saved opportunities</div>
+              </div>
+            </div>
+          </button>
+
+          {/* Panel 2: Quick Action - Top 10 */}
           <button
             onClick={() => {
-              setShowLeadsPanel(!showLeadsPanel());
-              // Smooth scroll to saved leads section
-              if (!showLeadsPanel()) {
-                setTimeout(() => {
-                  document.getElementById('saved-leads-panel')?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  });
-                }, 100);
-              }
+              setSearchRadius(DEEP_SEARCH_RADIUS_METERS); // Set to 50km for initial "Deep Search"
+              handleCategorySelect(TOP10_ALL_CATEGORY_ID);
             }}
-            class={`
-              rounded-full shadow-xl px-4 py-2.5 flex items-center gap-2
-              transition-all duration-200
-              ${
-                showLeadsPanel()
-                  ? 'bg-transparent border-2 border-black dark:border-white text-black dark:text-white'
-                  : 'bg-black dark:bg-white text-white dark:text-black'
-              }
-            `}
+            disabled={phase() === 'loading'}
+            class="group relative overflow-hidden rounded-xl border border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 shadow-sm transition-all hover:shadow-md text-left h-full min-h-[100px]"
           >
-            <Bookmark class="h-4 w-4" />
-            <span class="font-semibold">{leads().length} saved</span>
-            {showLeadsPanel() ? <ChevronDown class="h-4 w-4" /> : <ChevronUp class="h-4 w-4" />}
+            <div class="p-4 flex flex-col justify-between h-full">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">
+                  Highlights
+                </span>
+                <div class="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
+                  <Dynamic
+                    component={getCategoryById(TOP10_ALL_CATEGORY_ID)?.icon || Compass}
+                    class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <div class="text-lg font-bold text-purple-900 dark:text-purple-100 group-hover:translate-x-1 transition-transform">
+                  Top 10 Opportunities
+                </div>
+                <div class="text-xs text-purple-600/80 dark:text-purple-400/80 mt-1">
+                  Best matches across all categories
+                </div>
+              </div>
+            </div>
+          </button>
+
+          {/* Panel 3: Quick Action - Remote */}
+          <button
+            onClick={() => handleCategorySelect(REAL_JOBS_CATEGORY_ID)}
+            disabled={phase() === 'loading'}
+            class="group relative overflow-hidden rounded-xl border border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 shadow-sm transition-all hover:shadow-md text-left h-full min-h-[100px]"
+          >
+            <div class="p-4 flex flex-col justify-between h-full">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                  Remote First
+                </span>
+                <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
+                  <Dynamic
+                    component={getCategoryById(REAL_JOBS_CATEGORY_ID)?.icon || MapIcon}
+                    class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <div class="text-lg font-bold text-blue-900 dark:text-blue-100 group-hover:translate-x-1 transition-transform">
+                  Full Remote Jobs
+                </div>
+                <div class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+                  Work from anywhere in the world
+                </div>
+              </div>
+            </div>
           </button>
         </div>
       </Show>
 
-      {/* Collapsible Saved Leads Panel */}
-      <Show when={showLeadsPanel() && leads().length > 0}>
-        <Card id="saved-leads-panel" class="border-2 border-primary/20 bg-primary/5 scroll-mt-4">
-          <CardContent class="p-4">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Bookmark class="h-5 w-5 text-primary" />
-                My Saved Leads ({leads().length})
-              </h3>
-              <div class="flex items-center gap-2">
-                <Button
-                  variant={viewMode() === 'list' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List class="h-4 w-4 mr-1" />
-                  List
-                </Button>
-                <Button
-                  variant={viewMode() === 'map' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('map')}
-                >
-                  <MapIcon class="h-4 w-4 mr-1" />
-                  Map
-                </Button>
+      {/* Saved Jobs Inline Section */}
+      <Show when={leads().length > 0}>
+        <div class="border rounded-xl bg-card shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowLeadsPanel(!showLeadsPanel())}
+            class="w-full flex items-center justify-between p-4 bg-muted/20 hover:bg-muted/30 transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <div class="h-8 w-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center shadow-sm">
+                <Bookmark class="h-4 w-4" />
+              </div>
+              <div class="text-left">
+                <h3 class="font-bold text-foreground">My Selection</h3>
+                <p class="text-xs text-muted-foreground">{leads().length} saved opportunities</p>
               </div>
             </div>
-
-            {/* Map always visible at top for saved leads */}
-            <div class="mb-4">
-              <ProspectionMap
-                userLocation={props.userLocation}
-                leads={leads()}
-                highlightedId={highlightedLeadId() || undefined}
-                onMarkerClick={handleMarkerClick}
-                height="300px"
-              />
+            <div
+              class={`transition-transform duration-300 ${showLeadsPanel() ? 'rotate-180' : ''}`}
+            >
+              <ChevronDown class="h-5 w-5 text-muted-foreground" />
             </div>
+          </button>
 
-            {/* List below */}
-            <SavedLeads
-              leads={leads()}
-              onStatusChange={handleStatusChange}
-              onDelete={handleDelete}
-              onLeadClick={handleLeadClick}
-              highlightedId={highlightedLeadId() || undefined}
-            />
-          </CardContent>
-        </Card>
+          <Show when={showLeadsPanel()}>
+            <div class="p-0 border-t border-border animate-in slide-in-from-top-2 duration-200">
+              {/* View Toggle inside panel */}
+              <div class="p-2 flex justify-end bg-muted/10 border-b border-border/50">
+                <div class="flex items-center gap-1 bg-background rounded-lg p-1 border">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewMode('list');
+                    }}
+                    class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${viewMode() === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setViewMode('map');
+                    }}
+                    class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${viewMode() === 'map' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+                  >
+                    Map
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-4">
+                <Show when={viewMode() === 'map'}>
+                  <ProspectionMap
+                    userLocation={props.userLocation}
+                    leads={leads()}
+                    highlightedId={highlightedLeadId() || undefined}
+                    onMarkerClick={handleMarkerClick}
+                    height="300px"
+                  />
+                </Show>
+                <Show when={viewMode() === 'list'}>
+                  <SavedLeads
+                    leads={leads()}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDelete}
+                    onLeadClick={handleLeadClick}
+                    highlightedId={highlightedLeadId() || undefined}
+                  />
+                </Show>
+              </div>
+            </div>
+          </Show>
+        </div>
       </Show>
 
       {/* Idle Phase - Category Explorer */}
       <Show when={phase() === 'idle'}>
-        {/* v4.1: Radius slider when location is available */}
-        <Show when={props.userLocation}>
-          <Card class="mb-4">
-            <CardContent class="p-4">
-              <div class="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
-                <MapPin class="h-4 w-4" />
-                <span>
-                  Searching near {props.city || 'your location'} (
-                  {props.userLocation?.lat.toFixed(3)}, {props.userLocation?.lng.toFixed(3)})
-                </span>
-              </div>
-              <Slider
-                label="Search radius"
-                min={1}
-                max={20}
-                step={1}
-                value={[searchRadius() / 1000]}
-                onChange={(v) => setSearchRadius(v[0] * 1000)}
-                valueDisplay={(v) => `${v} km`}
-              />
-            </CardContent>
-          </Card>
-        </Show>
-        <CategoryExplorer
-          onCategorySelect={handleCategorySelect}
-          currency={props.currency}
-          allCategoryJobs={allCategoryJobs()}
-          searchedCategories={searchedCategories()}
-        />
+        <div class="pt-4 border-t border-border/50">
+          <h3 class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+            Explore Job Categories
+          </h3>
+          <CategoryExplorer
+            onCategorySelect={handleCategorySelect}
+            currency={props.currency}
+            allCategoryJobs={allCategoryJobs()}
+            searchedCategories={searchedCategories()}
+          />
+        </div>
       </Show>
 
       {/* Loading Phase */}
@@ -596,18 +665,17 @@ export function ProspectionTab(props: ProspectionTabProps) {
             <div>
               <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
               <p class="text-sm text-muted-foreground">Save opportunities you're interested in</p>
-              {/* Show search location and radius */}
               <Show when={props.userLocation}>
-                <p class="text-xs text-muted-foreground mt-1">
-                  📍 {props.city || 'Near you'} • {searchRadius() / 1000}km radius
-                </p>
+                <p class="text-xs text-muted-foreground mt-1">📍 {props.city || 'Near you'}</p>
               </Show>
             </div>
             {/* Phase 8b: Quick access button at top */}
-            <Button variant="outline" size="sm" onClick={handleReset} class="shrink-0">
-              <RotateCcw class="h-4 w-4 mr-2" />
-              Change category
-            </Button>
+            <div class="flex flex-col items-end gap-2">
+              <Button variant="outline" size="sm" onClick={handleReset} class="shrink-0">
+                <RotateCcw class="h-4 w-4 mr-2" />
+                Change category
+              </Button>
+            </div>
           </div>
 
           {/* Map at top - visible on all devices */}
@@ -616,15 +684,56 @@ export function ProspectionTab(props: ProspectionTabProps) {
               <CardContent class="p-4">
                 <h3 class="font-semibold text-foreground mb-3 flex items-center gap-2">
                   <MapIcon class="h-4 w-4" />
-                  {currentCards().length} places nearby
+                  {currentCategory() === TOP10_ALL_CATEGORY_ID
+                    ? `Top 10 of ${currentCards().length} places nearby`
+                    : `${currentCards().length} places nearby`}
                 </h3>
                 <ProspectionMap
                   userLocation={props.userLocation}
-                  currentCards={currentCards()}
+                  currentCards={
+                    currentCategory() === TOP10_ALL_CATEGORY_ID
+                      ? currentCards().slice(0, 10)
+                      : currentCards()
+                  }
                   height="350px"
                   onSaveCard={handleSaveJob}
                   savedCardIds={savedJobIds()}
                 />
+
+                {/* Radius Control - Placed below map as requested */}
+                <Show when={props.userLocation && searchMeta()?.radiusUsed !== 'external_api'}>
+                  <div class="flex items-center justify-between mt-3 px-1 pt-2 border-t border-border/50">
+                    <span class="text-xs text-muted-foreground">Search Radius</span>
+                    <div class="flex items-center gap-3">
+                      <div class="w-32">
+                        <Slider
+                          label=""
+                          min={1}
+                          max={30}
+                          step={1}
+                          value={[searchRadius() / 1000]}
+                          onChange={(v) => setSearchRadius(v[0] * 1000)}
+                        />
+                      </div>
+                      <span class="text-xs font-medium w-8 text-right">
+                        {(searchRadius() / 1000).toFixed(0)}km
+                      </span>
+
+                      {/* Inline update button if changed */}
+                      <Show when={String(searchMeta()?.radiusUsed) !== String(searchRadius())}>
+                        <button
+                          onClick={() =>
+                            currentCategory() && handleCategorySelect(currentCategory()!)
+                          }
+                          class="p-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+                          title="Update Search"
+                        >
+                          <RotateCcw class="h-3 w-3" />
+                        </button>
+                      </Show>
+                    </div>
+                  </div>
+                </Show>
               </CardContent>
             </Card>
           </Show>
@@ -640,6 +749,8 @@ export function ProspectionTab(props: ProspectionTabProps) {
             categoryLabel={categoryLabel()}
             allCategoryJobs={allCategoryJobs()}
             showViewTabs={true}
+            // Phase 8b: Limit deep search results to Top 10, but allow sorting on full set
+            limit={currentCategory() === TOP10_ALL_CATEGORY_ID ? 10 : undefined}
           />
         </div>
 

@@ -103,8 +103,8 @@ interface ScoringWeights {
 // Default scoring weights (for cold start / no swipe data)
 // Must sum to 1.0
 const DEFAULT_WEIGHTS: ScoringWeights = {
-  distance: 0.25,
-  profile: 0.15, // Reduced to make room for swipe influence
+  distance: 0.1, // Reduced to MINIMUM to prioritize relevance (even at 30km)
+  profile: 0.3, // Increased to MAXIMUM to ensure skills/certs drive the score
   effort: 0.2,
   rate: 0.2,
   goalFit: 0.2,
@@ -132,8 +132,8 @@ export function mapSwipeToWeights(prefs?: SwipePreferences): ScoringWeights {
 
   // Redistribute from profile to effort/rate based on preferences
   const weights: ScoringWeights = {
-    distance: 0.25, // Fixed (geography always matters)
-    profile: Math.max(0.05, 0.15 - Math.abs(effortAdjust) - Math.abs(rateAdjust)),
+    distance: 0.1, // Fixed low weight to favor relevance
+    profile: Math.max(0.15, 0.3 - Math.abs(effortAdjust) - Math.abs(rateAdjust)), // Base 0.3
     effort: Math.max(0.1, Math.min(0.3, 0.2 + effortAdjust)),
     rate: Math.max(0.1, Math.min(0.3, 0.2 + rateAdjust)),
     goalFit: 0.2, // Fixed (goal alignment always matters)
@@ -168,7 +168,7 @@ export function getPreferenceVersion(prefs?: SwipePreferences): string {
 }
 
 // Normalization constants
-const MAX_COMMUTE_MINUTES = 45; // 45+ min = score 0
+const MAX_COMMUTE_MINUTES = 90; // Increased to 90min to allow wider search (100km) using highway speeds
 const MAX_HOURLY_RATE = 25; // 25€/h = normalized to 1.0
 const MAX_EFFORT = 5;
 
