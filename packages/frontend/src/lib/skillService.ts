@@ -152,7 +152,10 @@ export async function clearSkillsForProfile(profileId: string): Promise<boolean>
 
 /**
  * Bulk create skills (useful for migration from onboarding)
- * Clears existing skills first to prevent duplicates
+ * Clears existing skills first to prevent duplicates.
+ *
+ * Defensive coding: Continues processing even if individual skills fail.
+ * Logs warnings for failed skills but doesn't crash the entire operation.
  */
 export async function bulkCreateSkills(
   profileId: string,
@@ -165,15 +168,44 @@ export async function bulkCreateSkills(
   }
 
   const created: Skill[] = [];
+  const failed: Array<{ name: string; error: string }> = [];
 
   for (const skillInput of skills) {
-    const skill = await createSkill({
-      profileId,
-      ...skillInput,
-    });
-    if (skill) {
-      created.push(skill);
+    try {
+      const skill = await createSkill({
+        profileId,
+        ...skillInput,
+      });
+      if (skill) {
+        created.push(skill);
+      } else {
+        // createSkill returned null (API error already logged)
+        failed.push({ name: skillInput.name, error: 'API returned null' });
+      }
+    } catch (error) {
+      // Unexpected error - log and continue with other skills
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      failed.push({ name: skillInput.name, error: errorMsg });
+      logger.error('Unexpected error creating skill', {
+        skillName: skillInput.name,
+        error: errorMsg,
+      });
     }
+  }
+
+  // Log summary if any skills failed
+  if (failed.length > 0) {
+    logger.warn('bulkCreateSkills completed with errors', {
+      total: skills.length,
+      created: created.length,
+      failed: failed.length,
+      failedSkills: failed.map((f) => f.name),
+    });
+  } else {
+    logger.info('bulkCreateSkills completed successfully', {
+      total: skills.length,
+      created: created.length,
+    });
   }
 
   return created;

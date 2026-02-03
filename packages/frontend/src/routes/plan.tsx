@@ -1,8 +1,9 @@
 /**
  * My Plan Page (plan.tsx)
  *
- * 7 tabs: Profile, Goals, Skills, Lifestyle, Trade, Swipe, Prospection
- * Now uses profileService for DuckDB persistence instead of localStorage.
+ * 7 tabs: Profile, Goals, Skills, Budget, Trade, Jobs (Prospection), Swipe
+ * Jobs is now BEFORE Swipe so users see job opportunities before swiping scenarios.
+ * Uses profileService for DuckDB persistence instead of localStorage.
  */
 
 import { createSignal, createEffect, onMount, Show, For, untrack } from 'solid-js';
@@ -139,8 +140,8 @@ const TABS = [
   { id: 'skills', label: 'Skills', icon: 'Briefcase' },
   { id: 'budget', label: 'Budget', icon: 'PiggyBank' },
   { id: 'trade', label: 'Trade', icon: 'Handshake' },
-  { id: 'swipe', label: 'Swipe', icon: 'Dices' },
   { id: 'prospection', label: 'Jobs', icon: 'Compass' },
+  { id: 'swipe', label: 'Swipe', icon: 'Dices' },
 ] as const;
 
 // Helper to map string icon names to components for Dynamic
