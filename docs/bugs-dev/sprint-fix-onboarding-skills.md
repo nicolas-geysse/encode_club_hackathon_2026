@@ -1,7 +1,7 @@
 # Sprint: Onboarding → Skills → Jobs → Swipe Integration
 
 **Date**: 2026-02-03
-**Statut**: EN COURS (Phase 0-6 ✅, Phase 8 ✅, Phase 7 🔜)
+**Statut**: EN COURS (Phase 0-6 ✅, Phase 8 ✅, Phase 8b ✅, Phase 7 🔜)
 **Priorité**: Haute (cohérence UX et valeur métier)
 
 ---
@@ -312,6 +312,30 @@ generateScenarios():
 7. **Legend update (ProspectionMap.tsx:498-520)**
    - Légende affiche gradient vert/jaune/orange pour search results
    - Légende catégorie conservée pour saved leads
+
+### Phase 8b: UX Jobs Améliorée ✅ COMPLETE
+> Objectif: Navigation plus fluide + mise en avant des TOP 10 jobs
+> **Commit**: TBD - feat(ux): Phase 8b improved Jobs UX with TOP 10 section
+
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P8b.1 | Bouton "Change category" en haut | Bouton compact en haut à droite du header | `ProspectionTab.tsx` | ✅ |
+| P8b.2 | Section "TOP 10" | Liste des 10 meilleurs jobs avec rang numéroté (1-10) | `ProspectionList.tsx` | ✅ |
+| P8b.3 | TOP 10 respecte les filtres | Label dynamique: "Best Matches" / "Nearest" / "Highest Paying" | `ProspectionList.tsx` | ✅ |
+
+**Implémentation détaillée:**
+
+1. **Bouton "Change category" (ProspectionTab.tsx)**
+   - Placé en haut à droite du header avec flex justify-between
+   - Variant "outline" et size "sm" pour ne pas dominer
+   - Icône RotateCcw + texte "Change category"
+
+2. **Section TOP 10 (ProspectionList.tsx)**
+   - `top10Jobs()`: Prend les 10 premiers jobs de `sortedJobs()`
+   - `top10Label()`: Retourne label selon sort (Best Matches/Nearest/Highest Paying)
+   - Badge de rang (1-10) en cercle primary/10
+   - Info contextuelle: commute pour distance, salary pour salary, location pour score
+   - Toujours visible (pas conditionnel au sort comme avant)
 
 ---
 

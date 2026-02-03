@@ -83,12 +83,22 @@ export function ProspectionList(props: ProspectionListProps) {
     }
   };
 
-  // Phase 8: Top matches (score >= 4.0, max 3)
-  const topMatches = () =>
-    props.jobs
-      .filter((job) => job.score >= 4.0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
+  // Phase 8b: TOP 10 jobs according to current sort option
+  const top10Jobs = () => sortedJobs().slice(0, 10);
+
+  // Get label for TOP 10 section based on sort option
+  const top10Label = () => {
+    switch (sortBy()) {
+      case 'score':
+        return 'Best Matches';
+      case 'distance':
+        return 'Nearest';
+      case 'salary':
+        return 'Highest Paying';
+      default:
+        return 'Top 10';
+    }
+  };
 
   // Phase 8: Jobs with certification matches
   const certificationMatches = () => {
@@ -157,22 +167,27 @@ export function ProspectionList(props: ProspectionListProps) {
         </div>
       </Show>
 
-      {/* Phase 8: Top Matches for You Section */}
-      <Show when={topMatches().length > 0 && sortBy() === 'score'}>
-        <Card class="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+      {/* Phase 8b: TOP 10 Section - Respects current sort option */}
+      <Show when={top10Jobs().length > 0}>
+        <Card class="border-2 border-primary/20 bg-primary/5">
           <CardContent class="p-4">
             <div class="flex items-center gap-2 mb-3">
-              <Star class="h-5 w-5 text-amber-500 fill-amber-500" />
-              <h3 class="font-semibold text-foreground">Top Matches for You</h3>
+              <Star class="h-5 w-5 text-primary fill-primary" />
+              <h3 class="font-semibold text-foreground">TOP 10 — {top10Label()}</h3>
               <span class="text-xs text-muted-foreground ml-auto">
-                Score 4.0+ based on your profile
+                {top10Jobs().length} of {props.jobs.length} jobs
               </span>
             </div>
             <div class="space-y-2">
-              <For each={topMatches()}>
-                {(job) => (
-                  <div class="flex items-center gap-3 p-2 bg-background rounded-md border border-border">
-                    <div class="flex items-center gap-1">
+              <For each={top10Jobs()}>
+                {(job, index) => (
+                  <div class="flex items-center gap-3 p-2 bg-background rounded-md border border-border hover:border-primary/30 transition-colors">
+                    {/* Rank badge */}
+                    <div class="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                      {index() + 1}
+                    </div>
+                    {/* Star rating */}
+                    <div class="flex items-center gap-0.5 shrink-0">
                       <For each={[1, 2, 3, 4, 5]}>
                         {(star) => (
                           <Star
@@ -186,17 +201,36 @@ export function ProspectionList(props: ProspectionListProps) {
                         )}
                       </For>
                     </div>
+                    {/* Job info */}
                     <div class="flex-1 min-w-0">
                       <p class="text-sm font-medium truncate">{job.company || job.title}</p>
                       <p class="text-xs text-muted-foreground truncate">
-                        {job.location} {job.commuteText ? `• ${job.commuteText}` : ''}
+                        {/* Show relevant info based on sort */}
+                        <Show when={sortBy() === 'distance' && job.commuteText}>
+                          <span class="text-blue-600 dark:text-blue-400 font-medium">
+                            {job.commuteText}
+                          </span>
+                          {job.location ? ` • ${job.location}` : ''}
+                        </Show>
+                        <Show when={sortBy() === 'salary' && job.salaryText}>
+                          <span class="text-green-600 dark:text-green-400 font-medium">
+                            {job.salaryText}
+                          </span>
+                          {job.location ? ` • ${job.location}` : ''}
+                        </Show>
+                        <Show when={sortBy() === 'score'}>
+                          {job.location}
+                          {job.commuteText ? ` • ${job.commuteText}` : ''}
+                        </Show>
                       </p>
                     </div>
+                    {/* Certification badge */}
                     <Show when={job.matchedCertifications && job.matchedCertifications.length > 0}>
                       <span class="shrink-0 px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded-full">
                         {job.matchedCertifications![0].name}
                       </span>
                     </Show>
+                    {/* Save button */}
                     <Button
                       size="sm"
                       variant={isSaved(job.id) ? 'outline' : 'default'}

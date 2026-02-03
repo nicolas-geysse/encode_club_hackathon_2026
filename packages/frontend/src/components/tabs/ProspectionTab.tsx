@@ -353,17 +353,24 @@ export function ProspectionTab(props: ProspectionTabProps) {
       {/* Results Phase */}
       <Show when={phase() === 'results'}>
         <div class="space-y-6">
-          {/* Header */}
-          <div>
-            <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
-            <p class="text-sm text-muted-foreground">Save opportunities you're interested in</p>
-            {/* Show search location */}
-            <Show when={props.userLocation}>
-              <p class="text-xs text-muted-foreground mt-1">
-                📍 {props.city || 'Near you'} ({props.userLocation?.lat.toFixed(4)},{' '}
-                {props.userLocation?.lng.toFixed(4)})
-              </p>
-            </Show>
+          {/* Header with quick actions */}
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
+              <p class="text-sm text-muted-foreground">Save opportunities you're interested in</p>
+              {/* Show search location */}
+              <Show when={props.userLocation}>
+                <p class="text-xs text-muted-foreground mt-1">
+                  📍 {props.city || 'Near you'} ({props.userLocation?.lat.toFixed(4)},{' '}
+                  {props.userLocation?.lng.toFixed(4)})
+                </p>
+              </Show>
+            </div>
+            {/* Phase 8b: Quick access button at top */}
+            <Button variant="outline" size="sm" onClick={handleReset} class="shrink-0">
+              <RotateCcw class="h-4 w-4 mr-2" />
+              Change category
+            </Button>
           </div>
 
           {/* Map at top - visible on all devices */}
