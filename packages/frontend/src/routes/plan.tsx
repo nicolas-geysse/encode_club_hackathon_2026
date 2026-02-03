@@ -6,16 +6,24 @@
  * Uses profileService for DuckDB persistence instead of localStorage.
  */
 
-import { createSignal, createEffect, onMount, Show, For, untrack } from 'solid-js';
+import { createSignal, createEffect, onMount, Show, For, untrack, lazy, Suspense } from 'solid-js';
 import { useNavigate, useSearchParams } from '@solidjs/router';
 import { Dynamic } from 'solid-js/web';
 import { ProfileTab } from '~/components/tabs/ProfileTab';
 import { GoalsTab } from '~/components/tabs/GoalsTab';
 import { SkillsTab } from '~/components/tabs/SkillsTab';
 import { BudgetTab } from '~/components/tabs/BudgetTab';
-import { TradeTab } from '~/components/tabs/TradeTab';
-import { SwipeTab, type UserPreferences } from '~/components/tabs/SwipeTab';
-import { ProspectionTab } from '~/components/tabs/ProspectionTab';
+// v4.2: Lazy load heavy tabs for faster initial page load
+const TradeTab = lazy(() =>
+  import('~/components/tabs/TradeTab').then((m) => ({ default: m.TradeTab }))
+);
+const SwipeTab = lazy(() =>
+  import('~/components/tabs/SwipeTab').then((m) => ({ default: m.SwipeTab }))
+);
+const ProspectionTab = lazy(() =>
+  import('~/components/tabs/ProspectionTab').then((m) => ({ default: m.ProspectionTab }))
+);
+import type { UserPreferences } from '~/components/tabs/SwipeTab';
 import type { Lead } from '~/lib/prospectionTypes';
 import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
@@ -134,6 +142,21 @@ interface PlanData {
 // Currency type - used in local storage structure
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type Currency = 'USD' | 'EUR' | 'GBP';
+
+// v4.2: Skeleton fallback for lazy-loaded tabs
+function TabSkeleton() {
+  return (
+    <div class="space-y-4 p-6 animate-in fade-in duration-200">
+      <div class="h-8 w-48 bg-muted rounded animate-pulse" />
+      <div class="h-32 bg-muted rounded animate-pulse" />
+      <div class="h-32 bg-muted rounded animate-pulse" />
+      <div class="grid grid-cols-2 gap-4">
+        <div class="h-24 bg-muted rounded animate-pulse" />
+        <div class="h-24 bg-muted rounded animate-pulse" />
+      </div>
+    </div>
+  );
+}
 
 const TABS = [
   { id: 'profile', label: 'Profile', icon: 'User' },
@@ -595,122 +618,128 @@ export default function PlanPage() {
               </TabsContent>
 
               <TabsContent value="trade" class="mt-0">
-                <TradeTab
-                  initialTrades={contextTrades().map((t) => ({
-                    id: t.id,
-                    type: t.type,
-                    name: t.name,
-                    description: t.description,
-                    partner: t.partner,
-                    value: t.value,
-                    status: t.status,
-                    dueDate: t.dueDate,
-                    inventoryItemId: t.inventoryItemId,
-                  }))}
-                  onTradesChange={handleTradesChange}
-                  goalName={planData().setup?.goalName}
-                  goalAmount={planData().setup?.goalAmount}
-                  currency={activeProfile()?.currency}
-                  inventoryItems={contextInventory()
-                    .filter((i) => i.status === 'available')
-                    .map((i) => ({
-                      id: i.id,
-                      name: i.name,
-                      estimatedValue: i.estimatedValue,
-                      category: i.category,
+                <Suspense fallback={<TabSkeleton />}>
+                  <TradeTab
+                    initialTrades={contextTrades().map((t) => ({
+                      id: t.id,
+                      type: t.type,
+                      name: t.name,
+                      description: t.description,
+                      partner: t.partner,
+                      value: t.value,
+                      status: t.status,
+                      dueDate: t.dueDate,
+                      inventoryItemId: t.inventoryItemId,
                     }))}
-                  lifestyleItems={contextLifestyle().map((l) => ({
-                    name: l.name,
-                    currentCost: l.currentCost,
-                    pausedMonths: l.pausedMonths,
-                  }))}
-                  onInventorySold={(inventoryItemId, soldPrice) => {
-                    void (async () => {
-                      await inventoryService.markAsSold(inventoryItemId, soldPrice);
-                      await refreshInventory();
-                    })();
-                    return Promise.resolve();
-                  }}
-                  onDirtyChange={setIsCurrentTabDirty}
-                />
+                    onTradesChange={handleTradesChange}
+                    goalName={planData().setup?.goalName}
+                    goalAmount={planData().setup?.goalAmount}
+                    currency={activeProfile()?.currency}
+                    inventoryItems={contextInventory()
+                      .filter((i) => i.status === 'available')
+                      .map((i) => ({
+                        id: i.id,
+                        name: i.name,
+                        estimatedValue: i.estimatedValue,
+                        category: i.category,
+                      }))}
+                    lifestyleItems={contextLifestyle().map((l) => ({
+                      name: l.name,
+                      currentCost: l.currentCost,
+                      pausedMonths: l.pausedMonths,
+                    }))}
+                    onInventorySold={(inventoryItemId, soldPrice) => {
+                      void (async () => {
+                        await inventoryService.markAsSold(inventoryItemId, soldPrice);
+                        await refreshInventory();
+                      })();
+                      return Promise.resolve();
+                    }}
+                    onDirtyChange={setIsCurrentTabDirty}
+                  />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="swipe" class="mt-0">
-                <SwipeTab
-                  skills={planData().skills.map((s) => ({
-                    name: s.name,
-                    hourlyRate: s.hourlyRate,
-                  }))}
-                  items={planData()
-                    .inventory.filter((i) => !i.sold)
-                    .map((i) => ({
-                      name: i.name,
-                      estimatedValue: i.estimatedValue,
+                <Suspense fallback={<TabSkeleton />}>
+                  <SwipeTab
+                    skills={planData().skills.map((s) => ({
+                      name: s.name,
+                      hourlyRate: s.hourlyRate,
                     }))}
-                  lifestyle={planData().lifestyle.map((l) => ({
-                    name: l.name,
-                    currentCost: l.currentCost,
-                    pausedMonths: l.pausedMonths,
-                  }))}
-                  trades={planData().trades.map((t) => ({
-                    name: t.name,
-                    value: t.value,
-                  }))}
-                  leads={leads()}
-                  currency={activeProfile()?.currency}
-                  profileId={activeProfile()?.id}
-                  // BUG 3 FIX: Pass saved preferences from profile
-                  initialPreferences={
-                    activeProfile()?.swipePreferences
-                      ? {
-                          effortSensitivity:
-                            activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
-                          hourlyRatePriority:
-                            activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
-                          timeFlexibility:
-                            activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
-                          incomeStability:
-                            activeProfile()?.swipePreferences?.income_stability ?? 0.5,
-                        }
-                      : undefined
-                  }
-                  onPreferencesChange={handleSwipePreferencesChange}
-                  onScenariosSelected={handleScenariosSelected}
-                />
+                    items={planData()
+                      .inventory.filter((i) => !i.sold)
+                      .map((i) => ({
+                        name: i.name,
+                        estimatedValue: i.estimatedValue,
+                      }))}
+                    lifestyle={planData().lifestyle.map((l) => ({
+                      name: l.name,
+                      currentCost: l.currentCost,
+                      pausedMonths: l.pausedMonths,
+                    }))}
+                    trades={planData().trades.map((t) => ({
+                      name: t.name,
+                      value: t.value,
+                    }))}
+                    leads={leads()}
+                    currency={activeProfile()?.currency}
+                    profileId={activeProfile()?.id}
+                    // BUG 3 FIX: Pass saved preferences from profile
+                    initialPreferences={
+                      activeProfile()?.swipePreferences
+                        ? {
+                            effortSensitivity:
+                              activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
+                            hourlyRatePriority:
+                              activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
+                            timeFlexibility:
+                              activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
+                            incomeStability:
+                              activeProfile()?.swipePreferences?.income_stability ?? 0.5,
+                          }
+                        : undefined
+                    }
+                    onPreferencesChange={handleSwipePreferencesChange}
+                    onScenariosSelected={handleScenariosSelected}
+                  />
+                </Suspense>
               </TabsContent>
 
               <TabsContent value="prospection" class="mt-0">
-                <ProspectionTab
-                  profileId={activeProfile()?.id}
-                  userLocation={
-                    activeProfile()?.latitude && activeProfile()?.longitude
-                      ? {
-                          lat: activeProfile()!.latitude!,
-                          lng: activeProfile()!.longitude!,
-                        }
-                      : undefined
-                  }
-                  city={activeProfile()?.city}
-                  currency={activeProfile()?.currency}
-                  userSkills={activeProfile()?.skills}
-                  userCertifications={activeProfile()?.certifications}
-                  minHourlyRate={activeProfile()?.minHourlyRate}
-                  onLeadsChange={setLeads}
-                  swipePreferences={
-                    activeProfile()?.swipePreferences
-                      ? {
-                          effortSensitivity:
-                            activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
-                          hourlyRatePriority:
-                            activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
-                          timeFlexibility:
-                            activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
-                          incomeStability:
-                            activeProfile()?.swipePreferences?.income_stability ?? 0.5,
-                        }
-                      : undefined
-                  }
-                />
+                <Suspense fallback={<TabSkeleton />}>
+                  <ProspectionTab
+                    profileId={activeProfile()?.id}
+                    userLocation={
+                      activeProfile()?.latitude && activeProfile()?.longitude
+                        ? {
+                            lat: activeProfile()!.latitude!,
+                            lng: activeProfile()!.longitude!,
+                          }
+                        : undefined
+                    }
+                    city={activeProfile()?.city}
+                    currency={activeProfile()?.currency}
+                    userSkills={activeProfile()?.skills}
+                    userCertifications={activeProfile()?.certifications}
+                    minHourlyRate={activeProfile()?.minHourlyRate}
+                    onLeadsChange={setLeads}
+                    swipePreferences={
+                      activeProfile()?.swipePreferences
+                        ? {
+                            effortSensitivity:
+                              activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
+                            hourlyRatePriority:
+                              activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
+                            timeFlexibility:
+                              activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
+                            incomeStability:
+                              activeProfile()?.swipePreferences?.income_stability ?? 0.5,
+                          }
+                        : undefined
+                    }
+                  />
+                </Suspense>
               </TabsContent>
             </div>
           </Tabs>
