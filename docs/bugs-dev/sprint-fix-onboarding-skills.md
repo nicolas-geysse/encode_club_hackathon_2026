@@ -1,7 +1,7 @@
 # Sprint: Onboarding → Skills → Jobs → Swipe Integration
 
 **Date**: 2026-02-03
-**Statut**: EN COURS (Phase 0 ✅, Phase 1 ✅, Phase 2 ✅, Phase 3 ✅, Phase 4 ✅)
+**Statut**: EN COURS (Phase 0 ✅, Phase 1 ✅, Phase 2 ✅, Phase 3 ✅, Phase 4 ✅, Phase 5 ✅)
 **Priorité**: Haute (cohérence UX et valeur métier)
 
 ---
@@ -185,25 +185,32 @@ generateScenarios():
    - `plan.tsx:660`: Prop `leads={leads()}` passé au SwipeTab
    - `plan.tsx:698`: Prop `onLeadsChange={setLeads}` passé au ProspectionTab
 
-### Phase 5: Certifications Impact + Scoring Amélioré
+### Phase 5: Certifications Impact + Scoring Amélioré ✅ COMPLETE
 > Objectif: Les certifications boostent les jobs correspondants + meilleure connexion skills→jobs
+> **Commit**: `111282f` - feat(jobs): add certification boost to job scoring (Phase 5)
 
-**État actuel du scoring (jobScoring.ts):**
+**État du scoring (jobScoring.ts) après Phase 5:**
 - ✅ Score 1-5 étoiles avec breakdown (distance 30%, profile 25%, effort 25%, rate 20%)
 - ✅ Badge "Top Pick" pour score >= 4.5
 - ✅ Tri par "Best Match" par défaut
-- ❌ `UserProfile.skills` comparé à `categorySkillMap` statique (pas lié au skillRegistry)
-- ❌ Certifications NON utilisées dans le scoring
-- ❌ Pas d'explication du WHY (breakdown non affiché à l'utilisateur)
+- ✅ Certifications intégrées au scoring (+0.3 bonus max)
+- ✅ Tooltip "Why this job matches" avec breakdown complet
+- ⏳ `skillRegistry` → `categorySkillMap` reste statique (amélioration future)
 
 | ID | Tâche | Détails | Fichiers | Status |
 |----|-------|---------|----------|--------|
-| P5.1 | Créer mapping certification → catégories jobs | BAFA → childcare, BNSSA → events (lifeguard), PSC1 → all (+bonus) | `lib/data/certificationMapping.ts` (nouveau) | |
-| P5.2 | Ajouter `certifications` à `UserProfile` | Interface jobScoring.ts | `jobScoring.ts:29-33` | |
-| P5.3 | Modifier `calculateProfileMatch()` | Bonus +0.3 si certification match catégorie job | `jobScoring.ts:94-114` | |
-| P5.4 | Connecter `skillRegistry` à `categorySkillMap` | Utiliser les skills du registry avec leurs `category` | `jobScoring.ts:120-144` | |
-| P5.5 | Afficher badge certification | "BAFA verified" sur les jobs childcare | `ProspectionList.tsx` | |
-| P5.6 | Afficher score breakdown | Tooltip "Why this job matches you" | `ProspectionList.tsx` | |
+| P5.1 | Créer mapping certification → catégories jobs | 16 certifications (FR/UK/US/INT) avec bonus et aliases | `lib/data/certificationMapping.ts` | ✅ |
+| P5.2 | Ajouter `certifications` à `UserProfile` | Interface + `matchedCertifications` sur ScoredJob | `jobScoring.ts:29-49` | ✅ |
+| P5.3 | Modifier `calculateProfileMatch()` | Bonus +0.3 max, retourne `ProfileMatchResult` avec breakdown | `jobScoring.ts:107-156` | ✅ |
+| P5.4 | Connecter `skillRegistry` à `categorySkillMap` | Reporté (amélioration future) | `jobScoring.ts` | ⏳ |
+| P5.5 | Afficher badge certification | Badge vert avec Award icon + tooltip | `ProspectionList.tsx:281-296` | ✅ |
+| P5.6 | Afficher score breakdown | Tooltip "Why this job matches" avec 5 métriques | `ProspectionList.tsx:216-281` | ✅ |
+
+**Certifications implémentées:**
+- 🇫🇷 France: BAFA, BNSSA, PSC1, SST, CACES, HACCP
+- 🇬🇧 UK: DBS, NPLQ, First Aid at Work, SIA
+- 🇺🇸 US: CPR/AED, Lifeguard, Food Handler, TABC
+- 🌍 International: TEFL, PADI, Driving License
 
 ### Phase 6: Système de Feedback (Thumb Up/Down)
 > Objectif: L'utilisateur peut noter les suggestions pour améliorer les recommandations
@@ -301,14 +308,14 @@ Phase 8: UX Visuelle (jour 6-7)
 - [x] Les leads sont synchronisés en temps réel entre Jobs tab et Swipe tab
 - [x] Les scénarios from Jobs apparaissent en premier (opportunités concrètes prioritaires)
 
-### Phase 5 (Certifications + Scoring Amélioré)
-- [ ] `UserProfile` inclut `certifications?: string[]`
-- [ ] BAFA booste les jobs childcare (+0.3 profile score)
-- [ ] BNSSA booste les jobs events/lifeguard
-- [ ] PSC1/First Aid donne bonus universel (+0.1)
-- [ ] Badge "BAFA verified" visible sur les jobs boostés
-- [ ] Tooltip "Why this job matches" avec breakdown visible
-- [ ] Skills du registry connectés aux job categories (remplace `categorySkillMap` statique)
+### Phase 5 (Certifications + Scoring Amélioré) ✅ COMPLETE
+- [x] `UserProfile` inclut `certifications?: string[]`
+- [x] BAFA booste les jobs childcare (+0.3 profile score)
+- [x] BNSSA booste les jobs events/lifeguard (+0.3)
+- [x] PSC1/First Aid donne bonus universel (+0.15)
+- [x] Badge vert avec certification name visible sur les jobs boostés
+- [x] Tooltip "Why this job matches" avec breakdown complet (5 métriques)
+- [ ] Skills du registry connectés aux job categories (reporté - amélioration future)
 
 ### Phase 6 (Feedback)
 - [ ] Thumb up/down visible sur: skills suggestions, job cards, swipe cards
