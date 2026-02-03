@@ -40,11 +40,7 @@ import {
   Plus,
   Clock,
   Target,
-  X,
-  GraduationCap,
-  Package,
   Trash2,
-  Check,
   TrendingUp,
   RotateCcw,
 } from 'lucide-solid';
@@ -62,6 +58,19 @@ import {
 import { useGoalData } from '~/hooks/useGoalData';
 import type { EarningEvent } from '~/types/earnings';
 
+// Phase 4 Consolidation: Extracted components
+import {
+  AcademicEventsSection,
+  CommitmentsSection,
+  GoalPresetsSection,
+  GoalComponentsSection,
+  DEFAULT_PRESETS,
+  type AcademicEvent,
+  type Commitment,
+  type ComponentFormItem,
+  type GoalPreset,
+} from './goals';
+
 // FollowupData structure from /suivi page (stored in profile.followupData)
 interface SavingsAdjustment {
   amount: number;
@@ -78,27 +87,7 @@ interface FollowupData {
   savingsAdjustments?: Record<number, SavingsAdjustment>;
 }
 
-interface AcademicEvent {
-  id: string;
-  type:
-    | 'exam_period'
-    | 'class_intensive'
-    | 'vacation'
-    | 'vacation_rest'
-    | 'vacation_available'
-    | 'internship'
-    | 'project_deadline';
-  name: string;
-  startDate: string;
-  endDate: string;
-}
-
-interface Commitment {
-  id: string;
-  type: 'class' | 'sport' | 'club' | 'family' | 'health' | 'other';
-  name: string;
-  hoursPerWeek: number;
-}
+// AcademicEvent and Commitment types are now imported from ./goals
 
 interface SetupData {
   goalName: string;
@@ -118,15 +107,7 @@ interface GoalsTabProps {
   simulatedDate?: Date;
 }
 
-// Component form item
-interface ComponentFormItem {
-  id: string;
-  name: string;
-  type: GoalComponent['type'];
-  estimatedHours: number;
-  estimatedCost: number;
-  dependsOn: string[];
-}
+// ComponentFormItem type is now imported from ./goals
 
 export function GoalsTab(props: GoalsTabProps) {
   // URL params for deep linking (e.g., /plan?tab=goals&action=new)
@@ -198,6 +179,16 @@ export function GoalsTab(props: GoalsTabProps) {
     contextIncome,
     contextLifestyle
   );
+
+  // Budget→Goals sync: Force retroplan refetch when GoalsTab is mounted
+  // This ensures Goals tab has fresh data after user modifies budget in another tab
+  // The tab is unmounted when switching, so we need to refetch on each mount
+  onMount(() => {
+    // Small delay to ensure all signals are settled after mount
+    setTimeout(() => {
+      goalData.refetch();
+    }, 50);
+  });
 
   // Memoized retroplan for WeeklyProgressCards - ensures reactive updates when data loads
   // This fixes the initial load bug where exam week didn't show reduced target
@@ -518,60 +509,10 @@ export function GoalsTab(props: GoalsTabProps) {
   // when navigating away and back (client-side Set was reset, causing re-completion).
   // Users should manually mark goals as complete via the checkmark button.
 
-  // Component handlers
-  const addComponent = () => {
-    const comp = newComponent();
-    if (!comp.name) return;
+  // Component handlers now in GoalComponentsSection (Phase 4 Consolidation)
+  // Academic event handlers now in AcademicEventsSection (Phase 4 Consolidation)
 
-    setComponents([
-      ...components(),
-      {
-        id: `comp_${Date.now()}`,
-        name: comp.name || '',
-        type: comp.type || 'milestone',
-        estimatedHours: comp.estimatedHours || 0,
-        estimatedCost: comp.estimatedCost || 0,
-        dependsOn: comp.dependsOn || [],
-      },
-    ]);
-    setNewComponent({
-      name: '',
-      type: 'milestone',
-      estimatedHours: 0,
-      estimatedCost: 0,
-      dependsOn: [],
-    });
-  };
-
-  const removeComponent = (id: string) => {
-    setComponents(components().filter((c) => c.id !== id));
-  };
-
-  const addOrUpdateAcademicEvent = () => {
-    const event = newEvent();
-    if (!event.name || !event.startDate || !event.endDate) return;
-
-    const editingId = editingEventId();
-    if (editingId) {
-      // Update existing event
-      setAcademicEvents(
-        academicEvents().map((e) =>
-          e.id === editingId ? ({ ...event, id: editingId } as AcademicEvent) : e
-        )
-      );
-      setEditingEventId(null);
-    } else {
-      // Add new event
-      setAcademicEvents([
-        ...academicEvents(),
-        { ...event, id: `event_${Date.now()}` } as AcademicEvent,
-      ]);
-    }
-    // Reset form
-    setNewEvent({ type: 'exam_period', name: '', startDate: '', endDate: '' });
-    setIsSameDay(false);
-  };
-
+  // cancelEditEvent kept here for removeAcademicEvent (ConfirmDialog handler)
   const cancelEditEvent = () => {
     setEditingEventId(null);
     setNewEvent({ type: 'exam_period', name: '', startDate: '', endDate: '' });
@@ -586,25 +527,8 @@ export function GoalsTab(props: GoalsTabProps) {
     }
   };
 
-  // Edit event: populate form but DON'T remove from list
-  const editAcademicEvent = (event: AcademicEvent) => {
-    setEditingEventId(event.id);
-    setNewEvent({
-      type: event.type,
-      name: event.name,
-      startDate: event.startDate,
-      endDate: event.endDate,
-    });
-    setIsSameDay(event.startDate === event.endDate);
-  };
-
-  const addCommitment = () => {
-    const commitment = newCommitment();
-    if (!commitment.name || !commitment.hoursPerWeek) return;
-
-    setCommitments([...commitments(), { ...commitment, id: `commit_${Date.now()}` } as Commitment]);
-    setNewCommitment({ type: 'class', name: '', hoursPerWeek: 2 });
-  };
+  // editAcademicEvent now in AcademicEventsSection (Phase 4 Consolidation)
+  // addCommitment now in CommitmentsSection (Phase 4 Consolidation)
 
   const removeCommitment = (id: string) => {
     setCommitments(commitments().filter((c) => c.id !== id));
@@ -885,58 +809,11 @@ export function GoalsTab(props: GoalsTabProps) {
     setAdjustingWeek(null);
   };
 
-  const getTypeIcon = (type: GoalComponent['type']) => {
-    switch (type) {
-      case 'exam':
-        return '📝';
-      case 'time_allocation':
-        return '⏰';
-      case 'purchase':
-        return '🛒';
-      case 'milestone':
-        return '🎯';
-      case 'other':
-        return '📋';
-      default:
-        return '📋';
-    }
-  };
+  // getTypeIcon now in GoalComponentsSection (Phase 4 Consolidation)
 
-  // Quick presets - now with components for complex goals
-  const presets = [
-    { name: 'Vacation', amount: 500, icon: '🏖️', components: [] },
-    {
-      name: "Driver's license",
-      amount: 1500,
-      icon: '🚗',
-      components: [
-        {
-          name: 'Theory classes',
-          type: 'time_allocation' as const,
-          estimatedHours: 10,
-          estimatedCost: 50,
-        },
-        { name: 'Code exam', type: 'exam' as const, estimatedHours: 2, estimatedCost: 30 },
-        {
-          name: 'Driving lessons (20h)',
-          type: 'time_allocation' as const,
-          estimatedHours: 20,
-          estimatedCost: 800,
-        },
-        {
-          name: 'Driving test',
-          type: 'exam' as const,
-          estimatedHours: 1,
-          estimatedCost: 100,
-          dependsOn: ['Code exam', 'Driving lessons (20h)'],
-        },
-      ],
-    },
-    { name: 'Computer', amount: 800, icon: '💻', components: [] },
-    { name: 'Emergency fund', amount: 1000, icon: '🛡️', components: [] },
-  ];
+  // Quick presets - now imported from ./goals as DEFAULT_PRESETS
 
-  const applyPreset = (preset: (typeof presets)[0]) => {
+  const applyPreset = (preset: GoalPreset) => {
     setGoalName(preset.name);
     setGoalAmount(preset.amount);
 
@@ -1280,22 +1157,20 @@ export function GoalsTab(props: GoalsTabProps) {
                             <h4 class="text-sm font-medium text-muted-foreground mb-3">
                               📅 Weekly Progress
                             </h4>
-                            <Show when={goal().id} keyed>
-                              {(goalId) => (
-                                <WeeklyProgressCards
-                                  goal={goals().find((g) => g.id === goalId)!}
-                                  currency={currency()}
-                                  hourlyRate={profile()?.minHourlyRate}
-                                  weeklyEarnings={weeklyEarnings()}
-                                  simulatedDate={props.simulatedDate}
-                                  incomeDay={profile()?.incomeDay}
-                                  monthlyMargin={monthlyMargin()}
-                                  savingsAdjustments={followupData()?.savingsAdjustments}
-                                  onAdjustSavings={handleOpenSavingsAdjust}
-                                  userId={profileId() || undefined}
-                                  retroplan={weeklyCardsRetroplan()}
-                                />
-                              )}
+                            <Show when={goal().id}>
+                              <WeeklyProgressCards
+                                goal={goals().find((g) => g.id === goal().id)!}
+                                currency={currency()}
+                                hourlyRate={profile()?.minHourlyRate}
+                                weeklyEarnings={weeklyEarnings()}
+                                simulatedDate={props.simulatedDate}
+                                incomeDay={profile()?.incomeDay}
+                                monthlyMargin={monthlyMargin()}
+                                savingsAdjustments={followupData()?.savingsAdjustments}
+                                onAdjustSavings={handleOpenSavingsAdjust}
+                                userId={profileId() || undefined}
+                                retroplan={weeklyCardsRetroplan()}
+                              />
                             </Show>
                           </div>
                         </Show>
@@ -1305,22 +1180,20 @@ export function GoalsTab(props: GoalsTabProps) {
                           <h4 class="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                             <TrendingUp class="h-4 w-4" /> Earnings vs Goal
                           </h4>
-                          <Show when={goal().id} keyed>
-                            {(goalId) => (
-                              <EarningsChart
-                                goal={goals().find((g) => g.id === goalId)!}
-                                currency={currency()}
-                                adjustedWeeklyTarget={avgAdjustedTarget() ?? undefined}
-                                currentSaved={
-                                  chartStats().totalEarned || followupData()?.currentAmount
-                                }
-                                weeklyEarnings={chartWeeklyEarnings()}
-                                projectedWeeklyEarnings={projectedChartWeeklyEarnings()}
-                                milestones={chartMilestones()}
-                                stats={chartStats()}
-                                monthlyMargin={monthlyMargin()}
-                              />
-                            )}
+                          <Show when={goal().id}>
+                            <EarningsChart
+                              goal={goals().find((g) => g.id === goal().id)!}
+                              currency={currency()}
+                              adjustedWeeklyTarget={avgAdjustedTarget() ?? undefined}
+                              currentSaved={
+                                chartStats().totalEarned || followupData()?.currentAmount
+                              }
+                              weeklyEarnings={chartWeeklyEarnings()}
+                              projectedWeeklyEarnings={projectedChartWeeklyEarnings()}
+                              milestones={chartMilestones()}
+                              stats={chartStats()}
+                              monthlyMargin={monthlyMargin()}
+                            />
                           </Show>
                         </div>
                       </CardContent>
@@ -1452,44 +1325,14 @@ export function GoalsTab(props: GoalsTabProps) {
             </h3>
           </Show>
 
-          {/* Goal Presets */}
-          {/* Quick Presets - only show when creating a new goal, not editing */}
+          {/* Goal Presets - Phase 4 Consolidation: Extracted component */}
           <Show when={!editingGoalId()}>
-            <Card>
-              <CardContent class="p-6">
-                <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Target class="h-5 w-5 text-primary" /> Quick goal
-                </h3>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <For each={presets}>
-                    {(preset) => (
-                      <button
-                        type="button"
-                        class={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 text-center hover:scale-[1.02] active:scale-[0.98] ${
-                          goalName() === preset.name
-                            ? 'border-primary bg-primary/5 text-primary ring-1 ring-primary'
-                            : 'border-border bg-card hover:border-primary/50 text-foreground'
-                        }`}
-                        onClick={() => applyPreset(preset)}
-                      >
-                        <span class="text-2xl mb-1">{preset.icon}</span>
-                        <div class="flex flex-col">
-                          <span class="font-medium text-sm">{preset.name}</span>
-                          <span class="text-xs text-muted-foreground">
-                            {formatCurrency(preset.amount, currency())}
-                          </span>
-                        </div>
-                        <Show when={preset.components.length > 0}>
-                          <span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full mt-1">
-                            {preset.components.length} steps
-                          </span>
-                        </Show>
-                      </button>
-                    )}
-                  </For>
-                </div>
-              </CardContent>
-            </Card>
+            <GoalPresetsSection
+              selectedName={goalName}
+              onSelect={applyPreset}
+              currency={currency()}
+              presets={DEFAULT_PRESETS}
+            />
           </Show>
 
           {/* Goal Details */}
@@ -1555,147 +1398,15 @@ export function GoalsTab(props: GoalsTabProps) {
 
           {/* Advanced Options */}
           <Show when={showAdvanced()}>
-            {/* Goal Components */}
-            <Card class="border-primary/20">
-              <CardContent class="p-6">
-                <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Package class="h-5 w-5 text-primary" /> Goal Components
-                </h3>
-                <p class="text-sm text-muted-foreground mb-4">
-                  Break down your goal into smaller steps or milestones
-                </p>
-
-                <Show when={components().length > 0}>
-                  <div class="space-y-2 mb-4">
-                    <For each={components()}>
-                      {(comp) => (
-                        <div class="flex items-center justify-between bg-muted/50 rounded-lg p-3 border border-border">
-                          <div class="flex items-center gap-3">
-                            <span class="text-xl">{getTypeIcon(comp.type)}</span>
-                            <div>
-                              <p class="font-medium text-foreground">{comp.name}</p>
-                              <div class="flex gap-3 text-xs text-muted-foreground">
-                                <Show when={comp.estimatedHours > 0}>
-                                  <span>{comp.estimatedHours}h</span>
-                                </Show>
-                                <Show when={comp.estimatedCost > 0}>
-                                  <span>{formatCurrency(comp.estimatedCost, currency())}</span>
-                                </Show>
-                                <Show when={comp.dependsOn.length > 0}>
-                                  <span class="text-amber-600">
-                                    Requires: {comp.dependsOn.join(', ')}
-                                  </span>
-                                </Show>
-                              </div>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                            onClick={() => removeComponent(comp.id)}
-                          >
-                            <X class="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </For>
-                  </div>
-                </Show>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Input
-                    type="text"
-                    placeholder="Component name"
-                    value={newComponent().name}
-                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                      setNewComponent({ ...newComponent(), name: e.currentTarget.value })
-                    }
-                  />
-                  <Select
-                    value={newComponent().type}
-                    onChange={(e: Event & { currentTarget: HTMLSelectElement }) =>
-                      setNewComponent({
-                        ...newComponent(),
-                        type: e.currentTarget.value as GoalComponent['type'],
-                      })
-                    }
-                    options={[
-                      { value: 'milestone', label: '🎯 Milestone' },
-                      { value: 'exam', label: '📝 Exam/Test' },
-                      { value: 'time_allocation', label: '⏰ Time allocation' },
-                      { value: 'purchase', label: '🛒 Purchase' },
-                      { value: 'other', label: '📋 Other' },
-                    ]}
-                    class="w-full"
-                  />
-                  <div class="relative">
-                    <Input
-                      type="number"
-                      placeholder="Hours"
-                      min="0"
-                      value={newComponent().estimatedHours || ''}
-                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                        setNewComponent({
-                          ...newComponent(),
-                          estimatedHours: parseInt(e.currentTarget.value) || 0,
-                        })
-                      }
-                      class="pr-8"
-                    />
-                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
-                      h
-                    </span>
-                  </div>
-                  <Input
-                    type="number"
-                    placeholder={`Cost (${currencySymbol()})`}
-                    min="0"
-                    value={newComponent().estimatedCost || ''}
-                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                      setNewComponent({
-                        ...newComponent(),
-                        estimatedCost: parseInt(e.currentTarget.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-
-                <Show when={components().length > 0}>
-                  <div class="mt-3">
-                    <label class="block text-sm font-medium text-muted-foreground mb-1">
-                      Depends on (optional)
-                    </label>
-                    <div class="relative">
-                      <select
-                        class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        multiple
-                        value={newComponent().dependsOn}
-                        onChange={(e: Event & { currentTarget: HTMLSelectElement }) => {
-                          const selected = Array.from(e.currentTarget.selectedOptions).map(
-                            (o: HTMLOptionElement) => o.value
-                          );
-                          setNewComponent({ ...newComponent(), dependsOn: selected });
-                        }}
-                      >
-                        <For each={components()}>
-                          {(comp) => <option value={comp.name}>{comp.name}</option>}
-                        </For>
-                      </select>
-                    </div>
-                  </div>
-                </Show>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="mt-3 w-full border-dashed"
-                  onClick={addComponent}
-                >
-                  <Plus class="h-4 w-4 mr-2" /> Add component
-                </Button>
-              </CardContent>
-            </Card>
+            {/* Goal Components - Phase 4 Consolidation: Extracted component */}
+            <GoalComponentsSection
+              components={components}
+              setComponents={setComponents}
+              newComponent={newComponent}
+              setNewComponent={setNewComponent}
+              currency={currency()}
+              currencySymbol={currencySymbol()}
+            />
 
             {/* Conditional Goal */}
             <Show when={availableParentGoals().length > 0}>
@@ -1749,303 +1460,27 @@ export function GoalsTab(props: GoalsTabProps) {
             </Show>
           </Show>
 
-          {/* Academic Events */}
-          {/* Academic Events */}
-          <Card>
-            <CardContent class="p-6">
-              <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <GraduationCap class="h-5 w-5 text-primary" /> Academic events
-              </h3>
-              <p class="text-sm text-muted-foreground mb-4">
-                Add your exam periods or vacations to adapt your goals
-              </p>
+          {/* Academic Events - Phase 4 Consolidation: Extracted component */}
+          <AcademicEventsSection
+            events={academicEvents}
+            setEvents={setAcademicEvents}
+            newEvent={newEvent}
+            setNewEvent={setNewEvent}
+            editingEventId={editingEventId}
+            setEditingEventId={setEditingEventId}
+            isSameDay={isSameDay}
+            setIsSameDay={setIsSameDay}
+            onDeleteRequest={(event) => setDeleteEventConfirm(event)}
+          />
 
-              <Show when={academicEvents().length > 0}>
-                <div class="space-y-2 mb-4">
-                  <For each={academicEvents()}>
-                    {(event) => {
-                      const isEditing = () => editingEventId() === event.id;
-                      return (
-                        <div
-                          class={`flex items-center justify-between rounded-lg p-3 border transition-colors ${
-                            isEditing()
-                              ? 'bg-primary/10 border-primary ring-2 ring-primary/20'
-                              : 'bg-muted/50 border-border'
-                          }`}
-                        >
-                          <div class="flex items-center gap-3">
-                            <span class="text-xl">
-                              {event.type === 'exam_period'
-                                ? '📝'
-                                : event.type === 'vacation' || event.type === 'vacation_available'
-                                  ? '🏖️'
-                                  : event.type === 'vacation_rest'
-                                    ? '📵'
-                                    : event.type === 'internship'
-                                      ? '💼'
-                                      : event.type === 'project_deadline'
-                                        ? '⏰'
-                                        : '📚'}
-                            </span>
-                            <div>
-                              <p class="font-medium text-foreground">
-                                {event.name}
-                                {isEditing() && (
-                                  <span class="ml-2 text-xs text-primary font-normal">
-                                    (editing)
-                                  </span>
-                                )}
-                              </p>
-                              <p class="text-xs text-muted-foreground">
-                                {new Date(event.startDate).toLocaleDateString()} -{' '}
-                                {new Date(event.endDate).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div class="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              class={`h-8 w-8 ${
-                                isEditing()
-                                  ? 'text-primary bg-primary/10'
-                                  : 'text-muted-foreground hover:text-primary hover:bg-primary/10'
-                              }`}
-                              onClick={() =>
-                                isEditing() ? cancelEditEvent() : editAcademicEvent(event)
-                              }
-                              title={isEditing() ? 'Cancel edit' : 'Edit event'}
-                            >
-                              {isEditing() ? <X class="h-4 w-4" /> : <Pencil class="h-4 w-4" />}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                              onClick={() =>
-                                setDeleteEventConfirm({ id: event.id, name: event.name })
-                              }
-                              title="Delete event"
-                            >
-                              <Trash2 class="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  </For>
-                </div>
-              </Show>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <Select
-                  value={newEvent().type}
-                  onChange={(e: Event & { currentTarget: HTMLSelectElement }) =>
-                    setNewEvent({
-                      ...newEvent(),
-                      type: e.currentTarget.value as AcademicEvent['type'],
-                    })
-                  }
-                  options={[
-                    { value: 'exam_period', label: '📝 Exam period' },
-                    { value: 'vacation_rest', label: '📵 Vacation (rest)' },
-                    { value: 'vacation_available', label: '🏖️ Vacation (available)' },
-                    { value: 'internship', label: '💼 Internship' },
-                    { value: 'class_intensive', label: '📚 Intensive class' },
-                    { value: 'project_deadline', label: '⏰ Deadline' },
-                  ]}
-                  class="w-full"
-                />
-                <Input
-                  type="text"
-                  placeholder="Event name"
-                  value={newEvent().name}
-                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                    setNewEvent({ ...newEvent(), name: e.currentTarget.value })
-                  }
-                />
-
-                {/* Dates Section - Range DatePicker with "Same day" checkbox */}
-                <div class="col-span-1 md:col-span-2">
-                  <div class="flex items-end gap-3">
-                    <div class="flex-1">
-                      <label class="block text-sm font-medium text-muted-foreground mb-1">
-                        Dates
-                      </label>
-                      <DatePicker
-                        mode="range"
-                        startValue={newEvent().startDate}
-                        endValue={isSameDay() ? newEvent().startDate : newEvent().endDate}
-                        onRangeChange={(start, end) => {
-                          setNewEvent({
-                            ...newEvent(),
-                            startDate: start,
-                            endDate: isSameDay() ? start : end,
-                          });
-                        }}
-                      />
-                    </div>
-                    <label
-                      class="flex flex-col items-center gap-1 cursor-pointer pb-2"
-                      title="The event ends on the same day"
-                    >
-                      <input
-                        type="checkbox"
-                        class="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
-                        checked={isSameDay()}
-                        onChange={(e) => {
-                          setIsSameDay(e.currentTarget.checked);
-                          if (e.currentTarget.checked) {
-                            setNewEvent({ ...newEvent(), endDate: newEvent().startDate });
-                          }
-                        }}
-                      />
-                      <span class="text-[10px] text-muted-foreground whitespace-nowrap">
-                        Same day
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div class="flex gap-2 mt-3">
-                <Button
-                  variant={editingEventId() ? 'default' : 'outline'}
-                  size="sm"
-                  class={`flex-1 ${editingEventId() ? '' : 'border-dashed'}`}
-                  onClick={addOrUpdateAcademicEvent}
-                >
-                  {editingEventId() ? (
-                    <>
-                      <Check class="h-4 w-4 mr-2" /> Update event
-                    </>
-                  ) : (
-                    <>
-                      <Plus class="h-4 w-4 mr-2" /> Add event
-                    </>
-                  )}
-                </Button>
-                <Show when={editingEventId()}>
-                  <Button variant="outline" size="sm" onClick={cancelEditEvent}>
-                    Cancel
-                  </Button>
-                </Show>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Commitments */}
-          <Card>
-            <CardContent class="p-6">
-              <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Clock class="h-5 w-5 text-primary" /> Current Commitments
-              </h3>
-              <p class="text-sm text-muted-foreground mb-4">
-                Regular activities that take up your time
-              </p>
-
-              <Show when={commitments().length > 0}>
-                <div class="space-y-2 mb-4">
-                  <For each={commitments()}>
-                    {(commitment) => (
-                      <div class="flex items-center justify-between bg-muted/50 rounded-lg p-3 border border-border">
-                        <div class="flex items-center gap-3">
-                          <span class="text-xl">
-                            {commitment.type === 'sport'
-                              ? '⚽'
-                              : commitment.type === 'class'
-                                ? '📚'
-                                : commitment.type === 'club'
-                                  ? '👥'
-                                  : '📌'}
-                          </span>
-                          <div>
-                            <p class="font-medium text-foreground">{commitment.name}</p>
-                            <p class="text-xs text-muted-foreground">
-                              {commitment.hoursPerWeek}h / week
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                          onClick={() =>
-                            setDeleteCommitmentConfirm({
-                              id: commitment.id,
-                              name: commitment.name,
-                            })
-                          }
-                          title="Delete commitment"
-                        >
-                          <Trash2 class="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </For>
-                </div>
-              </Show>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Select
-                  value={newCommitment().type}
-                  onChange={(e: Event & { currentTarget: HTMLSelectElement }) =>
-                    setNewCommitment({
-                      ...newCommitment(),
-                      type: e.currentTarget.value as Commitment['type'],
-                    })
-                  }
-                  options={[
-                    { value: 'class', label: '📚 Class' },
-                    { value: 'sport', label: '⚽ Sport' },
-                    { value: 'club', label: '👥 Club' },
-                    { value: 'family', label: '🏠 Family' },
-                    { value: 'health', label: '❤️ Health' },
-                    { value: 'other', label: '📌 Other' },
-                  ]}
-                  class="w-full"
-                />
-
-                <Input
-                  type="text"
-                  placeholder="Activity name"
-                  value={newCommitment().name}
-                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                    setNewCommitment({ ...newCommitment(), name: e.currentTarget.value })
-                  }
-                />
-
-                <div class="relative">
-                  <Input
-                    type="number"
-                    min="1"
-                    max="168"
-                    placeholder="Hours/week"
-                    value={newCommitment().hoursPerWeek || ''}
-                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                      setNewCommitment({
-                        ...newCommitment(),
-                        hoursPerWeek: parseInt(e.currentTarget.value) || 0,
-                      })
-                    }
-                    class="pr-8"
-                  />
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
-                    h
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                class="mt-3 w-full border-dashed"
-                onClick={addCommitment}
-              >
-                <Plus class="h-4 w-4 mr-2" /> Add commitment
-              </Button>
-            </CardContent>
-          </Card>
+          {/* Commitments - Phase 4 Consolidation: Extracted component */}
+          <CommitmentsSection
+            commitments={commitments}
+            setCommitments={setCommitments}
+            newCommitment={newCommitment}
+            setNewCommitment={setNewCommitment}
+            onDeleteRequest={(commitment) => setDeleteCommitmentConfirm(commitment)}
+          />
 
           {/* Action Buttons */}
           <div class="flex gap-4">

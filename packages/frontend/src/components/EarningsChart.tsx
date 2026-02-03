@@ -431,10 +431,17 @@ export function EarningsChart(props: EarningsChartProps) {
           chartData.labels = data.labels;
         }
 
-        // Update each dataset's data
-        if (chartData.datasets[0]) chartData.datasets[0].data = data.requiredPace;
-        if (chartData.datasets[1]) chartData.datasets[1].data = data.projectedEarnings;
-        if (chartData.datasets[2]) chartData.datasets[2].data = data.actualEarnings;
+        // Phase 3 Consolidation: Use named lookups instead of hardcoded indices
+        // This prevents bugs if datasets are reordered or new ones added
+        const goalDataset = chartData.datasets.find((d) => d.label === 'Goal');
+        const paceDataset = chartData.datasets.find((d) => d.label === 'Required Pace');
+        const projectedDataset = chartData.datasets.find((d) => d.label === 'Projected');
+        const actualDataset = chartData.datasets.find((d) => d.label === 'Actual');
+
+        if (goalDataset) goalDataset.data = data.labels.map(() => data.goalAmount);
+        if (paceDataset) paceDataset.data = data.requiredPace;
+        if (projectedDataset) projectedDataset.data = data.projectedEarnings;
+        if (actualDataset) actualDataset.data = data.actualEarnings;
 
         // Update Y-axis scale if needed
         const maxDataValue = Math.max(

@@ -98,6 +98,87 @@ Frontend Components → Server Functions (routes/api/*.ts) → MCP Tools → Mas
 - `@typescript-eslint/no-unused-vars: warn` with `^_` pattern for intentionally unused
 - SolidJS-specific rules for frontend: `solid/reactivity`, `solid/no-destructure`, `solid/prefer-for`
 
+## SolidJS Patterns & Anti-Patterns
+
+### `<Show>` with `keyed` breaks reactivity
+
+```tsx
+// ❌ ANTI-PATTERN: keyed prevents updates when other signals change
+<Show when={goal().id} keyed>
+  {(goalId) => (
+    <ChildComponent data={otherSignal()} />  // Won't update when otherSignal changes!
+  )}
+</Show>
+
+// ✅ CORRECT: Without keyed, children re-evaluate on any signal change
+<Show when={goal().id}>
+  <ChildComponent data={otherSignal()} />  // Updates when otherSignal changes
+</Show>
+```
+
+**Rule**: Only use `keyed` when the content depends SOLELY on the `when` value.
+
+### Computed values must derive from current state
+
+```typescript
+// ❌ ANTI-PATTERN: Using historical/adjusted data for future calculations
+const savingsForTargetCalc = adjustedSavingsWeeks.reduce(
+  (sum, s) => sum + getEffectiveSavingsAmount(s), // Uses manual adjustments from past
+  0
+);
+
+// ✅ CORRECT: Use current state (margin) for projections
+const projectedSavings = baseSavingsWeeks.reduce(
+  (sum, s) => sum + s.amount, // Based on current margin
+  0
+);
+```
+
+**Rule**: Distinguish **projected** (based on current state) from **actual** (with historical adjustments).
+
+### API parameter naming must be semantic
+
+```typescript
+// ❌ ANTI-PATTERN: Misleading parameter names
+return {
+  actualTotalSavings: projectedTotalSavings, // Confusing! It's a projection, not actual
+};
+
+// ✅ CORRECT: Clear, semantic naming
+return {
+  projectedSavingsBasis: projectedTotalSavings,  // For target calculations
+  actualTotalSavings: adjustedTotalSavings,      // For tracking real progress
+};
+```
+
+### Chart.js: Use named lookups, not indices
+
+```typescript
+// ❌ ANTI-PATTERN: Fragile indices that break if order changes
+if (chartData.datasets[0]) chartData.datasets[0].data = goalData;
+if (chartData.datasets[1]) chartData.datasets[1].data = paceData;
+
+// ✅ CORRECT: Named lookups are robust to reordering
+const goalDataset = chartData.datasets.find(d => d.label === 'Goal');
+const paceDataset = chartData.datasets.find(d => d.label === 'Required Pace');
+if (goalDataset) goalDataset.data = goalData;
+if (paceDataset) paceDataset.data = paceData;
+```
+
+### Component size limits
+
+**Target**: Keep components under ~500 lines. Extract sections when a component exceeds ~800 lines.
+
+Large components (>1500 lines) cause:
+- Hard-to-trace reactivity bugs
+- Difficult mental model of data flow
+- Merge conflicts in team settings
+
+**Extraction pattern** (see `src/components/tabs/goals/`):
+- Keep orchestration logic in parent
+- Extract self-contained UI sections
+- Pass state accessors as props (not raw values) for SolidJS reactivity
+
 ## Opik Tracing
 
 Every recommendation has traces with span hierarchy:

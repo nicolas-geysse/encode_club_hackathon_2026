@@ -14,6 +14,9 @@ import type { EarningEvent, GoalStatus } from '../types/earnings';
 import type { Goal } from '../lib/goalService';
 import type { FullProfile } from '../lib/profileService';
 import type { IncomeItem, LifestyleItem } from '../lib/profileContext';
+import { createLogger } from '../lib/logger';
+
+const logger = createLogger('useGoalData');
 import { aggregateAllEarnings, type MissionData, type TradeData } from '../lib/earningsAggregator';
 import { calculateGoalStatus, calculateOnPace } from '../lib/goalStatus';
 import {
@@ -311,17 +314,19 @@ export function useGoalData(
       const simDate = getSimulatedDate();
       if (!g?.id || !g?.amount || !g?.deadline || !p?.id) return null;
 
+      // DIAGNOSTIC: Track income/lifestyle accessor values
+      const incomeItems = incomeAccessor?.() || [];
+      const lifestyleItems = lifestyleAccessor?.() || [];
+      const incomeTotal = incomeItems.reduce((sum, i) => sum + i.amount, 0);
+      const expensesTotal = lifestyleItems
+        .filter((i) => i.pausedMonths === 0)
+        .reduce((sum, i) => sum + i.currentCost, 0);
+
       // Calculate monthlyMargin reactively from income/lifestyle accessors if provided
       // This ensures Goals tab updates when Budget tab changes income/expenses
       // Pattern from /suivi page (contextIncome/contextLifestyle)
       const computedMargin = (() => {
         if (incomeAccessor && lifestyleAccessor) {
-          const incomeItems = incomeAccessor();
-          const lifestyleItems = lifestyleAccessor();
-          const incomeTotal = incomeItems.reduce((sum, i) => sum + i.amount, 0);
-          const expensesTotal = lifestyleItems
-            .filter((i) => i.pausedMonths === 0) // Only active expenses
-            .reduce((sum, i) => sum + i.currentCost, 0);
           const margin = incomeTotal - expensesTotal;
           // If no data, fallback to profile value
           if (incomeTotal === 0 && expensesTotal === 0) {
@@ -341,18 +346,24 @@ export function useGoalData(
       const incomeDay = p.incomeDay || 15;
       const currentDate = simDate || new Date();
 
-      // Calculate ACTUAL total savings (accounting for adjustments)
-      // This ensures weekly targets update when user adjusts savings in WeeklyProgressCards
-      const savingsAdjustments = (p.followupData?.savingsAdjustments || {}) as Record<
-        number,
-        SavingsAdjustment
-      >;
+      // Calculate PROJECTED total savings based on CURRENT margin
+      // This ensures weekly targets update reactively when budget changes
+      // Note: Manual adjustments are for tracking actual progress, not for projecting future savings
       const baseSavingsWeeks = calculateSavingsWeeks(
         goalStartDate,
         goalDeadline,
         incomeDay,
         monthlyMargin > 0 ? monthlyMargin : 0 // Only positive margin generates savings
       );
+      // Use BASE savings (from current margin) for work target calculation
+      // This ensures targets update when budget changes
+      const projectedTotalSavings = baseSavingsWeeks.reduce((sum, s) => sum + s.amount, 0);
+
+      // Also calculate actual savings with adjustments (for display/tracking, not targets)
+      const savingsAdjustments = (p.followupData?.savingsAdjustments || {}) as Record<
+        number,
+        SavingsAdjustment
+      >;
       const adjustedSavingsWeeks = applySavingsAdjustments(baseSavingsWeeks, savingsAdjustments);
       const actualTotalSavings = adjustedSavingsWeeks.reduce(
         (sum, s) => sum + getEffectiveSavingsAmount(s),
@@ -378,7 +389,11 @@ export function useGoalData(
         profileId: p.id,
         hourlyRate: p.minHourlyRate || 15,
         monthlyMargin: computedMargin, // Base margin for display
-        actualTotalSavings, // ACTUAL savings after adjustments - use this for effectiveGoalForWork
+        // Phase 1 Consolidation: Separate projected vs actual savings
+        // - projectedSavingsBasis: Based on current margin (for reactive target calculation)
+        // - actualTotalSavings: With user adjustments (for tracking/display)
+        projectedSavingsBasis: projectedTotalSavings,
+        actualTotalSavings: actualTotalSavings,
         availableHoursPerWeek: p.maxWorkHoursWeekly, // User's configured available hours
         goalStartDate: g.createdAt,
         simulatedDate: simDate?.toISOString(),
@@ -400,7 +415,9 @@ export function useGoalData(
           deadline: params.deadline,
           hourlyRate: params.hourlyRate,
           monthlyMargin: params.monthlyMargin,
-          actualTotalSavings: params.actualTotalSavings, // ACTUAL savings after adjustments
+          // Phase 1 Consolidation: Separate projected vs actual savings
+          projectedSavingsBasis: params.projectedSavingsBasis, // For target calculation
+          actualTotalSavings: params.actualTotalSavings, // For tracking (future use)
           availableHoursPerWeek: params.availableHoursPerWeek,
           goalStartDate: params.goalStartDate,
           simulatedDate: params.simulatedDate,
@@ -657,6 +674,7 @@ export function useGoalData(
 
   // === REFETCH ACTION ===
   const refetch = () => {
+    logger.info('[DIAG] refetch() called - will trigger refetchRetroplan');
     setManualError(undefined);
     refetchRetroplan();
     refetchTrades();

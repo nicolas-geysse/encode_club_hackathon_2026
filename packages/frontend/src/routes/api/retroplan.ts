@@ -422,7 +422,11 @@ async function generateRetroplanForGoal(
   simulatedDate?: Date, // Sprint 13.8 Fix: Accept simulated date for testing
   goalStartDate?: Date, // Bug 2 Fix: Accept goal start date for historical weeks
   monthlyMargin?: number, // Sprint 13.7: Add margin-based capacity factor
-  actualTotalSavings?: number, // ACTUAL total savings after adjustments (from useGoalData)
+  // Phase 1 Consolidation: Distinguish projected vs actual savings
+  // - projectedSavingsBasis: Theoretical savings based on CURRENT margin (for target calculation)
+  // - actualTotalSavings: Historical savings with user adjustments (for tracking/display)
+  projectedSavingsBasis?: number, // Projected savings based on current margin
+  actualTotalSavings?: number, // ACTUAL total savings after adjustments (for future use)
   totalEarned: number = 0, // Sprint 13.21: Progress already made toward goal
   availableHoursPerWeek?: number // User's configured max work hours per week
 ): Promise<Retroplan> {
@@ -482,12 +486,19 @@ async function generateRetroplanForGoal(
   const maxTotalEarnings = weekCapacities.reduce((sum, w) => sum + w.maxEarningPotential, 0);
 
   // Calculate how much needs to be earned through WORK (accounting for savings)
-  // Use actualTotalSavings if provided (includes adjustments), otherwise calculate from margin
+  // Phase 1 Consolidation: Priority order for savings contribution:
+  // 1. projectedSavingsBasis - Theoretical savings based on CURRENT margin (reactive to budget changes)
+  // 2. actualTotalSavings - Historical with adjustments (for backward compatibility)
+  // 3. Calculate from monthlyMargin (original fallback)
   const monthsInPeriod = Math.max(1, Math.ceil(totalWeeks / 4.33));
 
   let savingsContribution: number;
-  if (actualTotalSavings !== undefined) {
-    // Use actual savings (accounts for user adjustments like 200→0)
+  if (projectedSavingsBasis !== undefined) {
+    // Preferred: Use projected savings based on current margin
+    // This ensures targets update reactively when budget changes
+    savingsContribution = projectedSavingsBasis;
+  } else if (actualTotalSavings !== undefined) {
+    // Fallback: Use actual savings with user adjustments (backward compatibility)
     savingsContribution = actualTotalSavings;
   } else if (monthlyMargin && monthlyMargin > 0) {
     // Fallback: calculate from base margin
@@ -513,6 +524,7 @@ async function generateRetroplanForGoal(
   console.log('[Retroplan] Target calculation:', {
     goalAmount,
     monthlyMargin,
+    projectedSavingsBasis,
     actualTotalSavings,
     monthsInPeriod,
     savingsContribution,
@@ -1065,7 +1077,9 @@ export async function POST(event: APIEvent) {
           simulatedDate,
           goalStartDate,
           monthlyMargin,
-          actualTotalSavings, // ACTUAL total savings after adjustments (from useGoalData)
+          // Phase 1 Consolidation: Separate projected vs actual savings
+          projectedSavingsBasis, // Projected savings based on current margin (for targets)
+          actualTotalSavings, // ACTUAL total savings with adjustments (for tracking)
           totalEarned = 0, // Progress already made toward goal
         } = body;
 
@@ -1077,6 +1091,7 @@ export async function POST(event: APIEvent) {
           hourlyRate,
           availableHoursPerWeek,
           monthlyMargin,
+          projectedSavingsBasis,
           actualTotalSavings,
           totalEarned,
         });
@@ -1142,7 +1157,8 @@ export async function POST(event: APIEvent) {
           effectiveSimulatedDate,
           effectiveGoalStartDate,
           monthlyMargin,
-          actualTotalSavings, // ACTUAL savings after adjustments
+          projectedSavingsBasis, // Projected savings for target calculation
+          actualTotalSavings, // Actual savings for tracking (future use)
           totalEarned,
           effectiveAvailableHours
         );
