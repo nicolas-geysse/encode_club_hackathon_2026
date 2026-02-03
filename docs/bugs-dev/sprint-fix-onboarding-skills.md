@@ -185,14 +185,25 @@ generateScenarios():
    - `plan.tsx:660`: Prop `leads={leads()}` passé au SwipeTab
    - `plan.tsx:698`: Prop `onLeadsChange={setLeads}` passé au ProspectionTab
 
-### Phase 5: Certifications Impact
-> Objectif: Les certifications boostent les jobs correspondants
+### Phase 5: Certifications Impact + Scoring Amélioré
+> Objectif: Les certifications boostent les jobs correspondants + meilleure connexion skills→jobs
 
-| ID | Tâche | Détails | Fichiers |
-|----|-------|---------|----------|
-| P5.1 | Créer mapping certification → catégories jobs | BAFA → babysitting, BNSSA → lifeguard, etc. | `lib/data/certificationMapping.ts` (nouveau) |
-| P5.2 | Modifier `profileMatchScore()` | Bonus si certification match catégorie job | `jobScoring.ts` |
-| P5.3 | Afficher badge certification | Sur les jobs boostés par certification | `ProspectionTab.tsx` |
+**État actuel du scoring (jobScoring.ts):**
+- ✅ Score 1-5 étoiles avec breakdown (distance 30%, profile 25%, effort 25%, rate 20%)
+- ✅ Badge "Top Pick" pour score >= 4.5
+- ✅ Tri par "Best Match" par défaut
+- ❌ `UserProfile.skills` comparé à `categorySkillMap` statique (pas lié au skillRegistry)
+- ❌ Certifications NON utilisées dans le scoring
+- ❌ Pas d'explication du WHY (breakdown non affiché à l'utilisateur)
+
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P5.1 | Créer mapping certification → catégories jobs | BAFA → childcare, BNSSA → events (lifeguard), PSC1 → all (+bonus) | `lib/data/certificationMapping.ts` (nouveau) | |
+| P5.2 | Ajouter `certifications` à `UserProfile` | Interface jobScoring.ts | `jobScoring.ts:29-33` | |
+| P5.3 | Modifier `calculateProfileMatch()` | Bonus +0.3 si certification match catégorie job | `jobScoring.ts:94-114` | |
+| P5.4 | Connecter `skillRegistry` à `categorySkillMap` | Utiliser les skills du registry avec leurs `category` | `jobScoring.ts:120-144` | |
+| P5.5 | Afficher badge certification | "BAFA verified" sur les jobs childcare | `ProspectionList.tsx` | |
+| P5.6 | Afficher score breakdown | Tooltip "Why this job matches you" | `ProspectionList.tsx` | |
 
 ### Phase 6: Système de Feedback (Thumb Up/Down)
 > Objectif: L'utilisateur peut noter les suggestions pour améliorer les recommandations
@@ -215,14 +226,22 @@ generateScenarios():
 | P7.3 | Tracer feedback utilisateur | Span "user_feedback" avec thumbs | `FeedbackButton.tsx` |
 | P7.4 | Dashboard Opik | Filtrer par suggestion type, analyser thumbs ratio | Configuration Opik |
 
-### Phase 8: UX Visuelle (Color Coding)
-> Objectif: Indicateurs visuels de pertinence
+### Phase 8: UX Visuelle (Color Coding + Proactive Suggestions)
+> Objectif: Indicateurs visuels de pertinence + mise en avant proactive des meilleurs matchs
 
-| ID | Tâche | Détails | Fichiers |
-|----|-------|---------|----------|
-| P8.1 | Code couleur dans listes skills | Vert (high match) → Rouge (low match) | `SkillsTab.tsx` |
-| P8.2 | Code couleur sur carte jobs | Marqueurs colorés selon score | `ProspectionTab.tsx` |
-| P8.3 | Code couleur points carte | Pins colorés sur la map Google | `ProspectionTab.tsx` |
+**État actuel de la map (ProspectionMap.tsx):**
+- ✅ Pins affichés sur la carte Leaflet
+- ❌ Couleur des pins = par CATÉGORIE (`getCategoryColor(categoryId)`), pas par SCORE
+- ❌ Pas de distinction visuelle "meilleur match pour TOI"
+
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P8.1 | Code couleur dans listes skills | Vert (high demand) → Rouge (low demand) selon `marketDemand` | `SkillsTab.tsx` | |
+| P8.2 | Pins map colorés par SCORE | Gradient vert (5⭐) → orange (3⭐) → rouge (1⭐) | `ProspectionMap.tsx:210-217, 272-284` | |
+| P8.3 | Section "Top Matches for You" | Liste filtrable en haut avec les 3 meilleurs scores | `ProspectionList.tsx` | |
+| P8.4 | Tooltip "Why this job?" | Hover affiche breakdown: "85% skill match, 12min commute" | `ProspectionList.tsx` | |
+| P8.5 | Animation attention sur top picks | Pulse/glow sur les pins ≥4.5 étoiles | `ProspectionMap.tsx` | |
+| P8.6 | Banner proactif | "3 jobs match your BAFA certification!" quand applicable | `ProspectionTab.tsx` | |
 
 ---
 
@@ -282,9 +301,14 @@ Phase 8: UX Visuelle (jour 6-7)
 - [x] Les leads sont synchronisés en temps réel entre Jobs tab et Swipe tab
 - [x] Les scénarios from Jobs apparaissent en premier (opportunités concrètes prioritaires)
 
-### Phase 5 (Certifications)
-- [ ] BAFA booste les jobs babysitting/animation
-- [ ] Badge visible sur les jobs boostés
+### Phase 5 (Certifications + Scoring Amélioré)
+- [ ] `UserProfile` inclut `certifications?: string[]`
+- [ ] BAFA booste les jobs childcare (+0.3 profile score)
+- [ ] BNSSA booste les jobs events/lifeguard
+- [ ] PSC1/First Aid donne bonus universel (+0.1)
+- [ ] Badge "BAFA verified" visible sur les jobs boostés
+- [ ] Tooltip "Why this job matches" avec breakdown visible
+- [ ] Skills du registry connectés aux job categories (remplace `categorySkillMap` statique)
 
 ### Phase 6 (Feedback)
 - [ ] Thumb up/down visible sur: skills suggestions, job cards, swipe cards
@@ -294,9 +318,12 @@ Phase 8: UX Visuelle (jour 6-7)
 - [ ] Traces visibles dans dashboard Opik
 - [ ] Corrélation feedback ↔ suggestions possible
 
-### Phase 8 (Color Coding)
-- [ ] Gradient de couleur visible dans les listes
-- [ ] Pins colorés sur la carte
+### Phase 8 (Color Coding + Proactive UX)
+- [ ] Gradient de couleur visible dans les listes skills (marketDemand)
+- [ ] **Pins map colorés par SCORE** (vert=5⭐, orange=3⭐, rouge=1⭐)
+- [ ] Section "Top Matches for You" en haut de ProspectionList
+- [ ] Animation pulse/glow sur pins top picks (≥4.5⭐)
+- [ ] Banner proactif "X jobs match your [certification]!" quand applicable
 
 ---
 
@@ -443,11 +470,62 @@ Scénario: Onboarding CS student avec score > 0
 - `packages/frontend/src/components/tabs/ProspectionTab.tsx` - Jobs + **[Phase 4]** onLeadsChange callback
 - `packages/frontend/src/lib/prospectionTypes.ts` - **[Phase 4]** Type onLeadsChange
 - `packages/frontend/src/routes/plan.tsx` - Configuration tabs + **[Phase 4]** leads state sharing
-- `packages/frontend/src/lib/jobScoring.ts` - Scoring jobs
+- `packages/frontend/src/lib/jobScoring.ts` - **[Phase 5]** Scoring jobs + certifications
+- `packages/frontend/src/components/prospection/ProspectionList.tsx` - **[Phase 5/8]** Liste jobs + Top Matches section
+- `packages/frontend/src/components/prospection/ProspectionMap.tsx` - **[Phase 8]** Map + pins colorés par score
 
 ### Documentation Existante
 - `docs/bugs-dev/budget-goals-margin-sync.md` - Pattern de consolidation
 - `CLAUDE.md` - Patterns SolidJS et anti-patterns
+
+---
+
+## Vision: Proactive Job Highlighting (Phases 5 + 8)
+
+### L'Objectif
+Quand un utilisateur arrive dans le tab Jobs, il doit **immédiatement voir** quels jobs lui correspondent le mieux, avec une explication du **pourquoi**.
+
+### État Actuel vs Cible
+
+| Aspect | Actuel | Cible |
+|--------|--------|-------|
+| **Tri liste** | ✅ Par "Best Match" (score) | ✅ OK |
+| **Star rating** | ✅ 1-5 étoiles affichées | ✅ OK |
+| **Top Pick badge** | ✅ Badge pour ≥4.5⭐ | ✅ OK |
+| **Pins map** | ❌ Couleur = catégorie | 🎯 Couleur = score (vert→rouge) |
+| **Certifications** | ❌ Non utilisées | 🎯 Boost +0.3 si match |
+| **Explication** | ❌ Pas de "why" | 🎯 Tooltip breakdown visible |
+| **Proactivité** | ❌ Passif | 🎯 Banner "3 jobs match your BAFA!" |
+| **Section dédiée** | ❌ Liste unique | 🎯 "Top Matches for You" en haut |
+
+### Flux Utilisateur Cible
+
+```
+User avec BAFA + skills "Web Dev" arrive sur Jobs tab
+    ↓
+Banner: "🎯 3 jobs match your BAFA certification!"
+    ↓
+Section "Top Matches for You" (3 cards max, score ≥4.0)
+  - Babysitting Weekend (4.8⭐) - "BAFA verified"
+  - Animation Centre (4.5⭐) - "BAFA verified"
+  - Camp Monitor (4.2⭐) - "12min commute"
+    ↓
+Liste complète triée par score
+  - Hover sur job → Tooltip "Why: 85% skill match, BAFA bonus, 12min"
+    ↓
+Map avec pins colorés
+  - Vert pulsant = Top picks (≥4.5⭐)
+  - Orange = Bon match (3-4.4⭐)
+  - Rouge = Faible match (<3⭐)
+```
+
+### Intégration dans ce Sprint
+
+Les tâches sont **réparties entre Phase 5 et Phase 8**:
+- **Phase 5**: Backend du scoring (certifications, skills→jobs, breakdown)
+- **Phase 8**: Frontend de la proactivité (pins colorés, section "Top Matches", banner, animations)
+
+Cette séparation permet d'implémenter le scoring amélioré d'abord, puis l'UX proactive ensuite.
 
 ---
 
