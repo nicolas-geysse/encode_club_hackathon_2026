@@ -197,6 +197,13 @@ export interface ProspectionTabProps {
   /** Phase 5: Certifications for job boost (BAFA, PSC1, etc.) */
   userCertifications?: string[];
   minHourlyRate?: number;
+  /** P0-Health: Swipe preferences for personalized job scoring */
+  swipePreferences?: {
+    effortSensitivity: number;
+    hourlyRatePriority: number;
+    timeFlexibility: number;
+    incomeStability: number;
+  };
 }
 
 // =============================================================================

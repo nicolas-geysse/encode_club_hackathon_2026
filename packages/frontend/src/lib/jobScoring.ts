@@ -12,6 +12,7 @@
  *
  * Phase 5: Added certification bonus support
  * P4: Added goal fit scoring (salary vs savings target)
+ * P0-Health: Added swipe preference personalization
  *
  * Adapted from skill-arbitrage algorithm in mcp-server.
  */
@@ -34,6 +35,16 @@ export interface JobScoreBreakdown {
     certificationBonus: number; // 0-0.3 certification bonus
     rateMatch: boolean; // meets minimum rate
   };
+  /** P0-Health: Weights applied based on swipe preferences */
+  appliedWeights?: {
+    distance: number;
+    profile: number;
+    effort: number;
+    rate: number;
+    goalFit: number;
+  };
+  /** P0-Health: Version hash for Opik trace correlation */
+  preferenceVersion?: string;
 }
 
 export interface ScoredJob extends ProspectionCard {
@@ -42,6 +53,29 @@ export interface ScoredJob extends ProspectionCard {
   /** Certifications that boost this job (for badge display) */
   matchedCertifications?: CertificationDefinition[];
 }
+
+/**
+ * P0-Health: Swipe preferences learned from user behavior
+ * Values 0-1, where 0.5 is neutral (default for new users)
+ */
+export interface SwipePreferences {
+  /** Preference for low-effort jobs (higher = avoids hard work) */
+  effortSensitivity: number;
+  /** Preference for high pay (higher = prioritizes salary) */
+  hourlyRatePriority: number;
+  /** Preference for flexible schedules */
+  timeFlexibility: number;
+  /** Preference for stable vs freelance income */
+  incomeStability: number;
+}
+
+/** Default swipe preferences for cold start (new users with 0 swipes) */
+export const DEFAULT_SWIPE_PREFERENCES: SwipePreferences = {
+  effortSensitivity: 0.5,
+  hourlyRatePriority: 0.5,
+  timeFlexibility: 0.5,
+  incomeStability: 0.5,
+};
 
 export interface UserProfile {
   skills?: string[];
@@ -53,17 +87,85 @@ export interface UserProfile {
   monthlySavingsTarget?: number;
   /** P4: Available work hours per week */
   availableHoursPerWeek?: number;
+  /** P0-Health: Learned preferences from swipe behavior */
+  swipePreferences?: SwipePreferences;
 }
 
-// Scoring weights (must sum to 1.0)
-// P4: Rebalanced to include goalFit factor
-const WEIGHTS = {
+// Scoring weights interface
+interface ScoringWeights {
+  distance: number;
+  profile: number;
+  effort: number;
+  rate: number;
+  goalFit: number;
+}
+
+// Default scoring weights (for cold start / no swipe data)
+// Must sum to 1.0
+const DEFAULT_WEIGHTS: ScoringWeights = {
   distance: 0.25,
-  profile: 0.2,
+  profile: 0.15, // Reduced to make room for swipe influence
   effort: 0.2,
-  rate: 0.15,
-  goalFit: 0.2, // P4: How well salary helps reach savings goal
+  rate: 0.2,
+  goalFit: 0.2,
 };
+
+/**
+ * P0-Health: Map swipe preferences to scoring weights
+ * Adjusts weights based on learned user behavior
+ *
+ * @param prefs - User's swipe preferences (or undefined for cold start)
+ * @returns Adjusted scoring weights that sum to 1.0
+ */
+export function mapSwipeToWeights(prefs?: SwipePreferences): ScoringWeights {
+  // Cold start: use default weights
+  if (!prefs) return { ...DEFAULT_WEIGHTS };
+
+  // Calculate preference influence (how far from neutral 0.5)
+  const effortInfluence = prefs.effortSensitivity - 0.5; // -0.5 to +0.5
+  const rateInfluence = prefs.hourlyRatePriority - 0.5; // -0.5 to +0.5
+
+  // Adjust weights based on preferences
+  // Max adjustment is ±0.10 per factor (keeps weights balanced)
+  const effortAdjust = effortInfluence * 0.2; // ±0.10
+  const rateAdjust = rateInfluence * 0.2; // ±0.10
+
+  // Redistribute from profile to effort/rate based on preferences
+  const weights: ScoringWeights = {
+    distance: 0.25, // Fixed (geography always matters)
+    profile: Math.max(0.05, 0.15 - Math.abs(effortAdjust) - Math.abs(rateAdjust)),
+    effort: Math.max(0.1, Math.min(0.3, 0.2 + effortAdjust)),
+    rate: Math.max(0.1, Math.min(0.3, 0.2 + rateAdjust)),
+    goalFit: 0.2, // Fixed (goal alignment always matters)
+  };
+
+  // Normalize to ensure sum = 1.0
+  const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+  if (Math.abs(sum - 1.0) > 0.001) {
+    const factor = 1.0 / sum;
+    weights.distance *= factor;
+    weights.profile *= factor;
+    weights.effort *= factor;
+    weights.rate *= factor;
+    weights.goalFit *= factor;
+  }
+
+  return weights;
+}
+
+/**
+ * P0-Health: Generate preference version hash for Opik tracing
+ * Allows correlating swipe behavior with scoring outcomes
+ */
+export function getPreferenceVersion(prefs?: SwipePreferences): string {
+  if (!prefs) return 'default';
+  // Simple hash: concatenate rounded values
+  const e = Math.round(prefs.effortSensitivity * 100);
+  const r = Math.round(prefs.hourlyRatePriority * 100);
+  const t = Math.round(prefs.timeFlexibility * 100);
+  const s = Math.round(prefs.incomeStability * 100);
+  return `v${e}-${r}-${t}-${s}`;
+}
 
 // Normalization constants
 const MAX_COMMUTE_MINUTES = 45; // 45+ min = score 0
@@ -73,8 +175,13 @@ const MAX_EFFORT = 5;
 /**
  * Calculate job score based on multiple factors
  * Returns score 1-5 (star rating)
+ *
+ * P0-Health: Now uses dynamic weights based on swipe preferences
  */
 export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob {
+  // P0-Health: Get personalized weights based on swipe behavior
+  const weights = mapSwipeToWeights(profile?.swipePreferences);
+
   // Distance score: closer is better (invert: 45min = 0, 0min = 1)
   const commuteMinutes = job.commuteMinutes ?? 30;
   const distanceNorm = Math.max(0, 1 - commuteMinutes / MAX_COMMUTE_MINUTES);
@@ -83,23 +190,25 @@ export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob
   const profileResult = calculateProfileMatch(job, profile);
 
   // Effort score: lower effort is better (invert)
+  // P0-Health: If user has high effortSensitivity, this factor weighs more
   const effortLevel = job.effortLevel ?? 3;
   const effortNorm = 1 - (effortLevel - 1) / (MAX_EFFORT - 1);
 
   // Rate score: higher is better
+  // P0-Health: If user has high hourlyRatePriority, this factor weighs more
   const hourlyRate = job.avgHourlyRate ?? 11;
   const rateNorm = Math.min(hourlyRate / MAX_HOURLY_RATE, 1);
 
   // P4: Goal fit score - how well does this job help reach savings target?
   const goalFitNorm = calculateGoalFit(job, profile);
 
-  // Weighted sum
+  // Weighted sum with personalized weights
   const rawScore =
-    WEIGHTS.distance * distanceNorm +
-    WEIGHTS.profile * profileResult.score +
-    WEIGHTS.effort * effortNorm +
-    WEIGHTS.rate * rateNorm +
-    WEIGHTS.goalFit * goalFitNorm;
+    weights.distance * distanceNorm +
+    weights.profile * profileResult.score +
+    weights.effort * effortNorm +
+    weights.rate * rateNorm +
+    weights.goalFit * goalFitNorm;
 
   // Convert to 1-5 star scale
   const score = Math.round((1 + rawScore * 4) * 10) / 10;
@@ -114,6 +223,9 @@ export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob
       rate: rateNorm,
       goalFit: goalFitNorm,
       profileDetails: profileResult.details,
+      // P0-Health: Include applied weights for debugging/tracing
+      appliedWeights: weights,
+      preferenceVersion: getPreferenceVersion(profile?.swipePreferences),
     },
     matchedCertifications: profileResult.matchedCertifications,
   };

@@ -696,6 +696,20 @@ export default function PlanPage() {
                   userCertifications={activeProfile()?.certifications}
                   minHourlyRate={activeProfile()?.minHourlyRate}
                   onLeadsChange={setLeads}
+                  swipePreferences={
+                    activeProfile()?.swipePreferences
+                      ? {
+                          effortSensitivity:
+                            activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
+                          hourlyRatePriority:
+                            activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
+                          timeFlexibility:
+                            activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
+                          incomeStability:
+                            activeProfile()?.swipePreferences?.income_stability ?? 0.5,
+                        }
+                      : undefined
+                  }
                 />
               </TabsContent>
             </div>

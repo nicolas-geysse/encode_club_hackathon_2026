@@ -150,6 +150,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
               skills: props.userSkills,
               certifications: props.userCertifications,
               minHourlyRate: props.minHourlyRate,
+              swipePreferences: props.swipePreferences, // P0-Health: personalized scoring
             };
             const scoredCards = scoreJobsForProfile(data.cards, userProfile);
             allJobs.push(...scoredCards);
@@ -303,6 +304,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
         skills: props.userSkills,
         certifications: props.userCertifications,
         minHourlyRate: props.minHourlyRate,
+        swipePreferences: props.swipePreferences, // P0-Health: personalized scoring
       };
       const scoredCards = scoreJobsForProfile(data.cards, userProfile);
 
