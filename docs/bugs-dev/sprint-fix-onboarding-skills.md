@@ -235,7 +235,7 @@ generateScenarios():
 
 ### Phase 8: UX Visuelle (Color Coding + Proactive Suggestions) ✅ COMPLETE
 > Objectif: Indicateurs visuels de pertinence + mise en avant proactive des meilleurs matchs
-> **Commit**: TBD - feat(ux): Phase 8 visual indicators for job match quality
+> **Commit**: `5185e3a` - feat(ux): Phase 8 visual indicators for job match quality
 
 **État après Phase 8 (ProspectionMap.tsx):**
 - ✅ Pins affichés sur la carte Leaflet
