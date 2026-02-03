@@ -3,10 +3,13 @@
  *
  * Phase 6: Persists user feedback on suggestions (skills, jobs, swipe scenarios)
  * Stored in DuckDB for local analysis and recommendation improvement.
+ *
+ * Phase 7: Added Opik tracing for user feedback (P7.3)
  */
 
 import type { APIEvent } from '@solidjs/start/server';
 import { initDatabase, execute, query, escapeSQL, executeSchema } from './_db';
+import { trace, logFeedbackScores, getTraceUrl, type TraceOptions } from '../../lib/opik';
 
 // Track if table is created
 let tableCreated = false;
@@ -42,6 +45,7 @@ interface FeedbackRequest {
 
 /**
  * POST - Create or update feedback
+ * Phase 7 (P7.3): Traces user feedback to Opik for quality monitoring
  */
 export async function POST(event: APIEvent) {
   try {
@@ -58,23 +62,74 @@ export async function POST(event: APIEvent) {
       );
     }
 
-    await ensureFeedbackTable();
+    // Phase 7 (P7.3): Trace user feedback for quality monitoring
+    const traceOptions: TraceOptions = {
+      source: 'user_feedback',
+      tags: ['feedback', suggestionType, feedback || 'removed'],
+      input: { profileId, suggestionType, suggestionId, feedback },
+      metadata: {
+        'feedback.type': suggestionType,
+        'feedback.value': feedback || 'removed',
+        'feedback.suggestion_id': suggestionId,
+      },
+    };
 
-    const id = `${profileId}_${suggestionType}_${suggestionId}`;
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+    const result = await trace(
+      'feedback.user_rating',
+      async (ctx) => {
+        await ensureFeedbackTable();
 
-    // Delete existing feedback for this suggestion
-    await execute(`DELETE FROM suggestion_feedback WHERE id = ${escapeSQL(id)}`);
+        const id = `${profileId}_${suggestionType}_${suggestionId}`;
+        const metadataJson = metadata ? JSON.stringify(metadata) : null;
 
-    // Only insert if feedback is not null (null means removed feedback)
-    if (feedback !== null) {
-      await execute(
-        `INSERT INTO suggestion_feedback (id, profile_id, suggestion_type, suggestion_id, feedback, metadata, updated_at)
-         VALUES (${escapeSQL(id)}, ${escapeSQL(profileId)}, ${escapeSQL(suggestionType)}, ${escapeSQL(suggestionId)}, ${escapeSQL(feedback)}, ${escapeSQL(metadataJson)}, CURRENT_TIMESTAMP)`
-      );
-    }
+        // Delete existing feedback for this suggestion
+        await execute(`DELETE FROM suggestion_feedback WHERE id = ${escapeSQL(id)}`);
 
-    return new Response(JSON.stringify({ success: true, id, feedback }), {
+        // Only insert if feedback is not null (null means removed feedback)
+        if (feedback !== null) {
+          await execute(
+            `INSERT INTO suggestion_feedback (id, profile_id, suggestion_type, suggestion_id, feedback, metadata, updated_at)
+             VALUES (${escapeSQL(id)}, ${escapeSQL(profileId)}, ${escapeSQL(suggestionType)}, ${escapeSQL(suggestionId)}, ${escapeSQL(feedback)}, ${escapeSQL(metadataJson)}, CURRENT_TIMESTAMP)`
+          );
+        }
+
+        // Set trace attributes
+        ctx.setAttributes({
+          'feedback.profile_id': profileId,
+          'feedback.suggestion_type': suggestionType,
+          'feedback.suggestion_id': suggestionId,
+          'feedback.value': feedback || 'removed',
+          'feedback.has_metadata': !!metadata,
+        });
+
+        ctx.setOutput({
+          id,
+          feedback,
+          suggestionType,
+          suggestionId,
+          traceUrl: getTraceUrl(ctx.getTraceId() || undefined),
+        });
+
+        // Log feedback score to Opik for quality monitoring
+        const traceId = ctx.getTraceId();
+        if (traceId && feedback !== null) {
+          // Convert thumb feedback to numeric score: up=1.0, down=0.0
+          const feedbackScore = feedback === 'up' ? 1.0 : 0.0;
+          await logFeedbackScores(traceId, [
+            {
+              name: `${suggestionType}_feedback`,
+              value: feedbackScore,
+              reason: `User rated ${suggestionType} suggestion "${suggestionId}" as ${feedback}`,
+            },
+          ]);
+        }
+
+        return { success: true, id, feedback, traceId };
+      },
+      traceOptions
+    );
+
+    return new Response(JSON.stringify(result), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

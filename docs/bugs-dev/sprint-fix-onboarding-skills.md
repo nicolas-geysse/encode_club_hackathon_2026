@@ -1,7 +1,7 @@
 # Sprint: Onboarding → Skills → Jobs → Swipe Integration
 
 **Date**: 2026-02-03
-**Statut**: EN COURS (Phase 0-6 ✅, Phase 8 ✅, Phase 8b ✅, Phase 7 🔜)
+**Statut**: ✅ COMPLET (Phase 0-8b ✅)
 **Priorité**: Haute (cohérence UX et valeur métier)
 
 ---
@@ -249,15 +249,44 @@ generateScenarios():
    - Décision: Le swipe (left/right/up/down) EST le feedback
    - Pas besoin d'ajouter des thumbs supplémentaires
 
-### Phase 7: Traçage Opik
+### Phase 7: Traçage Opik ✅ COMPLETE
 > Objectif: Toutes les suggestions et feedbacks sont tracés
+> **Commit**: `pending` - feat(opik): Phase 7 tracing for skills, jobs, and feedback
 
-| ID | Tâche | Détails | Fichiers |
-|----|-------|---------|----------|
-| P7.1 | Tracer suggestions skills | Span "skill_suggestion" avec attributs | `SkillsTab.tsx` |
-| P7.2 | Tracer suggestions jobs | Span "job_suggestion" avec score | `ProspectionTab.tsx` |
-| P7.3 | Tracer feedback utilisateur | Span "user_feedback" avec thumbs | `FeedbackButton.tsx` |
-| P7.4 | Dashboard Opik | Filtrer par suggestion type, analyser thumbs ratio | Configuration Opik |
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P7.1 | Tracer suggestions skills | Trace "suggestion.skill_list" avec count, top score, avg score | `api/skills.ts` | ✅ |
+| P7.2 | Tracer suggestions jobs | Trace "suggestion.job_search" avec category, count, avg hourly rate | `api/prospection.ts` | ✅ |
+| P7.3 | Tracer feedback utilisateur | Trace "feedback.user_rating" avec feedback score (up=1.0, down=0.0) | `api/suggestion-feedback.ts` | ✅ |
+| P7.4 | Dashboard Opik | Filtrer par source: skill_suggestions, job_suggestions, user_feedback | Configuration Opik | ✅ |
+
+**Implémentation détaillée:**
+
+1. **Skills tracing (api/skills.ts)**
+   - Trace name: `suggestion.skill_list`
+   - Source: `skill_suggestions`
+   - Tags: `skills`, `suggestion`, `list`
+   - Attributes: skill.count, skill.profile_id, skill.top_score, skill.avg_score
+   - Output: skillCount, topSkills (name, score, hourlyRate)
+
+2. **Jobs tracing (api/prospection.ts)**
+   - Trace name: `suggestion.job_search`
+   - Source: `job_suggestions`
+   - Tags: `jobs`, `suggestion`, `search`, `category:{categoryId}`
+   - Attributes: job.count, job.category, job.city, job.has_coordinates, job.source, job.avg_hourly_rate
+   - Output: jobCount, category, source, topJobs (company, avgHourlyRate, commuteMinutes)
+
+3. **Feedback tracing (api/suggestion-feedback.ts)**
+   - Trace name: `feedback.user_rating`
+   - Source: `user_feedback`
+   - Tags: `feedback`, `{suggestionType}`, `{feedback|removed}`
+   - Attributes: feedback.profile_id, feedback.suggestion_type, feedback.suggestion_id, feedback.value
+   - Feedback score logged: `{suggestionType}_feedback` (up=1.0, down=0.0)
+
+4. **Opik Dashboard Filters:**
+   - Filter by source: `skill_suggestions`, `job_suggestions`, `user_feedback`
+   - Filter by tags: `skills`, `jobs`, `feedback`
+   - Analyze feedback ratio: Query `skill_feedback` and `job_feedback` scores
 
 ### Phase 8: UX Visuelle (Color Coding + Proactive Suggestions) ✅ COMPLETE
 > Objectif: Indicateurs visuels de pertinence + mise en avant proactive des meilleurs matchs
@@ -410,9 +439,10 @@ Phase 8: UX Visuelle (jour 6-7)
 - [x] FeedbackButton component réutilisable avec animation
 - [x] Swipe scenarios: feedback via geste swipe (pas de thumbs ajoutés)
 
-### Phase 7 (Opik)
-- [ ] Traces visibles dans dashboard Opik
-- [ ] Corrélation feedback ↔ suggestions possible
+### Phase 7 (Opik) ✅ COMPLETE
+- [x] Traces visibles dans dashboard Opik (source: skill_suggestions, job_suggestions, user_feedback)
+- [x] Corrélation feedback ↔ suggestions possible (via suggestion_id in feedback traces)
+- [x] Feedback scores logged: skill_feedback, job_feedback (0.0-1.0 scale)
 
 ### Phase 8 (Color Coding + Proactive UX) ✅ COMPLETE
 - [ ] Gradient de couleur visible dans les listes skills (marketDemand) - ⏳ Reporté
@@ -571,6 +601,10 @@ Scénario: Onboarding CS student avec score > 0
 - `packages/frontend/src/lib/jobScoring.ts` - **[Phase 5]** Scoring jobs + certifications
 - `packages/frontend/src/components/prospection/ProspectionList.tsx` - **[Phase 5/8]** Liste jobs + Top Matches section
 - `packages/frontend/src/components/prospection/ProspectionMap.tsx` - **[Phase 8]** Map + pins colorés par score
+- `packages/frontend/src/routes/api/skills.ts` - **[Phase 7]** Skills API + Opik tracing
+- `packages/frontend/src/routes/api/prospection.ts` - **[Phase 7]** Prospection API + Opik tracing
+- `packages/frontend/src/routes/api/suggestion-feedback.ts` - **[Phase 6/7]** Feedback API + Opik tracing
+- `packages/frontend/src/lib/opik.ts` - Opik tracing utility (trace, logFeedbackScores)
 
 ### Documentation Existante
 - `docs/bugs-dev/budget-goals-margin-sync.md` - Pattern de consolidation

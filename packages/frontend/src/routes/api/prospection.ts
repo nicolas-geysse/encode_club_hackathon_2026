@@ -7,12 +7,15 @@
  *
  * This endpoint orchestrates the MCP tools and returns
  * structured prospection cards for the frontend.
+ *
+ * Phase 7: Added Opik tracing for job suggestions (P7.2)
  */
 
 import type { APIEvent } from '@solidjs/start/server';
 import { createLogger } from '~/lib/logger';
 import { PROSPECTION_CATEGORIES } from '~/config/prospectionCategories';
 import type { ProspectionCategory, ProspectionCard } from '~/lib/prospectionTypes';
+import { trace, getTraceUrl, type TraceOptions } from '~/lib/opik';
 
 // Google Maps service (lazy loaded to avoid bundling issues)
 let googleMapsService: typeof import('@stride/mcp-server/services') | null = null;
@@ -80,38 +83,83 @@ export async function POST(event: APIEvent): Promise<Response> {
         });
       }
 
-      logger.info('Prospection search', { categoryId, city, latitude, longitude, radius });
-
-      // Search for real places using Google Maps API
-      const hasCoordinates = !!(latitude && longitude);
-      const isPlatformOnly = category.googlePlaceTypes.length === 0;
-
-      const cards = await searchRealPlaces(category, latitude, longitude, city, radius);
-
-      // Diagnostic logging for Places API debugging
-      logger.info('Places API result', {
-        categoryId,
-        placeTypesCount: category.googlePlaceTypes.length,
-        resultsCount: cards.length,
-        hasCoordinates,
-        isPlatformOnly,
-        apiKeyPrefix: process.env.GOOGLE_MAPS_API_KEY?.slice(0, 10) + '...',
-      });
-
-      // Build response with diagnostic metadata
-      const meta = {
-        source: isPlatformOnly ? 'platforms' : 'google_places',
-        searchPerformed: hasCoordinates && !isPlatformOnly,
-        placesTypesQueried: category.googlePlaceTypes,
-        hasCoordinates,
-        // Debug: show actual search location to verify it's correct
-        searchLocation: hasCoordinates
-          ? { lat: latitude, lng: longitude, city: city || 'unknown' }
-          : null,
-        radiusUsed: hasCoordinates && !isPlatformOnly ? 'progressive (5-15km)' : null,
+      // Phase 7 (P7.2): Trace job search/suggestions
+      const traceOptions: TraceOptions = {
+        source: 'job_suggestions',
+        tags: ['jobs', 'suggestion', 'search', `category:${categoryId}`],
+        input: { categoryId, city, latitude, longitude, radius },
+        metadata: {
+          'suggestion.type': 'job',
+          'request.type': 'job_search',
+          'search.category': categoryId,
+          'search.city': city || 'unknown',
+        },
       };
 
-      return new Response(JSON.stringify({ cards, category, meta }), {
+      const result = await trace(
+        'suggestion.job_search',
+        async (ctx) => {
+          logger.info('Prospection search', { categoryId, city, latitude, longitude, radius });
+
+          // Search for real places using Google Maps API
+          const hasCoordinates = !!(latitude && longitude);
+          const isPlatformOnly = category.googlePlaceTypes.length === 0;
+
+          const cards = await searchRealPlaces(category, latitude, longitude, city, radius);
+
+          // Diagnostic logging for Places API debugging
+          logger.info('Places API result', {
+            categoryId,
+            placeTypesCount: category.googlePlaceTypes.length,
+            resultsCount: cards.length,
+            hasCoordinates,
+            isPlatformOnly,
+            apiKeyPrefix: process.env.GOOGLE_MAPS_API_KEY?.slice(0, 10) + '...',
+          });
+
+          // Build response with diagnostic metadata
+          const meta = {
+            source: isPlatformOnly ? 'platforms' : 'google_places',
+            searchPerformed: hasCoordinates && !isPlatformOnly,
+            placesTypesQueried: category.googlePlaceTypes,
+            hasCoordinates,
+            searchLocation: hasCoordinates
+              ? { lat: latitude, lng: longitude, city: city || 'unknown' }
+              : null,
+            radiusUsed: hasCoordinates && !isPlatformOnly ? 'progressive (5-15km)' : null,
+          };
+
+          // Set trace attributes for job suggestions
+          ctx.setAttributes({
+            'job.count': cards.length,
+            'job.category': categoryId,
+            'job.city': city || 'unknown',
+            'job.has_coordinates': hasCoordinates,
+            'job.source': isPlatformOnly ? 'platforms' : 'google_places',
+            'job.avg_hourly_rate':
+              cards.length > 0
+                ? cards.reduce((sum, c) => sum + (c.avgHourlyRate || 0), 0) / cards.length
+                : 0,
+          });
+
+          ctx.setOutput({
+            jobCount: cards.length,
+            category: categoryId,
+            source: meta.source,
+            topJobs: cards.slice(0, 3).map((c) => ({
+              company: c.company,
+              avgHourlyRate: c.avgHourlyRate,
+              commuteMinutes: c.commuteMinutes,
+            })),
+            traceUrl: getTraceUrl(ctx.getTraceId() || undefined),
+          });
+
+          return { cards, category, meta };
+        },
+        traceOptions
+      );
+
+      return new Response(JSON.stringify(result), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });

@@ -6,6 +6,8 @@
  * - Clean data architecture
  * - Opik traceability (each skill operation can be traced)
  * - Query flexibility (skill-based job matching)
+ *
+ * Phase 7: Added Opik tracing for skill suggestions (P7.1)
  */
 
 import type { APIEvent } from '@solidjs/start/server';
@@ -25,6 +27,7 @@ import {
   uuidv4,
 } from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
+import { trace, getTraceUrl, type TraceOptions } from '../../lib/opik';
 
 const logger = createLogger('Skills');
 
@@ -159,13 +162,54 @@ export async function GET(event: APIEvent) {
     }
 
     if (profileId) {
-      const skills = await handleGetByProfileId<SkillRow, Skill>(profileId, {
-        table: 'skills',
-        mapper: rowToSkill,
-        logger,
-        orderBy: 'score DESC NULLS LAST, created_at DESC',
-      });
-      return successResponse(skills);
+      // Phase 7 (P7.1): Trace skill suggestions when fetching skills for a profile
+      const traceOptions: TraceOptions = {
+        source: 'skill_suggestions',
+        tags: ['skills', 'suggestion', 'list'],
+        input: { profileId },
+        metadata: {
+          'suggestion.type': 'skill',
+          'request.type': 'list_skills',
+        },
+      };
+
+      const result = await trace(
+        'suggestion.skill_list',
+        async (ctx) => {
+          const skills = await handleGetByProfileId<SkillRow, Skill>(profileId, {
+            table: 'skills',
+            mapper: rowToSkill,
+            logger,
+            orderBy: 'score DESC NULLS LAST, created_at DESC',
+          });
+
+          // Set trace attributes
+          ctx.setAttributes({
+            'skill.count': skills.length,
+            'skill.profile_id': profileId,
+            'skill.top_score': skills.length > 0 ? skills[0].score || 0 : 0,
+            'skill.avg_score':
+              skills.length > 0
+                ? skills.reduce((sum, s) => sum + (s.score || 0), 0) / skills.length
+                : 0,
+          });
+
+          ctx.setOutput({
+            skillCount: skills.length,
+            topSkills: skills.slice(0, 3).map((s) => ({
+              name: s.name,
+              score: s.score,
+              hourlyRate: s.hourlyRate,
+            })),
+            traceUrl: getTraceUrl(ctx.getTraceId() || undefined),
+          });
+
+          return { skills, traceId: ctx.getTraceId() };
+        },
+        traceOptions
+      );
+
+      return successResponse(result.skills);
     }
 
     return errorResponse('profileId is required', 400);
