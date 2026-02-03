@@ -391,6 +391,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
             onSave={handleSaveJob}
             savedIds={savedJobIds()}
             meta={searchMeta()}
+            userCertifications={props.userCertifications}
           />
         </div>
 

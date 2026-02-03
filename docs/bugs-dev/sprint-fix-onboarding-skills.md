@@ -1,7 +1,7 @@
 # Sprint: Onboarding → Skills → Jobs → Swipe Integration
 
 **Date**: 2026-02-03
-**Statut**: EN COURS (Phase 0 ✅, Phase 1 ✅, Phase 2 ✅, Phase 3 ✅, Phase 4 ✅, Phase 5 ✅)
+**Statut**: EN COURS (Phase 0-5 ✅, Phase 8 ✅, Phase 6-7 🔜)
 **Priorité**: Haute (cohérence UX et valeur métier)
 
 ---
@@ -233,22 +233,59 @@ generateScenarios():
 | P7.3 | Tracer feedback utilisateur | Span "user_feedback" avec thumbs | `FeedbackButton.tsx` |
 | P7.4 | Dashboard Opik | Filtrer par suggestion type, analyser thumbs ratio | Configuration Opik |
 
-### Phase 8: UX Visuelle (Color Coding + Proactive Suggestions)
+### Phase 8: UX Visuelle (Color Coding + Proactive Suggestions) ✅ COMPLETE
 > Objectif: Indicateurs visuels de pertinence + mise en avant proactive des meilleurs matchs
+> **Commit**: TBD - feat(ux): Phase 8 visual indicators for job match quality
 
-**État actuel de la map (ProspectionMap.tsx):**
+**État après Phase 8 (ProspectionMap.tsx):**
 - ✅ Pins affichés sur la carte Leaflet
-- ❌ Couleur des pins = par CATÉGORIE (`getCategoryColor(categoryId)`), pas par SCORE
-- ❌ Pas de distinction visuelle "meilleur match pour TOI"
+- ✅ Couleur des pins = par SCORE (vert=top, jaune=good, orange=fair, rouge=low)
+- ✅ Animation pulse sur les top picks (≥4.5⭐)
+- ✅ Popup amélioré avec badge score et certification
 
 | ID | Tâche | Détails | Fichiers | Status |
 |----|-------|---------|----------|--------|
-| P8.1 | Code couleur dans listes skills | Vert (high demand) → Rouge (low demand) selon `marketDemand` | `SkillsTab.tsx` | |
-| P8.2 | Pins map colorés par SCORE | Gradient vert (5⭐) → orange (3⭐) → rouge (1⭐) | `ProspectionMap.tsx:210-217, 272-284` | |
-| P8.3 | Section "Top Matches for You" | Liste filtrable en haut avec les 3 meilleurs scores | `ProspectionList.tsx` | |
-| P8.4 | Tooltip "Why this job?" | Hover affiche breakdown: "85% skill match, 12min commute" | `ProspectionList.tsx` | |
-| P8.5 | Animation attention sur top picks | Pulse/glow sur les pins ≥4.5 étoiles | `ProspectionMap.tsx` | |
-| P8.6 | Banner proactif | "3 jobs match your BAFA certification!" quand applicable | `ProspectionTab.tsx` | |
+| P8.1 | Code couleur dans listes skills | Vert (high demand) → Rouge (low demand) selon `marketDemand` | `SkillsTab.tsx` | ⏳ Reporté |
+| P8.2 | Pins map colorés par SCORE | Gradient vert (5⭐) → orange (3⭐) → rouge (1⭐) | `ProspectionMap.tsx:269-310` | ✅ |
+| P8.3 | Section "Top Matches for You" | Liste filtrable en haut avec les 3 meilleurs scores (≥4.0) | `ProspectionList.tsx:70-105` | ✅ |
+| P8.4 | Tooltip "Why this job?" | Hover affiche breakdown: "85% skill match, 12min commute" | `ProspectionList.tsx:216-281` | ✅ (Phase 5) |
+| P8.5 | Animation attention sur top picks | Pulse/glow sur les pins ≥4.5 étoiles | `ProspectionMap.tsx:82-108, 283-295` | ✅ |
+| P8.6 | Banner proactif | "3 jobs match your BAFA certification!" quand applicable | `ProspectionList.tsx:119-135` | ✅ |
+
+**Implémentation détaillée:**
+
+1. **Score-based colors (jobScoring.ts:220-237)**
+   - `getScoreColor(score)`: Retourne couleur selon score (≥4.5 vert, ≥4.0 lime, ≥3.5 jaune, ≥3.0 orange, <3.0 rouge)
+   - `getScoreTier(score)`: Retourne tier label ('top', 'great', 'good', 'fair', 'low')
+
+2. **Map pins (ProspectionMap.tsx:269-310)**
+   - Pins affichent le score (ex: "4.2") au lieu de la lettre de catégorie
+   - Couleur calculée via `getScoreColor(card.score)`
+   - Top picks ont classe CSS `.top-pick` pour z-index élevé
+
+3. **Pulse animation (ProspectionMap.tsx:82-108)**
+   - CSS keyframes `ping` et `pulse` injectés dynamiquement
+   - Top picks (≥4.5⭐) ont cercle externe pulsant
+   - `injectPulseStyles()` appelé au chargement de Leaflet
+
+4. **Enhanced popup (ProspectionMap.tsx:302-355)**
+   - Badge score coloré en haut à droite
+   - Badge certification si présent
+   - Commute time affiché
+
+5. **Top Matches section (ProspectionList.tsx:70-105, 119-175)**
+   - `topMatches()`: Jobs avec score ≥4.0, top 3
+   - Section dorée avec étoiles et bouton Save rapide
+   - Visible uniquement en mode tri "Best Match"
+
+6. **Certification banner (ProspectionList.tsx:119-135)**
+   - `certificationMatches()`: Jobs avec certifications matchées
+   - `matchedCertNames()`: Noms uniques des certifications trouvées
+   - Banner vert proactif "X jobs match your [certifications]!"
+
+7. **Legend update (ProspectionMap.tsx:498-520)**
+   - Légende affiche gradient vert/jaune/orange pour search results
+   - Légende catégorie conservée pour saved leads
 
 ---
 
@@ -325,12 +362,14 @@ Phase 8: UX Visuelle (jour 6-7)
 - [ ] Traces visibles dans dashboard Opik
 - [ ] Corrélation feedback ↔ suggestions possible
 
-### Phase 8 (Color Coding + Proactive UX)
-- [ ] Gradient de couleur visible dans les listes skills (marketDemand)
-- [ ] **Pins map colorés par SCORE** (vert=5⭐, orange=3⭐, rouge=1⭐)
-- [ ] Section "Top Matches for You" en haut de ProspectionList
-- [ ] Animation pulse/glow sur pins top picks (≥4.5⭐)
-- [ ] Banner proactif "X jobs match your [certification]!" quand applicable
+### Phase 8 (Color Coding + Proactive UX) ✅ COMPLETE
+- [ ] Gradient de couleur visible dans les listes skills (marketDemand) - ⏳ Reporté
+- [x] **Pins map colorés par SCORE** (vert=5⭐, jaune=3.5⭐, orange=3⭐, rouge=<3⭐)
+- [x] Section "Top Matches for You" en haut de ProspectionList (score ≥4.0)
+- [x] Animation pulse/glow sur pins top picks (≥4.5⭐)
+- [x] Banner proactif "X jobs match your [certification]!" quand applicable
+- [x] Popup map amélioré avec badge score + certification
+- [x] Légende map mise à jour avec gradient score
 
 ---
 
@@ -492,18 +531,19 @@ Scénario: Onboarding CS student avec score > 0
 ### L'Objectif
 Quand un utilisateur arrive dans le tab Jobs, il doit **immédiatement voir** quels jobs lui correspondent le mieux, avec une explication du **pourquoi**.
 
-### État Actuel vs Cible
+### État Actuel vs Cible (mise à jour post-Phase 8)
 
-| Aspect | Actuel | Cible |
-|--------|--------|-------|
-| **Tri liste** | ✅ Par "Best Match" (score) | ✅ OK |
-| **Star rating** | ✅ 1-5 étoiles affichées | ✅ OK |
-| **Top Pick badge** | ✅ Badge pour ≥4.5⭐ | ✅ OK |
-| **Pins map** | ❌ Couleur = catégorie | 🎯 Couleur = score (vert→rouge) |
-| **Certifications** | ❌ Non utilisées | 🎯 Boost +0.3 si match |
-| **Explication** | ❌ Pas de "why" | 🎯 Tooltip breakdown visible |
-| **Proactivité** | ❌ Passif | 🎯 Banner "3 jobs match your BAFA!" |
-| **Section dédiée** | ❌ Liste unique | 🎯 "Top Matches for You" en haut |
+| Aspect | Avant Sprint | Après Phase 8 | Status |
+|--------|--------------|---------------|--------|
+| **Tri liste** | ✅ Par "Best Match" | ✅ OK | ✅ DONE |
+| **Star rating** | ✅ 1-5 étoiles | ✅ OK | ✅ DONE |
+| **Top Pick badge** | ✅ Badge ≥4.5⭐ | ✅ OK | ✅ DONE |
+| **Certifications** | ❌ Non utilisées | ✅ Boost +0.3 | ✅ DONE |
+| **Explication** | ❌ Pas de "why" | ✅ Tooltip breakdown | ✅ DONE |
+| **Pins map** | ❌ Couleur = catégorie | ✅ Couleur = score | ✅ DONE |
+| **Proactivité** | ❌ Passif | ✅ Banner certifications | ✅ DONE |
+| **Section dédiée** | ❌ Liste unique | ✅ "Top Matches for You" | ✅ DONE |
+| **Animation** | ❌ Statique | ✅ Pulse top picks | ✅ DONE |
 
 ### Flux Utilisateur Cible
 

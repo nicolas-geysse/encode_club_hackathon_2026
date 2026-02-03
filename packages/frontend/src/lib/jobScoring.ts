@@ -215,3 +215,26 @@ export function formatStarRating(score: number): string {
 export function isTopPick(score: number): boolean {
   return score >= 4.5;
 }
+
+/**
+ * Get color for map pin based on score
+ * Phase 8: Visual color coding for job match quality
+ */
+export function getScoreColor(score: number): string {
+  if (score >= 4.5) return '#22c55e'; // green-500 - Top pick
+  if (score >= 4.0) return '#84cc16'; // lime-500 - Great match
+  if (score >= 3.5) return '#eab308'; // yellow-500 - Good match
+  if (score >= 3.0) return '#f97316'; // orange-500 - Fair match
+  return '#ef4444'; // red-500 - Low match
+}
+
+/**
+ * Get score tier label for UI display
+ */
+export function getScoreTier(score: number): 'top' | 'great' | 'good' | 'fair' | 'low' {
+  if (score >= 4.5) return 'top';
+  if (score >= 4.0) return 'great';
+  if (score >= 3.5) return 'good';
+  if (score >= 3.0) return 'fair';
+  return 'low';
+}

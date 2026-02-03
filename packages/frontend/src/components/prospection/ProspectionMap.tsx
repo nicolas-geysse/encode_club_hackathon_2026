@@ -8,6 +8,8 @@
 import { createSignal, onCleanup, Show, createEffect, on, For } from 'solid-js';
 import { MapPin } from 'lucide-solid';
 import type { Lead, ProspectionCard } from '~/lib/prospectionTypes';
+import type { ScoredJob } from '~/lib/jobScoring';
+import { getScoreColor, isTopPick } from '~/lib/jobScoring';
 import { getCategoryById } from '~/config/prospectionCategories';
 
 // =============================================================================
@@ -19,17 +21,16 @@ interface ProspectionMapProps {
   userLocation?: { lat: number; lng: number };
   /** Saved leads to display */
   leads?: Lead[];
-  /** Current cards (during swiping) */
-  currentCards?: ProspectionCard[];
+  /** Current cards (during swiping) - Phase 8: Now typed as ScoredJob for score-based coloring */
+  currentCards?: ScoredJob[];
   /** Highlighted card/lead ID */
   highlightedId?: string;
   /** Map height */
   height?: string;
   /** Called when a marker is clicked */
   onMarkerClick?: (id: string) => void;
-  /** Called when save button is clicked on a card (works with ProspectionCard or ScoredJob) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onSaveCard?: (card: any) => void;
+  /** Called when save button is clicked on a card */
+  onSaveCard?: (card: ScoredJob) => void;
   /** Set of already saved card IDs */
   savedCardIds?: Set<string>;
 }
@@ -51,6 +52,41 @@ function escapeHtml(text: string): string {
 
 let leafletLoaded = false;
 let leafletLoadPromise: Promise<void> | null = null;
+let pulseStylesInjected = false;
+
+/**
+ * Inject CSS animations for map markers (Phase 8)
+ */
+function injectPulseStyles(): void {
+  if (pulseStylesInjected) return;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes ping {
+      75%, 100% {
+        transform: scale(2);
+        opacity: 0;
+      }
+    }
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.8;
+      }
+    }
+    .card-marker.top-pick {
+      z-index: 1000 !important;
+    }
+    .leaflet-marker-icon.card-marker {
+      background: transparent !important;
+      border: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+  pulseStylesInjected = true;
+}
 
 function loadLeaflet(): Promise<void> {
   if (leafletLoaded) return Promise.resolve();
@@ -60,6 +96,7 @@ function loadLeaflet(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((window as any).L) {
       leafletLoaded = true;
+      injectPulseStyles(); // Phase 8: Inject pulse animation styles
       resolve();
       return;
     }
@@ -77,6 +114,7 @@ function loadLeaflet(): Promise<void> {
     script.crossOrigin = '';
     script.onload = () => {
       leafletLoaded = true;
+      injectPulseStyles(); // Phase 8: Inject pulse animation styles
       resolve();
     };
     script.onerror = () => reject(new Error('Failed to load Leaflet'));
@@ -263,37 +301,70 @@ export function ProspectionMap(props: ProspectionMapProps) {
         cardMarkers.clear();
 
         // Store cards for popup button handlers
-        const cardDataMap = new Map<string, ProspectionCard>();
+        const cardDataMap = new Map<string, ScoredJob>();
 
         // Add new markers for search results
+        // Phase 8: Color by SCORE (not category) + pulse animation for top picks
         cards.forEach((card) => {
           if (card.lat == null || card.lng == null) return;
 
-          const color = getCategoryColor(card.categoryId);
+          // Phase 8: Use score-based color instead of category color
+          const scoreColor = getScoreColor(card.score);
           const category = getCategoryById(card.categoryId);
           const isSaved = props.savedCardIds?.has(card.id) ?? false;
+          const isTop = isTopPick(card.score);
 
           // Store card data for popup handlers
           cardDataMap.set(card.id, card);
 
-          // Smaller markers for search results (not saved yet)
+          // Phase 8: Markers colored by score with pulse animation for top picks
+          const pulseAnimation = isTop
+            ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;'
+            : '';
+          const pulseRing = isTop
+            ? `<div class="absolute inset-0 rounded-full" style="background-color: ${scoreColor}; opacity: 0.4; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>`
+            : '';
+
           const icon = L.divIcon({
-            html: `<div class="w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white text-xs" style="background-color: ${color}; opacity: 0.85;">
-              ${category?.label?.charAt(0) || '?'}
+            html: `<div class="relative w-8 h-8 flex items-center justify-center">
+              ${pulseRing}
+              <div class="w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center text-white text-xs font-bold relative z-10" style="background-color: ${scoreColor}; ${pulseAnimation}">
+                ${card.score.toFixed(1)}
+              </div>
             </div>`,
-            className: 'card-marker',
-            iconSize: [24, 24],
-            iconAnchor: [12, 24],
+            className: `card-marker ${isTop ? 'top-pick' : ''}`,
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
           });
 
-          // Create popup with Save and View buttons
+          // Phase 8: Enhanced popup with score badge and match info
+          const scoreBadgeColor =
+            card.score >= 4.5
+              ? 'bg-green-500'
+              : card.score >= 4.0
+                ? 'bg-lime-500'
+                : card.score >= 3.5
+                  ? 'bg-yellow-500'
+                  : card.score >= 3.0
+                    ? 'bg-orange-500'
+                    : 'bg-red-500';
+          const certBadge =
+            card.matchedCertifications && card.matchedCertifications.length > 0
+              ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">🎓 ${card.matchedCertifications[0].name}</span>`
+              : '';
+
           const popupContent = `
-            <div class="p-2 min-w-[180px]">
-              <strong class="text-sm block mb-1">${escapeHtml(card.company || card.title)}</strong>
+            <div class="p-2 min-w-[200px]">
+              <div class="flex items-start justify-between gap-2 mb-1">
+                <strong class="text-sm block">${escapeHtml(card.company || card.title)}</strong>
+                <span class="shrink-0 px-1.5 py-0.5 ${scoreBadgeColor} text-white text-xs font-bold rounded">
+                  ${card.score.toFixed(1)}⭐
+                </span>
+              </div>
               <span class="text-xs text-gray-600 block mb-2">${escapeHtml(card.title)}</span>
-              <div class="flex items-center gap-2 text-xs text-gray-500 mb-3">
-                ${card.rating ? `<span>⭐ ${card.rating.toFixed(1)}</span>` : ''}
+              <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 mb-3">
                 ${card.commuteText ? `<span>🚶 ${card.commuteText}</span>` : ''}
+                ${certBadge}
               </div>
               <div class="flex gap-2">
                 <button
@@ -453,7 +524,7 @@ export function ProspectionMap(props: ProspectionMapProps) {
           </Show>
         </div>
 
-        {/* Legend */}
+        {/* Legend - Phase 8: Show score-based colors for search results */}
         <Show
           when={
             (props.leads && props.leads.length > 0) ||
@@ -465,12 +536,22 @@ export function ProspectionMap(props: ProspectionMapProps) {
               <div class="w-3 h-3 bg-blue-500 rounded-full border border-white shadow-sm" />
               <span class="text-muted-foreground">You</span>
             </div>
+            {/* Phase 8: Score-based legend for search results */}
             <Show when={props.currentCards && props.currentCards.length > 0}>
               <div class="flex items-center gap-1">
-                <div class="w-3 h-3 bg-primary/80 rounded-full border border-white shadow-sm" />
-                <span class="text-muted-foreground">{props.currentCards!.length} places</span>
+                <div class="w-3 h-3 bg-green-500 rounded-full border border-white shadow-sm" />
+                <span class="text-muted-foreground">Top pick</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <div class="w-3 h-3 bg-yellow-500 rounded-full border border-white shadow-sm" />
+                <span class="text-muted-foreground">Good</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <div class="w-3 h-3 bg-orange-500 rounded-full border border-white shadow-sm" />
+                <span class="text-muted-foreground">Fair</span>
               </div>
             </Show>
+            {/* Category legend for saved leads */}
             <For each={[...new Set(props.leads?.map((l) => l.category))]}>
               {(categoryId) => {
                 const category = getCategoryById(categoryId);

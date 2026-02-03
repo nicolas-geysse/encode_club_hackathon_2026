@@ -34,6 +34,7 @@ import type { ScoredJob } from '~/lib/jobScoring';
 import type { ProspectionSearchMeta } from '~/lib/prospectionTypes';
 import { formatStarRating, isTopPick } from '~/lib/jobScoring';
 import { getEffortLabel, getCategoryById } from '~/config/prospectionCategories';
+import type { CertificationDefinition } from '~/lib/data/certificationMapping';
 
 // Icon mapping
 const ICON_MAP = {
@@ -57,6 +58,8 @@ interface ProspectionListProps {
   savedIds?: Set<string>;
   /** Metadata from API for diagnostic messages */
   meta?: ProspectionSearchMeta;
+  /** Phase 8: User's certifications for proactive banner */
+  userCertifications?: string[];
 }
 
 export function ProspectionList(props: ProspectionListProps) {
@@ -75,6 +78,30 @@ export function ProspectionList(props: ProspectionListProps) {
       default:
         return jobs;
     }
+  };
+
+  // Phase 8: Top matches (score >= 4.0, max 3)
+  const topMatches = () =>
+    props.jobs
+      .filter((job) => job.score >= 4.0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+
+  // Phase 8: Jobs with certification matches
+  const certificationMatches = () => {
+    const matches = props.jobs.filter(
+      (job) => job.matchedCertifications && job.matchedCertifications.length > 0
+    );
+    return matches;
+  };
+
+  // Phase 8: Unique certifications found in jobs
+  const matchedCertNames = (): string[] => {
+    const certNames = new Set<string>();
+    certificationMatches().forEach((job) => {
+      job.matchedCertifications?.forEach((cert) => certNames.add(cert.name));
+    });
+    return Array.from(certNames);
   };
 
   // Check if job is already saved
@@ -109,6 +136,80 @@ export function ProspectionList(props: ProspectionListProps) {
           </select>
         </div>
       </div>
+
+      {/* Phase 8: Proactive Certification Banner */}
+      <Show when={certificationMatches().length > 0}>
+        <div class="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+          <div class="flex items-center justify-center w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full">
+            <Award class="h-5 w-5 text-green-600 dark:text-green-400" />
+          </div>
+          <div class="flex-1">
+            <p class="text-sm font-medium text-green-800 dark:text-green-200">
+              {certificationMatches().length} job{certificationMatches().length > 1 ? 's' : ''}{' '}
+              match your {matchedCertNames().join(', ')} certification
+              {matchedCertNames().length > 1 ? 's' : ''}!
+            </p>
+            <p class="text-xs text-green-600 dark:text-green-400">Look for the green badge below</p>
+          </div>
+        </div>
+      </Show>
+
+      {/* Phase 8: Top Matches for You Section */}
+      <Show when={topMatches().length > 0 && sortBy() === 'score'}>
+        <Card class="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardContent class="p-4">
+            <div class="flex items-center gap-2 mb-3">
+              <Star class="h-5 w-5 text-amber-500 fill-amber-500" />
+              <h3 class="font-semibold text-foreground">Top Matches for You</h3>
+              <span class="text-xs text-muted-foreground ml-auto">
+                Score 4.0+ based on your profile
+              </span>
+            </div>
+            <div class="space-y-2">
+              <For each={topMatches()}>
+                {(job) => (
+                  <div class="flex items-center gap-3 p-2 bg-background rounded-md border border-border">
+                    <div class="flex items-center gap-1">
+                      <For each={[1, 2, 3, 4, 5]}>
+                        {(star) => (
+                          <Star
+                            class={cn(
+                              'h-3 w-3',
+                              star <= Math.floor(job.score)
+                                ? 'text-amber-500 fill-amber-500'
+                                : 'text-muted-foreground/30'
+                            )}
+                          />
+                        )}
+                      </For>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium truncate">{job.company || job.title}</p>
+                      <p class="text-xs text-muted-foreground truncate">
+                        {job.location} {job.commuteText ? `• ${job.commuteText}` : ''}
+                      </p>
+                    </div>
+                    <Show when={job.matchedCertifications && job.matchedCertifications.length > 0}>
+                      <span class="shrink-0 px-2 py-0.5 bg-green-500 text-white text-xs font-medium rounded-full">
+                        {job.matchedCertifications![0].name}
+                      </span>
+                    </Show>
+                    <Button
+                      size="sm"
+                      variant={isSaved(job.id) ? 'outline' : 'default'}
+                      onClick={() => props.onSave(job)}
+                      disabled={isSaved(job.id)}
+                      class="shrink-0"
+                    >
+                      {isSaved(job.id) ? 'Saved' : 'Save'}
+                    </Button>
+                  </div>
+                )}
+              </For>
+            </div>
+          </CardContent>
+        </Card>
+      </Show>
 
       {/* Empty state with diagnostic messages */}
       <Show when={props.jobs.length === 0}>
