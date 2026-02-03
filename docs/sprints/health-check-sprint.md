@@ -18,8 +18,8 @@ This sprint addresses technical debt discovered during a health audit of the "me
 |-----------|----------|--------|--------|
 | Connect Swipe Preferences to Job Scoring | P0 | ✅ COMPLETE | `26ace87` |
 | Unify Algorithm Implementations | P1 | ✅ COMPLETE | `2be6a5f` |
-| Improve Debug Panel Clarity | P2 | ✅ COMPLETE | pending |
-| Clean Up Data Sources | P3 | 🔲 TODO | - |
+| Improve Debug Panel Clarity | P2 | ✅ COMPLETE | `bb51109` |
+| Clean Up Data Sources | P3 | 🔲 OPTIONAL | - |
 
 ---
 
@@ -179,7 +179,7 @@ Create shared library for algorithms, remove frontend duplicates, add API routes
 **Priority**: P2 - Medium
 **Effort**: Low
 **Status**: ✅ Complete (2026-02-03)
-**Commit**: pending
+**Commit**: `bb51109`
 
 Make the "System Internals" section more understandable.
 
