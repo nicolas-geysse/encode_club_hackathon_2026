@@ -54,6 +54,8 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const [savedJobIds, setSavedJobIds] = createSignal<Set<string>>(new Set());
   const [savedCount, setSavedCount] = createSignal(0);
   const [showLeadsPanel, setShowLeadsPanel] = createSignal(false);
+  // Track ALL jobs from ALL searched categories (for global TOP 10)
+  const [allCategoryJobs, setAllCategoryJobs] = createSignal<ScoredJob[]>([]);
 
   // Load existing leads on mount
   createEffect(
@@ -125,6 +127,13 @@ export function ProspectionTab(props: ProspectionTabProps) {
       setSavedJobIds(new Set<string>());
       setSavedCount(0);
       setPhase('results');
+
+      // Accumulate jobs for global TOP 10 (avoid duplicates by id)
+      setAllCategoryJobs((prev) => {
+        const existingIds = new Set(prev.map((j) => j.id));
+        const newJobs = scoredCards.filter((j) => !existingIds.has(j.id));
+        return [...prev, ...newJobs];
+      });
     } catch (err) {
       console.error('Search error', err);
       toastPopup.error('Search failed', 'Could not find opportunities. Try again.');
@@ -400,6 +409,8 @@ export function ProspectionTab(props: ProspectionTabProps) {
             meta={searchMeta()}
             userCertifications={props.userCertifications}
             profileId={props.profileId}
+            categoryLabel={categoryLabel()}
+            allCategoryJobs={allCategoryJobs()}
           />
         </div>
 
