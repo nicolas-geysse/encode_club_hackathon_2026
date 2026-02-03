@@ -1049,7 +1049,7 @@ export function TradeTab(props: TradeTabProps) {
                 <Button
                   variant="none"
                   class={cn(
-                    'flex-1 font-bold bg-black text-white hover:bg-neutral-800 shadow-sm dark:bg-white dark:text-black dark:hover:bg-neutral-200',
+                    'flex-1 font-bold bg-foreground text-background hover:opacity-80 shadow-sm',
                     !newTrade().name ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
                   )}
                   onClick={() => (editingTradeId() ? updateTrade() : addTrade())}

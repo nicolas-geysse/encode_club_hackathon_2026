@@ -1037,7 +1037,7 @@ export function BudgetTab(props: BudgetTabProps) {
                 </Button>
                 <Button
                   variant="none"
-                  class="flex-1 bg-black text-white hover:bg-neutral-800 shadow-sm font-bold dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+                  class="flex-1 bg-foreground text-background hover:opacity-80 shadow-sm font-bold"
                   onClick={() => (editingItemId() ? updateItem() : addItem())}
                   disabled={!newItem().name || isLoading()}
                 >
