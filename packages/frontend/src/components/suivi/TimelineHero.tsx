@@ -17,6 +17,7 @@ import {
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Trophy, Rocket, ThumbsUp, Zap, Calendar, Target, Clock, ArrowRight } from 'lucide-solid';
+import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { cn } from '~/lib/cn';
 
 interface TimelineHeroProps {
@@ -81,6 +82,25 @@ export function TimelineHero(props: TimelineHeroProps) {
 
   const isOnTrack = () => amountProgress() >= timeProgress() - 5;
   const isAhead = () => amountProgress() > timeProgress() + 10;
+  const gapPercent = () => Math.round(timeProgress() - amountProgress());
+
+  // Bruno's contextual catch-up advice based on gap severity
+  const catchUpAdvice = () => {
+    const gap = gapPercent();
+    const remaining = props.goalAmount - totalAmount();
+    const weeksLeft = props.totalWeeks - props.currentWeek;
+    const adjustedWeekly = weeksLeft > 0 ? Math.ceil(remaining / weeksLeft) : remaining;
+
+    if (gap <= 5) {
+      return `You're almost there! Just ${gap}% gap - one good week and you're back on track.`;
+    } else if (gap <= 15) {
+      return `Aim for ${formatCurrency(adjustedWeekly, props.currency)}/week to catch up. Try adding 2-3 extra hours or explore new opportunities in Swipe.`;
+    } else if (gap <= 30) {
+      return `Significant gap - let's replan. Consider selling items you don't need, or find higher-paying gigs in the Jobs tab.`;
+    } else {
+      return `Major catch-up needed. I recommend reviewing your goal timeline or exploring Trade scenarios for quick wins.`;
+    }
+  };
 
   const status = () => {
     if (goalAchieved()) return { text: 'Goal Achieved!', color: 'text-yellow-400', icon: Trophy };
@@ -324,16 +344,36 @@ export function TimelineHero(props: TimelineHeroProps) {
           </div>
         </div>
 
-        {/* Quick Action - only show if behind */}
+        {/* Bruno's Catch-up Advice - only show if behind */}
         <Show when={!isOnTrack() && !goalAchieved()}>
-          <div class="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-center justify-between">
-            <span class="text-amber-700 dark:text-amber-400 text-sm font-medium flex items-center gap-2">
-              <Zap class="h-4 w-4" />
-              {Math.round(timeProgress() - amountProgress())}% behind schedule
-            </span>
-            <Button size="sm" class="bg-amber-500 hover:bg-amber-600 text-white h-7 text-xs">
-              Catch-up
-            </Button>
+          <div class="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+            <div class="flex items-start gap-3">
+              {/* Bruno Avatar */}
+              <div class="flex-shrink-0 pt-0.5">
+                <PlasmaAvatar size={28} color="green" />
+              </div>
+              {/* Content */}
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-amber-700 dark:text-amber-400 text-sm font-semibold flex items-center gap-1">
+                    <Zap class="h-3.5 w-3.5" />
+                    {gapPercent()}% behind schedule
+                  </span>
+                </div>
+                <p class="text-xs text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
+                  {catchUpAdvice()}
+                </p>
+              </div>
+              {/* Action */}
+              <Button
+                as="a"
+                href="/plan?tab=swipe"
+                size="sm"
+                class="bg-amber-500 hover:bg-amber-600 text-white h-7 text-xs flex-shrink-0 self-center"
+              >
+                Catch-up
+              </Button>
+            </div>
           </div>
         </Show>
       </CardContent>
