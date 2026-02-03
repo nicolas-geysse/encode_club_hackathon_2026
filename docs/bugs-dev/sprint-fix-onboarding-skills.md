@@ -1,7 +1,7 @@
 # Sprint: Onboarding → Skills → Jobs → Swipe Integration
 
 **Date**: 2026-02-03
-**Statut**: EN COURS (Phase 0 ✅, Phase 1 ✅, Phase 3 ✅)
+**Statut**: EN COURS (Phase 0 ✅, Phase 1 ✅, Phase 2 ✅, Phase 3 ✅, Phase 4 ✅)
 **Priorité**: Haute (cohérence UX et valeur métier)
 
 ---
@@ -135,14 +135,14 @@ generateScenarios():
 | P1.4 | Migration au mount SkillsTab | Backfill skills existants sans attributs | `SkillsTab.tsx` | ✅ |
 | P1.5 | Quick-add contextuel | Templates filtrés par field + registry | `SkillsTab.tsx` | ✅ |
 
-### Phase 2: Unification Templates Skills
+### Phase 2: Unification Templates Skills ✅ COMPLETE
 > Objectif: SkillsTab quick-add affiche les skills pertinents selon le domaine d'étude
 
-| ID | Tâche | Détails | Fichiers |
-|----|-------|---------|----------|
-| P2.1 | Fusionner `SKILL_TEMPLATES` avec `skillsByField` | Créer un seul référentiel avec attributs | `lib/data/skillDefaults.ts` |
-| P2.2 | Quick-add contextuel dans SkillsTab | Filtrer par `profile.field` + suggestions globales | `SkillsTab.tsx` |
-| P2.3 | Afficher skills onboarding en premier | Mettre en évidence les skills déjà saisis | `SkillsTab.tsx` |
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P2.1 | Fusionner `SKILL_TEMPLATES` avec `skillsByField` | Créer un seul référentiel avec attributs | `lib/data/skillRegistry.ts` | ✅ (Phase 1) |
+| P2.2 | Quick-add contextuel dans SkillsTab | Filtrer par `profile.field` + suggestions globales | `SkillsTab.tsx` | ✅ (Phase 1) |
+| P2.3 | Afficher skills pertinents en premier | Tri par market demand + indication "(suggestions for your field)" | `SkillsTab.tsx` | ✅ |
 
 ### Phase 3: Réordonner les Tabs ✅ COMPLETE
 > Objectif: Jobs avant Swipe pour un flux logique
@@ -152,14 +152,38 @@ generateScenarios():
 | P3.1 | Modifier l'ordre des tabs | `prospection` avant `swipe` | `plan.tsx:136-144` | ✅ |
 | P3.2 | Vérifier navigation et deep links | Les URLs `/plan?tab=X` fonctionnent toujours | `plan.tsx` | ✅ |
 
-### Phase 4: Intégration Leads → Swipe
+### Phase 4: Intégration Leads → Swipe ✅ COMPLETE
 > Objectif: Les jobs "interested" deviennent des scénarios Swipe
+> **Commit**: `785b2ff` - feat(swipe): integrate Jobs leads into Swipe scenarios (Phase 4)
 
-| ID | Tâche | Détails | Fichiers |
-|----|-------|---------|----------|
-| P4.1 | Créer `generateLeadScenarios()` | Transformer leads status='interested' en Scenarios | `SwipeTab.tsx` ou nouveau helper |
-| P4.2 | Intégrer dans `generateScenarios()` | Ajouter les lead scenarios aux skills/items/lifestyle | `SwipeTab.tsx:57-179` |
-| P4.3 | Afficher source du scénario | Badge "From Jobs" sur les cartes issues de leads | `SwipeCard.tsx` |
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P4.1 | Créer `generateLeadScenarios()` | Transformer leads status='interested' en Scenarios | `SwipeTab.tsx:66-97` | ✅ |
+| P4.2 | Intégrer dans `generateScenarios()` | Ajouter les lead scenarios aux skills/items/lifestyle | `SwipeTab.tsx:99-242` | ✅ |
+| P4.3 | Afficher source du scénario | Badge "From Jobs" sur les cartes issues de leads | `SwipeCard.tsx:351-360` | ✅ |
+| P4.4 | Synchronisation cross-tab | `onLeadsChange` callback pour partager leads Jobs→Swipe | `ProspectionTab.tsx`, `plan.tsx` | ✅ |
+
+**Implémentation détaillée:**
+
+1. **`generateLeadScenarios()` (SwipeTab.tsx:66-97)**
+   - Filtre les leads avec `status === 'interested'`
+   - Calcule `hourlyRate` depuis `salaryMin/salaryMax` (assume mensuel, 160h/mois)
+   - Génère scénarios avec `source: 'jobs'` et `leadId` pour traçabilité
+
+2. **Intégration dans `generateScenarios()` (SwipeTab.tsx:108-111)**
+   - Les lead scenarios apparaissent EN PREMIER (opportunités concrètes)
+   - Puis skills, items, lifestyle comme avant
+
+3. **Badge "From Jobs" (SwipeCard.tsx:351-360)**
+   - Icône `MapPin` + texte "From Jobs" en badge bleu
+   - Affiché uniquement quand `props.source === 'jobs'`
+
+4. **Synchronisation cross-tab**
+   - `ProspectionTab.tsx:77-85`: `createEffect` qui appelle `onLeadsChange` à chaque modification
+   - `prospectionTypes.ts:192`: Nouveau prop `onLeadsChange?: (leads: Lead[]) => void`
+   - `plan.tsx:195-196`: Signal `leads` partagé entre les tabs
+   - `plan.tsx:660`: Prop `leads={leads()}` passé au SwipeTab
+   - `plan.tsx:698`: Prop `onLeadsChange={setLeads}` passé au ProspectionTab
 
 ### Phase 5: Certifications Impact
 > Objectif: Les certifications boostent les jobs correspondants
@@ -243,17 +267,20 @@ Phase 8: UX Visuelle (jour 6-7)
 - [x] Skills existants sans attributs sont migrés au mount (migrateIncompleteSkills)
 - [x] Quick-add contextuel par field implémenté
 
-### Phase 2 (Templates Unifiés)
-- [ ] Quick-add affiche skills pertinents selon `profile.field`
-- [ ] Skills onboarding apparaissent en premier dans la liste
+### Phase 2 (Templates Unifiés) ✅ COMPLETE
+- [x] Quick-add affiche skills pertinents selon `profile.field` (via `getQuickAddTemplates`)
+- [x] Skills triés par market demand (plus pertinents en premier)
+- [x] Indication "(suggestions for your field)" affichée quand field est défini
 
 ### Phase 3 (Tab Order) ✅ COMPLETE
 - [x] Ordre: Profile → Goals → Skills → Budget → Trade → **Jobs** → **Swipe**
 - [x] Navigation fonctionne avec le nouvel ordre (à vérifier manuellement)
 
-### Phase 4 (Leads → Swipe)
-- [ ] Un job "interested" génère un scénario Swipe
-- [ ] Le scénario affiche la source "From Jobs"
+### Phase 4 (Leads → Swipe) ✅ COMPLETE
+- [x] Un job "interested" génère un scénario Swipe (`generateLeadScenarios()`)
+- [x] Le scénario affiche la source "From Jobs" (badge avec MapPin icon)
+- [x] Les leads sont synchronisés en temps réel entre Jobs tab et Swipe tab
+- [x] Les scénarios from Jobs apparaissent en premier (opportunités concrètes prioritaires)
 
 ### Phase 5 (Certifications)
 - [ ] BAFA booste les jobs babysitting/animation
@@ -409,10 +436,13 @@ Scénario: Onboarding CS student avec score > 0
 ### Fichiers Clés
 - `packages/frontend/src/lib/onboardingPersistence.ts` - Persistance skills
 - `packages/frontend/src/lib/data/skillsByField.ts` - Suggestions par domaine
-- `packages/frontend/src/components/tabs/SkillsTab.tsx` - Gestion skills
-- `packages/frontend/src/components/tabs/SwipeTab.tsx` - Génération scénarios
-- `packages/frontend/src/components/tabs/ProspectionTab.tsx` - Jobs
-- `packages/frontend/src/routes/plan.tsx` - Configuration tabs
+- `packages/frontend/src/lib/data/skillRegistry.ts` - **[Phase 1]** Source unique pour tous les skills
+- `packages/frontend/src/components/tabs/SkillsTab.tsx` - Gestion skills + migration
+- `packages/frontend/src/components/tabs/SwipeTab.tsx` - **[Phase 4]** Génération scénarios + leads integration
+- `packages/frontend/src/components/swipe/SwipeCard.tsx` - **[Phase 4]** Badge "From Jobs"
+- `packages/frontend/src/components/tabs/ProspectionTab.tsx` - Jobs + **[Phase 4]** onLeadsChange callback
+- `packages/frontend/src/lib/prospectionTypes.ts` - **[Phase 4]** Type onLeadsChange
+- `packages/frontend/src/routes/plan.tsx` - Configuration tabs + **[Phase 4]** leads state sharing
 - `packages/frontend/src/lib/jobScoring.ts` - Scoring jobs
 
 ### Documentation Existante
