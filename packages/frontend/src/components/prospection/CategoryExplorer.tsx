@@ -168,12 +168,12 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
           </button>
         </Card>
 
-        {/* Real Job Listings - from external APIs (Remotive, Arbeitnow) */}
+        {/* Remote Job Listings - from external APIs (Remotive, Arbeitnow) */}
         <Card
           class={cn(
             'transition-all duration-200 border-2',
-            'border-emerald-400/50 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20',
-            'hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-200/30 dark:hover:shadow-emerald-900/20'
+            'border-violet-400/50 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20',
+            'hover:border-violet-400 hover:shadow-lg hover:shadow-violet-200/30 dark:hover:shadow-violet-900/20'
           )}
         >
           <button
@@ -185,28 +185,28 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
             <CardContent class="p-4">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                  <div class="p-2 rounded-lg shadow-md bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
-                    <Briefcase class="h-5 w-5" />
+                  <div class="p-2 rounded-lg shadow-md bg-gradient-to-br from-violet-400 to-purple-500 text-white">
+                    <Globe class="h-5 w-5" />
                   </div>
                   <div class="text-left">
                     <div class="flex items-center gap-2">
-                      <h3 class="font-bold text-emerald-900 dark:text-emerald-100">
-                        Real Job Listings
+                      <h3 class="font-bold text-violet-900 dark:text-violet-100">
+                        Remote Job Listings
                       </h3>
-                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800/50 rounded-full text-xs font-medium text-emerald-800 dark:text-emerald-200">
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-violet-200 dark:bg-violet-800/50 rounded-full text-xs font-medium text-violet-800 dark:text-violet-200">
                         <ExternalLink class="h-3 w-3" />
-                        Live Postings
+                        Work from Anywhere
                       </span>
                     </div>
-                    <p class="text-sm text-emerald-700 dark:text-emerald-300">
-                      Actual job openings from Remotive & Arbeitnow (remote + EU)
+                    <p class="text-sm text-violet-700 dark:text-violet-300">
+                      Real remote job postings - no commute required
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
                   {props.isLoading && props.loadingCategory === REAL_JOBS_CATEGORY_ID ? (
                     <svg
-                      class="animate-spin h-5 w-5 text-emerald-600"
+                      class="animate-spin h-5 w-5 text-violet-600"
                       fill="none"
                       viewBox="0 0 24 24"
                     >
@@ -225,7 +225,7 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
                       />
                     </svg>
                   ) : (
-                    <Search class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <Search class="h-5 w-5 text-violet-600 dark:text-violet-400" />
                   )}
                 </div>
               </div>

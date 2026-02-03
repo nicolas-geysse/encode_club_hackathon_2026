@@ -197,7 +197,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
     // Special case: Real Job Listings (external APIs)
     if (categoryId === REAL_JOBS_CATEGORY_ID) {
       try {
-        setDeepSearchProgress('Fetching real job listings...');
+        setDeepSearchProgress('Fetching remote job listings...');
 
         const response = await fetch('/api/job-listings?limit=30');
 
@@ -264,8 +264,8 @@ export function ProspectionTab(props: ProspectionTabProps) {
         setSavedCount(0);
         setPhase('results');
         toastPopup.success(
-          'Real Jobs Found',
-          `Found ${jobCards.length} actual job postings from Remotive & Arbeitnow`
+          'Remote Jobs Found',
+          `Found ${jobCards.length} remote positions - work from anywhere!`
         );
       } catch (err) {
         console.error('Real jobs fetch error', err);
@@ -443,7 +443,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
     const cat = currentCategory();
     if (!cat) return '';
     if (cat === TOP10_ALL_CATEGORY_ID) return 'TOP 10 of All Categories';
-    if (cat === REAL_JOBS_CATEGORY_ID) return 'Real Job Listings';
+    if (cat === REAL_JOBS_CATEGORY_ID) return 'Remote Job Listings';
     return getCategoryById(cat)?.label || cat;
   };
 

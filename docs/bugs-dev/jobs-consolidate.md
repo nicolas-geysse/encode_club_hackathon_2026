@@ -259,6 +259,32 @@ curl "https://www.arbeitnow.com/api/job-board-api"
 
 ---
 
+## Important: Geographic Distinction
+
+### Two Types of Job Sources
+
+| Source | Type | Location |
+|--------|------|----------|
+| **Google Places** | Nearby businesses | Based on user's lat/lng (local) |
+| **Remotive/Arbeitnow** | Job postings | **REMOTE** - work from anywhere |
+
+### UX Clarification
+
+1. **TOP 10 of All Categories** → Nearby places from Google Places (local businesses)
+2. **Remote Job Listings** → Actual job postings that can be done remotely
+
+The "Remote Job Listings" category is **location-independent** because:
+- Remotive only lists remote jobs
+- These jobs don't require commuting
+- Students can work from home/dorm
+
+This is actually a **feature**, not a bug - remote jobs are perfect for students who:
+- Have flexible schedules
+- Don't have transportation
+- Want to work between classes
+
+---
+
 ## Implementation Checklist
 
 ### Phase 1: Real Job API Integration
