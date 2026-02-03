@@ -6,13 +6,14 @@
  * Uses createCrudTab hook for common CRUD state management.
  */
 
-import { createSignal, For, Show, createEffect, onMount } from 'solid-js';
+import { createSignal, For, Show, createEffect, onMount, untrack } from 'solid-js';
 import { useProfile } from '~/lib/profileContext';
 import { skillService, type Skill, type CreateSkillInput } from '~/lib/skillService';
 import { createCrudTab } from '~/hooks/createCrudTab';
 import { createDirtyState } from '~/hooks/createDirtyState';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Skeleton } from '~/components/ui/Skeleton';
 import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { type LegacySkill, skillToLegacy } from '~/types/entities';
 import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
@@ -36,6 +37,7 @@ import {
   Users,
   Bed,
   HelpCircle,
+  Medal,
 } from 'lucide-solid';
 
 const logger = createLogger('SkillsTab');
@@ -213,6 +215,32 @@ function IconRating(props: IconRatingProps) {
   );
 }
 
+// Skeleton Loader for Skills
+function SkillsSkeleton() {
+  return (
+    <div class="space-y-3">
+      <For each={Array(3).fill(0)}>
+        {() => (
+          <Card class="opacity-50">
+            <CardContent class="p-4 flex items-center gap-4">
+              <Skeleton class="h-12 w-12 rounded-full" />
+              <div class="flex-1 space-y-2">
+                <Skeleton class="h-5 w-48" />
+                <div class="flex gap-4">
+                  <Skeleton class="h-3 w-16" />
+                  <Skeleton class="h-3 w-16" />
+                  <Skeleton class="h-3 w-16" />
+                </div>
+              </div>
+              <Skeleton class="h-8 w-16 rounded-md" />
+            </CardContent>
+          </Card>
+        )}
+      </For>
+    </div>
+  );
+}
+
 export function SkillsTab(props: SkillsTabProps) {
   // Currency from props, defaults to USD
   const currency = () => props.currency || 'USD';
@@ -294,9 +322,16 @@ export function SkillsTab(props: SkillsTabProps) {
     // This prevents temp IDs from initialSkills causing 404 on delete
     if (currentProfile?.id) {
       setLocalSkills(ctxSkills);
+
       // BUG FIX: Sync to planData so SwipeTab sees correct hourlyRate from DB
-      // Without this, planData().skills stays empty/stale and SwipeTab gets skills with rate=0
-      props.onSkillsChange?.(ctxSkills.map(skillToLegacy));
+      // We check for deep equality to prevent infinite loops (Context -> Effect -> Parent -> Save -> Context)
+      const newLegacySkills = ctxSkills.map(skillToLegacy);
+      const parentSkills = untrack(() => props.initialSkills) || [];
+
+      if (JSON.stringify(parentSkills) !== JSON.stringify(newLegacySkills)) {
+        props.onSkillsChange?.(newLegacySkills);
+      }
+
       // Mark as loaded once we have context skills (even if empty array)
       setSkillsLoadState('loaded');
       return;
@@ -644,14 +679,7 @@ export function SkillsTab(props: SkillsTabProps) {
 
       {/* BUG Q FIX: Show loading state while skills are being fetched */}
       <Show when={skillsLoadState() === 'initial'}>
-        <Card>
-          <CardContent class="p-4">
-            <div class="flex items-center gap-2 text-muted-foreground">
-              <div class="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-              <span>Loading your skills...</span>
-            </div>
-          </CardContent>
-        </Card>
+        <SkillsSkeleton />
       </Show>
 
       {/* Quick Add Templates - Now uses Unified Skill Registry */}
@@ -715,54 +743,125 @@ export function SkillsTab(props: SkillsTabProps) {
         <div class="space-y-3">
           <For each={skills()}>
             {(skill, index) => (
-              <Card>
+              <Card class="group hover:shadow-lg hover:border-primary/50 transition-all duration-300">
                 <CardContent class="p-4 flex items-center gap-4">
                   {/* Rank */}
-                  <div class="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground">
-                    {index() + 1}
+                  <div class="flex-shrink-0 w-12 flex justify-center">
+                    <Show
+                      when={index() > 2}
+                      fallback={
+                        <div
+                          class={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ${
+                            index() === 0
+                              ? 'bg-yellow-500' // Gold
+                              : index() === 1
+                                ? 'bg-slate-400' // Silver
+                                : 'bg-amber-700' // Bronze
+                          }`}
+                        >
+                          <Medal class="h-5 w-5" />
+                        </div>
+                      }
+                    >
+                      <div class="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground text-sm">
+                        #{index() + 1}
+                      </div>
+                    </Show>
                   </div>
 
                   {/* Skill Info */}
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                      <h4 class="font-semibold text-foreground">{skill.name}</h4>
-                      <Show when={index() === 0}>
-                        <span class="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full flex items-center gap-1">
-                          <Check class="h-3 w-3" /> Recommended
+                  <div class="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    {/* Name & Chips */}
+                    <div class="md:col-span-4">
+                      <div class="flex items-center gap-2">
+                        <h4 class="font-bold text-lg text-foreground">{skill.name}</h4>
+                        <Show when={index() === 0}>
+                          <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full shadow-sm shadow-emerald-500/20 flex items-center gap-1">
+                            Best Match
+                          </span>
+                        </Show>
+                      </div>
+                      <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <span class="px-2 py-0.5 bg-muted rounded text-foreground font-mono font-medium">
+                          {formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}
                         </span>
-                      </Show>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                      <span class="flex items-center gap-1" title="Hourly Rate">
-                        {formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}
-                      </span>
-                      <span class="flex items-center gap-1" title="Market Demand">
-                        <Users class="h-3 w-3 text-yellow-500" />{' '}
-                        {skill.marketDemand ? `${skill.marketDemand}/5` : '?'}
-                      </span>
-                      <span class="flex items-center gap-1" title="Cognitive Effort">
-                        <BrainCircuit class="h-3 w-3 text-pink-500" />{' '}
-                        {getEffortLabel(skill.cognitiveEffort)}
-                      </span>
-                      <span class="flex items-center gap-1" title="Rest Needed">
-                        <Bed class="h-3 w-3 text-indigo-500" />{' '}
-                        {REST_STEPS.find((s) => s.hours === (skill.restNeeded || 0))?.label ||
-                          (skill.restNeeded || 0) + 'h'}
-                      </span>
+
+                    {/* Metrics */}
+                    <div class="md:col-span-6 grid grid-cols-3 gap-4">
+                      {/* Demand */}
+                      <div class="flex flex-col gap-1">
+                        <span class="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
+                          <Users class="h-3 w-3" /> Demand
+                        </span>
+                        <div class="flex gap-0.5">
+                          <For each={Array.from({ length: 5 })}>
+                            {(_, i) => (
+                              <div
+                                class={`w-1.5 h-3 rounded-sm ${
+                                  i() < (skill.marketDemand || 0) ? 'bg-blue-500' : 'bg-muted'
+                                }`}
+                              />
+                            )}
+                          </For>
+                        </div>
+                      </div>
+
+                      {/* Effort */}
+                      <div class="flex flex-col gap-1">
+                        <span class="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
+                          <BrainCircuit class="h-3 w-3" /> Effort
+                        </span>
+                        <div class="h-3 w-full bg-muted rounded-full overflow-hidden relative">
+                          <div
+                            class={`h-full rounded-full ${
+                              (skill.cognitiveEffort || 0) <= 2
+                                ? 'bg-green-500'
+                                : (skill.cognitiveEffort || 0) <= 4
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                            }`}
+                            style={{ width: `${((skill.cognitiveEffort || 0) / 5) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Rest */}
+                      <div class="flex flex-col gap-1">
+                        <span class="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
+                          <Bed class="h-3 w-3" /> Rest
+                        </span>
+                        <span class="text-xs font-medium">
+                          {REST_STEPS.find((s) => s.hours === (skill.restNeeded || 0))?.label ||
+                            (skill.restNeeded || 0) + 'h'}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Score */}
-                  <div
-                    class={`flex-shrink-0 px-3 py-1.5 rounded-lg font-bold ${getScoreColor(
-                      skill.score || 0
-                    )}`}
-                  >
-                    {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}/10
+                  <div class="flex-shrink-0 flex flex-col items-center justify-center pl-4 border-l border-border/50">
+                    <span class="text-[10px] uppercase text-muted-foreground font-bold mb-1">
+                      Score
+                    </span>
+                    <div
+                      class={`text-2xl font-black ${
+                        (skill.score || 0) >= 8
+                          ? 'text-green-500'
+                          : (skill.score || 0) >= 6
+                            ? 'text-blue-500'
+                            : (skill.score || 0) >= 4
+                              ? 'text-yellow-500'
+                              : 'text-red-500'
+                      }`}
+                    >
+                      {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}
+                    </div>
                   </div>
 
                   {/* Phase 6: Feedback + Edit & Remove */}
-                  <div class="flex-shrink-0 flex items-center gap-2">
+                  <div class="flex-shrink-0 flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     {/* Feedback buttons */}
                     <Show when={profile()?.id}>
                       <FeedbackButton
@@ -945,7 +1044,8 @@ export function SkillsTab(props: SkillsTabProps) {
                   Cancel
                 </Button>
                 <Button
-                  class="flex-1"
+                  variant="outline"
+                  class="flex-1 bg-black text-white hover:bg-neutral-800 hover:text-white shadow-sm transition-all font-bold dark:bg-white dark:text-black dark:hover:bg-neutral-200 border-transparent"
                   onClick={() => (editingSkillId() ? updateSkill() : addSkill())}
                   disabled={!newSkill().name || isLoading()}
                 >

@@ -14,10 +14,12 @@ import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
 import { toast } from '~/lib/notificationStore';
 import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
-import { POPULAR_CERTIFICATIONS } from '~/lib/chat/stepForms';
+import { POPULAR_CERTIFICATIONS, DIPLOMA_OPTIONS } from '~/lib/chat/stepForms';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
+import { Select } from '~/components/ui/Select';
+import { Skeleton } from '~/components/ui/Skeleton';
 import {
   User,
   ClipboardList,
@@ -42,6 +44,81 @@ interface ProfileTabProps {
   onNavigateToBudget?: () => void;
   /** Callback when dirty state changes (for parent to track unsaved changes) */
   onDirtyChange?: (isDirty: boolean) => void;
+}
+
+// Skeleton Loader for Profile
+function ProfileSkeleton() {
+  return (
+    <div class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Identity Skeleton */}
+        <Card class="h-full">
+          <CardContent class="p-6 h-full flex flex-col gap-6">
+            <div class="space-y-2">
+              <Skeleton class="h-4 w-24" />
+              <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Skeleton class="h-3 w-12" />
+                  <Skeleton class="h-6 w-32" />
+                </div>
+                <div class="space-y-2">
+                  <Skeleton class="h-3 w-16" />
+                  <Skeleton class="h-6 w-24" />
+                </div>
+              </div>
+            </div>
+            <div class="space-y-2 mt-auto pt-6 border-t border-border/50">
+              <Skeleton class="h-3 w-32" />
+              <div class="grid grid-cols-2 gap-4">
+                <Skeleton class="h-5 w-20" />
+                <Skeleton class="h-5 w-20" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Location Skeleton */}
+        <Card class="h-full">
+          <CardContent class="p-6 space-y-4">
+            <Skeleton class="h-4 w-24" />
+            <Skeleton class="h-[140px] w-full rounded-md" />
+            <div class="grid grid-cols-2 gap-4">
+              <div class="space-y-2">
+                <Skeleton class="h-3 w-12" />
+                <Skeleton class="h-5 w-24" />
+              </div>
+              <div class="space-y-2">
+                <Skeleton class="h-3 w-16" />
+                <Skeleton class="h-5 w-32" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 2 Skeleton */}
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardContent class="p-6 h-32 space-y-4">
+            <Skeleton class="h-4 w-32" />
+            <div class="flex gap-2">
+              <Skeleton class="h-8 w-20 rounded-md" />
+              <Skeleton class="h-8 w-24 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent class="p-6 h-32 space-y-4">
+            <Skeleton class="h-4 w-20" />
+            <div class="flex gap-2">
+              <Skeleton class="h-8 w-16 rounded-md" />
+              <Skeleton class="h-8 w-20 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }
 
 export function ProfileTab(props: ProfileTabProps) {
@@ -203,28 +280,23 @@ export function ProfileTab(props: ProfileTabProps) {
   };
 
   return (
-    <div class="p-6 space-y-6">
+    <div class="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
             <User class="h-6 w-6 text-primary" /> My Profile
           </h2>
-          <p class="text-sm text-muted-foreground mt-1">Your personal and financial information</p>
+          <p class="text-sm text-muted-foreground mt-1">Your personal and professional identity</p>
         </div>
         <Show when={!editing() && profile()}>
-          <Button onClick={handleStartEdit}>Edit</Button>
+          <Button onClick={handleStartEdit}>Edit Profile</Button>
         </Show>
       </div>
 
       {/* Loading State */}
       <Show when={loading()}>
-        <Card class="text-center py-12">
-          <CardContent>
-            <div class="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-            <p class="text-muted-foreground">Loading profile...</p>
-          </CardContent>
-        </Card>
+        <ProfileSkeleton />
       </Show>
 
       {/* Empty State */}
@@ -243,51 +315,97 @@ export function ProfileTab(props: ProfileTabProps) {
         </Card>
       </Show>
 
-      {/* Profile Display */}
+      {/* VIEW MODE */}
       <Show when={!loading() && profile() && !editing()}>
-        {/* Personal Info Card - 2 Column Layout */}
-        <Card>
-          <CardContent class="p-6">
-            <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-              <ClipboardList class="h-4 w-4" /> Personal Information
-            </h3>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column: Identity */}
-              <div class="space-y-4">
-                <div>
-                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                    Name
-                  </label>
-                  <p class="text-lg font-medium text-foreground mt-1">
-                    {profile()?.name || 'Not set'}
-                  </p>
+        <div class="space-y-6">
+          {/* Row 1: Identity (with Preferences) & Location */}
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Identity Card */}
+            <Card class="h-full">
+              <CardContent class="p-0 h-full flex flex-col">
+                {/* Main Identity Section */}
+                <div class="p-6 flex-1">
+                  <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                    <ClipboardList class="h-4 w-4" /> Identity
+                  </h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2 sm:col-span-1">
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Name
+                      </label>
+                      <p class="text-lg font-medium text-foreground mt-1 truncate">
+                        {profile()?.name || 'Not set'}
+                      </p>
+                    </div>
+                    <div class="col-span-2 sm:col-span-1">
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Diploma
+                      </label>
+                      <p class="text-lg font-medium text-foreground mt-1 truncate">
+                        {profile()?.diploma || 'Not set'}
+                      </p>
+                    </div>
+                    <div class="col-span-2">
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Field of Study
+                      </label>
+                      <p class="text-lg font-medium text-foreground mt-1 truncate">
+                        {profile()?.field || 'Not set'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                    Diploma
-                  </label>
-                  <p class="text-lg font-medium text-foreground mt-1">
-                    {profile()?.diploma || 'Not set'}
-                  </p>
-                </div>
-                <div>
-                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                    Field of Study
-                  </label>
-                  <p class="text-lg font-medium text-foreground mt-1">
-                    {profile()?.field || 'Not set'}
-                  </p>
-                </div>
-              </div>
 
-              {/* Right Column: Location */}
-              <div class="space-y-4">
+                {/* Sub-pane: Work Preferences (Lighter/Different Bg) */}
+                <div class="bg-muted/30 p-6 border-t border-border mt-auto">
+                  <h4 class="text-xs font-semibold text-muted-foreground uppercase mb-3 flex items-center gap-2">
+                    <Clock class="h-3 w-3" /> Availability & Rate
+                  </h4>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Hours/Week
+                      </label>
+                      <p class="text-base font-bold text-foreground mt-1">
+                        {profile()?.maxWorkHoursWeekly || 15}h
+                      </p>
+                    </div>
+                    <div>
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Hourly Rate
+                      </label>
+                      <p class="text-base font-bold text-foreground mt-1">
+                        {formatCurrencyWithSuffix(profile()?.minHourlyRate || 12, currency(), '/h')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Location Card */}
+            <Card class="h-full">
+              <CardContent class="p-6">
+                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                  <LocateFixed class="h-4 w-4" /> Location
+                </h3>
+                {/* Map First */}
+                <div class="rounded-md overflow-hidden border border-border mb-4">
+                  <ProfileMap
+                    latitude={profile()?.latitude}
+                    longitude={profile()?.longitude}
+                    cityName={profile()?.city}
+                    editable={false}
+                    height="140px"
+                  />
+                </div>
+                {/* Address Details Below */}
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
                       City
                     </label>
-                    <p class="text-lg font-medium text-foreground mt-1">
+                    <p class="text-base font-medium text-foreground mt-1">
                       {profile()?.city || 'Not set'}
                     </p>
                   </div>
@@ -296,366 +414,303 @@ export function ProfileTab(props: ProfileTabProps) {
                       Address
                     </label>
                     <p
-                      class="text-lg font-medium text-foreground mt-1 truncate"
+                      class="text-base font-medium text-foreground mt-1 truncate"
                       title={profile()?.address || profile()?.city}
                     >
                       {profile()?.address || profile()?.city || 'Not set'}
                     </p>
                   </div>
                 </div>
-                <div>
-                  <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2 block">
-                    Location
-                  </label>
-                  <ProfileMap
-                    latitude={profile()?.latitude}
-                    longitude={profile()?.longitude}
-                    cityName={profile()?.city}
-                    editable={false}
-                    height="160px"
-                  />
-                  {/* Show coordinates */}
-                  <Show when={profile()?.latitude && profile()?.longitude}>
-                    <p class="text-xs text-muted-foreground mt-1">
-                      📍 {profile()?.latitude?.toFixed(4)}, {profile()?.longitude?.toFixed(4)}
-                    </p>
-                  </Show>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Certifications Card */}
-        <Card>
-          <CardContent class="p-6">
-            <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-              <GraduationCap class="h-4 w-4" /> Certifications
-            </h3>
-            <Show
-              when={(profile()?.certifications || []).length > 0}
-              fallback={<p class="text-muted-foreground italic">No certifications added yet</p>}
-            >
-              <div class="flex flex-wrap gap-2">
-                <For each={profile()?.certifications || []}>
-                  {(cert: string) => (
-                    <span class="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-sm font-medium border border-amber-200 dark:border-amber-800">
-                      {cert}
-                    </span>
-                  )}
-                </For>
-              </div>
-            </Show>
-          </CardContent>
-        </Card>
+          {/* Row 2: Professional Assets */}
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Certifications - Left */}
+            <Card class="h-full">
+              <CardContent class="p-6">
+                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                  <GraduationCap class="h-4 w-4" /> Certifications
+                </h3>
+                <Show
+                  when={(profile()?.certifications || []).length > 0}
+                  fallback={
+                    <p class="text-muted-foreground italic text-sm">No certifications added yet</p>
+                  }
+                >
+                  <div class="flex flex-wrap gap-2">
+                    <For each={profile()?.certifications || []}>
+                      {(cert: string) => (
+                        <span class="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-sm font-medium border border-amber-200 dark:border-amber-800">
+                          {cert}
+                        </span>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </CardContent>
+            </Card>
 
-        {/* Skills Card */}
-        <Card>
-          <CardContent class="p-6">
-            <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-              <Briefcase class="h-4 w-4" /> Skills
-            </h3>
-            <Show
-              when={(profile()?.skills || []).length > 0}
-              fallback={<p class="text-muted-foreground italic">No skills added yet</p>}
-            >
-              <div class="flex flex-wrap gap-2">
-                <For each={profile()?.skills || []}>
-                  {(skill: string) => (
-                    <span class="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md text-sm font-medium">
-                      {skill}
-                    </span>
-                  )}
-                </For>
-              </div>
-            </Show>
-          </CardContent>
-        </Card>
-
-        {/* Work Preferences Card */}
-        <Card>
-          <CardContent class="p-6">
-            <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-              <Clock class="h-4 w-4" /> Work Preferences
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Max Hours/Week
-                </label>
-                <p class="text-lg font-medium text-foreground mt-1">
-                  {profile()?.maxWorkHoursWeekly || 15}h
-                </p>
-              </div>
-              <div>
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Min Hourly Rate
-                </label>
-                <p class="text-lg font-medium text-foreground mt-1">
-                  {formatCurrencyWithSuffix(profile()?.minHourlyRate || 12, currency(), '/h')}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            {/* Skills - Right */}
+            <Card class="h-full">
+              <CardContent class="p-6">
+                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                  <Briefcase class="h-4 w-4" /> Skills
+                </h3>
+                <Show
+                  when={(profile()?.skills || []).length > 0}
+                  fallback={<p class="text-muted-foreground italic text-sm">No skills added yet</p>}
+                >
+                  <div class="flex flex-wrap gap-2">
+                    <For each={profile()?.skills || []}>
+                      {(skill: string) => (
+                        <span class="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md text-sm font-medium">
+                          {skill}
+                        </span>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </Show>
 
-      {/* Edit Form */}
+      {/* EDIT MODE */}
       <Show when={editing()}>
-        <div class="space-y-4">
-          {/* Personal Info - 2 Column Layout */}
-          <Card>
-            <CardContent class="p-6 space-y-4">
-              <h3 class="text-sm font-medium text-muted-foreground mb-4">Personal Information</h3>
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column: Identity */}
-                <div class="space-y-4">
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Name
-                    </label>
-                    <Input
-                      type="text"
-                      value={editedProfile().name || ''}
-                      onInput={(e) =>
-                        setEditedProfile({ ...editedProfile(), name: e.currentTarget.value })
-                      }
-                    />
-                  </div>
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Diploma
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="e.g., Bachelor, Master, PhD"
-                      value={editedProfile().diploma || ''}
-                      onInput={(e) =>
-                        setEditedProfile({ ...editedProfile(), diploma: e.currentTarget.value })
-                      }
-                    />
-                  </div>
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Field of Study
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="e.g., Computer Science, Law, Business"
-                      value={editedProfile().field || ''}
-                      onInput={(e) =>
-                        setEditedProfile({ ...editedProfile(), field: e.currentTarget.value })
-                      }
-                    />
+        <div class="space-y-6">
+          {/* Row 1: Identity & Location */}
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Identity Card (Editable) */}
+            <Card class="h-full">
+              <CardContent class="p-0 flex flex-col h-full">
+                {/* Main Identity Edit */}
+                <div class="p-6 space-y-4 flex-1">
+                  <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                    <ClipboardList class="h-4 w-4" /> Edit Identity
+                  </h3>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2 sm:col-span-1 space-y-2">
+                      <label class="text-sm font-medium leading-none">Name</label>
+                      <Input
+                        class="bg-background"
+                        value={editedProfile().name || ''}
+                        onInput={(e) =>
+                          setEditedProfile({ ...editedProfile(), name: e.currentTarget.value })
+                        }
+                      />
+                    </div>
+                    <div class="col-span-2 sm:col-span-1 space-y-2">
+                      <label class="text-sm font-medium leading-none">Diploma</label>
+                      <Select
+                        class="bg-background"
+                        value={editedProfile().diploma || ''}
+                        options={[{ value: '', label: 'Select diploma...' }, ...DIPLOMA_OPTIONS]}
+                        onInput={(e) =>
+                          setEditedProfile({ ...editedProfile(), diploma: e.currentTarget.value })
+                        }
+                      />
+                    </div>
+                    <div class="col-span-2 space-y-2">
+                      <label class="text-sm font-medium leading-none">Field of Study</label>
+                      <Input
+                        class="bg-background"
+                        placeholder="e.g., Computer Science"
+                        value={editedProfile().field || ''}
+                        onInput={(e) =>
+                          setEditedProfile({ ...editedProfile(), field: e.currentTarget.value })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Right Column: Location */}
-                <div class="space-y-4">
-                  {/* Location Input */}
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Location
-                    </label>
-                    {/* Use my location button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      class="w-full justify-center gap-2"
-                      onClick={handleUseMyLocation}
-                      disabled={isGeolocating()}
-                    >
-                      <Show when={isGeolocating()} fallback={<LocateFixed class="h-4 w-4" />}>
-                        <Loader2 class="h-4 w-4 animate-spin" />
-                      </Show>
-                      {isGeolocating() ? 'Detecting location...' : 'Use my location'}
-                    </Button>
-                    {/* City search input */}
-                    <div class="relative">
+                {/* Sub-pane: Work Preferences Edit (Lighter/Different Bg) */}
+                <div class="bg-muted/30 p-6 border-t border-border mt-auto">
+                  <h4 class="text-xs font-semibold text-muted-foreground uppercase mb-3 flex items-center gap-2">
+                    <Clock class="h-3 w-3" /> Edit Availability & Rate
+                  </h4>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                      <label class="text-sm font-medium leading-none">Max Hours/Week</label>
                       <Input
-                        type="text"
-                        placeholder="Or search a city (e.g., Paris, London)"
-                        value={citySearchInput()}
-                        onInput={(e) => handleCitySearch(e.currentTarget.value)}
-                        class="pr-10"
+                        type="number"
+                        min="1"
+                        max="60"
+                        class="bg-background"
+                        value={editedProfile().maxWorkHoursWeekly || 15}
+                        onInput={(e) =>
+                          setEditedProfile({
+                            ...editedProfile(),
+                            maxWorkHoursWeekly: parseInt(e.currentTarget.value) || 15,
+                          })
+                        }
                       />
-                      <div class="absolute right-3 top-1/2 -translate-y-1/2">
-                        <Show
-                          when={isSearching()}
-                          fallback={<Search class="h-4 w-4 text-muted-foreground" />}
-                        >
-                          <Loader2 class="h-4 w-4 text-primary animate-spin" />
-                        </Show>
-                      </div>
                     </div>
-                    <p class="text-xs text-muted-foreground">
-                      Use geolocation, search, or drag the marker on the map.
+                    <div class="space-y-2">
+                      <label class="text-sm font-medium leading-none">
+                        Min Hourly Rate ({currencySymbol()})
+                      </label>
+                      <Input
+                        type="number"
+                        min="5"
+                        max="200"
+                        class="bg-background"
+                        value={editedProfile().minHourlyRate || 12}
+                        onInput={(e) =>
+                          setEditedProfile({
+                            ...editedProfile(),
+                            minHourlyRate: parseInt(e.currentTarget.value) || 12,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Location Card (Editable) */}
+            <Card class="h-full">
+              <CardContent class="p-6 space-y-4">
+                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                  <LocateFixed class="h-4 w-4" /> Edit Location
+                </h3>
+
+                {/* Search Bar + Geolocation */}
+                <div class="flex gap-2">
+                  <div class="relative flex-1">
+                    <Input
+                      placeholder="Search city..."
+                      value={citySearchInput()}
+                      onInput={(e) => handleCitySearch(e.currentTarget.value)}
+                      class="pr-8 bg-background"
+                    />
+                    <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                      <Show
+                        when={isSearching()}
+                        fallback={<Search class="h-4 w-4 text-muted-foreground" />}
+                      >
+                        <Loader2 class="h-4 w-4 text-primary animate-spin" />
+                      </Show>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleUseMyLocation}
+                    disabled={isGeolocating()}
+                  >
+                    <Show when={isGeolocating()} fallback={<LocateFixed class="h-4 w-4" />}>
+                      <Loader2 class="h-4 w-4 animate-spin" />
+                    </Show>
+                  </Button>
+                </div>
+
+                {/* Map (Editable) */}
+                <div class="rounded-md overflow-hidden border border-border">
+                  <ProfileMap
+                    latitude={editedProfile().latitude}
+                    longitude={editedProfile().longitude}
+                    cityName={editedProfile().city}
+                    editable={true}
+                    height="200px"
+                    searchQuery={citySearchQuery()}
+                    onSearching={setIsSearching}
+                    onLocationChange={(location: LocationChangeData) => {
+                      setEditedProfile({
+                        ...editedProfile(),
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                        city: location.city,
+                        address: location.address || editedProfile().address,
+                      });
+                      setCitySearchInput(location.city);
+                    }}
+                  />
+                </div>
+
+                {/* City/Address Display (Read-only) */}
+                <div class="grid grid-cols-2 gap-4 bg-muted/50 p-3 rounded-md">
+                  <div>
+                    <span class="text-xs font-semibold text-muted-foreground uppercase">City</span>
+                    <p class="text-sm font-medium">{editedProfile().city || 'Select on map'}</p>
+                  </div>
+                  <div>
+                    <span class="text-xs font-semibold text-muted-foreground uppercase">
+                      Address
+                    </span>
+                    <p class="text-sm font-medium truncate" title={editedProfile().address}>
+                      {editedProfile().address || 'Auto-filled'}
                     </p>
                   </div>
-
-                  {/* Map */}
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Location
-                    </label>
-                    <ProfileMap
-                      latitude={editedProfile().latitude}
-                      longitude={editedProfile().longitude}
-                      cityName={editedProfile().city}
-                      editable={true}
-                      height="200px"
-                      searchQuery={citySearchQuery()}
-                      onSearching={setIsSearching}
-                      onLocationChange={(location: LocationChangeData) => {
-                        setEditedProfile({
-                          ...editedProfile(),
-                          latitude: location.latitude,
-                          longitude: location.longitude,
-                          city: location.city,
-                          address: location.address || editedProfile().address,
-                        });
-                        // Update search input to match the new city
-                        setCitySearchInput(location.city);
-                      }}
-                    />
-                  </div>
-
-                  {/* City and Address shown as read-only, auto-updated by map */}
-                  <div class="grid grid-cols-2 gap-4">
-                    <div>
-                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                        City
-                      </label>
-                      <p class="text-base font-medium text-foreground mt-1">
-                        {editedProfile().city || 'Search or move marker'}
-                      </p>
-                    </div>
-                    <div>
-                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                        Address
-                      </label>
-                      <p
-                        class="text-base font-medium text-foreground mt-1 truncate"
-                        title={editedProfile().address}
-                      >
-                        {editedProfile().address || 'Will be auto-filled'}
-                      </p>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* BUG 5 FIX: Certifications (Editable) */}
-          <Card>
-            <CardContent class="p-6 space-y-4">
-              <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                <GraduationCap class="h-4 w-4" /> Certifications
-              </h3>
+          {/* Row 2: Certifications (Editable) - Skills are read-only here as they have their own tab */}
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card class="h-full">
+              <CardContent class="p-6 space-y-4">
+                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                  <GraduationCap class="h-4 w-4" /> Edit Certifications
+                </h3>
 
-              {/* Current certifications with remove buttons */}
-              <div class="flex flex-wrap gap-2 mb-4">
-                <For each={editedProfile().certifications || []}>
-                  {(cert: string, index) => (
-                    <span class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-sm font-medium border border-amber-200 dark:border-amber-800">
-                      {cert}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const certs = [...(editedProfile().certifications || [])];
-                          certs.splice(index(), 1);
-                          setEditedProfile({ ...editedProfile(), certifications: certs });
-                        }}
-                        class="ml-1 hover:bg-amber-200 dark:hover:bg-amber-800 rounded p-0.5 transition-colors"
-                        title="Remove certification"
-                      >
-                        <X class="h-3 w-3" />
-                      </button>
-                    </span>
-                  )}
-                </For>
-                <Show when={(editedProfile().certifications || []).length === 0}>
-                  <p class="text-muted-foreground italic text-sm">No certifications yet</p>
-                </Show>
-              </div>
-
-              {/* Quick-add from popular certifications */}
-              <div class="space-y-2">
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Quick add
-                </label>
-                <div class="flex flex-wrap gap-2">
-                  <For
-                    each={POPULAR_CERTIFICATIONS.filter(
-                      (c) => !(editedProfile().certifications || []).includes(c.label)
-                    )}
-                  >
-                    {(cert) => (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const certs = [...(editedProfile().certifications || [])];
-                          if (!certs.includes(cert.label)) {
-                            certs.push(cert.label);
+                {/* Active Certs */}
+                <div class="flex flex-wrap gap-2 min-h-[40px]">
+                  <For each={editedProfile().certifications || []}>
+                    {(cert: string, index) => (
+                      <span class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-sm font-medium border border-amber-200 dark:border-amber-800">
+                        {cert}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const certs = [...(editedProfile().certifications || [])];
+                            certs.splice(index(), 1);
                             setEditedProfile({ ...editedProfile(), certifications: certs });
-                          }
-                        }}
-                        class="px-3 py-1.5 bg-muted hover:bg-primary/10 hover:border-primary/30 text-muted-foreground hover:text-primary rounded-md text-sm border border-border transition-colors flex items-center gap-1"
-                      >
-                        <Plus class="h-3 w-3" />
-                        {cert.label}
-                      </button>
+                          }}
+                          class="ml-1 hover:bg-amber-200 dark:hover:bg-amber-800 rounded p-0.5 transition-colors"
+                        >
+                          <X class="h-3 w-3" />
+                        </button>
+                      </span>
                     )}
                   </For>
-                  <Show
-                    when={
-                      POPULAR_CERTIFICATIONS.filter(
-                        (c) => !(editedProfile().certifications || []).includes(c.label)
-                      ).length === 0
-                    }
-                  >
-                    <p class="text-muted-foreground italic text-sm">
-                      All popular certifications added!
+                  <Show when={(editedProfile().certifications || []).length === 0}>
+                    <p class="text-sm text-muted-foreground italic py-2">
+                      No certifications added.
                     </p>
                   </Show>
                 </div>
-              </div>
 
-              {/* Add custom certification input */}
-              <div class="space-y-2">
-                <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                  Or add custom
-                </label>
+                {/* Input */}
                 <div class="flex gap-2">
                   <Input
-                    type="text"
-                    placeholder="Type a certification name"
+                    placeholder="Add custom certification..."
                     value={newCertification()}
                     onInput={(e) => setNewCertification(e.currentTarget.value)}
                     onKeyPress={(e) => {
                       if (e.key === 'Enter' && newCertification().trim()) {
                         e.preventDefault();
                         const certs = [...(editedProfile().certifications || [])];
-                        const newCert = newCertification().trim();
-                        if (!certs.includes(newCert)) {
-                          certs.push(newCert);
+                        if (!certs.includes(newCertification().trim())) {
+                          certs.push(newCertification().trim());
                           setEditedProfile({ ...editedProfile(), certifications: certs });
                         }
                         setNewCertification('');
                       }
                     }}
-                    class="flex-1"
                   />
                   <Button
-                    type="button"
                     variant="outline"
                     onClick={() => {
                       if (newCertification().trim()) {
                         const certs = [...(editedProfile().certifications || [])];
-                        const newCert = newCertification().trim();
-                        if (!certs.includes(newCert)) {
-                          certs.push(newCert);
+                        if (!certs.includes(newCertification().trim())) {
+                          certs.push(newCertification().trim());
                           setEditedProfile({ ...editedProfile(), certifications: certs });
                         }
                         setNewCertification('');
@@ -666,68 +721,61 @@ export function ProfileTab(props: ProfileTabProps) {
                     <Plus class="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
-              <p class="text-xs text-muted-foreground">
-                Certifications can boost your hourly rate!
-              </p>
-            </CardContent>
-          </Card>
 
-          {/* Work Preferences */}
-          <Card>
-            <CardContent class="p-6 space-y-4">
-              <h3 class="text-sm font-medium text-muted-foreground mb-4">Work Preferences</h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Max Hours/Week
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="40"
-                    value={editedProfile().maxWorkHoursWeekly || 15}
-                    onInput={(e) =>
-                      setEditedProfile({
-                        ...editedProfile(),
-                        maxWorkHoursWeekly: parseInt(e.currentTarget.value) || 15,
-                      })
-                    }
-                  />
+                {/* Quick Add Pills */}
+                <div class="pt-2 border-t border-border">
+                  <span class="text-xs text-muted-foreground uppercase font-semibold block mb-2">
+                    Suggestions
+                  </span>
+                  <div class="flex flex-wrap gap-2">
+                    <For
+                      each={POPULAR_CERTIFICATIONS.filter(
+                        (c) => !(editedProfile().certifications || []).includes(c.label)
+                      )}
+                    >
+                      {(cert) => (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const certs = [...(editedProfile().certifications || [])];
+                            certs.push(cert.label);
+                            setEditedProfile({ ...editedProfile(), certifications: certs });
+                          }}
+                          class="px-2 py-1 text-xs bg-muted hover:bg-primary/10 hover:text-primary rounded-md border border-border transition-colors"
+                        >
+                          + {cert.label}
+                        </button>
+                      )}
+                    </For>
+                  </div>
                 </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Min Hourly Rate ({currencySymbol()})
-                  </label>
-                  <Input
-                    type="number"
-                    min="5"
-                    max="100"
-                    value={editedProfile().minHourlyRate || 12}
-                    onInput={(e) =>
-                      setEditedProfile({
-                        ...editedProfile(),
-                        minHourlyRate: parseInt(e.currentTarget.value) || 12,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {/* Actions */}
-          <div class="flex gap-3">
-            <Button
-              variant="outline"
-              class="flex-1 bg-[#F4F4F5] hover:bg-[#E4E4E7] dark:bg-[#27272A] dark:hover:bg-[#3F3F46] border-border"
-              onClick={handleCancel}
-              disabled={saving()}
-            >
-              Cancel
+            {/* Skills Link (Read-Only Hint) */}
+            <Card class="bg-muted/30 border-dashed h-full">
+              <CardContent class="p-6 flex flex-col items-center justify-center text-center h-full">
+                <Briefcase class="h-8 w-8 text-muted-foreground mb-3 opacity-50" />
+                <h3 class="font-medium text-muted-foreground">Managing Skills?</h3>
+                <p class="text-sm text-muted-foreground mt-1 mb-4">
+                  Skills have their own dedicated tab for easier management.
+                </p>
+                <Button variant="outline" class="w-full" disabled>
+                  Switch to Skills Tab to Edit
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Action Bar */}
+          <div class="sticky bottom-6 bg-background/95 backdrop-blur border border-border rounded-lg p-4 shadow-lg flex gap-3 z-10">
+            <Button variant="outline" class="flex-1" onClick={handleCancel} disabled={saving()}>
+              Cancel Changes
             </Button>
             <Button class="flex-1" onClick={handleSave} disabled={saving()}>
-              {saving() ? 'Saving...' : 'Save Changes'}
+              <Show when={saving()} fallback="Save Profile">
+                <Loader2 class="h-4 w-4 animate-spin mr-2" /> Saving...
+              </Show>
             </Button>
           </div>
         </div>

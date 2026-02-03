@@ -474,31 +474,46 @@ export function BudgetTab(props: BudgetTabProps) {
       {/* Summary Cards */}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Income */}
-        <Card class="border-green-500/20 bg-green-500/5">
+        <Card class="border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 shadow-sm">
           <CardContent class="p-6">
-            <div class="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-2">
-              <Wallet class="h-4 w-4" /> Income
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                Total Income
+              </span>
+              <div class="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
+                <Wallet class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
             </div>
-            <div class="text-2xl font-bold text-green-700 dark:text-green-300 mt-2">
+            <div class="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
               {formatCurrency(totalIncome(), currency(), { showSign: true })}
             </div>
-            <div class="text-xs text-green-600/80 dark:text-green-400/80 mt-1">
-              {incomeItems().length} source{incomeItems().length !== 1 ? 's' : ''}
+            <div class="text-xs text-emerald-600/80 dark:text-emerald-400/60 mt-1 font-medium">
+              {incomeItems().length} source{incomeItems().length !== 1 ? 's' : ''} active
             </div>
           </CardContent>
         </Card>
 
         {/* Total Expenses */}
-        <Card class="border-red-500/20 bg-red-500/5">
+        <Card class="border-red-200/50 dark:border-red-800/50 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-900/10 shadow-sm">
           <CardContent class="p-6">
-            <div class="text-sm font-medium text-red-600 dark:text-red-400 flex items-center gap-2">
-              <TrendingDown class="h-4 w-4" /> Expenses
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-red-600 dark:text-red-400">Total Expenses</span>
+              <div class="h-8 w-8 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+                <TrendingDown class="h-4 w-4 text-red-600 dark:text-red-400" />
+              </div>
             </div>
-            <div class="text-2xl font-bold text-red-700 dark:text-red-300 mt-2">
+            <div class="text-2xl font-bold text-red-900 dark:text-red-100">
               -{formatCurrency(activeMonthlyTotal(), currency())}
             </div>
-            <div class="text-xs text-red-600/80 dark:text-red-400/80 mt-1">
-              {pausedItemsCount() > 0 ? `${pausedItemsCount()} paused` : 'this month'}
+            <div class="text-xs text-red-600/80 dark:text-red-400/60 mt-1 font-medium">
+              {pausedItemsCount() > 0 ? (
+                <span class="flex items-center gap-1">
+                  <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />
+                  {pausedItemsCount()} paused
+                </span>
+              ) : (
+                'All active'
+              )}
             </div>
           </CardContent>
         </Card>
@@ -506,34 +521,61 @@ export function BudgetTab(props: BudgetTabProps) {
         {/* Net Margin */}
         <Card
           class={cn(
-            'border-opacity-20',
-            netMargin() >= 0 ? 'border-primary bg-primary/10' : 'border-amber-500 bg-amber-500/10'
+            'shadow-sm transition-colors duration-300',
+            netMargin() >= 0
+              ? 'border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-900/10'
+              : 'border-amber-200/50 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-900/10'
           )}
         >
           <CardContent class="p-6">
-            <div
-              class={cn(
-                'text-sm font-medium flex items-center gap-2',
-                netMargin() >= 0 ? 'text-primary' : 'text-amber-600 dark:text-amber-400'
-              )}
-            >
-              <TrendingUp class="h-4 w-4" /> Net Margin
+            <div class="flex items-center justify-between mb-2">
+              <span
+                class={cn(
+                  'text-sm font-medium',
+                  netMargin() >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-amber-600 dark:text-amber-400'
+                )}
+              >
+                Net Margin
+              </span>
+              <div
+                class={cn(
+                  'h-8 w-8 rounded-full flex items-center justify-center',
+                  netMargin() >= 0
+                    ? 'bg-emerald-100 dark:bg-emerald-900/50'
+                    : 'bg-amber-100 dark:bg-amber-900/50'
+                )}
+              >
+                <TrendingUp
+                  class={cn(
+                    'h-4 w-4',
+                    netMargin() >= 0
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-amber-600 dark:text-amber-400'
+                  )}
+                />
+              </div>
             </div>
             <div
               class={cn(
-                'text-2xl font-bold mt-2',
-                netMargin() >= 0 ? 'text-primary' : 'text-amber-700 dark:text-amber-300'
+                'text-2xl font-bold',
+                netMargin() >= 0
+                  ? 'text-emerald-900 dark:text-emerald-100'
+                  : 'text-amber-900 dark:text-amber-100'
               )}
             >
               {formatCurrency(netMargin(), currency(), { showSign: true })}
             </div>
             <div
               class={cn(
-                'text-xs mt-1',
-                netMargin() >= 0 ? 'text-primary/80' : 'text-amber-600/80 dark:text-amber-400/80'
+                'text-xs mt-1 font-medium',
+                netMargin() >= 0
+                  ? 'text-emerald-600/80 dark:text-emerald-400/60'
+                  : 'text-amber-600/80 dark:text-amber-400/60'
               )}
             >
-              per month
+              Available per month
             </div>
           </CardContent>
         </Card>
@@ -683,26 +725,36 @@ export function BudgetTab(props: BudgetTabProps) {
       </Show>
 
       {/* Category Tabs */}
-      <div class="flex gap-2 flex-wrap">
+      <div class="flex flex-wrap gap-2 p-1 bg-muted/20 border border-border/50 rounded-2xl w-fit">
         <For each={CATEGORIES}>
-          {(cat) => (
-            <Button
-              variant={activeCategory() === cat.id ? 'default' : 'outline'}
-              size="sm"
-              class={cn(
-                'rounded-full transition-all',
-                activeCategory() === cat.id
-                  ? cat.type === 'income'
-                    ? 'bg-green-600 hover:bg-green-800 text-white'
-                    : 'bg-red-600 hover:bg-red-800 text-white'
-                  : 'bg-card hover:bg-muted'
-              )}
-              onClick={() => setActiveCategory(cat.id)}
-            >
-              <Dynamic component={cat.icon} class="h-4 w-4 mr-2" />
-              {cat.label}
-            </Button>
-          )}
+          {(cat) => {
+            const isActive = () => activeCategory() === cat.id;
+            return (
+              <Button
+                variant="ghost"
+                size="sm"
+                class={cn(
+                  'rounded-xl px-4 h-9 transition-all duration-300 font-medium border border-transparent',
+                  isActive()
+                    ? cat.type === 'income'
+                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600'
+                      : 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+                onClick={() => setActiveCategory(cat.id)}
+              >
+                <div
+                  class={cn(
+                    'mr-2 h-5 w-5 rounded-full flex items-center justify-center transition-colors',
+                    isActive() ? 'bg-white/20' : 'bg-transparent'
+                  )}
+                >
+                  <Dynamic component={cat.icon} class="h-3.5 w-3.5" />
+                </div>
+                {cat.label}
+              </Button>
+            );
+          }}
         </For>
       </div>
 
@@ -722,36 +774,37 @@ export function BudgetTab(props: BudgetTabProps) {
         <Show when={isIncomeCategory()}>
           <For each={incomeItems()}>
             {(item) => (
-              <Card>
-                <CardContent class="p-4 space-y-3">
-                  {/* Header: Name + Amount */}
-                  <div class="flex items-center justify-between">
-                    <h4 class="font-medium text-foreground">{item.name}</h4>
-                    <div class="font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(item.amount, currency(), { showSign: true })}/mo
+              <Card class="group hover:border-emerald-500/30 hover:shadow-md transition-all duration-300">
+                <CardContent class="p-4 flex items-center gap-4">
+                  {/* Icon */}
+                  <div class="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                    <Wallet class="h-5 w-5 text-emerald-600 dark:text-emerald-400 opacity-80" />
+                  </div>
+
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between">
+                      <h4 class="font-bold text-foreground truncate text-base">{item.name}</h4>
+                      <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">
+                        +{formatCurrency(item.amount, currency(), { showSign: false })}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Actions: Edit / Delete */}
-                  <div class="flex justify-end gap-2 pt-2 border-t border-border">
+                  {/* Actions */}
+                  <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100">
                     <Button
                       variant="ghost"
                       size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-primary"
+                      class="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                       onClick={() => handleEditIncome(item)}
-                      disabled={isLoading()}
-                      title="Edit income"
                     >
                       <Pencil class="h-4 w-4" />
                     </Button>
-
                     <Button
                       variant="ghost"
                       size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      class="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                       onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
-                      disabled={isLoading()}
-                      title="Delete income"
                     >
                       <Trash2 class="h-4 w-4" />
                     </Button>
@@ -772,59 +825,82 @@ export function BudgetTab(props: BudgetTabProps) {
         <Show when={!isIncomeCategory()}>
           <For each={items().filter((i) => i.category === activeCategory())}>
             {(item) => (
-              <Card>
-                <CardContent class="p-4 space-y-3">
-                  {/* Header: Name + Cost */}
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <h4 class="font-medium text-foreground">{item.name}</h4>
-                      <Show when={item.pausedMonths > 0}>
-                        <span class="px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full">
-                          Paused {item.pausedMonths}mo
-                        </span>
-                      </Show>
-                    </div>
-                    <div class="font-bold text-foreground">
-                      {formatCurrency(item.currentCost, currency())}/mo
-                    </div>
+              <Card class="group hover:border-red-500/30 hover:shadow-md transition-all duration-300">
+                <CardContent class="p-4 flex items-center gap-4">
+                  {/* Icon */}
+                  <div
+                    class={cn(
+                      'h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300',
+                      item.pausedMonths > 0
+                        ? 'bg-amber-100 dark:bg-amber-900/40'
+                        : 'bg-red-100 dark:bg-red-900/40'
+                    )}
+                  >
+                    <Dynamic
+                      component={getCategoryInfo(item.category)?.icon}
+                      class={cn(
+                        'h-5 w-5',
+                        item.pausedMonths > 0
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-red-600 dark:text-red-400 opacity-80'
+                      )}
+                    />
                   </div>
 
-                  <Show when={maxPauseMonths() > 0}>
-                    <div class="pt-2">
-                      <MonthPicker
-                        max={maxPauseMonths()}
-                        value={item.pausedMonths}
-                        onChange={(val) => updatePausedMonths(item.id, val)}
-                        disabled={isLoading()}
-                      />
-                      <Show when={item.pausedMonths > 0}>
-                        <div class="mt-2 text-center text-xs text-amber-600 dark:text-amber-400 font-medium">
-                          Saves {formatCurrency(item.pausedMonths * item.currentCost, currency())}
-                        </div>
-                      </Show>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-0.5">
+                      <div class="flex items-center gap-2 overflow-hidden">
+                        <h4 class="font-bold text-foreground truncate text-base">{item.name}</h4>
+                        <Show when={item.pausedMonths > 0}>
+                          <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full border border-amber-200/50 flex-shrink-0">
+                            Paused {item.pausedMonths}mo
+                          </span>
+                        </Show>
+                      </div>
+                      <div
+                        class={cn(
+                          'font-bold text-lg flex-shrink-0 ml-2',
+                          item.pausedMonths > 0
+                            ? 'text-muted-foreground line-through decoration-amber-500/50 opacity-70'
+                            : 'text-foreground'
+                        )}
+                      >
+                        {formatCurrency(item.currentCost, currency())}
+                      </div>
                     </div>
-                  </Show>
 
-                  {/* Actions: Edit / Delete */}
-                  <div class="flex justify-end gap-2 pt-2 border-t border-border">
+                    <Show when={maxPauseMonths() > 0}>
+                      <div class="pt-1 flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <MonthPicker
+                          max={maxPauseMonths()}
+                          value={item.pausedMonths}
+                          onChange={(val) => updatePausedMonths(item.id, val)}
+                          disabled={isLoading()}
+                        />
+                        <Show when={item.pausedMonths > 0}>
+                          <span class="text-xs text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">
+                            Saves {formatCurrency(item.pausedMonths * item.currentCost, currency())}
+                          </span>
+                        </Show>
+                      </div>
+                    </Show>
+                  </div>
+
+                  {/* Actions */}
+                  <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100 self-center ml-2">
                     <Button
                       variant="ghost"
                       size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-primary"
+                      class="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                       onClick={() => handleEditExpense(item)}
-                      disabled={isLoading()}
-                      title="Edit expense"
                     >
                       <Pencil class="h-4 w-4" />
                     </Button>
-
                     <Button
                       variant="ghost"
                       size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      class="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
-                      disabled={isLoading()}
-                      title="Delete expense"
                     >
                       <Trash2 class="h-4 w-4" />
                     </Button>
@@ -960,7 +1036,8 @@ export function BudgetTab(props: BudgetTabProps) {
                   Cancel
                 </Button>
                 <Button
-                  class="flex-1"
+                  variant="outline"
+                  class="flex-1 bg-black text-white hover:bg-neutral-800 hover:text-white shadow-sm transition-all font-bold dark:bg-white dark:text-black dark:hover:bg-neutral-200 border-transparent"
                   onClick={() => (editingItemId() ? updateItem() : addItem())}
                   disabled={!newItem().name || isLoading()}
                 >
