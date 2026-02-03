@@ -1043,15 +1043,10 @@ export function SkillsTab(props: SkillsTabProps) {
                 <Button variant="outline" class="flex-1" onClick={handleCancel}>
                   Cancel
                 </Button>
-                <button
-                  type="button"
-                  class="flex-1 inline-flex items-center justify-center rounded-md h-10 px-4 py-2 text-sm font-bold shadow-sm disabled:opacity-50 disabled:pointer-events-none"
-                  style={{
-                    'background-color': 'hsl(var(--primary))',
-                    color: 'hsl(var(--primary-foreground))',
-                  }}
+                <Button
                   onClick={() => (editingSkillId() ? updateSkill() : addSkill())}
                   disabled={!newSkill().name || isLoading()}
+                  class="flex-1"
                 >
                   {isLoading()
                     ? editingSkillId()
@@ -1060,7 +1055,7 @@ export function SkillsTab(props: SkillsTabProps) {
                     : editingSkillId()
                       ? 'Update'
                       : 'Add'}
-                </button>
+                </Button>
               </div>
             </CardContent>
           </Card>
