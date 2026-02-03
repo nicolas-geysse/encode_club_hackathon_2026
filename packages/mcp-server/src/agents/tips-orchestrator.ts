@@ -1115,7 +1115,7 @@ export async function orchestrateTips(
 ): Promise<TipsOrchestratorOutput> {
   const startTime = Date.now();
   const enableFull = input.enableFullOrchestration !== false;
-  const timeoutMs = input.timeoutMs || 15000;
+  const timeoutMs = input.timeoutMs || 5000; // v4.2: Reduced default for snappier UX
 
   return trace(
     'tips.orchestrator',

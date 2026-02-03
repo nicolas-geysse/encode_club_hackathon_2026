@@ -7,8 +7,8 @@
  * - Full Opik tracing with nested spans
  *
  * Fallback levels:
- * - Level 0: Full orchestration (4 agents, ~15s)
- * - Level 1: Single agent (Budget Coach only, ~8s)
+ * - Level 0: Full orchestration (4 agents, ~5s timeout)
+ * - Level 1: Single agent (Budget Coach only, ~3s)
  * - Level 2: Algorithms only (energy debt, comeback, ~2s)
  * - Level 3: Static tip (if all else fails)
  */
@@ -195,7 +195,7 @@ export async function POST(event: APIEvent): Promise<Response> {
       monthlyMargin: body.monthlyMargin,
       hoursAvailable: body.hoursAvailable || 10,
       enableFullOrchestration: body.enableFullOrchestration !== false,
-      timeoutMs: 15000,
+      timeoutMs: 5000, // v4.2: Reduced from 15s for snappier UX
     };
 
     logger.info('Running tips orchestration', {
