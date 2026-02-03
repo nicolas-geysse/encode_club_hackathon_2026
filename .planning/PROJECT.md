@@ -10,13 +10,23 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 
 ## Current State
 
-**Version:** v4.1 Job Search Enhancement (in progress)
-**Shipped:** Radius slider UI
-**Pending:** Background prefetch during onboarding
+**Version:** v4.1 Job Search Enhancement (shipped 2026-02-03)
+**Next:** v4.2 polish or new milestone
 
 **Tech stack:** SolidStart, SolidJS, TailwindCSS, ~62,000 LOC TypeScript
 
 ## Previous Milestones
+
+### v4.1 Job Search Enhancement (shipped 2026-02-03)
+
+**Shipped:**
+- User-configurable search radius slider (1-20km range)
+- API respects user-provided radius with progressive fallback
+- Commute time display in job cards (was already implemented)
+- Radius display in search results header
+
+**Deferred to future:**
+- Background prefetch during onboarding (requires job cache store, high complexity)
 
 ### v4.0 Goals Tab Fix (shipped 2026-02-02)
 
@@ -37,11 +47,6 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - Google Maps service export for frontend
 - Photo billing control (opt-in)
 - Job scoring utilities and category mapping
-
-**v4.1 Progress:**
-- ✓ Commute time display (already implemented in ProspectionCard, SavedLeads, Map)
-- ✓ Radius slider UI (implemented 2026-02-03)
-- ⏳ Background prefetch during onboarding
 
 ### v2.1 Bugfixes (shipped 2026-01-31)
 
@@ -90,6 +95,8 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 - ✓ Correct earnings week attribution — v4.0
 - ✓ Avatar display fix — v4.0
 - ✓ Chart clarity (tooltips, legend) — v4.0
+- ✓ Radius slider for job search — v4.1
+- ✓ Commute time display — v4.1
 
 ### Active
 
