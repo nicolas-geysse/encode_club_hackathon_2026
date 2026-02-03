@@ -9,6 +9,7 @@
  *
  * Sprint 13.5: Now reads from profiles.followup_data.energyHistory (not energy_logs table)
  * P1-Health: Now uses unified algorithms from API routes (no more duplication)
+ * P2-Health: Unified severity terminology (low/medium/high)
  */
 
 import type { APIEvent } from '@solidjs/start/server';
@@ -35,7 +36,8 @@ interface DebugState {
 
   // Energy debt
   debtDetected: boolean;
-  debtSeverity: 'mild' | 'moderate' | 'severe' | null;
+  // P2-Health: Unified severity terminology (matches algorithm output directly)
+  debtSeverity: 'low' | 'medium' | 'high' | null;
   debtWeeks: number;
 
   // Preference weights
@@ -134,13 +136,8 @@ export async function GET(event: APIEvent) {
     } else if (energyDebt.detected) {
       energyState = 'Energy Debt';
       debtDetected = true;
-      // Map algorithm severity to display severity
-      debtSeverity =
-        energyDebt.severity === 'high'
-          ? 'severe'
-          : energyDebt.severity === 'medium'
-            ? 'moderate'
-            : 'mild';
+      // P2-Health: Use algorithm severity directly (no conversion)
+      debtSeverity = energyDebt.severity;
       energyConfidence = 80;
     }
 
