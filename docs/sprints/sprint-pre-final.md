@@ -3,7 +3,7 @@
 ## Executive Summary
 
 **Date**: 2026-02-03
-**Status**: Planning (Revised after Senior Review)
+**Status**: In Progress (3/8 items completed)
 **Priority**: High - Hackathon Demo Readiness
 
 This sprint addresses 4 critical areas before the hackathon demo:
@@ -711,19 +711,19 @@ export const TAB_REGISTRY = {
 
 ## Sprint Summary (Revised)
 
-| Priority | Objective | Effort | Demo Impact | Risk |
-|----------|-----------|--------|-------------|------|
-| **P0** | Bruno catch-up advice | 1.5h | HIGH | LOW |
-| **P1.4** | Reduce tips timeout | 15min | HIGH | LOW |
-| **P1.1** | Lazy tabs + Suspense | 1h | HIGH | MEDIUM (test!) |
-| **P1.2** | Defer tips API | 30min | MEDIUM | LOW |
-| **P2** | Prepare Opik demo | 1h | HIGH (judges) | LOW |
-| **P3.1** | Skill → Job scan trigger | 30min | HIGH | LOW |
-| **P3.2** | Goal achieved trigger | 30min | HIGH | LOW |
-| **P3.3** | Energy warning trigger | 30min | MEDIUM | LOW |
-| **P3.bonus** | Global ProactiveAlerts | 1h | MEDIUM | MEDIUM |
+| Priority | Objective | Effort | Demo Impact | Status |
+|----------|-----------|--------|-------------|--------|
+| **P0** | Bruno catch-up advice | 1.5h | HIGH | ✅ Done |
+| **P1.4** | Reduce tips timeout | 15min | HIGH | ✅ Done |
+| **P1.1** | Lazy tabs + Suspense | 1h | HIGH | ✅ Done |
+| **P1.2** | Defer tips API | 30min | MEDIUM | Pending |
+| **P2** | Prepare Opik demo | 1h | HIGH (judges) | Pending |
+| **P3.1** | Skill → Job scan trigger | 30min | HIGH | Pending |
+| **P3.2** | Goal achieved trigger | 30min | HIGH | Pending |
+| **P3.3** | Energy warning trigger | 30min | MEDIUM | Pending |
+| **P3.bonus** | Global ProactiveAlerts | 1h | MEDIUM | Optional |
 
-**Total Estimated**: ~7h for full sprint
+**Completed**: ~3h | **Remaining**: ~4h
 
 ### Recommended Order (Quickwins First)
 1. **P1.4**: Reduce tips timeout 15s→5s (5 min fix, instant perf win)
@@ -736,13 +736,13 @@ export const TAB_REGISTRY = {
 8. **P3.bonus**: If time, add centralized ProactiveAlerts component
 
 ### Definition of Done
-- [ ] Bruno gives catch-up advice when behind schedule
-- [ ] Page transitions feel snappy (<1s)
-- [ ] Tips API responds in <5s (with graceful fallback)
+- [x] Bruno gives catch-up advice when behind schedule ✅ (v4.2)
+- [x] Page transitions feel snappy (<1s) - lazy loading implemented ✅
+- [x] Tips API responds in <5s (with graceful fallback) ✅ (timeout 15s→5s)
 - [ ] 3 Opik use cases ready to demo with real traces
 - [ ] At least 2 proactive triggers working (skill + goal)
-- [ ] **No client-side Opik tracing** (security verified)
-- [ ] Lazy tabs wrapped in `<Suspense>` (no blank screens)
+- [x] **No client-side Opik tracing** (security verified) ✅
+- [x] Lazy tabs wrapped in `<Suspense>` (no blank screens) ✅
 
 ---
 
