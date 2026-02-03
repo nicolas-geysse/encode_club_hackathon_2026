@@ -17,6 +17,8 @@ import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/li
 import { type LegacySkill, skillToLegacy } from '~/types/entities';
 import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
 import { toastPopup } from '~/components/ui/Toast';
+import { getSkillDefaults, getQuickAddTemplates } from '~/lib/data/skillRegistry';
+import { createLogger } from '~/lib/logger';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
@@ -34,6 +36,8 @@ import {
   HelpCircle,
 } from 'lucide-solid';
 
+const logger = createLogger('SkillsTab');
+
 interface SkillsTabProps {
   initialSkills?: LegacySkill[];
   onSkillsChange?: (skills: LegacySkill[]) => void;
@@ -42,43 +46,21 @@ interface SkillsTabProps {
   onDirtyChange?: (isDirty: boolean) => void;
 }
 
-const SKILL_TEMPLATES: Partial<CreateSkillInput>[] = [
-  { name: 'Python', hourlyRate: 25, marketDemand: 5, cognitiveEffort: 4, restNeeded: 2 },
-  { name: 'SQL Coaching', hourlyRate: 22, marketDemand: 4, cognitiveEffort: 3, restNeeded: 1 },
-  { name: 'JavaScript', hourlyRate: 23, marketDemand: 5, cognitiveEffort: 4, restNeeded: 2 },
-  { name: 'Excel', hourlyRate: 18, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
-  { name: 'Tutoring', hourlyRate: 20, marketDemand: 5, cognitiveEffort: 3, restNeeded: 1 },
-  {
-    name: 'English Translation',
-    hourlyRate: 15,
-    marketDemand: 3,
-    cognitiveEffort: 2,
-    restNeeded: 0.5,
-  },
-  { name: 'Graphic Design', hourlyRate: 22, marketDemand: 3, cognitiveEffort: 4, restNeeded: 2 },
-  { name: 'Data Entry', hourlyRate: 12, marketDemand: 4, cognitiveEffort: 1, restNeeded: 0.5 },
-  { name: 'Social Media', hourlyRate: 16, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
-  { name: 'Web Writing', hourlyRate: 18, marketDemand: 3, cognitiveEffort: 3, restNeeded: 1 },
-  // Additional common skills
-  { name: 'Guitar', hourlyRate: 20, marketDemand: 3, cognitiveEffort: 2, restNeeded: 1 },
-  { name: 'Piano', hourlyRate: 22, marketDemand: 3, cognitiveEffort: 3, restNeeded: 1 },
-  { name: 'Music', hourlyRate: 18, marketDemand: 3, cognitiveEffort: 2, restNeeded: 1 },
-  { name: 'Photography', hourlyRate: 20, marketDemand: 3, cognitiveEffort: 2, restNeeded: 1 },
-  { name: 'Video Editing', hourlyRate: 22, marketDemand: 4, cognitiveEffort: 3, restNeeded: 2 },
-  { name: 'Babysitting', hourlyRate: 12, marketDemand: 5, cognitiveEffort: 2, restNeeded: 1 },
-  { name: 'Cleaning', hourlyRate: 14, marketDemand: 4, cognitiveEffort: 1, restNeeded: 1 },
-  { name: 'Driving', hourlyRate: 15, marketDemand: 4, cognitiveEffort: 2, restNeeded: 1 },
-];
-
 /**
- * Find a matching template for a skill name (case-insensitive)
- * Returns the template if found, undefined otherwise
+ * Get skill defaults from the Unified Skill Registry.
+ * Returns the skill's attributes if found, undefined otherwise.
+ * This replaces the hardcoded SKILL_TEMPLATES array.
  */
 function findSkillTemplate(skillName: string): Partial<CreateSkillInput> | undefined {
-  const lowerName = skillName.toLowerCase().trim();
-  return SKILL_TEMPLATES.find(
-    (t) => t.name?.toLowerCase() === lowerName || lowerName.includes(t.name?.toLowerCase() || '')
-  );
+  const defaults = getSkillDefaults(skillName);
+  // getSkillDefaults always returns values (with fallbacks), so we return them
+  return {
+    name: skillName,
+    hourlyRate: defaults.defaultHourlyRate,
+    marketDemand: defaults.marketDemand,
+    cognitiveEffort: defaults.cognitiveEffort,
+    restNeeded: defaults.restNeeded,
+  };
 }
 
 // Default minimum hourly rate fallback
@@ -342,11 +324,62 @@ export function SkillsTab(props: SkillsTabProps) {
     }
   });
 
+  /**
+   * Migrate skills without attributes (Phase 1: Unified Skill Registry).
+   * Backfills marketDemand, cognitiveEffort, restNeeded from the registry
+   * for skills created before the registry existed.
+   */
+  const migrateIncompleteSkills = async (skillsList: Skill[]): Promise<void> => {
+    const incompleteSkills = skillsList.filter(
+      (skill) =>
+        !skill.marketDemand ||
+        skill.marketDemand === 0 ||
+        !skill.cognitiveEffort ||
+        skill.cognitiveEffort === 0 ||
+        skill.restNeeded === undefined ||
+        skill.restNeeded === null
+    );
+
+    if (incompleteSkills.length === 0) return;
+
+    logger.info('Migrating incomplete skills', {
+      count: incompleteSkills.length,
+      skills: incompleteSkills.map((s) => s.name),
+    });
+
+    let migrated = 0;
+    for (const skill of incompleteSkills) {
+      const defaults = getSkillDefaults(skill.name);
+      try {
+        await skillService.updateSkill({
+          id: skill.id,
+          marketDemand: defaults.marketDemand,
+          cognitiveEffort: defaults.cognitiveEffort,
+          restNeeded: defaults.restNeeded,
+        });
+        migrated++;
+      } catch (error) {
+        logger.error('Failed to migrate skill', { skillId: skill.id, name: skill.name, error });
+      }
+    }
+
+    if (migrated > 0) {
+      logger.info('Skills migration complete', { migrated, total: incompleteSkills.length });
+      // Refresh skills to get updated values
+      await refreshSkills();
+    }
+  };
+
   // Load skills on mount if profile exists
   onMount(async () => {
     const currentProfile = profile();
     if (currentProfile?.id) {
       await refreshSkills();
+      // Migrate incomplete skills (Phase 1: backfill registry attributes)
+      const loadedSkills = contextSkills();
+      if (loadedSkills.length > 0) {
+        await migrateIncompleteSkills(loadedSkills);
+      }
     }
     // Bug B Fix: Mark initial load as complete after refreshSkills
     setInitialLoadComplete(true);
@@ -606,37 +639,54 @@ export function SkillsTab(props: SkillsTabProps) {
         </Card>
       </Show>
 
-      {/* Quick Add Templates - Sprint 2 Bug #5 fix: Hide when no templates available */}
-      {/* BUG Q FIX: Only show templates after skills have loaded (not during initial load) */}
+      {/* Quick Add Templates - Now uses Unified Skill Registry */}
+      {/* Templates are filtered by user's field and exclude already-added skills */}
       {/* Bug B Fix: Also require initialLoadComplete to prevent race condition */}
       <Show
         when={
           initialLoadComplete() &&
           skillsLoadState() === 'loaded' &&
-          SKILL_TEMPLATES.filter(
-            (t) => !skills().some((s) => s.name.toLowerCase() === t.name?.toLowerCase())
+          getQuickAddTemplates(
+            profile()?.field,
+            skills().map((s) => s.name)
           ).length > 0
         }
       >
         <Card>
           <CardContent class="p-4">
-            <h3 class="text-sm font-medium text-foreground mb-3">Quick add</h3>
+            <h3 class="text-sm font-medium text-foreground mb-3">
+              Quick add
+              <Show when={profile()?.field}>
+                <span class="text-muted-foreground font-normal ml-1">
+                  (suggestions for your field)
+                </span>
+              </Show>
+            </h3>
             <div class="flex flex-wrap gap-2">
               <For
-                each={SKILL_TEMPLATES.filter(
-                  (t) => !skills().some((s) => s.name.toLowerCase() === t.name?.toLowerCase())
-                )}
+                each={getQuickAddTemplates(
+                  profile()?.field,
+                  skills().map((s) => s.name)
+                ).slice(0, 15)}
               >
-                {(template) => (
+                {(def) => (
                   <Button
                     variant="outline"
                     size="sm"
                     class="rounded-full h-8"
-                    onClick={() => addSkill(template)}
+                    onClick={() =>
+                      addSkill({
+                        name: def.name,
+                        hourlyRate: def.defaultHourlyRate,
+                        marketDemand: def.marketDemand,
+                        cognitiveEffort: def.cognitiveEffort,
+                        restNeeded: def.restNeeded,
+                      })
+                    }
                     disabled={isLoading()}
                   >
                     <Plus class="h-3 w-3 mr-1" />
-                    {template.name}
+                    {def.name}
                   </Button>
                 )}
               </For>

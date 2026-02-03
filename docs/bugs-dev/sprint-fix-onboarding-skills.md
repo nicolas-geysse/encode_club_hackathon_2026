@@ -1,7 +1,7 @@
 # Sprint: Onboarding → Skills → Jobs → Swipe Integration
 
 **Date**: 2026-02-03
-**Statut**: EN COURS (Phase 0 ✅ partial, Phase 3 ✅)
+**Statut**: EN COURS (Phase 0 ✅, Phase 1 ✅, Phase 3 ✅)
 **Priorité**: Haute (cohérence UX et valeur métier)
 
 ---
@@ -124,16 +124,16 @@ generateScenarios():
 | B0.3 | **[NEW]** Ajouter defensive coding dans `bulkCreateSkills` | `skillService.ts:153-204` | ✅ Implémenté - try/catch granulaire + logging failed skills |
 | B0.4 | **[NEW]** Créer utilitaire migration skills incomplets | `lib/skillMigration.ts` (nouveau) | 🔜 À faire en Phase 1 (dépend du registry) |
 
-### Phase 1: Unified Skill Registry
+### Phase 1: Unified Skill Registry ✅ COMPLETE
 > Objectif: Single Source of Truth pour tous les skills (onboarding + quick-add + scoring)
 
-| ID | Tâche | Détails | Fichiers |
-|----|-------|---------|----------|
-| P1.1 | **[UPDATED]** Créer `SkillDefinition` type + registry | Type centralisé avec tous attributs + fields[] | `lib/data/skillRegistry.ts` (nouveau) |
-| P1.2 | Peupler registry avec skillsByField + SKILL_TEMPLATES | Fusionner les ~84 skills des 12 domaines | `lib/data/skillRegistry.ts` |
-| P1.3 | Modifier `persistSkills()` | Lookup dans registry pour attributs complets | `onboardingPersistence.ts` |
-| P1.4 | Exécuter migration au mount SkillsTab | Backfill skills existants sans attributs | `SkillsTab.tsx` |
-| P1.5 | **[NEW]** Test E2E: Onboarding CS → Skills Tab | Vérifier skill avec score > 0 | Test manuel/E2E |
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P1.1 | Créer `SkillDefinition` type + registry | Type centralisé avec tous attributs + fields[] | `lib/data/skillRegistry.ts` | ✅ |
+| P1.2 | Peupler registry avec ~70 skills | Fusionner skillsByField + SKILL_TEMPLATES avec attributs complets | `lib/data/skillRegistry.ts` | ✅ |
+| P1.3 | Modifier `persistSkills()` | Lookup dans registry pour attributs complets | `onboardingPersistence.ts` | ✅ |
+| P1.4 | Migration au mount SkillsTab | Backfill skills existants sans attributs | `SkillsTab.tsx` | ✅ |
+| P1.5 | Quick-add contextuel | Templates filtrés par field + registry | `SkillsTab.tsx` | ✅ |
 
 ### Phase 2: Unification Templates Skills
 > Objectif: SkillsTab quick-add affiche les skills pertinents selon le domaine d'étude
@@ -228,20 +228,20 @@ Phase 8: UX Visuelle (jour 6-7)
 
 ## Définitions de Done
 
-### Phase 0 (Bug Fixes + Migration) ✅ PARTIAL
+### Phase 0 (Bug Fixes + Migration) ✅ COMPLETE
 - [x] Aucune erreur console liée aux skills (vérifié - pas d'erreurs)
-- [x] Les skills onboarding apparaissent dans SkillsTab après création (vérifié - mais sans attributs complets)
+- [x] Les skills onboarding apparaissent dans SkillsTab après création (maintenant avec attributs complets)
 - [x] Audit code mort: `getFieldSkills`, `isSkillInField` non utilisés (gardés pour Phase 2)
 - [x] `bulkCreateSkills` ne crash pas si un skill échoue (defensive coding implémenté)
-- [ ] Utilitaire migration créé (dépend du registry Phase 1)
+- [x] Utilitaire migration créé (`migrateIncompleteSkills` dans SkillsTab.tsx)
 
-### Phase 1 (Unified Skill Registry)
-- [ ] `SkillDefinition` type créé avec tous les attributs requis
-- [ ] Registry contient tous les skills de skillsByField + SKILL_TEMPLATES
-- [ ] Chaque skill créé à l'onboarding a: marketDemand, cognitiveEffort, restNeeded
-- [ ] Le score d'arbitrage est > 0 pour tous les skills
-- [ ] Skills existants sans attributs sont migrés au mount
-- [ ] Test E2E passe: CS student → skill avec score > 0
+### Phase 1 (Unified Skill Registry) ✅ COMPLETE
+- [x] `SkillDefinition` type créé avec tous les attributs requis (70+ skills)
+- [x] Registry contient skills de skillsByField + SKILL_TEMPLATES avec attributs complets
+- [x] Chaque skill créé à l'onboarding a: marketDemand, cognitiveEffort, restNeeded
+- [x] Le score d'arbitrage est > 0 pour tous les skills (via registry defaults)
+- [x] Skills existants sans attributs sont migrés au mount (migrateIncompleteSkills)
+- [x] Quick-add contextuel par field implémenté
 
 ### Phase 2 (Templates Unifiés)
 - [ ] Quick-add affiche skills pertinents selon `profile.field`

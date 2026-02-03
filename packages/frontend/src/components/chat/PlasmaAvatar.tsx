@@ -38,6 +38,7 @@ interface EyeState {
   blinkProgress: number; // 0 = open, 1 = closed
   isBlinking: boolean;
   nextBlinkTime: number; // Time before next blink
+  nextGazeTime: number; // Time before next gaze shift
 }
 
 export default function PlasmaAvatar(props: PlasmaAvatarProps) {
@@ -58,6 +59,7 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
     blinkProgress: 0,
     isBlinking: false,
     nextBlinkTime: 3 + Math.random() * 5, // First blink in 3-8 seconds
+    nextGazeTime: 1 + Math.random() * 2, // First gaze shift
   };
 
   // Color schemes
@@ -203,15 +205,40 @@ export default function PlasmaAvatar(props: PlasmaAvatarProps) {
       }
     }
 
-    // Change gaze direction occasionally (~once every 8 seconds)
-    if (Math.random() < 0.002) {
-      eyeState.targetLookX = (Math.random() - 0.5) * 0.6; // Subtle range
-      eyeState.targetLookY = (Math.random() - 0.5) * 0.4;
+    // Saccadic Gaze Movement
+    // Human eyes move in quick jumps (saccades) followed by fixation
+    if (time > eyeState.nextGazeTime) {
+      // 30% chance to look directly at user (center)
+      if (Math.random() < 0.3) {
+        eyeState.targetLookX = 0;
+        eyeState.targetLookY = 0;
+      } else {
+        // Random look direction (wider range for alert look)
+        // Range: -0.7 to 0.7 (was 0.5)
+        eyeState.targetLookX = (Math.random() - 0.5) * 1.4;
+        eyeState.targetLookY = (Math.random() - 0.5) * 1.0;
+      }
+
+      // Next saccade in 200ms (quick glance) to 2.5s (stare)
+      // Weighted towards shorter intervals for more "active" feel
+      const saccadeInterval =
+        Math.random() < 0.6 ? 0.2 + Math.random() * 0.8 : 1 + Math.random() * 1.5;
+      eyeState.nextGazeTime = time + saccadeInterval;
+
+      // Occasional blink synced with large eye movements (natural behavior)
+      if (
+        Math.abs(eyeState.targetLookX - eyeState.lookX) > 0.5 &&
+        !eyeState.isBlinking &&
+        Math.random() < 0.5
+      ) {
+        eyeState.isBlinking = true;
+      }
     }
 
-    // Smooth interpolation toward target gaze
-    eyeState.lookX += (eyeState.targetLookX - eyeState.lookX) * 0.02;
-    eyeState.lookY += (eyeState.targetLookY - eyeState.lookY) * 0.02;
+    // Snappier interpolation for saccades (was 0.02)
+    // Eyes move quickly, they don't drift
+    eyeState.lookX += (eyeState.targetLookX - eyeState.lookX) * 0.25;
+    eyeState.lookY += (eyeState.targetLookY - eyeState.lookY) * 0.25;
 
     // Clear canvas
     ctx.clearRect(0, 0, w, h);

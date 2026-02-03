@@ -13,6 +13,7 @@ import { tradeService } from '~/lib/tradeService';
 import { createLogger } from '~/lib/logger';
 import { eventBus } from '~/lib/eventBus';
 import { simulationService } from '~/lib/simulationService';
+import { getSkillDefaults } from '~/lib/data/skillRegistry';
 
 const logger = createLogger('OnboardingPersistence');
 
@@ -173,6 +174,10 @@ export async function persistGoal(profileId: string, goalData: GoalData): Promis
 
 /**
  * Persist skills to the skills table.
+ *
+ * Now uses the Unified Skill Registry to get complete attributes
+ * (marketDemand, cognitiveEffort, restNeeded) for each skill.
+ * This ensures skills created during onboarding have proper arbitrage scores.
  */
 export async function persistSkills(
   profileId: string,
@@ -184,12 +189,25 @@ export async function persistSkills(
   try {
     await skillService.bulkCreateSkills(
       profileId,
-      skills.map((name) => ({
-        name,
-        level: 'intermediate' as const,
-        hourlyRate: defaultHourlyRate,
-      }))
+      skills.map((name) => {
+        // Look up skill defaults from the Unified Registry
+        const defaults = getSkillDefaults(name);
+        return {
+          name,
+          level: 'intermediate' as const,
+          // Use provided rate if higher, otherwise use registry default
+          hourlyRate: Math.max(defaultHourlyRate, defaults.defaultHourlyRate),
+          // Include all attributes for proper arbitrage scoring
+          marketDemand: defaults.marketDemand,
+          cognitiveEffort: defaults.cognitiveEffort,
+          restNeeded: defaults.restNeeded,
+        };
+      })
     );
+    logger.info('Skills persisted with registry attributes', {
+      count: skills.length,
+      skills: skills.slice(0, 3), // Log first 3 for debugging
+    });
     return true;
   } catch (error) {
     logger.error('Failed to persist skills', { error });
