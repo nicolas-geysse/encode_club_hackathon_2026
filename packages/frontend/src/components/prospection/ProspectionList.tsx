@@ -35,6 +35,7 @@ import type { ProspectionSearchMeta } from '~/lib/prospectionTypes';
 import { formatStarRating, isTopPick } from '~/lib/jobScoring';
 import { getEffortLabel, getCategoryById } from '~/config/prospectionCategories';
 import type { CertificationDefinition } from '~/lib/data/certificationMapping';
+import { FeedbackButton } from '~/components/ui/FeedbackButton';
 
 // Icon mapping
 const ICON_MAP = {
@@ -60,6 +61,8 @@ interface ProspectionListProps {
   meta?: ProspectionSearchMeta;
   /** Phase 8: User's certifications for proactive banner */
   userCertifications?: string[];
+  /** Phase 6: Profile ID for feedback tracking */
+  profileId?: string;
 }
 
 export function ProspectionList(props: ProspectionListProps) {
@@ -257,7 +260,14 @@ export function ProspectionList(props: ProspectionListProps) {
       {/* Job list */}
       <div class="space-y-3">
         <For each={sortedJobs()}>
-          {(job) => <JobListItem job={job} onSave={props.onSave} isSaved={isSaved(job.id)} />}
+          {(job) => (
+            <JobListItem
+              job={job}
+              onSave={props.onSave}
+              isSaved={isSaved(job.id)}
+              profileId={props.profileId}
+            />
+          )}
         </For>
       </div>
     </div>
@@ -268,6 +278,8 @@ interface JobListItemProps {
   job: ScoredJob;
   onSave: (job: ScoredJob) => void;
   isSaved: boolean;
+  /** Phase 6: Profile ID for feedback tracking */
+  profileId?: string;
 }
 
 function JobListItem(props: JobListItemProps) {
@@ -500,6 +512,22 @@ function JobListItem(props: JobListItemProps) {
                 <ExternalLink class="h-3 w-3" />
                 View
               </a>
+            </Show>
+            {/* Phase 6: Feedback buttons */}
+            <Show when={props.profileId}>
+              <div class="flex items-center justify-center">
+                <FeedbackButton
+                  suggestionType="job"
+                  suggestionId={props.job.id}
+                  profileId={props.profileId}
+                  size="sm"
+                  metadata={{
+                    categoryId: props.job.categoryId,
+                    score: props.job.score,
+                    company: props.job.company,
+                  }}
+                />
+              </div>
             </Show>
           </div>
         </div>

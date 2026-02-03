@@ -22,6 +22,7 @@ import { createLogger } from '~/lib/logger';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
+import { FeedbackButton } from '~/components/ui/FeedbackButton';
 import {
   Briefcase,
   Lightbulb,
@@ -746,8 +747,22 @@ export function SkillsTab(props: SkillsTabProps) {
                     {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}/10
                   </div>
 
-                  {/* Edit & Remove */}
+                  {/* Phase 6: Feedback + Edit & Remove */}
                   <div class="flex-shrink-0 flex items-center gap-2">
+                    {/* Feedback buttons */}
+                    <Show when={profile()?.id}>
+                      <FeedbackButton
+                        suggestionType="skill"
+                        suggestionId={skill.name}
+                        profileId={profile()!.id}
+                        size="sm"
+                        metadata={{
+                          score: skill.score,
+                          hourlyRate: skill.hourlyRate,
+                          marketDemand: skill.marketDemand,
+                        }}
+                      />
+                    </Show>
                     <Button
                       variant="ghost"
                       size="icon"

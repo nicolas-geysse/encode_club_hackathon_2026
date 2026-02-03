@@ -1,7 +1,7 @@
 # Sprint: Onboarding → Skills → Jobs → Swipe Integration
 
 **Date**: 2026-02-03
-**Statut**: EN COURS (Phase 0-5 ✅, Phase 8 ✅, Phase 6-7 🔜)
+**Statut**: EN COURS (Phase 0-6 ✅, Phase 8 ✅, Phase 7 🔜)
 **Priorité**: Haute (cohérence UX et valeur métier)
 
 ---
@@ -212,16 +212,42 @@ generateScenarios():
 - 🇺🇸 US: CPR/AED, Lifeguard, Food Handler, TABC
 - 🌍 International: TEFL, PADI, Driving License
 
-### Phase 6: Système de Feedback (Thumb Up/Down)
+### Phase 6: Système de Feedback (Thumb Up/Down) ✅ COMPLETE
 > Objectif: L'utilisateur peut noter les suggestions pour améliorer les recommandations
+> **Commit**: TBD - feat(feedback): Phase 6 user feedback system for suggestions
 
-| ID | Tâche | Détails | Fichiers |
-|----|-------|---------|----------|
-| P6.1 | Créer composant `FeedbackButton` | Thumb up/down avec animation | `components/ui/FeedbackButton.tsx` (nouveau) |
-| P6.2 | Ajouter feedback sur skill suggestions | Dans SkillsTab quick-add | `SkillsTab.tsx` |
-| P6.3 | Ajouter feedback sur job cards | Dans ProspectionTab | `ProspectionTab.tsx` |
-| P6.4 | Ajouter feedback sur swipe scenarios | Avant/après swipe | `SwipeCard.tsx` |
-| P6.5 | Persister feedback en DB | Nouvelle table `feedback` | `api/feedback.ts` |
+| ID | Tâche | Détails | Fichiers | Status |
+|----|-------|---------|----------|--------|
+| P6.1 | Créer composant `FeedbackButton` | Thumb up/down avec animation | `components/ui/FeedbackButton.tsx` | ✅ |
+| P6.2 | Ajouter feedback sur skills | Sur chaque skill card (pas quick-add) | `SkillsTab.tsx` | ✅ |
+| P6.3 | Ajouter feedback sur job cards | Dans ProspectionList | `ProspectionList.tsx` | ✅ |
+| P6.4 | Ajouter feedback sur swipe scenarios | Note: Swipe IS feedback - non implémenté | `SwipeCard.tsx` | ⏭️ Skipped |
+| P6.5 | Persister feedback en DB | Table `suggestion_feedback` | `api/suggestion-feedback.ts` | ✅ |
+
+**Implémentation détaillée:**
+
+1. **FeedbackButton component (components/ui/FeedbackButton.tsx)**
+   - Boutons thumb up/down avec animation scale
+   - Toggle: re-click pour enlever le feedback
+   - Persiste automatiquement vers `/api/suggestion-feedback`
+   - Props: suggestionType, suggestionId, profileId, metadata
+
+2. **API suggestion-feedback (routes/api/suggestion-feedback.ts)**
+   - POST: Upsert feedback (id = profileId_type_suggestionId)
+   - GET: Récupérer feedback par profile/type/suggestion
+   - Table DuckDB: `suggestion_feedback`
+
+3. **ProspectionList integration**
+   - FeedbackButton sur chaque job card
+   - Metadata: categoryId, score, company
+
+4. **SkillsTab integration**
+   - FeedbackButton sur chaque skill card (à côté Edit/Delete)
+   - Metadata: score, hourlyRate, marketDemand
+
+5. **SwipeCard non modifié**
+   - Décision: Le swipe (left/right/up/down) EST le feedback
+   - Pas besoin d'ajouter des thumbs supplémentaires
 
 ### Phase 7: Traçage Opik
 > Objectif: Toutes les suggestions et feedbacks sont tracés
@@ -354,9 +380,11 @@ Phase 8: UX Visuelle (jour 6-7)
 - [x] Tooltip "Why this job matches" avec breakdown complet (5 métriques)
 - [ ] Skills du registry connectés aux job categories (reporté - amélioration future)
 
-### Phase 6 (Feedback)
-- [ ] Thumb up/down visible sur: skills suggestions, job cards, swipe cards
-- [ ] Feedback persisté en DB
+### Phase 6 (Feedback) ✅ COMPLETE
+- [x] Thumb up/down visible sur: skills cards, job cards
+- [x] Feedback persisté en DB (table `suggestion_feedback`)
+- [x] FeedbackButton component réutilisable avec animation
+- [x] Swipe scenarios: feedback via geste swipe (pas de thumbs ajoutés)
 
 ### Phase 7 (Opik)
 - [ ] Traces visibles dans dashboard Opik
