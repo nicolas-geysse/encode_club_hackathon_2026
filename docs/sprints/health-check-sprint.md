@@ -169,19 +169,57 @@ Ensure single source of truth for energy history.
 
 ```
 jobScoring.ts
-├── Import profile swipe preferences
-├── Create dynamic weight calculation
+├── Add swipePreferences to UserProfile interface
+├── Create mapSwipeToWeights() with cold start defaults
+├── Integrate dynamic weights in scoreJob()
 ├── Add personalization factor to score breakdown
-└── Trace with Opik
+└── Add preferenceVersion to Opik traces
+
+ProspectionTab.tsx
+├── Read profile.swipePreferences
+├── Pass to scoreJobsForProfile() call
+└── Link preferenceVersion in trace context
 ```
 
-**Key Code Change**:
+**Key Code Changes**:
+
+1. **UserProfile interface** (jobScoring.ts):
 ```typescript
-// In scoreJob() function
-const userWeights = profile?.swipePreferences
-  ? mapSwipeToWeights(profile.swipePreferences)
-  : DEFAULT_WEIGHTS;
+interface UserProfile {
+  // ... existing fields
+  swipePreferences?: {
+    effortSensitivity: number;
+    hourlyRatePriority: number;
+    timeFlexibility: number;
+    incomeStability: number;
+  };
+}
 ```
+
+2. **Weight mapping with cold start** (jobScoring.ts):
+```typescript
+function mapSwipeToWeights(prefs?: SwipePreferences): Weights {
+  if (!prefs) return DEFAULT_WEIGHTS; // Cold start fallback
+
+  // Normalize swipe preferences to scoring weights
+  return {
+    distance: 0.25, // Fixed (geography matters)
+    profile: 0.15,  // Reduced to make room for preferences
+    effort: 0.20 * (1 + prefs.effortSensitivity - 0.5),
+    rate: 0.20 * (1 + prefs.hourlyRatePriority - 0.5),
+    goalFit: 0.20,  // Fixed (goal alignment)
+  };
+}
+```
+
+3. **Trace linking** (ProspectionTab.tsx):
+```typescript
+// Generate preferenceVersion hash for Opik correlation
+const preferenceVersion = hashPreferences(profile.swipePreferences);
+// Pass to scoring and log in swipe-trace for cause→effect proof
+```
+
+**Architecture Decision**: Keep scoring client-side for instant UI performance. Only trace metadata goes to API.
 
 ### Phase 2: API Unification (P1)
 
@@ -235,6 +273,21 @@ components/debug/DebugPanel.tsx
 
 ---
 
+## Senior Review Feedback (2026-02-03)
+
+### Verified Findings
+- ✅ Swipe disconnect confirmed: `jobScoring.ts` uses hardcoded `WEIGHTS`, ignores `profile.swipePreferences`
+- ✅ Analysis is 100% accurate, P0 priority is correct
+
+### Architecture Recommendations
+1. **Keep client-side scoring** - Don't move scoring to API, kills instant sort UX performance
+2. **Update UserProfile interface** - Must add `swipePreferences` field (critical omission in original plan)
+3. **Update ProspectionTab** - Must populate swipePreferences when calling `scoreJobsForProfile()`
+4. **Cold start handling** - Robust defaults for users with 0 swipes
+5. **Trace linking** - Return `preferenceVersion` ID from swipe-trace, log same ID when scoring for Opik cause→effect proof
+
+---
+
 ## Risks & Mitigations
 
 | Risk | Probability | Impact | Mitigation |
@@ -242,6 +295,7 @@ components/debug/DebugPanel.tsx
 | Breaking existing functionality | Medium | High | Add feature flags, test thoroughly |
 | Performance regression (more API calls) | Low | Medium | Cache algorithm results |
 | User confusion from changed behavior | Low | Low | Add changelog notification |
+| Cold start edge cases | Medium | Low | Robust defaults, graceful fallback |
 
 ---
 
