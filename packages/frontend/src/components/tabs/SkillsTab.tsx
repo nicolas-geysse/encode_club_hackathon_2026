@@ -278,6 +278,7 @@ export function SkillsTab(props: SkillsTabProps) {
   // Use context skills (from DB) as source of truth when profile exists
   // Only fall back to initialSkills when no profile (backward compat)
   // BUG Q FIX: Track skills load state to distinguish "loading" from "no skills"
+  // BUG FIX: Sync skills to planData when loaded from DB (for SwipeTab to see correct hourlyRate)
   createEffect(() => {
     const ctxSkills = contextSkills();
     const currentProfile = profile();
@@ -293,6 +294,9 @@ export function SkillsTab(props: SkillsTabProps) {
     // This prevents temp IDs from initialSkills causing 404 on delete
     if (currentProfile?.id) {
       setLocalSkills(ctxSkills);
+      // BUG FIX: Sync to planData so SwipeTab sees correct hourlyRate from DB
+      // Without this, planData().skills stays empty/stale and SwipeTab gets skills with rate=0
+      props.onSkillsChange?.(ctxSkills.map(skillToLegacy));
       // Mark as loaded once we have context skills (even if empty array)
       setSkillsLoadState('loaded');
       return;
