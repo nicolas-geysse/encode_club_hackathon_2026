@@ -3,9 +3,11 @@
  *
  * Displays prospection categories in an accordion layout.
  * Click a category to trigger a job search.
+ *
+ * Special "TOP 10 of all categories" appears at top when user has explored multiple categories.
  */
 
-import { For, createSignal } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import {
   UtensilsCrossed,
@@ -22,6 +24,8 @@ import {
   Search,
   Zap,
   Globe,
+  Trophy,
+  Star,
 } from 'lucide-solid';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
@@ -32,6 +36,10 @@ import {
   getEffortLabel,
   getCategoryColor,
 } from '~/config/prospectionCategories';
+import type { ScoredJob } from '~/lib/jobScoring';
+
+// Special category ID for global TOP 10
+export const TOP10_ALL_CATEGORY_ID = '__top10_all__';
 
 // Icon mapping
 const ICON_MAP = {
@@ -52,6 +60,10 @@ interface CategoryExplorerProps {
   isLoading?: boolean;
   loadingCategory?: string;
   currency?: 'USD' | 'EUR' | 'GBP';
+  /** All jobs accumulated from previous category searches (for global TOP 10) */
+  allCategoryJobs?: ScoredJob[];
+  /** Categories that have been searched (for showing how many categories explored) */
+  searchedCategories?: string[];
 }
 
 export function CategoryExplorer(props: CategoryExplorerProps) {
@@ -63,6 +75,20 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
 
   const currency = () => props.currency || 'EUR';
 
+  // Check if we have cached jobs from previous searches
+  const hasCachedJobs = () => {
+    const jobs = props.allCategoryJobs;
+    return jobs && jobs.length > 0;
+  };
+
+  const globalTop10Count = () => {
+    const jobs = props.allCategoryJobs;
+    if (!jobs) return 0;
+    return Math.min(jobs.length, 10);
+  };
+
+  const categoriesExploredCount = () => props.searchedCategories?.length || 0;
+
   return (
     <div class="space-y-4">
       <div class="text-center mb-6">
@@ -71,6 +97,73 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
       </div>
 
       <div class="space-y-2">
+        {/* Special TOP 10 of all categories - always visible, triggers deep search */}
+        <Card
+          class={cn(
+            'transition-all duration-200 border-2',
+            'border-amber-400/50 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20',
+            'hover:border-amber-400 hover:shadow-lg hover:shadow-amber-200/30 dark:hover:shadow-amber-900/20'
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => props.onCategorySelect(TOP10_ALL_CATEGORY_ID)}
+            class="w-full"
+            disabled={props.isLoading}
+          >
+            <CardContent class="p-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-lg shadow-md bg-gradient-to-br from-amber-400 to-yellow-500 text-white">
+                    <Trophy class="h-5 w-5" />
+                  </div>
+                  <div class="text-left">
+                    <div class="flex items-center gap-2">
+                      <h3 class="font-bold text-amber-900 dark:text-amber-100">
+                        TOP 10 of All Categories
+                      </h3>
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-200 dark:bg-amber-800/50 rounded-full text-xs font-medium text-amber-800 dark:text-amber-200">
+                        <Star class="h-3 w-3 fill-current" />
+                        {hasCachedJobs() ? 'Best Matches' : 'Deep Search'}
+                      </span>
+                    </div>
+                    <p class="text-sm text-amber-700 dark:text-amber-300">
+                      {hasCachedJobs()
+                        ? `Top ${globalTop10Count()} jobs from ${categoriesExploredCount()} categories explored`
+                        : 'Search all categories to find your best matches'}
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  {props.isLoading && props.loadingCategory === TOP10_ALL_CATEGORY_ID ? (
+                    <svg
+                      class="animate-spin h-5 w-5 text-amber-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      />
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                  ) : (
+                    <Search class="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </button>
+        </Card>
+
         <For each={PROSPECTION_CATEGORIES}>
           {(category) => {
             const isExpanded = () => expandedId() === category.id;

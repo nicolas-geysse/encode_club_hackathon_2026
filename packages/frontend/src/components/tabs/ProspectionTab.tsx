@@ -12,6 +12,7 @@
 import { createSignal, Show, createEffect, on } from 'solid-js';
 import {
   CategoryExplorer,
+  TOP10_ALL_CATEGORY_ID,
   ProspectionList,
   ProspectionMap,
   SavedLeads,
@@ -36,7 +37,7 @@ import type {
   ProspectionTabProps,
   ProspectionSearchMeta,
 } from '~/lib/prospectionTypes';
-import { getCategoryById } from '~/config/prospectionCategories';
+import { getCategoryById, PROSPECTION_CATEGORIES } from '~/config/prospectionCategories';
 import { scoreJobsForProfile, type ScoredJob, type UserProfile } from '~/lib/jobScoring';
 
 type Phase = 'idle' | 'loading' | 'results' | 'complete';
@@ -56,6 +57,10 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const [showLeadsPanel, setShowLeadsPanel] = createSignal(false);
   // Track ALL jobs from ALL searched categories (for global TOP 10)
   const [allCategoryJobs, setAllCategoryJobs] = createSignal<ScoredJob[]>([]);
+  // Track which categories have been searched
+  const [searchedCategories, setSearchedCategories] = createSignal<string[]>([]);
+  // Track deep search progress
+  const [deepSearchProgress, setDeepSearchProgress] = createSignal<string | null>(null);
 
   // Load existing leads on mount
   createEffect(
@@ -93,6 +98,101 @@ export function ProspectionTab(props: ProspectionTabProps) {
     setLoadingCategory(categoryId);
     setPhase('loading');
 
+    // Special case: TOP 10 of all categories
+    if (categoryId === TOP10_ALL_CATEGORY_ID) {
+      // If we have cached jobs, show them immediately
+      if (allCategoryJobs().length > 0) {
+        const globalTop10 = [...allCategoryJobs()].sort((a, b) => b.score - a.score).slice(0, 10);
+
+        setCurrentCards(globalTop10);
+        setCurrentCategory(categoryId);
+        setSearchMeta({
+          source: 'platforms',
+          searchPerformed: false,
+          placesTypesQueried: [],
+          hasCoordinates: !!props.userLocation,
+          searchLocation: props.userLocation
+            ? { lat: props.userLocation.lat, lng: props.userLocation.lng, city: props.city || '' }
+            : null,
+          radiusUsed: null,
+        });
+        setSavedJobIds(new Set<string>());
+        setSavedCount(0);
+        setPhase('results');
+        setLoadingCategory(null);
+        return;
+      }
+
+      // No cached jobs - do a deep search across ALL categories
+      try {
+        const allJobs: ScoredJob[] = [];
+        const searchedCats: string[] = [];
+
+        for (const category of PROSPECTION_CATEGORIES) {
+          setDeepSearchProgress(`Searching ${category.label}...`);
+
+          const response = await fetch('/api/prospection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'search',
+              categoryId: category.id,
+              latitude: props.userLocation?.lat,
+              longitude: props.userLocation?.lng,
+              city: props.city,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const userProfile: UserProfile = {
+              skills: props.userSkills,
+              certifications: props.userCertifications,
+              minHourlyRate: props.minHourlyRate,
+            };
+            const scoredCards = scoreJobsForProfile(data.cards, userProfile);
+            allJobs.push(...scoredCards);
+            searchedCats.push(category.id);
+          }
+        }
+
+        // Store all jobs and categories for future use
+        setAllCategoryJobs(allJobs);
+        setSearchedCategories(searchedCats);
+
+        // Show top 10
+        const globalTop10 = [...allJobs].sort((a, b) => b.score - a.score).slice(0, 10);
+
+        setCurrentCards(globalTop10);
+        setCurrentCategory(categoryId);
+        setSearchMeta({
+          source: 'google_places',
+          searchPerformed: true,
+          placesTypesQueried: ['all'],
+          hasCoordinates: !!props.userLocation,
+          searchLocation: props.userLocation
+            ? { lat: props.userLocation.lat, lng: props.userLocation.lng, city: props.city || '' }
+            : null,
+          radiusUsed: 'deep_search',
+        });
+        setSavedJobIds(new Set<string>());
+        setSavedCount(0);
+        setPhase('results');
+        toastPopup.success(
+          'Deep Search Complete',
+          `Found ${allJobs.length} jobs across ${searchedCats.length} categories`
+        );
+      } catch (err) {
+        console.error('Deep search error', err);
+        toastPopup.error('Deep Search failed', 'Could not complete the search. Try again.');
+        setPhase('idle');
+      } finally {
+        setLoadingCategory(null);
+        setDeepSearchProgress(null);
+      }
+      return;
+    }
+
     try {
       const response = await fetch('/api/prospection', {
         method: 'POST',
@@ -127,6 +227,9 @@ export function ProspectionTab(props: ProspectionTabProps) {
       setSavedJobIds(new Set<string>());
       setSavedCount(0);
       setPhase('results');
+
+      // Track this category as searched
+      setSearchedCategories((prev) => (prev.includes(categoryId) ? prev : [...prev, categoryId]));
 
       // Accumulate jobs for global TOP 10 (avoid duplicates by id)
       setAllCategoryJobs((prev) => {
@@ -254,6 +357,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const categoryLabel = () => {
     const cat = currentCategory();
     if (!cat) return '';
+    if (cat === TOP10_ALL_CATEGORY_ID) return 'TOP 10 of All Categories';
     return getCategoryById(cat)?.label || cat;
   };
 
@@ -346,7 +450,12 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
       {/* Idle Phase - Category Explorer */}
       <Show when={phase() === 'idle'}>
-        <CategoryExplorer onCategorySelect={handleCategorySelect} currency={props.currency} />
+        <CategoryExplorer
+          onCategorySelect={handleCategorySelect}
+          currency={props.currency}
+          allCategoryJobs={allCategoryJobs()}
+          searchedCategories={searchedCategories()}
+        />
       </Show>
 
       {/* Loading Phase */}
@@ -354,8 +463,11 @@ export function ProspectionTab(props: ProspectionTabProps) {
         <div class="flex flex-col items-center justify-center py-20">
           <Compass class="h-16 w-16 animate-spin text-primary mb-6" />
           <p class="text-lg text-muted-foreground animate-pulse">
-            Searching for {categoryLabel()} opportunities...
+            {deepSearchProgress() || `Searching for ${categoryLabel()} opportunities...`}
           </p>
+          <Show when={deepSearchProgress()}>
+            <p class="text-sm text-muted-foreground mt-2">Deep search in progress...</p>
+          </Show>
         </div>
       </Show>
 
