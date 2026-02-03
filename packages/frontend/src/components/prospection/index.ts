@@ -4,7 +4,7 @@
  * Export all prospection-related components.
  */
 
-export { CategoryExplorer, TOP10_ALL_CATEGORY_ID } from './CategoryExplorer';
+export { CategoryExplorer, TOP10_ALL_CATEGORY_ID, REAL_JOBS_CATEGORY_ID } from './CategoryExplorer';
 export { ProspectionCard } from './ProspectionCard';
 export { ProspectionSwipeDeck } from './ProspectionSwipeDeck';
 export { ProspectionList } from './ProspectionList';

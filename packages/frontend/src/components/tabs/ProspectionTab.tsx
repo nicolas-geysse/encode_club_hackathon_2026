@@ -13,6 +13,7 @@ import { createSignal, Show, createEffect, on } from 'solid-js';
 import {
   CategoryExplorer,
   TOP10_ALL_CATEGORY_ID,
+  REAL_JOBS_CATEGORY_ID,
   ProspectionList,
   ProspectionMap,
   SavedLeads,
@@ -193,6 +194,90 @@ export function ProspectionTab(props: ProspectionTabProps) {
       return;
     }
 
+    // Special case: Real Job Listings (external APIs)
+    if (categoryId === REAL_JOBS_CATEGORY_ID) {
+      try {
+        setDeepSearchProgress('Fetching real job listings...');
+
+        const response = await fetch('/api/job-listings?limit=30');
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch job listings');
+        }
+
+        const data = await response.json();
+
+        // Convert real job listings to ScoredJob format for display
+        const jobCards: ScoredJob[] = data.jobs.map(
+          (job: {
+            id: string;
+            title: string;
+            company: string;
+            companyLogo?: string;
+            location: string;
+            locationType: string;
+            salaryMin?: number;
+            salaryMax?: number;
+            description: string;
+            url: string;
+            postedDate: string;
+            jobType: string;
+            category: string;
+            tags: string[];
+            source: string;
+          }) => ({
+            id: job.id,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            categoryId: job.category,
+            avgHourlyRate: job.salaryMin ? Math.round(job.salaryMin / 2080) : 15, // Convert annual to hourly estimate
+            effortLevel: job.jobType === 'internship' ? 1 : job.jobType === 'part_time' ? 2 : 3,
+            source: job.source,
+            url: job.url,
+            // Score based on simple factors
+            score:
+              (job.locationType === 'remote' ? 20 : 10) +
+              (job.salaryMin ? Math.min(job.salaryMin / 5000, 30) : 15) +
+              (job.jobType === 'internship' ? 25 : job.jobType === 'part_time' ? 20 : 15) +
+              Math.random() * 10, // Add some variance
+            skillsMatched: job.tags.slice(0, 3),
+            certBoost: 0,
+            commuteMinutes: job.locationType === 'remote' ? 0 : undefined,
+          })
+        );
+
+        // Sort by score
+        jobCards.sort((a, b) => b.score - a.score);
+
+        setCurrentCards(jobCards);
+        setCurrentCategory(categoryId);
+        setSearchMeta({
+          source: 'platforms',
+          searchPerformed: true,
+          placesTypesQueried: [],
+          hasCoordinates: false,
+          searchLocation: null,
+          radiusUsed: 'external_api',
+        });
+        setSavedJobIds(new Set<string>());
+        setSavedCount(0);
+        setPhase('results');
+        toastPopup.success(
+          'Real Jobs Found',
+          `Found ${jobCards.length} actual job postings from Remotive & Arbeitnow`
+        );
+      } catch (err) {
+        console.error('Real jobs fetch error', err);
+        toastPopup.error('Fetch failed', 'Could not load job listings. Try again.');
+        setPhase('idle');
+      } finally {
+        setLoadingCategory(null);
+        setDeepSearchProgress(null);
+      }
+      return;
+    }
+
     try {
       const response = await fetch('/api/prospection', {
         method: 'POST',
@@ -358,6 +443,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
     const cat = currentCategory();
     if (!cat) return '';
     if (cat === TOP10_ALL_CATEGORY_ID) return 'TOP 10 of All Categories';
+    if (cat === REAL_JOBS_CATEGORY_ID) return 'Real Job Listings';
     return getCategoryById(cat)?.label || cat;
   };
 

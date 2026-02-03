@@ -26,6 +26,8 @@ import {
   Globe,
   Trophy,
   Star,
+  Briefcase,
+  ExternalLink,
 } from 'lucide-solid';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
@@ -40,6 +42,8 @@ import type { ScoredJob } from '~/lib/jobScoring';
 
 // Special category ID for global TOP 10
 export const TOP10_ALL_CATEGORY_ID = '__top10_all__';
+// Special category ID for real job listings (from external APIs)
+export const REAL_JOBS_CATEGORY_ID = '__real_jobs__';
 
 // Icon mapping
 const ICON_MAP = {
@@ -157,6 +161,71 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
                     </svg>
                   ) : (
                     <Search class="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </button>
+        </Card>
+
+        {/* Real Job Listings - from external APIs (Remotive, Arbeitnow) */}
+        <Card
+          class={cn(
+            'transition-all duration-200 border-2',
+            'border-emerald-400/50 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20',
+            'hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-200/30 dark:hover:shadow-emerald-900/20'
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => props.onCategorySelect(REAL_JOBS_CATEGORY_ID)}
+            class="w-full"
+            disabled={props.isLoading}
+          >
+            <CardContent class="p-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-lg shadow-md bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
+                    <Briefcase class="h-5 w-5" />
+                  </div>
+                  <div class="text-left">
+                    <div class="flex items-center gap-2">
+                      <h3 class="font-bold text-emerald-900 dark:text-emerald-100">
+                        Real Job Listings
+                      </h3>
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-200 dark:bg-emerald-800/50 rounded-full text-xs font-medium text-emerald-800 dark:text-emerald-200">
+                        <ExternalLink class="h-3 w-3" />
+                        Live Postings
+                      </span>
+                    </div>
+                    <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                      Actual job openings from Remotive & Arbeitnow (remote + EU)
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  {props.isLoading && props.loadingCategory === REAL_JOBS_CATEGORY_ID ? (
+                    <svg
+                      class="animate-spin h-5 w-5 text-emerald-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      />
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                  ) : (
+                    <Search class="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                   )}
                 </div>
               </div>
