@@ -1036,8 +1036,8 @@ export function BudgetTab(props: BudgetTabProps) {
                   Cancel
                 </Button>
                 <Button
-                  variant="none"
-                  class="flex-1 bg-foreground text-background hover:opacity-80 shadow-sm font-bold"
+                  variant="default"
+                  class="flex-1 shadow-sm font-bold"
                   onClick={() => (editingItemId() ? updateItem() : addItem())}
                   disabled={!newItem().name || isLoading()}
                 >

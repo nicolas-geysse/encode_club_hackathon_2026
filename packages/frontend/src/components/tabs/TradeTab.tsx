@@ -1047,9 +1047,9 @@ export function TradeTab(props: TradeTabProps) {
                   Cancel
                 </Button>
                 <Button
-                  variant="none"
+                  variant="default"
                   class={cn(
-                    'flex-1 font-bold bg-foreground text-background hover:opacity-80 shadow-sm',
+                    'flex-1 font-bold shadow-sm',
                     !newTrade().name ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
                   )}
                   onClick={() => (editingTradeId() ? updateTrade() : addTrade())}

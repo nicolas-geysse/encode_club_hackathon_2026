@@ -1044,8 +1044,8 @@ export function SkillsTab(props: SkillsTabProps) {
                   Cancel
                 </Button>
                 <Button
-                  variant="none"
-                  class="flex-1 bg-foreground text-background hover:opacity-80 shadow-sm font-bold"
+                  variant="default"
+                  class="flex-1 shadow-sm font-bold"
                   onClick={() => (editingSkillId() ? updateSkill() : addSkill())}
                   disabled={!newSkill().name || isLoading()}
                 >
