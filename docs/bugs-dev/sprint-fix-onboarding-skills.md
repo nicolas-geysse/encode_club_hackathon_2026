@@ -315,7 +315,7 @@ generateScenarios():
 
 ### Phase 8b: UX Jobs Améliorée ✅ COMPLETE
 > Objectif: Navigation plus fluide + mise en avant des TOP 10 jobs
-> **Commit**: TBD - feat(ux): Phase 8b improved Jobs UX with TOP 10 section
+> **Commit**: `e4b3379` - feat(ux): Phase 8b improved Jobs UX with TOP 10 section
 
 | ID | Tâche | Détails | Fichiers | Status |
 |----|-------|---------|----------|--------|
