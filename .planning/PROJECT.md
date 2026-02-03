@@ -102,6 +102,13 @@ Frictionless onboarding that keeps users in the conversation flow while taking f
 
 See `.planning/REQUIREMENTS.md` for next milestone requirements.
 
+### Deferred (Post-Hackathon)
+
+| Item | Source | Reason |
+|------|--------|--------|
+| Background prefetch during onboarding | v4.1 | Requires job cache store, high complexity |
+| Data source cleanup (energy_logs) | Health Check P3 | Low priority, system works without it |
+
 ### Out of Scope
 
 - OAuth login for job sites — high complexity
@@ -142,6 +149,8 @@ See `.planning/REQUIREMENTS.md` for next milestone requirements.
 | Centralized useGoalData hook | Single source of truth for goal calculations | ✓ Good |
 | Configurable GOAL_STATUS_THRESHOLDS | Easy tuning, consistency across components | ✓ Good |
 | Native HTML tooltips | No dependencies, accessibility built-in | ✓ Good |
+| User-controlled search radius | Let users adjust radius (1-20km), progressive fallback | ✓ Good |
+| Defer background prefetch | High complexity for marginal UX gain at hackathon scale | ✓ Good |
 
 ---
-*Last updated: 2026-02-02 after v4.0 Goals Tab Fix milestone*
+*Last updated: 2026-02-03 after v4.1 Job Search Enhancement milestone*
