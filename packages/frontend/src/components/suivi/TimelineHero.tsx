@@ -85,22 +85,45 @@ export function TimelineHero(props: TimelineHeroProps) {
   const gapPercent = () => Math.round(timeProgress() - amountProgress());
 
   // Bruno's contextual catch-up advice based on gap severity
-  const catchUpAdvice = () => {
+  // v4.2: Smart Actions - returns advice + navigation target
+  const catchUpStrategy = () => {
     const gap = gapPercent();
     const remaining = props.goalAmount - totalAmount();
     const weeksLeft = props.totalWeeks - props.currentWeek;
     const adjustedWeekly = weeksLeft > 0 ? Math.ceil(remaining / weeksLeft) : remaining;
 
     if (gap <= 5) {
-      return `You're almost there! Just ${gap}% gap - one good week and you're back on track.`;
+      return {
+        advice: `You're almost there! Just ${gap}% gap - one good week and you're back on track.`,
+        href: '/plan?tab=swipe',
+        label: 'Find gigs',
+        focusId: null,
+      };
     } else if (gap <= 15) {
-      return `Aim for ${formatCurrency(adjustedWeekly, props.currency)}/week to catch up. Try adding 2-3 extra hours or explore new opportunities in Swipe.`;
+      return {
+        advice: `Aim for ${formatCurrency(adjustedWeekly, props.currency)}/week to catch up. Try adding 2-3 extra hours or explore new opportunities in Swipe.`,
+        href: '/plan?tab=swipe',
+        label: 'Explore',
+        focusId: null,
+      };
     } else if (gap <= 30) {
-      return `Significant gap - let's replan. Consider selling items you don't need, or find higher-paying gigs in the Jobs tab.`;
+      return {
+        advice: `Significant gap - let's replan. Consider selling items you don't need, or find higher-paying gigs in the Jobs tab.`,
+        href: '/plan?tab=prospection',
+        label: 'Find jobs',
+        focusId: 'category-select',
+      };
     } else {
-      return `Major catch-up needed. I recommend reviewing your goal timeline or exploring Trade scenarios for quick wins.`;
+      return {
+        advice: `Major catch-up needed. I recommend reviewing your goal timeline or exploring Trade scenarios for quick wins.`,
+        href: '/plan?tab=trade#add-trade',
+        label: 'Add trade',
+        focusId: 'add-trade-btn',
+      };
     }
   };
+
+  const catchUpAdvice = () => catchUpStrategy().advice;
 
   const status = () => {
     if (goalAchieved()) return { text: 'Goal Achieved!', color: 'text-yellow-400', icon: Trophy };
@@ -364,14 +387,21 @@ export function TimelineHero(props: TimelineHeroProps) {
                   {catchUpAdvice()}
                 </p>
               </div>
-              {/* Action */}
+              {/* Smart Action - navigates to appropriate tab based on gap */}
               <Button
                 as="a"
-                href="/plan?tab=swipe"
+                href={catchUpStrategy().href}
                 size="sm"
                 class="bg-amber-500 hover:bg-amber-600 text-white h-7 text-xs flex-shrink-0 self-center"
+                onClick={() => {
+                  // v4.2: Focus specific element after navigation
+                  const focusId = catchUpStrategy().focusId;
+                  if (focusId) {
+                    setTimeout(() => document.getElementById(focusId)?.focus(), 500);
+                  }
+                }}
               >
-                Catch-up
+                {catchUpStrategy().label}
               </Button>
             </div>
           </div>

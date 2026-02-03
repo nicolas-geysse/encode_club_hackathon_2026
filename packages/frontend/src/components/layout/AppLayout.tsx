@@ -2,6 +2,7 @@ import { type ParentComponent, type JSX } from 'solid-js';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { RouteProgress } from '~/components/RouteProgress';
+import { ProactiveAlerts } from '~/components/ProactiveAlerts';
 
 interface AppLayoutProps {
   headerContent?: JSX.Element;
@@ -31,6 +32,9 @@ export const AppLayout: ParentComponent<AppLayoutProps> = (props) => {
       </div>
 
       <BottomNav onDebugOpen={props.onDebugOpen} />
+
+      {/* v4.2: Global proactive alerts from Bruno */}
+      <ProactiveAlerts />
     </div>
   );
 };

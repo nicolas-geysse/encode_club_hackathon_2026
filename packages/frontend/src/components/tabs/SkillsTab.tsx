@@ -19,6 +19,7 @@ import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
 import { toastPopup } from '~/components/ui/Toast';
 import { getSkillDefaults, getQuickAddTemplates } from '~/lib/data/skillRegistry';
 import { createLogger } from '~/lib/logger';
+import { showProactiveAlert } from '~/lib/eventBus';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
@@ -431,6 +432,15 @@ export function SkillsTab(props: SkillsTabProps) {
       if (created) {
         await refreshSkills();
         props.onSkillsChange?.(contextSkills().map(skillToLegacy));
+
+        // v4.2: Proactive trigger - suggest checking Jobs tab
+        showProactiveAlert({
+          id: `skill_job_${Date.now()}`,
+          type: 'skill_job',
+          title: 'New skill added!',
+          message: `I found jobs matching "${created.name}". Check them out in the Jobs tab.`,
+          action: { label: 'View Jobs', href: '/plan?tab=prospection' },
+        });
       }
     } finally {
       setIsLoading(false);

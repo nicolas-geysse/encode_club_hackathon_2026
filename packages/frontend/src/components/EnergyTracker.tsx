@@ -7,6 +7,7 @@
 
 import { createSignal, Show, For } from 'solid-js';
 import { toast } from '~/lib/notificationStore';
+import { showProactiveAlert } from '~/lib/eventBus';
 
 interface EnergyTrackerProps {
   onSubmit?: (data: {
@@ -64,13 +65,35 @@ export function EnergyTracker(props: EnergyTrackerProps) {
 
       if (response.ok) {
         setSubmitted(true);
+        const score = compositeScore();
         props.onSubmit?.({
           energyLevel: energyLevel(),
           moodScore: moodScore(),
           stressLevel: stressLevel(),
           hoursSlept: hoursSlept(),
-          compositeScore: compositeScore(),
+          compositeScore: score,
         });
+
+        // v4.2: Proactive trigger for low/recovered energy
+        if (score < 40) {
+          showProactiveAlert({
+            id: `energy_low_${Date.now()}`,
+            type: 'energy_low',
+            title: 'Low energy detected',
+            message:
+              'Consider reducing work hours this week. Rest is important for sustainable progress.',
+            action: { label: 'Adjust goals', href: '/plan?tab=goals' },
+          });
+        } else if (score > 80) {
+          showProactiveAlert({
+            id: `energy_high_${Date.now()}`,
+            type: 'energy_recovered',
+            title: 'Great energy!',
+            message:
+              "You're feeling energized - perfect time to tackle higher-paying opportunities!",
+            action: { label: 'Find gigs', href: '/plan?tab=swipe' },
+          });
+        }
       }
     } catch {
       toast.error('Log failed', 'Could not save energy.');

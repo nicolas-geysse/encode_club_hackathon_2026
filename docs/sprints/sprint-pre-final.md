@@ -3,7 +3,7 @@
 ## Executive Summary
 
 **Date**: 2026-02-03
-**Status**: In Progress (3/8 items completed)
+**Status**: In Progress (7/8 items completed)
 **Priority**: High - Hackathon Demo Readiness
 
 This sprint addresses 4 critical areas before the hackathon demo:
@@ -714,16 +714,17 @@ export const TAB_REGISTRY = {
 | Priority | Objective | Effort | Demo Impact | Status |
 |----------|-----------|--------|-------------|--------|
 | **P0** | Bruno catch-up advice | 1.5h | HIGH | ✅ Done |
+| **P0+** | Smart Actions (dynamic nav) | 30min | HIGH | ✅ Done |
 | **P1.4** | Reduce tips timeout | 15min | HIGH | ✅ Done |
 | **P1.1** | Lazy tabs + Suspense | 1h | HIGH | ✅ Done |
-| **P1.2** | Defer tips API | 30min | MEDIUM | Pending |
+| **P1.2** | Defer tips API | 30min | MEDIUM | Deferred |
 | **P2** | Prepare Opik demo | 1h | HIGH (judges) | Pending |
-| **P3.1** | Skill → Job scan trigger | 30min | HIGH | Pending |
-| **P3.2** | Goal achieved trigger | 30min | HIGH | Pending |
-| **P3.3** | Energy warning trigger | 30min | MEDIUM | Pending |
-| **P3.bonus** | Global ProactiveAlerts | 1h | MEDIUM | Optional |
+| **P3.1** | Skill → Job scan trigger | 30min | HIGH | ✅ Done |
+| **P3.2** | Goal achieved trigger | 30min | HIGH | Deferred |
+| **P3.3** | Energy warning trigger | 30min | MEDIUM | ✅ Done |
+| **P3.bonus** | Global ProactiveAlerts | 1h | MEDIUM | ✅ Done |
 
-**Completed**: ~3h | **Remaining**: ~4h
+**Completed**: ~5.5h | **Remaining**: ~1.5h (Opik demo prep)
 
 ### Recommended Order (Quickwins First)
 1. **P1.4**: Reduce tips timeout 15s→5s (5 min fix, instant perf win)
@@ -737,12 +738,14 @@ export const TAB_REGISTRY = {
 
 ### Definition of Done
 - [x] Bruno gives catch-up advice when behind schedule ✅ (v4.2)
+- [x] Smart Actions navigate to specific tabs based on context ✅
 - [x] Page transitions feel snappy (<1s) - lazy loading implemented ✅
 - [x] Tips API responds in <5s (with graceful fallback) ✅ (timeout 15s→5s)
 - [ ] 3 Opik use cases ready to demo with real traces
-- [ ] At least 2 proactive triggers working (skill + goal)
+- [x] At least 2 proactive triggers working (skill + energy) ✅
 - [x] **No client-side Opik tracing** (security verified) ✅
 - [x] Lazy tabs wrapped in `<Suspense>` (no blank screens) ✅
+- [x] ProactiveAlerts component with Bruno avatar ✅
 
 ---
 
