@@ -2,14 +2,16 @@
  * Job Scoring Utility
  *
  * Scores job opportunities based on:
- * - Distance (30%): Closer is better
- * - Profile match (25%): Matches user skills and preferences + certifications
- * - Effort level (25%): Lower effort is better for sustainability
- * - Rate (20%): Higher pay is better
+ * - Distance (25%): Closer is better
+ * - Profile match (20%): Matches user skills and preferences + certifications
+ * - Effort level (20%): Lower effort is better for sustainability
+ * - Rate (15%): Higher pay is better
+ * - Goal Fit (20%): How well salary helps reach savings goal
  *
  * Returns score 1-5 (star rating format)
  *
  * Phase 5: Added certification bonus support
+ * P4: Added goal fit scoring (salary vs savings target)
  *
  * Adapted from skill-arbitrage algorithm in mcp-server.
  */
@@ -25,6 +27,7 @@ export interface JobScoreBreakdown {
   profile: number; // 0-1 normalized
   effort: number; // 0-1 normalized
   rate: number; // 0-1 normalized
+  goalFit: number; // 0-1 normalized (P4: how well salary helps reach goal)
   /** Detailed profile breakdown for UI tooltip */
   profileDetails?: {
     skillMatch: number; // 0-1 skill relevance
@@ -46,14 +49,20 @@ export interface UserProfile {
   certifications?: string[];
   maxWorkHoursWeekly?: number;
   minHourlyRate?: number;
+  /** P4: Monthly savings target (to calculate goal fit) */
+  monthlySavingsTarget?: number;
+  /** P4: Available work hours per week */
+  availableHoursPerWeek?: number;
 }
 
 // Scoring weights (must sum to 1.0)
+// P4: Rebalanced to include goalFit factor
 const WEIGHTS = {
-  distance: 0.3,
-  profile: 0.25,
-  effort: 0.25,
-  rate: 0.2,
+  distance: 0.25,
+  profile: 0.2,
+  effort: 0.2,
+  rate: 0.15,
+  goalFit: 0.2, // P4: How well salary helps reach savings goal
 };
 
 // Normalization constants
@@ -81,12 +90,16 @@ export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob
   const hourlyRate = job.avgHourlyRate ?? 11;
   const rateNorm = Math.min(hourlyRate / MAX_HOURLY_RATE, 1);
 
+  // P4: Goal fit score - how well does this job help reach savings target?
+  const goalFitNorm = calculateGoalFit(job, profile);
+
   // Weighted sum
   const rawScore =
     WEIGHTS.distance * distanceNorm +
     WEIGHTS.profile * profileResult.score +
     WEIGHTS.effort * effortNorm +
-    WEIGHTS.rate * rateNorm;
+    WEIGHTS.rate * rateNorm +
+    WEIGHTS.goalFit * goalFitNorm;
 
   // Convert to 1-5 star scale
   const score = Math.round((1 + rawScore * 4) * 10) / 10;
@@ -99,10 +112,38 @@ export function scoreJob(job: ProspectionCard, profile?: UserProfile): ScoredJob
       profile: profileResult.score,
       effort: effortNorm,
       rate: rateNorm,
+      goalFit: goalFitNorm,
       profileDetails: profileResult.details,
     },
     matchedCertifications: profileResult.matchedCertifications,
   };
+}
+
+/**
+ * P4: Calculate goal fit score
+ * Measures how well this job's earnings help reach savings target
+ * Returns 0-1 normalized score
+ */
+function calculateGoalFit(job: ProspectionCard, profile?: UserProfile): number {
+  // Default: neutral score if no goal info available
+  if (!profile?.monthlySavingsTarget || profile.monthlySavingsTarget <= 0) {
+    return 0.5;
+  }
+
+  const hourlyRate = job.avgHourlyRate ?? 11;
+  const hoursPerWeek = profile.availableHoursPerWeek ?? 15; // Default 15h/week for students
+  const weeksPerMonth = 4.33;
+
+  // Calculate potential monthly earnings from this job
+  const potentialMonthlyEarnings = hourlyRate * hoursPerWeek * weeksPerMonth;
+
+  // Calculate what percentage of savings goal this job covers
+  const goalCoverage = potentialMonthlyEarnings / profile.monthlySavingsTarget;
+
+  // Score: 100% coverage = 1.0, 50% = 0.5, 0% = 0
+  // Cap at 1.0 (exceeding goal is great but doesn't need extra points)
+  // Minimum 0.1 for any paying job
+  return Math.min(1, Math.max(0.1, goalCoverage));
 }
 
 interface ProfileMatchResult {

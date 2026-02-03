@@ -12,6 +12,7 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { trace, getTraceUrl, type TraceOptions } from '~/lib/opik';
+import { getCachedJobs, setCachedJobs } from './_job-cache';
 
 // =============================================================================
 // Types
@@ -332,9 +333,33 @@ export async function GET(event: APIEvent) {
   const category = url.searchParams.get('category') || undefined;
   const source = url.searchParams.get('source') || 'all'; // 'remotive', 'arbeitnow', 'all'
   const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+  const skipCache = url.searchParams.get('refresh') === 'true'; // P2: Allow cache bypass
 
   // Map category to Remotive category if needed
   const remotiveCategory = category ? CATEGORY_MAP[category] || category : undefined;
+
+  // P2: Check cache first (unless refresh requested)
+  if (!skipCache && !search) {
+    const cached = await getCachedJobs('job_listings', category || 'all');
+    if (cached) {
+      console.log(`[JobListings] Cache hit for ${category || 'all'}, ${cached.resultCount} jobs`);
+      return new Response(
+        JSON.stringify({
+          jobs: cached.jobs,
+          meta: {
+            total: cached.resultCount,
+            sources: ['cache'],
+            search,
+            category,
+            cached: true,
+            cachedAt: cached.cachedAt.toISOString(),
+            expiresAt: cached.expiresAt.toISOString(),
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  }
 
   const traceOptions: TraceOptions = {
     source: 'job_listings',
@@ -380,9 +405,15 @@ export async function GET(event: APIEvent) {
       // Limit total results
       const limitedJobs = allJobs.slice(0, limit * 2); // Allow some buffer for multiple sources
 
+      // P2: Save to cache (only if no search query - search results are too specific to cache)
+      if (!search && limitedJobs.length > 0) {
+        await setCachedJobs('job_listings', category || 'all', limitedJobs);
+      }
+
       ctx.setAttributes({
         'jobs.total_count': limitedJobs.length,
         'jobs.sources': sources.join(','),
+        'cache.saved': !search && limitedJobs.length > 0,
       });
 
       ctx.setOutput({
@@ -392,6 +423,7 @@ export async function GET(event: APIEvent) {
           sources,
           search,
           category,
+          cached: false,
           traceUrl: getTraceUrl(ctx.getTraceId() || undefined),
         },
       });
