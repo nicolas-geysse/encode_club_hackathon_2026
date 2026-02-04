@@ -306,14 +306,17 @@ export function ProfileTab(props: ProfileTabProps) {
         tabType="profile"
         profileId={profile()?.id}
         contextData={{
-          name: profile()?.name,
-          diploma: profile()?.diploma,
-          field: profile()?.field,
-          city: profile()?.city,
-          skills: profile()?.skills,
-          certifications: profile()?.certifications,
-          maxWorkHoursWeekly: profile()?.maxWorkHoursWeekly,
-          minHourlyRate: profile()?.minHourlyRate,
+          // Nest profile fields under 'profile' so mergeContext picks them up
+          profile: {
+            name: profile()?.name,
+            diploma: profile()?.diploma,
+            field: profile()?.field,
+            city: profile()?.city,
+            skills: profile()?.skills,
+            certifications: profile()?.certifications,
+            maxWorkHoursWeekly: profile()?.maxWorkHoursWeekly,
+            minHourlyRate: profile()?.minHourlyRate,
+          },
         }}
         fallbackMessage="Keep your profile up to date for better job matches and personalized advice!"
         compact
