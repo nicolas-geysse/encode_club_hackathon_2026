@@ -40,6 +40,7 @@ import type {
 } from './strategies/types.js';
 import { createTabStrategy } from './strategies/factory.js';
 import { mergeContext } from '../services/tab-context.js';
+import { executeAgent } from './agent-executor.js';
 
 const logger = createLogger('TabTipsOrchestrator');
 
@@ -265,27 +266,22 @@ async function runStage2(
         secondaryAnalyses: [],
       };
 
-      // For now, we simulate agent analysis by formatting context
-      // In a full implementation, this would call actual Mastra agents
-      const contextForPrompt = strategy.formatContextForPrompt(context);
-
-      // Primary agent analysis
+      // Execute PRIMARY agent with real tools
       result.primaryAnalysis = await createSpan(
         `agent.${primaryAgentId}`,
         async (agentSpan) => {
-          agentSpan.setInput({ contextLength: contextForPrompt.length });
-
-          // Simulate agent analysis (real implementation would call Mastra agent)
-          const analysis = {
+          agentSpan.setInput({
             agentId: primaryAgentId,
-            recommendation: `Analysis from ${primaryAgentId}`,
-            confidence: 0.8,
-            data: { contextSummary: contextForPrompt.substring(0, 200) },
-          };
+            tabType: context.tabType,
+          });
+
+          // Execute the actual agent via agent-executor
+          const analysis = await executeAgent(primaryAgentId, context);
 
           agentSpan.setOutput({
-            recommendation: analysis.recommendation,
+            recommendation: analysis.recommendation.substring(0, 100),
             confidence: analysis.confidence,
+            hasData: !!analysis.data,
           });
 
           return analysis;
@@ -293,22 +289,24 @@ async function runStage2(
         { tags: [primaryAgentId, 'primary-agent'] }
       );
 
-      // Secondary agents analysis (in parallel)
+      // Execute SECONDARY agents in parallel with real tools
       if (secondaryAgentIds.length > 0) {
         const secondaryPromises = secondaryAgentIds.map((agentId) =>
           createSpan(
             `agent.${agentId}`,
             async (agentSpan) => {
-              agentSpan.setInput({ agentId });
-
-              // Simulate agent analysis
-              const analysis = {
+              agentSpan.setInput({
                 agentId,
-                recommendation: `Secondary analysis from ${agentId}`,
-                confidence: 0.7,
-              };
+                tabType: context.tabType,
+              });
 
-              agentSpan.setOutput({ confidence: analysis.confidence });
+              // Execute the actual agent via agent-executor
+              const analysis = await executeAgent(agentId, context);
+
+              agentSpan.setOutput({
+                recommendation: analysis.recommendation.substring(0, 100),
+                confidence: analysis.confidence,
+              });
 
               return analysis;
             },
@@ -322,6 +320,9 @@ async function runStage2(
       analysisSpan.setOutput({
         primaryConfidence: result.primaryAnalysis?.confidence,
         secondaryCount: result.secondaryAnalyses.length,
+        totalConfidence:
+          (result.primaryAnalysis?.confidence || 0) +
+          result.secondaryAnalyses.reduce((sum, a) => sum + (a.confidence || 0), 0),
       });
 
       return result;

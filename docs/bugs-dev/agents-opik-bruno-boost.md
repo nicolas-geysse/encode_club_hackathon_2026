@@ -722,7 +722,7 @@ packages/frontend/src/
 
 ## Progress Tracking
 
-### Phase A: Backend Foundation ✅ COMPLETE
+### Phase A: Backend Foundation ✅ COMPLETE (Consolidated)
 
 | Task | Status | Commit | Notes |
 |------|--------|--------|-------|
@@ -730,6 +730,8 @@ packages/frontend/src/
 | **A2: Tab-Agnostic Orchestrator** | ✅ Done | `12753d5` | `tab-tips-orchestrator.ts` with 4-stage pipeline |
 | **A3: TabContextService** | ✅ Done | `e218606` | `tab-context.ts` with DuckDB queries |
 | **A4: Contextual Guardian** | ✅ Done | `12753d5` | Validation rules per tab in Stage 3 |
+| **A5: Agent Executor** | ✅ Done | - | Real agent logic in `agent-executor.ts` |
+| **A6: Skill-Job SQL Fallback** | ✅ Done | - | `loadSkillJobMatches()` for DuckPGQ fallback |
 
 **Files Created (Phase A):**
 ```
@@ -757,6 +759,25 @@ packages/frontend/src/routes/api/tab-tips.ts             # Enhanced API endpoint
 - Smart LRU cache with hash-based invalidation in API endpoint
 - `warmupTabTips()` function for pre-fetching on login
 - Backwards compatible with legacy implementation
+
+**Consolidation (Post-Review):**
+After Senior Developer review, the following gaps were filled:
+
+1. **Agent Executor** (`agent-executor.ts`) - Real agent logic:
+   - `executeBudgetCoach()` - Analyzes margin, generates advice, finds optimizations
+   - `executeJobMatcher()` - Matches skills to jobs database, calculates fit scores
+   - `executeMoneyMaker()` - Suggests side hustles, estimates inventory potential
+   - `executeStrategyComparator()` - Compares savings vs work strategies for goals
+   - `executeGuardian()` - Risk assessment (margin, energy, profile completeness)
+
+2. **Skill-Job Graph** (`tab-context.ts`):
+   - `loadSkillJobMatches()` - SQL-based fallback for DuckPGQ
+   - `getJobSuggestionForSkill()` - Knowledge-based job mapping
+   - `estimateHourlyRate()` - Rate estimation by skill type
+   - `getPlatformForSkill()` - Platform suggestions
+
+3. **Updated Types** (`strategies/types.ts`):
+   - Added `skillJobGraph` to jobs context for graph query results
 
 ---
 

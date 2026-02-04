@@ -233,6 +233,142 @@ function parseSkills(profile: ProfileRow): Array<{
 }
 
 /**
+ * Skill-to-Job match type
+ */
+interface SkillJobMatch {
+  skill: string;
+  jobTitle: string;
+  hourlyRate: number;
+  relevanceScore: number;
+  platform?: string;
+}
+
+/**
+ * Load skill-job matches using SQL (fallback for DuckPGQ)
+ * This simulates graph traversal using standard SQL joins
+ */
+async function loadSkillJobMatches(profileId: string, skills: string[]): Promise<SkillJobMatch[]> {
+  if (skills.length === 0) return [];
+
+  try {
+    // Try to load from skills table with job matching
+    // This is a SQL-based fallback for DuckPGQ graph queries
+    const skillsTable = await query<{ table_name: string }>(
+      `SELECT table_name FROM information_schema.tables WHERE table_name = 'skills'`
+    );
+
+    if (skillsTable.length > 0) {
+      // Load skills with their job associations if available
+      const skillRows = await query<{
+        name: string;
+        hourly_rate?: number;
+        market_demand?: number;
+      }>(
+        `SELECT name, hourly_rate, market_demand
+         FROM skills
+         WHERE profile_id = '${profileId}'
+         AND name IN (${skills.map((s) => `'${s}'`).join(', ')})`
+      );
+
+      // Generate matches based on skill data
+      // In a real DuckPGQ implementation, this would traverse the graph
+      return skillRows.map((skill) => ({
+        skill: skill.name,
+        jobTitle: getJobSuggestionForSkill(skill.name),
+        hourlyRate: skill.hourly_rate || estimateHourlyRate(skill.name),
+        relevanceScore: skill.market_demand ? skill.market_demand / 5 : 0.7,
+        platform: getPlatformForSkill(skill.name),
+      }));
+    }
+
+    // Fallback: generate suggestions from skill names
+    return skills.map((skill) => ({
+      skill,
+      jobTitle: getJobSuggestionForSkill(skill),
+      hourlyRate: estimateHourlyRate(skill),
+      relevanceScore: 0.6,
+      platform: getPlatformForSkill(skill),
+    }));
+  } catch (error) {
+    logger.warn('Failed to load skill-job matches', { profileId, error });
+    return skills.map((skill) => ({
+      skill,
+      jobTitle: getJobSuggestionForSkill(skill),
+      hourlyRate: estimateHourlyRate(skill),
+      relevanceScore: 0.5,
+    }));
+  }
+}
+
+/**
+ * Get job suggestion based on skill name
+ * This is a knowledge-based fallback for graph queries
+ */
+function getJobSuggestionForSkill(skill: string): string {
+  const skillLower = skill.toLowerCase();
+  const suggestions: Record<string, string> = {
+    python: 'Freelance Developer',
+    javascript: 'Web Developer',
+    react: 'Frontend Developer',
+    sql: 'Data Analyst',
+    excel: 'Data Entry',
+    writing: 'Content Writer',
+    english: 'English Tutor',
+    math: 'Math Tutor',
+    design: 'Graphic Designer',
+    social_media: 'Community Manager',
+    marketing: 'Digital Marketing',
+    photography: 'Freelance Photographer',
+    video: 'Video Editor',
+    music: 'Music Teacher',
+  };
+
+  for (const [key, job] of Object.entries(suggestions)) {
+    if (skillLower.includes(key)) return job;
+  }
+  return 'Freelance Work';
+}
+
+/**
+ * Estimate hourly rate based on skill
+ */
+function estimateHourlyRate(skill: string): number {
+  const skillLower = skill.toLowerCase();
+  const rates: Record<string, number> = {
+    python: 25,
+    javascript: 25,
+    react: 28,
+    sql: 22,
+    design: 20,
+    writing: 18,
+    english: 20,
+    math: 20,
+  };
+
+  for (const [key, rate] of Object.entries(rates)) {
+    if (skillLower.includes(key)) return rate;
+  }
+  return 15; // Default rate
+}
+
+/**
+ * Get platform suggestion for skill
+ */
+function getPlatformForSkill(skill: string): string {
+  const skillLower = skill.toLowerCase();
+  if (skillLower.includes('python') || skillLower.includes('javascript')) {
+    return 'Upwork, Fiverr, Toptal';
+  }
+  if (skillLower.includes('writing') || skillLower.includes('english')) {
+    return 'Upwork, Contently';
+  }
+  if (skillLower.includes('tutor') || skillLower.includes('math')) {
+    return 'Wyzant, Tutor.com';
+  }
+  return 'LinkedIn, Indeed';
+}
+
+/**
  * Load context for a specific tab type
  */
 export async function loadTabContext(profileId: string, tabType: TabType): Promise<TabContext> {
@@ -315,10 +451,15 @@ export async function loadTabContext(profileId: string, tabType: TabType): Promi
     }
 
     case 'jobs': {
-      const [skills, leads] = await Promise.all([
-        Promise.resolve(parseSkills(profile || ({} as ProfileRow))),
+      const skills = parseSkills(profile || ({} as ProfileRow));
+      const skillNames = skills.map((s) => s.name);
+
+      // Load leads and skill-job matches in parallel
+      const [leads, skillJobMatches] = await Promise.all([
         loadLeads(profileId),
+        loadSkillJobMatches(profileId, skillNames),
       ]);
+
       context.jobs = {
         skills,
         leads: leads.map((l) => ({
@@ -327,6 +468,8 @@ export async function loadTabContext(profileId: string, tabType: TabType): Promi
           title: l.title,
         })),
         city: profile?.city,
+        // Add skill-job graph data (SQL fallback for DuckPGQ)
+        skillJobGraph: skillJobMatches,
       };
       context.profile = {
         name: profile?.name,

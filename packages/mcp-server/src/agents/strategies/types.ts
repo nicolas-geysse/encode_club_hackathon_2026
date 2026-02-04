@@ -67,6 +67,14 @@ export interface TabContext {
     }>;
     leads?: Array<{ id: string; status: string; title?: string }>;
     city?: string;
+    // Skill-to-job graph matches (from DuckPGQ or SQL fallback)
+    skillJobGraph?: Array<{
+      skill: string;
+      jobTitle: string;
+      hourlyRate: number;
+      relevanceScore: number;
+      platform?: string;
+    }>;
   };
 
   // Swipe-specific
