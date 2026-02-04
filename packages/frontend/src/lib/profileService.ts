@@ -114,7 +114,8 @@ export interface ProfileSummary {
 
 // Debounce timer
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
-const SAVE_DEBOUNCE_MS = 500;
+// Increased from 500ms to reduce DuckDB concurrency conflicts with embedding
+const SAVE_DEBOUNCE_MS = 2000;
 
 /**
  * Load the active profile from DuckDB

@@ -13,6 +13,39 @@ import * as fs from 'fs';
 // Vector store instance (lazy initialized)
 let vectorStore: DuckDBVector | null = null;
 
+/**
+ * Retry wrapper for DuckDB operations that may fail due to transaction conflicts.
+ * Uses exponential backoff to handle concurrent upsert race conditions.
+ */
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  options: { maxRetries?: number; baseDelayMs?: number; context?: string } = {}
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 100, context = 'operation' } = options;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      const isConflict =
+        error instanceof Error &&
+        (error.message.includes('Conflict') || error.message.includes('transaction'));
+
+      if (isConflict && attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        console.error(
+          `[VectorStore] ${context}: conflict on attempt ${attempt}/${maxRetries}, retrying in ${delay}ms`
+        );
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  // TypeScript: unreachable but needed for type inference
+  throw new Error('Retry exhausted');
+}
+
 // Configuration
 const VECTOR_DB_DIR = process.env.VECTOR_DB_DIR || path.resolve(process.cwd(), 'data');
 const VECTOR_DB_PATH = path.join(VECTOR_DB_DIR, 'stride-vectors.duckdb');
@@ -93,12 +126,16 @@ export async function embedProfile(
   return maybeTrace('vectorstore.embedProfile', async (span) => {
     const store = await initVectorStore();
 
-    await store.upsert({
-      indexName: 'student_profiles',
-      vectors: [embedding],
-      metadata: [{ profileId, text: profileText, ...metadata }],
-      ids: [profileId],
-    });
+    await withRetry(
+      () =>
+        store.upsert({
+          indexName: 'student_profiles',
+          vectors: [embedding],
+          metadata: [{ profileId, text: profileText, ...metadata }],
+          ids: [profileId],
+        }),
+      { context: `embedProfile(${profileId})` }
+    );
 
     span.setAttributes({
       'profile.id': profileId,
@@ -168,12 +205,16 @@ export async function storeAdvice(
   return maybeCreateSpan('vectorstore.storeAdvice', async (span) => {
     const store = await initVectorStore();
 
-    await store.upsert({
-      indexName: 'advice_history',
-      vectors: [embedding],
-      metadata: [{ adviceId, text: adviceText, ...metadata }],
-      ids: [adviceId],
-    });
+    await withRetry(
+      () =>
+        store.upsert({
+          indexName: 'advice_history',
+          vectors: [embedding],
+          metadata: [{ adviceId, text: adviceText, ...metadata }],
+          ids: [adviceId],
+        }),
+      { context: `storeAdvice(${adviceId})` }
+    );
 
     span.setAttributes({
       'advice.id': adviceId,
@@ -274,12 +315,16 @@ export async function embedGoal(
   return maybeCreateSpan('vectorstore.embedGoal', async (span) => {
     const store = await initVectorStore();
 
-    await store.upsert({
-      indexName: 'goals',
-      vectors: [embedding],
-      metadata: [{ goalId, text: goalText, ...metadata }],
-      ids: [goalId],
-    });
+    await withRetry(
+      () =>
+        store.upsert({
+          indexName: 'goals',
+          vectors: [embedding],
+          metadata: [{ goalId, text: goalText, ...metadata }],
+          ids: [goalId],
+        }),
+      { context: `embedGoal(${goalId})` }
+    );
 
     span.setAttributes({
       'goal.id': goalId,
@@ -365,13 +410,17 @@ export async function updateAdviceOutcome(
   return maybeCreateSpan('vectorstore.updateAdviceOutcome', async (span) => {
     const store = await initVectorStore();
 
-    await store.updateVector({
-      indexName: 'advice_history',
-      id: adviceId,
-      update: {
-        metadata: { outcome, updatedAt: new Date().toISOString() },
-      },
-    });
+    await withRetry(
+      () =>
+        store.updateVector({
+          indexName: 'advice_history',
+          id: adviceId,
+          update: {
+            metadata: { outcome, updatedAt: new Date().toISOString() },
+          },
+        }),
+      { context: `updateAdviceOutcome(${adviceId})` }
+    );
 
     span.setAttributes({
       'advice.id': adviceId,

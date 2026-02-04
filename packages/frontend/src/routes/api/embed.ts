@@ -13,6 +13,19 @@ import { createLogger } from '../../lib/logger';
 const logger = createLogger('EmbedAPI');
 
 /**
+ * Track in-flight embedding operations to prevent concurrent upserts
+ * that cause DuckDB transaction conflicts (DELETE+INSERT race condition)
+ */
+const inFlightEmbeddings = new Map<string, Promise<void>>();
+
+/**
+ * Get a unique key for tracking in-flight operations
+ */
+function getEmbedKey(type: string, id: string): string {
+  return `${type}:${id}`;
+}
+
+/**
  * POST /api/embed
  * Trigger embedding for a profile or goal
  */
@@ -32,13 +45,30 @@ export async function POST({ request }: APIEvent) {
       });
     }
 
-    // Fire-and-forget embedding in background
-    // We return success immediately and let embedding happen async
-    triggerEmbedding(type, id, data).catch((error) => {
-      logger.warn(`Background embedding failed for ${type}/${id}`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
+    // Check if an embedding is already in progress for this type/id
+    const embedKey = getEmbedKey(type, id);
+    if (inFlightEmbeddings.has(embedKey)) {
+      logger.debug(`Skipping duplicate embedding request for ${type}/${id} (already in progress)`);
+      return new Response(JSON.stringify({ success: true, queued: false, skipped: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
       });
-    });
+    }
+
+    // Fire-and-forget embedding in background with deduplication tracking
+    const embeddingPromise = triggerEmbedding(type, id, data)
+      .catch((error) => {
+        logger.warn(`Background embedding failed for ${type}/${id}`, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      })
+      .finally(() => {
+        // Always remove from tracking when done (success or failure)
+        inFlightEmbeddings.delete(embedKey);
+      });
+
+    // Track this embedding operation
+    inFlightEmbeddings.set(embedKey, embeddingPromise);
 
     return new Response(JSON.stringify({ success: true, queued: true }), {
       status: 200,
