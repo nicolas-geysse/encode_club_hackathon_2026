@@ -96,12 +96,12 @@ export default function App() {
     clearAllNotifications();
   };
 
-  // Update progress based on profile changes
-  const handleProfileChange = () => {
+  // Update progress based on profile changes (placeholder for future use)
+  const _handleProfileChange = () => {
     // Progress will be updated when we have actual goal data
     // For now, base it on simulation offset
     const dayProgress = (simulationState().offsetDays / 56) * 100;
-    setProgressPercent(Math.min(100, dayProgress));
+    _setProgressPercent(Math.min(100, dayProgress));
   };
 
   return (
