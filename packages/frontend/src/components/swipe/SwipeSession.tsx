@@ -387,6 +387,7 @@ export function SwipeSession(props: SwipeSessionProps) {
                   </label>
                   <Input
                     type="number"
+                    min="0"
                     class={cn(
                       'h-8 bg-background text-xs transition-colors',
                       isRateInvalid() && showValidationError()
@@ -396,9 +397,10 @@ export function SwipeSession(props: SwipeSessionProps) {
                     value={adjustments().customHourlyRate}
                     onInput={(e) => {
                       setShowValidationError(false);
+                      const value = Math.max(0, Number(e.currentTarget.value));
                       setAdjustments({
                         ...adjustments(),
-                        customHourlyRate: Number(e.currentTarget.value),
+                        customHourlyRate: value,
                       });
                     }}
                   />
@@ -416,6 +418,7 @@ export function SwipeSession(props: SwipeSessionProps) {
                   </label>
                   <Input
                     type="number"
+                    min="0"
                     class={cn(
                       'h-8 bg-background text-xs transition-colors',
                       isHoursInvalid() && showValidationError()
@@ -425,9 +428,10 @@ export function SwipeSession(props: SwipeSessionProps) {
                     value={adjustments().customWeeklyHours}
                     onInput={(e) => {
                       setShowValidationError(false);
+                      const value = Math.max(0, Number(e.currentTarget.value));
                       setAdjustments({
                         ...adjustments(),
-                        customWeeklyHours: Number(e.currentTarget.value),
+                        customWeeklyHours: value,
                       });
                     }}
                   />
