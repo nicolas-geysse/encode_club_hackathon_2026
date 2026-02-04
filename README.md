@@ -144,7 +144,7 @@ Gamification layer with bronze/silver/gold tiers:
 | Component | Technology |
 |-----------|------------|
 | **Tracing** | Opik Cloud (every recommendation traced) |
-| **LLM** | Groq (llama-3.1-70b-versatile) |
+| **LLM** | Groq (openai/gpt-oss-120b) |
 | **Voice** | Groq Whisper (whisper-large-v3-turbo) |
 | **Agents** | Mastra Framework |
 | **Frontend** | SolidStart + SolidJS + TailwindCSS |
