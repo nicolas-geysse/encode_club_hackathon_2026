@@ -210,13 +210,19 @@ function parseSkills(profile: ProfileRow): Array<{
         if (typeof s === 'string') {
           return { name: s };
         }
-        // If it's an object
-        return {
-          name: (s as any).name || String(s),
-          hourlyRate: (s as any).hourlyRate,
-          arbitrageScore: (s as any).arbitrageScore,
-          marketDemand: (s as any).marketDemand,
-        };
+        // If it's an object with potential skill properties
+        if (typeof s === 'object' && s !== null) {
+          const skillObj = s as Record<string, unknown>;
+          return {
+            name: typeof skillObj.name === 'string' ? skillObj.name : String(s),
+            hourlyRate: typeof skillObj.hourlyRate === 'number' ? skillObj.hourlyRate : undefined,
+            arbitrageScore:
+              typeof skillObj.arbitrageScore === 'number' ? skillObj.arbitrageScore : undefined,
+            marketDemand:
+              typeof skillObj.marketDemand === 'number' ? skillObj.marketDemand : undefined,
+          };
+        }
+        return { name: String(s) };
       });
     }
 

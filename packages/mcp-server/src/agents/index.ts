@@ -87,7 +87,7 @@ export {
   type OnboardingOutput,
 } from './onboarding-agent.js';
 
-// Tips Orchestrator (Multi-Agent System)
+// Tips Orchestrator (Multi-Agent System) - Legacy
 export { orchestrateTips } from './tips-orchestrator.js';
 export type {
   TipsOrchestratorInput,
@@ -95,6 +95,9 @@ export type {
   AgentRecommendation,
   LocalOpportunity,
 } from './tips-orchestrator.js';
+
+// Tab Tips Orchestrator (Strategy Pattern - New)
+export { orchestrateTabTips, warmupTabTips } from './tab-tips-orchestrator.js';
 
 // Daily Briefing Agent
 export { generateDailyBriefing } from './daily-briefing.js';
@@ -123,4 +126,5 @@ import './money-maker.js';
 import './strategy-comparator.js';
 import './onboarding-agent.js';
 import './tips-orchestrator.js';
+import './tab-tips-orchestrator.js';
 import './daily-briefing.js';

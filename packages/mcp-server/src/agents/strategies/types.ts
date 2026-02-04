@@ -9,8 +9,6 @@
  * - System prompts
  */
 
-import type { Agent } from '@mastra/core/agent';
-
 // Tab types supported by the system
 export type TabType = 'profile' | 'goals' | 'budget' | 'trade' | 'jobs' | 'swipe';
 
