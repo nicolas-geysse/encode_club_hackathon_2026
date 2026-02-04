@@ -917,9 +917,9 @@ Migration pattern: `message` prop → `fallbackMessage` prop
 
 | Task | Status | Commit | Notes |
 |------|--------|--------|-------|
-| **D11: Sampling Strategy** | ✅ Done | - | `trace-sampling.ts` with intelligent sampling |
-| **D12: Trace Hierarchy** | ✅ Done | - | `tips.orchestrator.${tabType}` with nested spans |
-| **D13: Prompt Versioning** | ✅ Done | - | `tab-prompts.ts` with registerPrompt |
+| **D11: Sampling Strategy** | ✅ Done | `e7fa24b` | `trace-sampling.ts` with intelligent sampling |
+| **D12: Trace Hierarchy** | ✅ Done | `e7fa24b` | `tips.orchestrator.${tabType}` with nested spans |
+| **D13: Prompt Versioning** | ✅ Done | `e7fa24b` | `tab-prompts.ts` with registerPrompt |
 
 **Files Created (Phase D):**
 ```
