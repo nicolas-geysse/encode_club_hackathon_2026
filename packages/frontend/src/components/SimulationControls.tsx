@@ -204,12 +204,36 @@ export function SimulationControls(props: Props) {
 
       const profile = JSON.parse(profileData);
 
+      // Read followupData separately (contains currentAmount)
+      const followupDataStr = localStorage.getItem('followupData');
+      const followupData = followupDataStr ? JSON.parse(followupDataStr) : {};
+      const currentAmount = followupData.currentAmount || 0;
+
+      // Fetch energy logs from API to get real energy data
+      let energyLevel = 70; // Default
+      let energyHistory: number[] = [70];
+      try {
+        const energyResponse = await fetch(
+          `/api/retroplan?action=get_energy_logs&userId=${profile.id || 'default'}`
+        );
+        if (energyResponse.ok) {
+          const energyData = await energyResponse.json();
+          if (energyData.logs && energyData.logs.length > 0) {
+            // Convert 1-5 scale to percentage (1=20%, 5=100%)
+            energyHistory = energyData.logs
+              .slice(0, 7)
+              .map((log: { energyLevel: number }) => log.energyLevel * 20);
+            energyLevel = energyHistory[0] || 70;
+          }
+        }
+      } catch {
+        // Use defaults if fetch fails
+      }
+
       // Build rich context for daily briefing
       const goal = goalInfo();
       const goalProgress =
-        goal?.amount && profile.currentAmount
-          ? Math.round((profile.currentAmount / goal.amount) * 100)
-          : 0;
+        goal?.amount && currentAmount ? Math.round((currentAmount / goal.amount) * 100) : 0;
 
       // Get missions from profile if available
       const activeMissions = (profile.missions || [])
@@ -232,19 +256,16 @@ export function SimulationControls(props: Props) {
           })
         );
 
-      // Build energy history (use stored or default)
-      const energyHistory = profile.energyHistory || [profile.energyLevel || 70];
-
       const response = await fetch('/api/daily-briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           profileId: profile.id || 'default',
-          currentEnergy: profile.energyLevel || 70,
+          currentEnergy: energyLevel,
           energyHistory,
           goalProgress,
           goalAmount: goal?.amount,
-          currentAmount: profile.currentAmount || 0,
+          currentAmount,
           goalDeadline: goal?.deadline,
           goalName: goal?.name,
           activeMissions,
