@@ -78,11 +78,28 @@ export async function GET() {
       );
     }
 
+    // When offset_days is 0 (no simulation), always return TODAY's date
+    // This fixes a bug where stale dates from the DB would cause earnings
+    // to not show up until the next day
+    const now = new Date().toISOString().split('T')[0];
+    const offsetDays = result[0].offset_days;
+
+    let simulatedDate: string;
+    if (offsetDays === 0) {
+      // No simulation - use real current date
+      simulatedDate = now;
+    } else {
+      // Simulation active - calculate from real date + offset
+      const realDate = new Date();
+      realDate.setDate(realDate.getDate() + offsetDays);
+      simulatedDate = realDate.toISOString().split('T')[0];
+    }
+
     const state: SimulationState = {
-      simulatedDate: result[0].simulated_date,
-      realDate: result[0].real_date,
-      offsetDays: result[0].offset_days,
-      isSimulating: result[0].offset_days > 0,
+      simulatedDate,
+      realDate: now,
+      offsetDays,
+      isSimulating: offsetDays > 0,
     };
 
     return new Response(JSON.stringify(state), {

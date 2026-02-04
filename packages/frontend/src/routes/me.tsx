@@ -39,6 +39,7 @@ import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '~/co
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
 import { createLogger } from '~/lib/logger';
+import { eventBus } from '~/lib/eventBus';
 import { Check, User, Target, PiggyBank, Handshake, Menu, Compass } from 'lucide-solid';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { useTipsWarmup, type TabType } from '~/hooks/useTipsWarmup';
@@ -450,6 +451,9 @@ export default function MePage() {
           true // clearFirst = true
         );
         await refreshTrades();
+        // Emit DATA_CHANGED to trigger goal data refresh in Goals tab
+        // This ensures Goals tab shows trade sales immediately
+        eventBus.emit('DATA_CHANGED');
       } catch (err) {
         logger.error('Failed to persist trades', { error: err });
       }

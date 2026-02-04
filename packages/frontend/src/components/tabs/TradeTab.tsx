@@ -383,6 +383,7 @@ export function TradeTab(props: TradeTabProps) {
     );
 
     if (newItems.length > 0) {
+      const now = new Date().toISOString();
       const newTrades: TradeItem[] = newItems.map((item) => ({
         id: `trade_inv_${item.id}`,
         type: 'sell' as const,
@@ -392,6 +393,8 @@ export function TradeTab(props: TradeTabProps) {
         value: item.estimatedValue,
         status: 'pending' as const,
         inventoryItemId: item.id,
+        createdAt: now,
+        updatedAt: now,
       }));
 
       const updated = [...currentTrades, ...newTrades];
@@ -404,6 +407,7 @@ export function TradeTab(props: TradeTabProps) {
     const trade = newTrade();
     if (!trade.name) return;
 
+    const now = new Date().toISOString();
     const newTradeComplete: TradeItem = {
       id: `trade_${Date.now()}`,
       type: (trade.type as TradeItem['type']) || 'borrow',
@@ -415,6 +419,8 @@ export function TradeTab(props: TradeTabProps) {
       value: trade.value || 0,
       status: (trade.status as TradeItem['status']) || 'pending',
       dueDate: trade.dueDate,
+      createdAt: now,
+      updatedAt: now,
     };
 
     const updated = [...trades(), newTradeComplete];

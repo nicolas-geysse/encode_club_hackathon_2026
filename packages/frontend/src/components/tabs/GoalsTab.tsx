@@ -8,11 +8,20 @@
  * Refactored v5.0: Dashboard-first design with isolated components.
  */
 
-import { createSignal, createMemo, createEffect, createResource, Show, onMount } from 'solid-js';
+import {
+  createSignal,
+  createMemo,
+  createEffect,
+  createResource,
+  Show,
+  onMount,
+  onCleanup,
+} from 'solid-js';
 import { useSearchParams } from '@solidjs/router';
 import { goalService } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
 import { useProfile, type Goal } from '~/lib/profileContext';
+import { eventBus } from '~/lib/eventBus';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('GoalsTab');
