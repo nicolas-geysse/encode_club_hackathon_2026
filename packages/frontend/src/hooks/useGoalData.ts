@@ -220,19 +220,37 @@ function mapTradesToTradeData(trades: Trade[]): TradeData[] {
 /**
  * Convert TradeItem[] (from profile context) to TradeData[] for aggregator
  * Similar to mapTradesToTradeData but with optional date fields
+ *
+ * IMPORTANT: For completed sells, we MUST have a valid updated_at date for earnings
+ * attribution. If missing, use current date so the sale counts immediately.
  */
 function mapTradeItemsToTradeData(trades: TradeItem[]): TradeData[] {
   const now = new Date().toISOString();
-  return trades.map((t) => ({
-    id: t.id,
-    type: t.type === 'trade' ? 'sell' : t.type, // Map 'trade' to 'sell' for compatibility
-    status: t.status,
-    itemName: t.name,
-    expectedPrice: t.type === 'sell' || t.type === 'trade' ? t.value : undefined,
-    retailPrice: t.type === 'borrow' ? t.value : undefined,
-    created_at: t.createdAt || now,
-    updated_at: t.updatedAt || now,
-  }));
+  return trades.map((t) => {
+    // For completed sells without updated_at, use NOW so earnings show immediately
+    // This handles the case where trades are synced before DB refresh completes
+    let updatedAt = t.updatedAt;
+    if (!updatedAt && t.status === 'completed' && (t.type === 'sell' || t.type === 'trade')) {
+      logger.debug('[DIAG] Completed sell missing updatedAt, using NOW', {
+        tradeId: t.id,
+        name: t.name,
+        status: t.status,
+        now,
+      });
+      updatedAt = now;
+    }
+
+    return {
+      id: t.id,
+      type: t.type === 'trade' ? 'sell' : t.type, // Map 'trade' to 'sell' for compatibility
+      status: t.status,
+      itemName: t.name,
+      expectedPrice: t.type === 'sell' || t.type === 'trade' ? t.value : undefined,
+      retailPrice: t.type === 'borrow' ? t.value : undefined,
+      created_at: t.createdAt || now,
+      updated_at: updatedAt || now,
+    };
+  });
 }
 
 /**
@@ -547,7 +565,23 @@ export function useGoalData(
     // This ensures earnings update immediately when trades change in Trade tab
     let tradeData: TradeData[];
     if (tradesAccessor) {
-      tradeData = mapTradeItemsToTradeData(tradesAccessor());
+      const rawTrades = tradesAccessor();
+      tradeData = mapTradeItemsToTradeData(rawTrades);
+      // Debug: Log trade data to diagnose sync issues
+      const completedSells = rawTrades.filter((t) => t.type === 'sell' && t.status === 'completed');
+      if (completedSells.length > 0) {
+        logger.debug('[DIAG] Completed sells from tradesAccessor', {
+          count: completedSells.length,
+          trades: completedSells.map((t) => ({
+            id: t.id,
+            name: t.name,
+            value: t.value,
+            status: t.status,
+            updatedAt: t.updatedAt,
+          })),
+          currentDate: getCurrentDate().toISOString(),
+        });
+      }
     } else {
       // Fallback to resource (for backwards compatibility)
       // Use .latest to prevent earnings drop during refetch

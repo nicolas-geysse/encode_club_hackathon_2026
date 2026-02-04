@@ -16,6 +16,9 @@ import {
   getEffectiveSavingsAmount,
   type SavingsAdjustment,
 } from './savingsHelper';
+import { createLogger } from './logger';
+
+const logger = createLogger('EarningsAggregator');
 
 // === TYPES ===
 
@@ -83,11 +86,35 @@ function generateEventId(source: EarningSource, referenceId: string): string {
 
 /**
  * Parse a date string to Date, with fallback to current date
+ * Handles various formats from DuckDB timestamps
  */
 function parseDate(dateString: string | undefined, fallback: Date = new Date()): Date {
-  if (!dateString) return fallback;
-  const parsed = new Date(dateString);
-  return isNaN(parsed.getTime()) ? fallback : parsed;
+  if (!dateString) {
+    logger.debug('[DIAG] parseDate: no dateString, using fallback', {
+      fallback: fallback.toISOString(),
+    });
+    return fallback;
+  }
+
+  // Handle DuckDB timestamp format (e.g., "2026-02-05 10:00:00" without timezone)
+  // Convert to ISO format if needed
+  let normalizedDateString = dateString;
+  if (dateString.includes(' ') && !dateString.includes('T')) {
+    normalizedDateString = dateString.replace(' ', 'T');
+  }
+
+  const parsed = new Date(normalizedDateString);
+
+  if (isNaN(parsed.getTime())) {
+    logger.debug('[DIAG] parseDate: invalid date, using fallback', {
+      original: dateString,
+      normalized: normalizedDateString,
+      fallback: fallback.toISOString(),
+    });
+    return fallback;
+  }
+
+  return parsed;
 }
 
 // === AGGREGATION FUNCTIONS ===
@@ -186,6 +213,21 @@ function aggregateSavingsEarnings(
 function aggregateTradeSaleEarnings(trades: TradeData[], goalStartDate: Date): EarningEvent[] {
   const events: EarningEvent[] = [];
 
+  // Debug: Log all trades being processed
+  const completedSells = trades.filter((t) => t.type === 'sell' && t.status === 'completed');
+  if (completedSells.length > 0) {
+    logger.debug('[DIAG] Processing completed sells', {
+      count: completedSells.length,
+      trades: completedSells.map((t) => ({
+        id: t.id,
+        itemName: t.itemName,
+        expectedPrice: t.expectedPrice,
+        status: t.status,
+        updated_at: t.updated_at,
+      })),
+    });
+  }
+
   for (const trade of trades) {
     // Only include completed sells with expected price
     if (trade.type !== 'sell' || trade.status !== 'completed') {
@@ -200,6 +242,15 @@ function aggregateTradeSaleEarnings(trades: TradeData[], goalStartDate: Date): E
     // Use updated_at for when sale was completed
     const eventDate = parseDate(trade.updated_at);
     const weekNumber = getWeekNumber(eventDate, goalStartDate);
+
+    logger.debug('[DIAG] Trade sale event created', {
+      tradeId: trade.id,
+      itemName: trade.itemName,
+      amount,
+      updated_at_raw: trade.updated_at,
+      eventDate: eventDate.toISOString(),
+      weekNumber,
+    });
 
     events.push({
       id: generateEventId('trade_sale', trade.id),
@@ -321,6 +372,20 @@ export function aggregateAllEarnings(params: AggregateEarningsParams): EarningEv
   // Use end-of-day to include all events from "today" regardless of time component
   const endOfCurrentDay = new Date(currentDate);
   endOfCurrentDay.setHours(23, 59, 59, 999);
+
+  // Debug: Log trade sale events and filtering
+  const tradeSales = sortedEvents.filter((e) => e.source === 'trade_sale');
+  if (tradeSales.length > 0) {
+    const included = tradeSales.filter((e) => e.date <= endOfCurrentDay);
+    const excluded = tradeSales.filter((e) => e.date > endOfCurrentDay);
+    logger.debug('[DIAG] Trade sale date filtering', {
+      currentDate: currentDate.toISOString(),
+      endOfCurrentDay: endOfCurrentDay.toISOString(),
+      totalTradeSales: tradeSales.length,
+      included: included.map((e) => ({ id: e.id, date: e.date.toISOString(), amount: e.amount })),
+      excluded: excluded.map((e) => ({ id: e.id, date: e.date.toISOString(), amount: e.amount })),
+    });
+  }
 
   return sortedEvents.filter((event) => event.date <= endOfCurrentDay);
 }

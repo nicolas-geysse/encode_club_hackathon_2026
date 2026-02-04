@@ -45,6 +45,8 @@ interface TradeItem {
   status: 'active' | 'completed' | 'pending';
   dueDate?: string;
   inventoryItemId?: string; // Link to the source inventory item
+  createdAt?: string; // For earnings date attribution
+  updatedAt?: string; // For earnings date attribution (set when status changes)
 }
 
 interface InventoryItemForTrade {
@@ -441,7 +443,9 @@ export function TradeTab(props: TradeTabProps) {
       await props.onInventorySold(trade.inventoryItemId, trade.value);
     }
 
-    const updated = trades().map((t) => (t.id === id ? { ...t, status } : t));
+    // Set updatedAt when status changes - critical for earnings date attribution
+    const now = new Date().toISOString();
+    const updated = trades().map((t) => (t.id === id ? { ...t, status, updatedAt: now } : t));
     setTrades(updated);
     props.onTradesChange?.(updated);
   };
