@@ -165,6 +165,38 @@ export const ACHIEVEMENTS: Achievement[] = [
     condition: 'consecutiveDailyChecks >= 7',
     maxProgress: 7,
   },
+
+  // Karma achievements (community/sharing economy)
+  {
+    id: 'community_helper',
+    name: 'Community Helper',
+    description: 'You helped 2 people by lending or trading items',
+    icon: '🤝',
+    category: 'wellness',
+    tier: 'bronze',
+    condition: 'karmaScore >= 2',
+    maxProgress: 2,
+  },
+  {
+    id: 'sharing_champion',
+    name: 'Sharing Champion',
+    description: 'You reached 5 karma by helping the community',
+    icon: '🌟',
+    category: 'wellness',
+    tier: 'silver',
+    condition: 'karmaScore >= 5',
+    maxProgress: 5,
+  },
+  {
+    id: 'karma_legend',
+    name: 'Karma Legend',
+    description: 'You reached 10 karma - a true community pillar!',
+    icon: '👑',
+    category: 'wellness',
+    tier: 'gold',
+    condition: 'karmaScore >= 10',
+    maxProgress: 10,
+  },
 ];
 
 /**
@@ -280,6 +312,22 @@ export function checkAchievement(
     case 'daily_check': {
       const checks = (context.consecutiveDailyChecks as number) || 0;
       return { unlocked: checks >= 7, progress: Math.min(7, checks) };
+    }
+
+    // Karma achievements
+    case 'community_helper': {
+      const karma = (context.karmaScore as number) || 0;
+      return { unlocked: karma >= 2, progress: Math.min(2, karma) };
+    }
+
+    case 'sharing_champion': {
+      const karma = (context.karmaScore as number) || 0;
+      return { unlocked: karma >= 5, progress: Math.min(5, karma) };
+    }
+
+    case 'karma_legend': {
+      const karma = (context.karmaScore as number) || 0;
+      return { unlocked: karma >= 10, progress: Math.min(10, karma) };
     }
 
     default:

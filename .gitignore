@@ -41,8 +41,13 @@ packages/frontend/data/
 packages/mcp-server/data/
 *.duckdb
 *.duckdb.wal
+:memory:
 
 # AI/Agent tool artifacts
 .agent/
 .claude/
 _bmad-output/
+_bmad/
+
+# Archived documentation (historical sprints, old specs)
+docs/archive/

@@ -150,8 +150,9 @@ export function EnergyStateWidget(props: { state: DebugState; compact?: boolean 
 
   // Compact Mode (for Profile Identity Card)
   if (props.compact) {
+    const currentEnergy = props.state.currentEnergy;
     return (
-      <div class="space-y-2">
+      <div class="space-y-3">
         <div class="flex items-center justify-between">
           <span class="text-xs font-semibold text-muted-foreground uppercase flex gap-2 items-center">
             <Battery class="w-3 h-3" /> Energy State
@@ -165,21 +166,58 @@ export function EnergyStateWidget(props: { state: DebugState; compact?: boolean 
             {props.state.energyState}
           </span>
         </div>
-        {/* Thin Bars */}
-        <div class="flex items-end gap-0.5 h-4">
-          <For each={props.state.energyHistory}>
-            {(level, i) => (
+
+        {/* Current Energy Level - More Prominent */}
+        <div class="flex items-center gap-3">
+          <div class="text-2xl font-bold text-foreground">{currentEnergy}%</div>
+          <div class="flex-1">
+            <div class="h-3 bg-secondary rounded-full overflow-hidden">
               <div
                 class={cn(
-                  'flex-1 transition-all',
-                  level < 40 ? 'bg-red-500' : level < 60 ? 'bg-yellow-500' : 'bg-green-500',
-                  i() === props.state.energyHistory.length - 1 ? 'opacity-100' : 'opacity-60'
+                  'h-full transition-all duration-500 rounded-full',
+                  currentEnergy >= 70
+                    ? 'bg-green-500'
+                    : currentEnergy >= 50
+                      ? 'bg-yellow-500'
+                      : currentEnergy >= 30
+                        ? 'bg-orange-500'
+                        : 'bg-red-500'
                 )}
-                style={{ height: `${Math.max(level, 10)}%`, 'border-radius': '1px' }}
-                title={`Week ${i() + 1}: ${level}%`}
+                style={{ width: `${currentEnergy}%` }}
               />
-            )}
+            </div>
+          </div>
+        </div>
+
+        {/* History Bars - Taller and with spacing */}
+        <div class="flex items-end gap-1 h-12">
+          <For each={props.state.energyHistory}>
+            {(level, i) => {
+              const isCurrentWeek = i() === props.state.energyHistory.length - 1;
+              return (
+                <div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end group relative">
+                  <div
+                    class={cn(
+                      'w-full rounded-t transition-all',
+                      level < 40 ? 'bg-red-500' : level < 60 ? 'bg-yellow-500' : 'bg-green-500',
+                      isCurrentWeek
+                        ? 'opacity-100 ring-1 ring-primary'
+                        : 'opacity-70 hover:opacity-100'
+                    )}
+                    style={{ height: `${Math.max(level, 8)}%` }}
+                  />
+                  {/* Tooltip */}
+                  <div class="absolute bottom-full mb-1 hidden group-hover:block z-10 bg-popover text-popover-foreground text-xs px-2 py-1 rounded shadow-md whitespace-nowrap">
+                    W{i() + 1}: {level}%
+                  </div>
+                </div>
+              );
+            }}
           </For>
+        </div>
+        <div class="flex justify-between text-[10px] text-muted-foreground">
+          <span>Week 1</span>
+          <span>Week {props.state.energyHistory.length}</span>
         </div>
       </div>
     );

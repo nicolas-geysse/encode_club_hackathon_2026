@@ -24,31 +24,33 @@ Everything is traced in Opik - you can see exactly why we recommend that job.
 
 ## How It Works
 
-### 4 Screens
+### Navigation (4 Screens)
 
-| Screen | Route | Description |
-|--------|-------|-------------|
-| **Onboarding** | `/` | Chat with Bruno to set up your profile |
-| **Me** | `/me` | 5 tabs to manage your finances |
-| **Swipe** | `/swipe` | Tinder-style strategy selection |
-| **Progress** | `/progress` | Dashboard with timeline and missions |
+| Screen | Route | Icon | Description |
+|--------|-------|------|-------------|
+| **Chat** | `/` | 💬 | Onboarding chat with Bruno AI assistant |
+| **Me** | `/me` | 👤 | 5 tabs to manage your finances |
+| **Swipe** | `/swipe` | 🎲 | Tinder-style strategy selection |
+| **Progress** | `/progress` | 📈 | Dashboard with timeline and missions |
 
 ### Me Page (5 Tabs)
 
-| Tab | What you do |
-|-----|-------------|
-| **Profile** | Personal info, energy tracking, work preferences |
-| **Goals** | Savings goal, deadline, progress chart |
-| **Budget** | Monthly income/expenses, subscription optimization |
-| **Trade** | Borrow/lend/swap items instead of buying |
-| **Jobs** | Job search with Google Places, save leads |
+| Tab | Icon | What you do |
+|-----|------|-------------|
+| **Profile** | 👤 | Personal info, energy tracking, work preferences |
+| **Goals** | 🎯 | Savings goal, deadline, progress chart |
+| **Budget** | 🐷 | Monthly income/expenses, subscription optimization |
+| **Trade** | 🤝 | Borrow/lend/swap items instead of buying |
+| **Jobs** | 🧭 | Job search with Google Places, save leads |
 
 ### Swipe Scenarios
 
 Roll the dice to get personalized scenarios based on your profile:
 - Swipe right = interested, left = not interested
 - The app learns your preferences (effort sensitivity, rate priority, flexibility)
-- After swiping, scenarios become missions to track
+- Review phase: see selected scenarios with AI analysis
+- Rejected scenarios section: add back any skipped scenarios
+- After confirming, scenarios become missions to track on Progress page
 
 ### Progress Dashboard
 
@@ -129,7 +131,6 @@ Gamification layer with bronze/silver/gold tiers:
 | **Money Maker** | Income opportunity detection |
 | **Strategy Comparator** | Scenario comparison and ranking |
 | **Projection ML** | Future earnings projections |
-| **Goal Planner** | Savings goal planning and timeline |
 
 **Specialized Agents:**
 
@@ -138,6 +139,7 @@ Gamification layer with bronze/silver/gold tiers:
 | **Onboarding Agent** | Profile extraction from chat |
 | **Daily Briefing** | Contextual daily tips generation |
 | **Tips Orchestrator** | Bruno tips prioritization and routing |
+| **Tab Tips Orchestrator** | Tab-specific tips with warmup and prefetch |
 
 ### Tech Stack
 
@@ -146,10 +148,53 @@ Gamification layer with bronze/silver/gold tiers:
 | **Tracing** | Opik Cloud (every recommendation traced) |
 | **LLM** | Groq (openai/gpt-oss-120b) |
 | **Voice** | Groq Whisper (whisper-large-v3-turbo) |
+| **Embeddings** | [Turbov2](https://github.com/theseedship/deposium_embeddings-turbov2) (optional) |
 | **Agents** | Mastra Framework |
 | **Frontend** | SolidStart + SolidJS + TailwindCSS |
 | **Storage** | DuckDB (single file) |
 | **Job Search** | Google Places API |
+
+### Companion Service: Turbov2 Embeddings
+
+For **RAG features** (semantic search, similar profiles), Stride uses an external embeddings service:
+
+**Repository**: [theseedship/deposium_embeddings-turbov2](https://github.com/theseedship/deposium_embeddings-turbov2)
+
+| Feature | Model | Speed |
+|---------|-------|-------|
+| **Embeddings** | m2v-bge-m3-1024d | 14k texts/sec |
+| **Reranking** | mxbai-rerank-v2 | SOTA quality |
+| **Future: TabPFN** | tabpfn-2.5 | ML predictions |
+
+**Quick Setup (local dev):**
+
+```bash
+# Clone and run Turbov2
+git clone https://github.com/theseedship/deposium_embeddings-turbov2.git
+cd deposium_embeddings-turbov2
+pip install -r requirements.txt
+python -m uvicorn src.main:app --host 0.0.0.0 --port 11436
+
+# In Stride .env
+OLLAMA_URL=http://127.0.0.1:11436
+EMBEDDING_MODEL=m2v-bge-m3-1024d
+EMBEDDINGS_ENABLED=true
+```
+
+**Railway Deployment:**
+
+Both services deploy to Railway. Configure internal networking:
+
+```bash
+# Stride .env (Railway)
+OLLAMA_URL=http://deposium-embeddings-turbov2.railway.internal:11435
+
+# Turbov2 .env (Railway) - minimal config
+UVICORN_PORT=11435
+DEFAULT_EMBEDDING_MODEL=m2v-bge-m3-1024d
+```
+
+> **Note**: Stride works without Turbov2—RAG features gracefully degrade. Only enable `EMBEDDINGS_ENABLED=true` when the service is running.
 
 ### Opik Integration
 
@@ -178,16 +223,27 @@ pnpm install
 # 2. Set environment variables
 cp .env.example .env
 # Edit .env with:
-#   GROQ_API_KEY
-#   OPIK_API_KEY
-#   OPIK_WORKSPACE
-#   GOOGLE_MAPS_API_KEY (optional, for job search)
+#   GROQ_API_KEY (required - LLM features)
+#   OPIK_API_KEY + OPIK_WORKSPACE (recommended - tracing)
+#   GOOGLE_MAPS_API_KEY (optional - Jobs tab search)
 
 # 3. Run development server
 pnpm dev              # Frontend → http://localhost:3006
 
 # 4. Build for production
 pnpm build
+```
+
+### Full Stack (with RAG/Embeddings)
+
+```bash
+# Terminal 1: Start Turbov2 embeddings service
+cd ../deposium_embeddings-turbov2
+python -m uvicorn src.main:app --port 11436
+
+# Terminal 2: Start Stride
+cd ../encode_club_hackathon_2026
+EMBEDDINGS_ENABLED=true pnpm dev
 ```
 
 ---
@@ -221,6 +277,43 @@ For demos, the simulation controls allow:
 - Test achievement unlocks
 
 Access via the clock icon in the Progress page header.
+
+---
+
+## Future Development
+
+### Voice Input (Whisper) ✅ Integrated
+
+Voice input is fully implemented:
+- Microphone button in onboarding chat
+- Uses Groq Whisper API (`whisper-large-v3-turbo`)
+- Real-time audio level visualization
+- French language support
+
+**Not yet implemented:**
+- Voice input in other chat contexts (Bruno tips, agent conversations)
+- Text-to-speech for Bruno responses
+- Continuous dictation mode
+
+### TabPFN 2.5 (ML Enhancement) 🔜 Planned
+
+[TabPFN](https://github.com/PriorLabs/TabPFN) is a foundation model for tabular data that could enhance Stride's predictions:
+
+| Use Case | Current | With TabPFN |
+|----------|---------|-------------|
+| **Burnout Prediction** | Rule-based (3 weeks < 40%) | Probability with confidence (e.g., "73% crash risk") |
+| **Swipe Preferences** | Linear 15% learning rate | Non-linear interactions (e.g., "high effort OK if rate > €25") |
+| **Energy Forecasting** | None | 7-day forecast with exam/work covariates |
+| **Comeback Validation** | Binary detection | Confidence score for sustainable recovery |
+
+**Why TabPFN fits Stride:**
+- Tiny datasets (14-50 samples) = fast CPU inference, no GPU needed
+- Zero-shot learning = works immediately without training data
+- Uncertainty quantification = show confidence to users
+
+**Integration path:** Via existing Turbov2 embeddings service (Railway-ready, ~672MB model).
+
+See [docs/architecture/TabPFN-turbov2.md](docs/architecture/TabPFN-turbov2.md) for full implementation plan.
 
 ---
 

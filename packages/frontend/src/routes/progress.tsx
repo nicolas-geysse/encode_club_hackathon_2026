@@ -13,6 +13,10 @@ import { getCurrentWeekInfo } from '~/lib/weekCalculator';
 import { MissionList } from '~/components/suivi/MissionList';
 import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary';
 import { BrunoTips } from '~/components/suivi/BrunoTips';
+import { EnergyHistory } from '~/components/suivi/EnergyHistory';
+import { ComebackAlert } from '~/components/suivi/ComebackAlert';
+import { DailyMoodModal, shouldShowDailyMood } from '~/components/suivi/DailyMoodModal';
+import { calculateKarma } from '~/hooks/useKarma';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import type { Mission } from '~/components/suivi/MissionCard';
@@ -187,8 +191,12 @@ export default function ProgressPage() {
     missions: [],
   });
 
-  // Sprint 13.8 Fix: Use profile context for income/lifestyle data
-  const { income: contextIncome, lifestyle: contextLifestyle } = useProfile();
+  // Sprint 13.8 Fix: Use profile context for income/lifestyle/trades data
+  const {
+    income: contextIncome,
+    lifestyle: contextLifestyle,
+    trades: contextTrades,
+  } = useProfile();
 
   // Sprint 13.8 Fix: Use SimulationContext for reactive date updates
   const { currentDate } = useSimulation();
@@ -212,11 +220,20 @@ export default function ProgressPage() {
     return incomeTotal - expensesTotal;
   });
 
+  // Karma score from trades (for achievements and wellbeing)
+  const karmaResult = createMemo(() => {
+    const trades = contextTrades();
+    return calculateKarma(trades as Parameters<typeof calculateKarma>[0]);
+  });
+
   // Sprint 3 Bug B fix: Track current goal for progress sync
   const [currentGoal, setCurrentGoal] = createSignal<Goal | null>(null);
 
   // Sprint 9.5: Track completed goals for "all goals completed" message
   const [completedGoalsCount, setCompletedGoalsCount] = createSignal(0);
+
+  // Daily mood check-in modal
+  const [showDailyMoodModal, setShowDailyMoodModal] = createSignal(false);
 
   // Bugfix: One-time gains from trades and paused subscriptions (fetched from Budget API)
   const [oneTimeGains, setOneTimeGains] = createSignal<OneTimeGains>(getEmptyOneTimeGains());
@@ -624,6 +641,13 @@ export default function ProgressPage() {
       setTimeout(() => {
         checkAndApplyAutoCredit();
       }, 100);
+
+      // Check if we should show daily mood modal (after data is loaded)
+      setTimeout(() => {
+        if (shouldShowDailyMood()) {
+          setShowDailyMoodModal(true);
+        }
+      }, 500); // Slight delay to let page settle
     });
   });
 
@@ -688,6 +712,7 @@ export default function ProgressPage() {
           weeklyMissionsTotal: weeklyMissionsTotal,
           energyHistory: updated.energyHistory.map((e) => ({ level: e.level })),
           activeMissions: updated.missions.filter((m) => m.status === 'active'),
+          karmaScore: karmaResult().score,
         });
       }
     }
@@ -1085,6 +1110,7 @@ export default function ProgressPage() {
             }
             skills={extractSkills(activeProfile()?.planData)}
             monthlyMargin={monthlyMargin()}
+            karmaScore={karmaResult().score}
           />
 
           {/* Section 1: Goal Hero + Key Metrics */}
@@ -1145,7 +1171,8 @@ export default function ProgressPage() {
           </Show>
           */}
 
-          {/* Section 2: Energy (MOVED UP - leading indicator) - HIDDEN FOR SIMPLIFICATION
+          {/* Section 2: Energy - Detailed view is in Profile tab (/me)
+              Daily mood input is via the DailyMoodModal popup
           <EnergyHistory
             history={followup().energyHistory}
             onEnergyUpdate={handleEnergyUpdate}
@@ -1153,7 +1180,7 @@ export default function ProgressPage() {
           />
           */}
 
-          {/* Full Comeback Alert (only when conditions met) - inline with Energy - HIDDEN FOR SIMPLIFICATION
+          {/* Comeback Alert (shows when energy recovers after low period) */}
           <Show when={showComebackAlert()}>
             <ComebackAlert
               energyHistory={followup().energyHistory.map((e) => e.level)}
@@ -1164,7 +1191,6 @@ export default function ProgressPage() {
               onDeclinePlan={() => {}}
             />
           </Show>
-          */}
 
           {/* Section 3: Financial Breakdown (after energy for context) - HIDDEN FOR SIMPLIFICATION
           <AnalyticsDashboard profileId={activeProfile()?.id} currency={currency()} />
@@ -1252,6 +1278,19 @@ export default function ProgressPage() {
               setShowSavingsAdjust(false);
               setAdjustingWeek(null);
             }}
+          />
+        </Show>
+
+        {/* Daily Mood Check-in Modal */}
+        <Show when={showDailyMoodModal()}>
+          <DailyMoodModal
+            currentWeek={currentWeekNumber()}
+            onMoodSelect={(level) => {
+              handleEnergyUpdate(currentWeekNumber(), level);
+              setShowDailyMoodModal(false);
+              toastPopup.success('Mood saved!', `Energy level set to ${level}%`);
+            }}
+            onDismiss={() => setShowDailyMoodModal(false)}
           />
         </Show>
       </Show>

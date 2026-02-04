@@ -66,6 +66,8 @@ interface BrunoTipsProps {
   skills?: string[];
   /** Monthly margin for budget analysis */
   monthlyMargin?: number;
+  /** Karma score from trades (community contribution) */
+  karmaScore?: number;
   /** Callback when a trace is generated */
   onTraceGenerated?: (traceId: string, traceUrl: string) => void;
 }
@@ -308,6 +310,28 @@ export function BrunoTips(props: BrunoTipsProps) {
         message: `Only ${progressPercent}% progress. Explore new scenarios to accelerate.`,
         action: { label: 'View scenarios', href: '/swipe' },
         priority: 70,
+      });
+    }
+
+    // Karma-based tips (community contribution)
+    const karma = props.karmaScore || 0;
+    if (karma >= 5) {
+      allTips.push({
+        id: 'karma_high',
+        category: 'celebration',
+        title: 'Community Champion!',
+        message: `Your karma score of ${karma} shows you're making a difference. Helping others boosts wellbeing!`,
+        action: { label: 'View trades', href: '/me?tab=trade' },
+        priority: 65,
+      });
+    } else if (karma >= 2) {
+      allTips.push({
+        id: 'karma_growing',
+        category: 'opportunity',
+        title: 'Karma growing!',
+        message: `${karma} karma points earned. Lending or trading items helps the community and your wellbeing.`,
+        action: { label: 'Explore trades', href: '/me?tab=trade' },
+        priority: 50,
       });
     }
 
