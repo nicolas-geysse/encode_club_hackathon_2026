@@ -1,20 +1,18 @@
-import { type Component, For, Show } from 'solid-js';
+import { type Component, For } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { cn } from '~/lib/cn';
-import { MessageCircle, User, Dices, TrendingUp, Wrench } from 'lucide-solid';
+import { MessageCircle, User, Dices, TrendingUp } from 'lucide-solid';
 import { onboardingIsComplete } from '~/lib/onboardingStateStore';
 import { Logo } from '~/components/Logo';
 
 interface NavItem {
-  href?: string;
-  action?: string;
+  href: string;
   label: string;
   icon: Component<{ class?: string }>;
 }
 
 interface SidebarProps {
   class?: string;
-  onDebugOpen?: () => void;
 }
 
 export const Sidebar: Component<SidebarProps> = (props) => {
@@ -25,7 +23,6 @@ export const Sidebar: Component<SidebarProps> = (props) => {
     { href: '/me', label: 'Me', icon: User },
     { href: '/swipe', label: 'Swipe', icon: Dices },
     { href: '/progress', label: 'Progress', icon: TrendingUp },
-    { action: 'debug', label: 'Debug', icon: Wrench },
   ];
 
   // Conditionally show nav items based on onboarding state
@@ -52,7 +49,7 @@ export const Sidebar: Component<SidebarProps> = (props) => {
         <nav class="space-y-1">
           <For each={visibleNavItems()}>
             {(item, i) => {
-              const isActive = () => item.href && location.pathname === item.href;
+              const isActive = () => location.pathname === item.href;
               // Only apply animation delay after onboarding completes (for newly revealed items)
               const animStyle = () =>
                 onboardingIsComplete()
@@ -62,38 +59,20 @@ export const Sidebar: Component<SidebarProps> = (props) => {
                     }
                   : {};
               return (
-                <Show
-                  when={item.href}
-                  fallback={
-                    <button
-                      onClick={() => item.action === 'debug' && props.onDebugOpen?.()}
-                      class={cn(
-                        'w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50',
-                        'text-muted-foreground hover:text-foreground',
-                        onboardingIsComplete() && 'animate-fade-in'
-                      )}
-                      style={animStyle()}
-                    >
-                      <item.icon class="h-4 w-4" />
-                      {item.label}
-                    </button>
-                  }
+                <A
+                  href={item.href}
+                  class={cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50',
+                    isActive()
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground',
+                    onboardingIsComplete() && 'animate-fade-in'
+                  )}
+                  style={animStyle()}
                 >
-                  <A
-                    href={item.href!}
-                    class={cn(
-                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50',
-                      isActive()
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:text-foreground',
-                      onboardingIsComplete() && 'animate-fade-in'
-                    )}
-                    style={animStyle()}
-                  >
-                    <item.icon class="h-4 w-4" />
-                    {item.label}
-                  </A>
-                </Show>
+                  <item.icon class="h-4 w-4" />
+                  {item.label}
+                </A>
               );
             }}
           </For>
