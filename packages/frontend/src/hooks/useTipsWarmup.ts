@@ -28,7 +28,7 @@
  * ```
  */
 
-import { createSignal, createEffect, onMount, type Accessor } from 'solid-js';
+import { createSignal, createEffect, onMount, untrack, type Accessor } from 'solid-js';
 import { createLogger } from '../lib/logger';
 
 const logger = createLogger('useTipsWarmup');
@@ -143,11 +143,20 @@ export function useTipsWarmup(
     });
   };
 
+  // Track in-flight requests to prevent duplicates
+  const inFlightRequests = new Set<TabType>();
+
   // Warmup a single tab
   const warmupTab = async (tab: TabType): Promise<boolean> => {
     const profileId = profileIdAccessor();
     if (!profileId) {
       logger.debug('No profile ID, skipping warmup', { tab });
+      return false;
+    }
+
+    // Check if already in flight
+    if (inFlightRequests.has(tab)) {
+      logger.debug('Warmup already in flight, skipping', { tab });
       return false;
     }
 
@@ -161,7 +170,14 @@ export function useTipsWarmup(
       }
     }
 
-    // Mark as loading
+    // Check if already loading (another effect triggered it)
+    if (existing?.loading) {
+      logger.debug('Tab warmup already in progress', { tab });
+      return false;
+    }
+
+    // Mark as in-flight and loading
+    inFlightRequests.add(tab);
     updateStatus(tab, { loading: true, success: false, error: undefined });
 
     try {
@@ -211,6 +227,9 @@ export function useTipsWarmup(
         logger.warn('Tab warmup failed', { tab, error: errorMessage });
       }
       return false;
+    } finally {
+      // Always remove from in-flight tracking
+      inFlightRequests.delete(tab);
     }
   };
 
@@ -263,21 +282,31 @@ export function useTipsWarmup(
   });
 
   // Re-warmup when profile ID changes
+  // Track previous profile ID to detect actual changes
+  let previousProfileId: string | undefined;
+
   createEffect(() => {
     const profileId = profileIdAccessor();
     if (!profileId) {
       clearStatus();
+      previousProfileId = undefined;
       return;
     }
 
-    // Clear status for new profile
-    const existingStatus = warmupStatus();
-    if (Object.keys(existingStatus).length > 0) {
-      // Only clear if we have old status
-      clearStatus();
-      // Re-trigger warmup for current tab
-      warmupTab(currentTab);
+    // Only re-warmup if profile actually changed (not on initial render)
+    if (previousProfileId && previousProfileId !== profileId) {
+      // Use untrack to read warmupStatus without creating dependency
+      const existingStatus = untrack(() => warmupStatus());
+      if (Object.keys(existingStatus).length > 0) {
+        // Clear status for new profile
+        clearStatus();
+        // Re-trigger warmup for current tab (only if not skipAutoWarmup)
+        if (!options.skipAutoWarmup) {
+          warmupTab(currentTab);
+        }
+      }
     }
+    previousProfileId = profileId;
   });
 
   return {

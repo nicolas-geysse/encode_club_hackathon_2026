@@ -222,7 +222,7 @@ export default function MePage() {
   const { warmupTabs, warmupStatus, isTabWarmedUp } = useTipsWarmup(
     profileIdAccessor,
     'profile', // Initial tab
-    { skipPrefetch: true } // We'll handle tab prediction manually based on activeTab
+    { skipAutoWarmup: true, skipPrefetch: true } // We handle all warmup manually via createEffect
   );
 
   // Trigger warmup when tab changes - warm current tab + predicted next tabs
