@@ -18,12 +18,13 @@
  */
 
 import {
-  trace,
+  conditionalTrace,
   createSpan,
   getCurrentTraceId,
   getTraceUrl,
   type Span,
-  type TraceOptions,
+  type ConditionalTraceOptions,
+  type SamplingContext,
 } from '../services/opik.js';
 import { chat, type ChatMessage } from '../services/groq.js';
 import { detectEnergyDebt, type EnergyDebt } from '../algorithms/energy-debt.js';
@@ -41,6 +42,7 @@ import type {
 import { createTabStrategy } from './strategies/factory.js';
 import { mergeContext } from '../services/tab-context.js';
 import { executeAgent } from './agent-executor.js';
+import { getTabPromptMetadata } from './strategies/tab-prompts.js';
 
 const logger = createLogger('TabTipsOrchestrator');
 
@@ -595,6 +597,12 @@ async function runStage4(
  * - Level 1: Partial (context + LLM, no agents)
  * - Level 2: Algorithms only (energy debt, comeback detection)
  * - Level 3: Static tip from fallbacks
+ *
+ * Sampling:
+ * - 100% on errors or fallback > 0
+ * - 100% on user feedback
+ * - 100% for new users (< 7 days)
+ * - 10% random for successful level-0 traces
  */
 export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOutput> {
   const startTime = Date.now();
@@ -604,21 +612,44 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
   // Get strategy for this tab
   const strategy = createTabStrategy(input.tabType);
 
-  const traceOptions: TraceOptions = {
+  // Build sampling context for conditional tracing
+  const samplingContext: SamplingContext = {
+    profileId: input.profileId,
+    tabType: input.tabType,
+    experimentIds: input.options?.experimentIds,
+    // These will be checked post-trace for upgrade:
+    // - hasKnownError (we don't know yet)
+    // - estimatedFallbackLevel (we don't know yet)
+    // profileCreatedAt can be passed via contextData.profileCreatedAt
+    profileCreatedAt: (input.contextData as { profileCreatedAt?: string } | undefined)
+      ?.profileCreatedAt,
+  };
+
+  // Get prompt metadata for versioning
+  const promptMeta = getTabPromptMetadata(input.tabType);
+
+  const traceOptions: ConditionalTraceOptions = {
     tags: ['ai', 'bruno', 'tips', input.tabType],
     metadata: {
       providers: ['groq'],
       source: 'tab_tips_orchestrator',
       tabType: input.tabType,
+      // Prompt versioning for regression detection
+      ...(promptMeta && {
+        'prompt.name': promptMeta.name,
+        'prompt.version': promptMeta.version,
+        'prompt.hash': promptMeta.hash,
+      }),
     },
     input: {
       profileId: input.profileId,
       tabType: input.tabType,
       enableFullOrchestration: enableFull,
     },
+    sampling: samplingContext,
   };
 
-  return trace(
+  const traceResult = await conditionalTrace(
     `tips.orchestrator.${input.tabType}`,
     async (rootSpan) => {
       const agentsUsed: string[] = [];
@@ -821,9 +852,9 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
           },
           processingInfo: {
             agentsUsed: [],
-            fallbackLevel: 3,
+            fallbackLevel: 3 as const,
             durationMs: Date.now() - startTime,
-            orchestrationType: 'static',
+            orchestrationType: 'static' as const,
             cached: false,
           },
           traceId: getCurrentTraceId() || '',
@@ -833,6 +864,19 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
     },
     traceOptions
   );
+
+  // Add sampling info to processing metadata
+  const output: TabTipsOutput = traceResult.result;
+  if (!traceResult.sampled) {
+    // If not sampled, update processingInfo
+    output.processingInfo = {
+      ...output.processingInfo,
+      sampled: false,
+      samplingReason: traceResult.samplingDecision.reason,
+    } as TabTipsOutput['processingInfo'] & { sampled: boolean; samplingReason: string };
+  }
+
+  return output;
 }
 
 /**

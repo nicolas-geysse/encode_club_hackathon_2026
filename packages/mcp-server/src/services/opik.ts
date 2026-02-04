@@ -934,10 +934,144 @@ export function setPromptAttributes(ctx: Span | TraceContext, agentId: string): 
   }
 }
 
+// ============================================================
+// CONDITIONAL TRACING WITH SAMPLING
+// ============================================================
+
+import {
+  shouldSampleTrace,
+  shouldUpgradeSampling,
+  logSamplingDecision,
+  type SamplingContext,
+  type SamplingDecision,
+} from './trace-sampling.js';
+
+// Re-export sampling types
+export type { SamplingContext, SamplingDecision };
+export { shouldSampleTrace, shouldUpgradeSampling };
+
+/**
+ * Extended trace options with sampling context
+ */
+export interface ConditionalTraceOptions extends TraceOptions {
+  /** Sampling context for deciding whether to trace */
+  sampling?: SamplingContext;
+}
+
+/**
+ * Result from conditional trace includes sampling decision
+ */
+export interface ConditionalTraceResult<T> {
+  result: T;
+  sampled: boolean;
+  samplingDecision: SamplingDecision;
+  traceId: string | null;
+}
+
+/**
+ * Conditional trace that applies sampling rules.
+ * Use this instead of trace() for high-volume endpoints.
+ *
+ * Features:
+ * - Pre-trace sampling decision (avoids overhead)
+ * - Post-trace upgrade (if error/fallback discovered)
+ * - Sampling metadata in trace for analysis
+ *
+ * @example
+ * ```typescript
+ * const result = await conditionalTrace(
+ *   'tips.orchestrator.goals',
+ *   async (ctx) => { ... },
+ *   {
+ *     tags: ['bruno', 'tips'],
+ *     sampling: {
+ *       profileId,
+ *       tabType: 'goals',
+ *       profileCreatedAt: profile.createdAt,
+ *     }
+ *   }
+ * );
+ * ```
+ */
+export async function conditionalTrace<T>(
+  name: string,
+  fn: (ctx: TraceContext) => Promise<T>,
+  options?: ConditionalTraceOptions
+): Promise<ConditionalTraceResult<T>> {
+  // If no sampling context, always trace (backwards compatible)
+  if (!options?.sampling) {
+    const result = await trace(name, fn, options);
+    return {
+      result,
+      sampled: true,
+      samplingDecision: { shouldTrace: true, reason: 'forced', samplingRate: 1.0 },
+      traceId: getCurrentTraceId(),
+    };
+  }
+
+  // Make sampling decision
+  const samplingDecision = shouldSampleTrace(options.sampling);
+  logSamplingDecision(options.sampling, samplingDecision);
+
+  // If not sampled, run without tracing
+  if (!samplingDecision.shouldTrace) {
+    // Create mock context
+    const mockContext: TraceContext = {
+      setAttributes: () => {},
+      addEvent: () => {},
+      setInput: () => {},
+      setOutput: () => {},
+      setUsage: () => {},
+      setCost: () => {},
+      end: () => {},
+      createChildSpan: async <S>(_name: string, spanFn: (span: Span) => Promise<S>) => {
+        const mockSpan: Span = {
+          setAttributes: () => {},
+          addEvent: () => {},
+          setInput: () => {},
+          setOutput: () => {},
+          setUsage: () => {},
+          setCost: () => {},
+          end: () => {},
+        };
+        return spanFn(mockSpan);
+      },
+      getTraceId: () => null,
+    };
+
+    const result = await fn(mockContext);
+    return {
+      result,
+      sampled: false,
+      samplingDecision,
+      traceId: null,
+    };
+  }
+
+  // Trace with sampling metadata
+  const traceOptions: TraceOptions = {
+    ...options,
+    metadata: {
+      ...options.metadata,
+      'sampling.reason': samplingDecision.reason,
+      'sampling.rate': samplingDecision.samplingRate,
+    },
+  };
+
+  const result = await trace(name, fn, traceOptions);
+  return {
+    result,
+    sampled: true,
+    samplingDecision,
+    traceId: getCurrentTraceId(),
+  };
+}
+
 // Export service
 export const opik = {
   init: initOpik,
   trace,
+  conditionalTrace,
   createSpan,
   maybeTrace,
   maybeCreateSpan,
@@ -953,6 +1087,8 @@ export const opik = {
   initPromptHashes,
   getPromptMetadata,
   registerPrompt,
+  shouldSampleTrace,
+  shouldUpgradeSampling,
 };
 
 export default opik;

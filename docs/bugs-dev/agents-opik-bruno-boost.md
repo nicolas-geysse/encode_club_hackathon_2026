@@ -913,13 +913,88 @@ Migration pattern: `message` prop → `fallbackMessage` prop
 
 ---
 
-### Phase D: Opik Observability (Not Started)
+### Phase D: Opik Observability ✅ COMPLETE
 
-| Task | Status | Notes |
-|------|--------|-------|
-| **D11: Sampling Strategy** | ⏳ Todo | 100% errors, 10% success |
-| **D12: Trace Hierarchy** | ⏳ Todo | Per-tab trace naming |
-| **D13: Prompt Versioning** | ⏳ Todo | registerPrompt per tab |
+| Task | Status | Commit | Notes |
+|------|--------|--------|-------|
+| **D11: Sampling Strategy** | ✅ Done | - | `trace-sampling.ts` with intelligent sampling |
+| **D12: Trace Hierarchy** | ✅ Done | - | `tips.orchestrator.${tabType}` with nested spans |
+| **D13: Prompt Versioning** | ✅ Done | - | `tab-prompts.ts` with registerPrompt |
+
+**Files Created (Phase D):**
+```
+packages/mcp-server/src/services/trace-sampling.ts     # NEW - Intelligent sampling
+  - shouldSampleTrace(context): Pre-trace decision
+  - shouldUpgradeSampling(decision, postContext): Post-trace upgrade
+  - Sampling rules:
+    • 100% on errors or fallback > 0
+    • 100% on user feedback
+    • 100% for new users (< 7 days)
+    • 100% for users in A/B experiments
+    • 10% random for successful level-0 traces
+  - Deterministic hash-based sampling (same user = same result)
+  - OPIK_TRACE_ALL=true env var for testing
+
+packages/mcp-server/src/agents/strategies/tab-prompts.ts  # NEW - Prompt registry
+  - System prompts for all 6 tabs (profile, goals, budget, trade, jobs, swipe)
+  - registerPrompt() generates content hashes
+  - getTabPromptMetadata(tabType): Get hash/version for traces
+  - Auto-registers on module load
+```
+
+**Modified Files (Phase D):**
+```
+packages/mcp-server/src/services/opik.ts               # MODIFIED
+  - Added conditionalTrace() for sampling-aware tracing
+  - Re-exports sampling functions
+  - ConditionalTraceOptions with sampling context
+  - ConditionalTraceResult with sampling decision
+
+packages/mcp-server/src/agents/tab-tips-orchestrator.ts  # MODIFIED
+  - Uses conditionalTrace() instead of trace()
+  - Builds SamplingContext with profileId, tabType, experimentIds
+  - Adds prompt.name, prompt.version, prompt.hash to trace metadata
+  - Includes sampling info in processingInfo output
+```
+
+**Sampling Decision Flow:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ shouldSampleTrace(context)                                  │
+│                                                             │
+│   ┌─ FORCE_TRACE_ALL=true? ──────────────► TRACE (forced)   │
+│   │                                                         │
+│   ├─ context.forceTrace? ────────────────► TRACE (forced)   │
+│   │                                                         │
+│   ├─ context.hasKnownError? ─────────────► TRACE (error)    │
+│   │                                                         │
+│   ├─ fallbackLevel > 0? ─────────────────► TRACE (fallback) │
+│   │                                                         │
+│   ├─ hasFeedback? ───────────────────────► TRACE (feedback) │
+│   │                                                         │
+│   ├─ isNewUser (< 7 days)? ──────────────► TRACE (new_user) │
+│   │                                                         │
+│   ├─ has experimentIds? ─────────────────► TRACE (experiment)│
+│   │                                                         │
+│   ├─ random 10%? ────────────────────────► TRACE (sampled_in)│
+│   │                                                         │
+│   └─ otherwise ──────────────────────────► SKIP (sampled_out)│
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Trace Metadata with Prompt Versioning:**
+```json
+{
+  "providers": ["groq"],
+  "source": "tab_tips_orchestrator",
+  "tabType": "goals",
+  "prompt.name": "tab-tips.goals",
+  "prompt.version": "1.0.0",
+  "prompt.hash": "a1b2c3d4",
+  "sampling.reason": "sampled_in",
+  "sampling.rate": 0.1
+}
+```
 
 ---
 
