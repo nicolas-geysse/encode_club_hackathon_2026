@@ -1,7 +1,7 @@
 import { type Component, For, Show } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { cn } from '~/lib/cn';
-import { LayoutDashboard, Map, GraduationCap, Wrench } from 'lucide-solid';
+import { MessageCircle, User, Dices, TrendingUp, Wrench } from 'lucide-solid';
 import { onboardingIsComplete } from '~/lib/onboardingStateStore';
 import { Logo } from '~/components/Logo';
 
@@ -21,9 +21,10 @@ export const Sidebar: Component<SidebarProps> = (props) => {
   const location = useLocation();
 
   const navItems: NavItem[] = [
-    { href: '/', label: 'Onboarding', icon: GraduationCap },
-    { href: '/plan', label: 'My Plan', icon: LayoutDashboard },
-    { href: '/suivi', label: 'Tracking', icon: Map },
+    { href: '/', label: 'Chat', icon: MessageCircle },
+    { href: '/me', label: 'Me', icon: User },
+    { href: '/swipe', label: 'Swipe', icon: Dices },
+    { href: '/progress', label: 'Progress', icon: TrendingUp },
     { action: 'debug', label: 'Debug', icon: Wrench },
   ];
 
