@@ -81,7 +81,10 @@ export async function GET() {
     // When offset_days is 0 (no simulation), always return TODAY's date
     // This fixes a bug where stale dates from the DB would cause earnings
     // to not show up until the next day
-    const now = new Date().toISOString().split('T')[0];
+    // IMPORTANT: Use LOCAL date, not UTC! toISOString() returns UTC which can be
+    // a day behind in timezones ahead of UTC (e.g., Europe at midnight local = still yesterday UTC)
+    const nowDate = new Date();
+    const now = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}-${String(nowDate.getDate()).padStart(2, '0')}`;
     const offsetDays = result[0].offset_days;
 
     let simulatedDate: string;
@@ -90,9 +93,9 @@ export async function GET() {
       simulatedDate = now;
     } else {
       // Simulation active - calculate from real date + offset
-      const realDate = new Date();
-      realDate.setDate(realDate.getDate() + offsetDays);
-      simulatedDate = realDate.toISOString().split('T')[0];
+      const simDate = new Date();
+      simDate.setDate(simDate.getDate() + offsetDays);
+      simulatedDate = `${simDate.getFullYear()}-${String(simDate.getMonth() + 1).padStart(2, '0')}-${String(simDate.getDate()).padStart(2, '0')}`;
     }
 
     const state: SimulationState = {
