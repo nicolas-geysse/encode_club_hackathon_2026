@@ -1002,8 +1002,8 @@ packages/mcp-server/src/agents/tab-tips-orchestrator.ts  # MODIFIED
 
 | Task | Status | Commit | Notes |
 |------|--------|--------|-------|
-| **E14: Experiment Framework** | ✅ Done | - | `experiments.ts` with hash-based allocation |
-| **E15: First Experiments** | ✅ Done | - | 5 experiments configured (3 enabled) |
+| **E14: Experiment Framework** | ✅ Done | `2fcff39` | `experiments.ts` with hash-based allocation |
+| **E15: First Experiments** | ✅ Done | `2fcff39` | 5 experiments configured (3 enabled) |
 
 **Files Created (Phase E):**
 ```
