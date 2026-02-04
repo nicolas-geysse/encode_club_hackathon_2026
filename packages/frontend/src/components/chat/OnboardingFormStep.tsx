@@ -5,7 +5,7 @@
  * Supports autocomplete, multi-select pills, geolocation, and more.
  */
 
-import { createSignal, For, Show, createEffect, Index, Switch, Match } from 'solid-js';
+import { createSignal, For, Show, createEffect, Index, Switch, Match, onMount } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import type { OnboardingStep } from '../../lib/chat/types';
 import {
@@ -250,9 +250,17 @@ function GeolocationButton(props: {
   onError: (error: GeolocationError) => void;
 }) {
   const [isLoading, setIsLoading] = createSignal(false);
+  // SSR Fix: Initialize as false, then check on mount (client-side only)
+  // This prevents hydration mismatch since navigator doesn't exist on server
+  const [geoSupported, setGeoSupported] = createSignal(false);
+
+  onMount(() => {
+    // Check geolocation support on client side only
+    setGeoSupported(isGeolocationSupported());
+  });
 
   const handleClick = async () => {
-    if (!isGeolocationSupported()) {
+    if (!geoSupported()) {
       props.onError({
         code: 'NOT_SUPPORTED',
         message: 'Geolocation is not supported by your browser',
@@ -275,7 +283,7 @@ function GeolocationButton(props: {
     <button
       type="button"
       onClick={handleClick}
-      disabled={isLoading() || !isGeolocationSupported()}
+      disabled={isLoading() || !geoSupported()}
       class="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 disabled:bg-muted/50 disabled:text-muted-foreground text-foreground rounded-lg transition-colors"
     >
       <Show
