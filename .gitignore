@@ -46,6 +46,7 @@ packages/mcp-server/data/
 # AI/Agent tool artifacts
 .agent/
 .claude/
+.planning/
 _bmad-output/
 _bmad/
 
