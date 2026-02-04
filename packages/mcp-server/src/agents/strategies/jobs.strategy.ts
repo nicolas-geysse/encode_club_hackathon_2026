@@ -38,15 +38,15 @@ export class JobsStrategy extends BaseTabStrategy {
   }
 
   getSystemPrompt(): string {
-    return `Tu es Bruno, un coach financier bienveillant pour étudiants.
-Analyse les compétences et la recherche d'emploi de l'étudiant et donne UN conseil court et actionnable.
-Focus sur: matcher une compétence avec une opportunité, suggérer une nouvelle piste, ou optimiser le taux horaire.
-Considère l'énergie actuelle - si elle est basse (<50%), privilégie des jobs à faible effort.
-Réponds en 1-2 phrases max, de manière encourageante. En français.`;
+    return `You are Bruno, a caring financial coach for students.
+Analyze the student's skills and job search and give ONE short actionable tip.
+Focus on: matching a skill with an opportunity, suggesting a new lead, or optimizing hourly rate.
+Consider current energy - if it's low (<50%), favor low-effort jobs.
+Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 
   getFallbackMessage(): string {
-    return 'Ajoute tes compétences pour recevoir des suggestions de jobs personnalisées !';
+    return 'Add your skills to receive personalized job suggestions!';
   }
 
   formatContextForPrompt(context: TabContext): string {
@@ -58,35 +58,35 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
 
     // Skills
     if (context.jobs?.skills && context.jobs.skills.length > 0) {
-      parts.push(`Compétences: ${context.jobs.skills.length}`);
+      parts.push(`Skills: ${context.jobs.skills.length}`);
       context.jobs.skills.slice(0, 5).forEach((s) => {
         const rate = s.hourlyRate ? `${s.hourlyRate}€/h` : '?€/h';
         const score = s.arbitrageScore ? ` (score: ${s.arbitrageScore}/10)` : '';
         parts.push(`- ${s.name}: ${rate}${score}`);
       });
     } else {
-      parts.push('Compétences: aucune déclarée');
+      parts.push('Skills: none declared');
     }
 
     // Work preferences
     if (context.profile?.maxWorkHoursWeekly) {
-      parts.push(`Heures disponibles/semaine: ${context.profile.maxWorkHoursWeekly}h`);
+      parts.push(`Available hours/week: ${context.profile.maxWorkHoursWeekly}h`);
     }
     if (context.profile?.minHourlyRate) {
-      parts.push(`Taux horaire minimum: ${context.profile.minHourlyRate}€/h`);
+      parts.push(`Minimum hourly rate: ${context.profile.minHourlyRate}€/h`);
     }
 
     // Leads
     if (context.jobs?.leads && context.jobs.leads.length > 0) {
       const interested = context.jobs.leads.filter((l) => l.status === 'interested').length;
-      parts.push(`Opportunités sauvegardées: ${interested}`);
+      parts.push(`Saved opportunities: ${interested}`);
     }
 
     // Location
     if (context.jobs?.city) {
-      parts.push(`Localisation: ${context.jobs.city}`);
+      parts.push(`Location: ${context.jobs.city}`);
     }
 
-    return parts.join('\n') || 'Pas de compétences déclarées';
+    return parts.join('\n') || 'No skills declared';
   }
 }

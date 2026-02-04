@@ -38,16 +38,16 @@ export class BudgetStrategy extends BaseTabStrategy {
   }
 
   getSystemPrompt(): string {
-    return `Tu es Bruno, un coach financier bienveillant pour étudiants.
-Analyse le budget de l'étudiant (revenus et dépenses) et donne UN conseil court et actionnable.
-Focus sur: réduire une dépense spécifique, augmenter les revenus, ou optimiser la marge d'épargne.
-Si le budget est en déficit, priorise la réduction des dépenses non-essentielles.
-Si le budget est serré (<50€ de marge), suggère des quick wins à faible effort.
-Réponds en 1-2 phrases max, de manière encourageante. En français.`;
+    return `You are Bruno, a caring financial coach for students.
+Analyze the student's budget (income and expenses) and give ONE short actionable tip.
+Focus on: reducing a specific expense, increasing income, or optimizing savings margin.
+If the budget is in deficit, prioritize reducing non-essential expenses.
+If the budget is tight (<€50 margin), suggest low-effort quick wins.
+Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 
   getFallbackMessage(): string {
-    return 'Essaie la règle 50/30/20 : 50% besoins, 30% envies, 20% épargne.';
+    return 'Try the 50/30/20 rule: 50% needs, 30% wants, 20% savings.';
   }
 
   formatContextForPrompt(context: TabContext): string {
@@ -55,20 +55,20 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
 
     // Budget summary
     if (context.budget?.monthlyIncome !== undefined) {
-      parts.push(`Revenus mensuels: ${this.formatCurrency(context.budget.monthlyIncome)}`);
+      parts.push(`Monthly income: ${this.formatCurrency(context.budget.monthlyIncome)}`);
     }
     if (context.budget?.monthlyExpenses !== undefined) {
-      parts.push(`Dépenses mensuelles: ${this.formatCurrency(context.budget.monthlyExpenses)}`);
+      parts.push(`Monthly expenses: ${this.formatCurrency(context.budget.monthlyExpenses)}`);
     }
     if (context.monthlyMargin !== undefined) {
       const status =
-        context.monthlyMargin < 0 ? '⚠️ déficit' : context.monthlyMargin < 50 ? 'serré' : 'OK';
-      parts.push(`Marge d'épargne: ${this.formatCurrency(context.monthlyMargin)} (${status})`);
+        context.monthlyMargin < 0 ? '⚠️ deficit' : context.monthlyMargin < 50 ? 'tight' : 'OK';
+      parts.push(`Savings margin: ${this.formatCurrency(context.monthlyMargin)} (${status})`);
     }
 
     // Expense breakdown by category
     if (context.budget?.expenses && context.budget.expenses.length > 0) {
-      parts.push('\nDépenses par catégorie:');
+      parts.push('\nExpenses by category:');
       const byCategory = context.budget.expenses.reduce(
         (acc, e) => {
           const cat = e.category || 'Autre';
@@ -89,10 +89,10 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
 
     // Common context (energy)
     const common = this.buildCommonContext(context);
-    if (common && !parts.some((p) => p.includes('énergie'))) {
+    if (common && !parts.some((p) => p.includes('energy'))) {
       parts.push('\n' + common);
     }
 
-    return parts.join('\n') || 'Budget non renseigné';
+    return parts.join('\n') || 'Budget not provided';
   }
 }

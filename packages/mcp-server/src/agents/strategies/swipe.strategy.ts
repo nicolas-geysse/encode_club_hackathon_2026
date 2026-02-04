@@ -38,15 +38,15 @@ export class SwipeStrategy extends BaseTabStrategy {
   }
 
   getSystemPrompt(): string {
-    return `Tu es Bruno, un coach financier bienveillant pour étudiants.
-Donne UN conseil court sur comment utiliser le swipe de scénarios efficacement.
-Focus sur: équilibrer effort et revenus selon les préférences, diversifier les sources de revenus, ou écouter ses vraies préférences.
-L'app apprend des choix de l'étudiant - encourage à swiper selon ses vraies préférences.
-Réponds en 1-2 phrases max, de manière encourageante. En français.`;
+    return `You are Bruno, a caring financial coach for students.
+Give ONE short tip on how to use scenario swiping effectively.
+Focus on: balancing effort and income based on preferences, diversifying income sources, or listening to true preferences.
+The app learns from the student's choices - encourage swiping based on true preferences.
+Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 
   getFallbackMessage(): string {
-    return "Swipe selon tes vraies préférences, l'app apprend de tes choix !";
+    return 'Swipe based on your true preferences - the app learns from your choices!';
   }
 
   formatContextForPrompt(context: TabContext): string {
@@ -59,34 +59,30 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
       if (prefs.effort_sensitivity !== undefined) {
         const level =
           prefs.effort_sensitivity > 0.6
-            ? 'élevée'
+            ? 'high'
             : prefs.effort_sensitivity < 0.4
-              ? 'faible'
-              : 'moyenne';
-        parts.push(`Sensibilité à l'effort: ${level}`);
+              ? 'low'
+              : 'medium';
+        parts.push(`Effort sensitivity: ${level}`);
       }
 
       if (prefs.hourly_rate_priority !== undefined) {
         const level =
           prefs.hourly_rate_priority > 0.6
-            ? 'élevée'
+            ? 'high'
             : prefs.hourly_rate_priority < 0.4
-              ? 'faible'
-              : 'moyenne';
-        parts.push(`Priorité taux horaire: ${level}`);
+              ? 'low'
+              : 'medium';
+        parts.push(`Hourly rate priority: ${level}`);
       }
 
       if (prefs.time_flexibility !== undefined) {
         const level =
-          prefs.time_flexibility > 0.6
-            ? 'élevée'
-            : prefs.time_flexibility < 0.4
-              ? 'faible'
-              : 'moyenne';
-        parts.push(`Flexibilité horaire: ${level}`);
+          prefs.time_flexibility > 0.6 ? 'high' : prefs.time_flexibility < 0.4 ? 'low' : 'medium';
+        parts.push(`Time flexibility: ${level}`);
       }
     } else {
-      parts.push('Préférences: par défaut (pas encore de swipes)');
+      parts.push('Preferences: default (no swipes yet)');
     }
 
     // Scenarios count
@@ -99,7 +95,7 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
       const rightCount = context.swipe.recentSwipes.filter((s) => s.direction === 'right').length;
       const total = context.swipe.recentSwipes.length;
       const acceptRate = Math.round((rightCount / total) * 100);
-      parts.push(`Taux d'acceptation récent: ${acceptRate}%`);
+      parts.push(`Recent acceptance rate: ${acceptRate}%`);
 
       // Most swiped right types
       const rightSwipes = context.swipe.recentSwipes.filter((s) => s.direction === 'right');
@@ -113,13 +109,13 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
 
       const topType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0];
       if (topType) {
-        parts.push(`Type préféré: ${topType[0]}`);
+        parts.push(`Preferred type: ${topType[0]}`);
       }
     }
 
     // Skills for matching
     if (context.profile?.skills && context.profile.skills.length > 0) {
-      parts.push(`\nCompétences pour matching: ${this.formatList(context.profile.skills)}`);
+      parts.push(`\nSkills for matching: ${this.formatList(context.profile.skills)}`);
     }
 
     // Common context
@@ -128,6 +124,6 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
       parts.push('\n' + common);
     }
 
-    return parts.join('\n') || 'Préférences par défaut';
+    return parts.join('\n') || 'Default preferences';
   }
 }

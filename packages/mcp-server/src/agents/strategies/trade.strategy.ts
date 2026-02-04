@@ -38,15 +38,15 @@ export class TradeStrategy extends BaseTabStrategy {
   }
 
   getSystemPrompt(): string {
-    return `Tu es Bruno, un coach financier bienveillant pour étudiants.
-Analyse l'inventaire et les échanges de l'étudiant et donne UN conseil court et actionnable.
-Focus sur: identifier un objet à vendre pour booster l'épargne, suggérer un emprunt plutôt qu'un achat, ou valoriser le karma d'entraide.
-Si l'inventaire est vide, encourage l'étudiant à lister ce qu'il pourrait vendre.
-Réponds en 1-2 phrases max, de manière encourageante. En français.`;
+    return `You are Bruno, a caring financial coach for students.
+Analyze the student's inventory and trades and give ONE short actionable tip.
+Focus on: identifying an item to sell to boost savings, suggesting borrowing instead of buying, or highlighting mutual help karma.
+If the inventory is empty, encourage the student to list what they could sell.
+Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 
   getFallbackMessage(): string {
-    return "Avant d'acheter, demande-toi si tu peux emprunter ou échanger !";
+    return 'Before buying, ask yourself if you can borrow or trade!';
   }
 
   formatContextForPrompt(context: TabContext): string {
@@ -59,7 +59,7 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
         0
       );
       parts.push(
-        `Inventaire: ${context.trade.inventory.length} objets (valeur estimée: ${this.formatCurrency(totalValue)})`
+        `Inventory: ${context.trade.inventory.length} items (estimated value: ${this.formatCurrency(totalValue)})`
       );
 
       // Top 5 items by value
@@ -70,24 +70,24 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
         parts.push(`- ${i.name}: ${this.formatCurrency(i.estimatedValue) || '?€'}`);
       });
     } else {
-      parts.push("Inventaire: vide - pas d'objets listés");
+      parts.push('Inventory: empty - no items listed');
     }
 
     // Trades
     if (context.trade?.trades && context.trade.trades.length > 0) {
       const active = context.trade.trades.filter((t) => t.status === 'active');
       const completed = context.trade.trades.filter((t) => t.status === 'completed');
-      parts.push(`\nÉchanges actifs: ${active.length}`);
-      parts.push(`Échanges complétés: ${completed.length}`);
+      parts.push(`\nActive trades: ${active.length}`);
+      parts.push(`Completed trades: ${completed.length}`);
 
       if (active.length > 0) {
-        parts.push('En cours:');
+        parts.push('In progress:');
         active.slice(0, 3).forEach((t) => {
           parts.push(`- ${t.type}: ${t.name} (${this.formatCurrency(t.value)})`);
         });
       }
     } else {
-      parts.push('\nAucun échange en cours');
+      parts.push('\nNo trades in progress');
     }
 
     // Common context
@@ -96,6 +96,6 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
       parts.push('\n' + common);
     }
 
-    return parts.join('\n') || "Pas d'inventaire";
+    return parts.join('\n') || 'No inventory';
   }
 }

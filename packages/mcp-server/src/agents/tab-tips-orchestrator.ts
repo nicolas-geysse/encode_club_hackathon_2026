@@ -538,23 +538,23 @@ async function runStage4(
 
       if (energyDebt.detected) {
         contextParts.push(
-          `\nAlerte Energy Debt: ${energyDebt.consecutiveLowWeeks} semaines d'énergie basse (sévérité: ${energyDebt.severity})`
+          `\nEnergy Debt Alert: ${energyDebt.consecutiveLowWeeks} weeks of low energy (severity: ${energyDebt.severity})`
         );
       }
 
       if (comeback?.detected) {
         contextParts.push(
-          `\nComeback Mode: énergie remontée à ${context.currentEnergy}% (confiance: ${Math.round(comeback.confidenceScore * 100)}%)`
+          `\nComeback Mode: energy recovered to ${context.currentEnergy}% (confidence: ${Math.round(comeback.confidenceScore * 100)}%)`
         );
       }
 
       if (stage2.primaryAnalysis?.recommendation) {
         contextParts.push(
-          `\nAnalyse agent principal (${stage2.primaryAnalysis.agentId}): ${stage2.primaryAnalysis.recommendation}`
+          `\nPrimary agent analysis (${stage2.primaryAnalysis.agentId}): ${stage2.primaryAnalysis.recommendation}`
         );
       }
 
-      const userPrompt = `Contexte de l'étudiant:\n${contextParts.join('\n')}\n\nPriorité principale: ${topPriority}\n\nGénère UN conseil court et actionnable. Réponds en JSON: { "title": "...", "message": "...", "category": "energy|progress|mission|opportunity|warning|celebration" }`;
+      const userPrompt = `Student context:\n${contextParts.join('\n')}\n\nTop priority: ${topPriority}\n\nGenerate ONE short actionable tip. Reply in JSON: { "title": "...", "message": "...", "category": "energy|progress|mission|opportunity|warning|celebration" }`;
 
       const messages: ChatMessage[] = [
         { role: 'system', content: systemPrompt },
@@ -586,7 +586,7 @@ async function runStage4(
           });
 
           return {
-            title: parsed.title || 'Conseil',
+            title: parsed.title || 'Tip',
             message: parsed.message || strategy.getFallbackMessage(),
             category: parsed.category || 'opportunity',
             action: parsed.action,
@@ -604,7 +604,7 @@ async function runStage4(
       llmSpan.setOutput({ generated: false, usedFallback: true });
 
       return {
-        title: 'Conseil Bruno',
+        title: 'Bruno Tip',
         message: strategy.getFallbackMessage(),
         category: 'opportunity',
       };

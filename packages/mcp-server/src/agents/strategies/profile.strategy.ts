@@ -38,15 +38,15 @@ export class ProfileStrategy extends BaseTabStrategy {
   }
 
   getSystemPrompt(): string {
-    return `Tu es Bruno, un coach financier bienveillant pour étudiants.
-Analyse le profil de l'étudiant et donne UN conseil court et actionnable pour l'améliorer.
-Focus sur: compléter les informations manquantes, optimiser les préférences de travail, ou valoriser les certifications.
-Si le profil est très complet, félicite l'étudiant et suggère de passer aux objectifs.
-Réponds en 1-2 phrases max, de manière encourageante. En français.`;
+    return `You are Bruno, a caring financial coach for students.
+Analyze the student's profile and give ONE short actionable tip to improve it.
+Focus on: completing missing information, optimizing work preferences, or highlighting certifications.
+If the profile is very complete, congratulate the student and suggest moving on to goals.
+Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 
   getFallbackMessage(): string {
-    return 'Complète ton profil pour recevoir des conseils personnalisés !';
+    return 'Complete your profile to receive personalized tips!';
   }
 
   formatContextForPrompt(context: TabContext): string {
@@ -54,16 +54,16 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
     const p = context.profile || {};
 
     // Profile fields
-    if (p.name) parts.push(`Nom: ${p.name}`);
-    if (p.diploma) parts.push(`Diplôme: ${p.diploma}`);
-    if (p.field) parts.push(`Domaine: ${p.field}`);
-    if (p.city) parts.push(`Ville: ${p.city}`);
+    if (p.name) parts.push(`Name: ${p.name}`);
+    if (p.diploma) parts.push(`Degree: ${p.diploma}`);
+    if (p.field) parts.push(`Field: ${p.field}`);
+    if (p.city) parts.push(`City: ${p.city}`);
 
     // Skills
     if (p.skills && p.skills.length > 0) {
-      parts.push(`Compétences: ${this.formatList(p.skills)}`);
+      parts.push(`Skills: ${this.formatList(p.skills)}`);
     } else {
-      parts.push('Compétences: aucune (à compléter)');
+      parts.push('Skills: none (to complete)');
     }
 
     // Certifications
@@ -73,10 +73,10 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
 
     // Work preferences
     if (p.maxWorkHoursWeekly) {
-      parts.push(`Heures max/semaine: ${p.maxWorkHoursWeekly}h`);
+      parts.push(`Max hours/week: ${p.maxWorkHoursWeekly}h`);
     }
     if (p.minHourlyRate) {
-      parts.push(`Taux horaire min: ${p.minHourlyRate}€/h`);
+      parts.push(`Min hourly rate: ${p.minHourlyRate}€/h`);
     }
 
     // Calculate completeness
@@ -91,7 +91,7 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
       );
     });
     const completeness = Math.round((filledFields.length / requiredFields.length) * 100);
-    parts.push(`\nComplétude du profil: ${completeness}%`);
+    parts.push(`\nProfile completeness: ${completeness}%`);
 
     if (completeness < 100) {
       const missing = requiredFields.filter((f) => {
@@ -103,9 +103,9 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`;
           (Array.isArray(value) && value.length === 0)
         );
       });
-      parts.push(`Champs manquants: ${missing.join(', ')}`);
+      parts.push(`Missing fields: ${missing.join(', ')}`);
     }
 
-    return parts.join('\n') || 'Profil incomplet';
+    return parts.join('\n') || 'Profile incomplete';
   }
 }
