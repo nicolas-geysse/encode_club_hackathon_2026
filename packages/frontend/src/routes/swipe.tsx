@@ -19,10 +19,13 @@ import { Dices, ArrowRight } from 'lucide-solid';
 
 const logger = createLogger('SwipePage');
 
-// Lazy load SwipeTab component
+// Lazy load SwipeTab component and import Scenario type
 const SwipeTab = lazy(() =>
   import('~/components/tabs/SwipeTab').then((m) => ({ default: m.SwipeTab }))
 );
+
+// Import Scenario type for proper typing
+import type { Scenario } from '~/components/tabs/SwipeTab';
 
 // Skeleton for lazy loading
 function SwipeSkeleton() {
@@ -112,14 +115,55 @@ export default function SwipePage() {
     }
   };
 
-  // Handle scenarios selected - navigate to progress page
-  const handleScenariosSelected = (scenarios: unknown[]) => {
+  // Handle scenarios selected - save to profile and navigate to progress page
+  const handleScenariosSelected = async (scenarios: Scenario[]) => {
+    const p = activeProfile();
+    if (!p?.id || !p?.name) {
+      logger.error('Cannot save scenarios: no active profile');
+      return;
+    }
+
     logger.info('Scenarios selected', { count: scenarios.length });
-    // Refresh profile to get updated missions
-    refreshProfile({ silent: true });
-    // Navigate to progress page after completing swipe session
-    if (scenarios.length > 0) {
-      navigate('/progress');
+
+    // Save selected scenarios to profile.planData.selectedScenarios
+    // This is what the Progress page reads to create missions
+    try {
+      const currentPlanData = (p.planData || {}) as Record<string, unknown>;
+      const updatedPlanData = {
+        ...currentPlanData,
+        selectedScenarios: scenarios.map((s) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          category: s.category,
+          weeklyHours: s.weeklyHours,
+          weeklyEarnings: s.weeklyEarnings,
+          effortLevel: s.effortLevel,
+          flexibilityScore: s.flexibilityScore,
+          hourlyRate: s.hourlyRate,
+          source: s.source,
+          leadId: s.leadId,
+        })),
+      };
+
+      await profileService.saveProfile(
+        {
+          ...p,
+          planData: updatedPlanData,
+        },
+        { setActive: false }
+      );
+      logger.info('Selected scenarios saved to profile');
+
+      // Refresh profile to get updated data
+      await refreshProfile({ silent: true });
+
+      // Navigate to progress page after completing swipe session
+      if (scenarios.length > 0) {
+        navigate('/progress');
+      }
+    } catch (error) {
+      logger.error('Failed to save selected scenarios', { error });
     }
   };
 
