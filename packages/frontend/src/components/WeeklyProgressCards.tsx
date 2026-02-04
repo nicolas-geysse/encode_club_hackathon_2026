@@ -209,6 +209,9 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
         // No earnings data - show as "on-track" (neutral) instead of misleading "critical"
         // User hasn't logged earnings yet, we can't judge progress
         status = 'on-track';
+      } else if (earned === 0 && m.adjustedTarget > 0) {
+        // Explicit 0 earnings for a week with a target: CRITICAL (Red)
+        status = 'critical';
       } else if (cumulative >= m.cumulativeTarget * GOAL_STATUS_THRESHOLDS.AHEAD) {
         status = 'ahead';
       } else if (cumulative >= m.cumulativeTarget * GOAL_STATUS_THRESHOLDS.ON_TRACK) {

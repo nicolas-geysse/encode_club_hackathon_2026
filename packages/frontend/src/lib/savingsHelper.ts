@@ -49,7 +49,7 @@ export function calculateSavingsWeeks(
   incomeDay: number,
   monthlyMargin: number
 ): MonthlySavingsInfo[] {
-  if (monthlyMargin <= 0) return [];
+  // if (monthlyMargin <= 0) return [];
 
   const result: MonthlySavingsInfo[] = [];
   const startDate = new Date(goalStartDate);
@@ -147,7 +147,11 @@ export function applySavingsAdjustments(
   savings: MonthlySavingsInfo[],
   adjustments: Record<number, SavingsAdjustment>
 ): MonthlySavingsInfo[] {
-  return savings.map((s) => {
+  const processedWeeks = new Set<number>();
+
+  // 1. Apply adjustments to existing savings weeks
+  const result = savings.map((s) => {
+    processedWeeks.add(s.weekNumber);
     const adjustment = adjustments[s.weekNumber];
     if (adjustment) {
       return {
@@ -158,6 +162,25 @@ export function applySavingsAdjustments(
     }
     return s;
   });
+
+  // 2. Add adjustments for weeks that didn't have base savings (Extra Savings)
+  Object.entries(adjustments).forEach(([weekStr, adjustment]) => {
+    const weekNumber = parseInt(weekStr, 10);
+    if (!processedWeeks.has(weekNumber)) {
+      result.push({
+        weekNumber,
+        amount: 0, // Base was 0
+        month: 'Extra', // Label
+        year: new Date().getFullYear(),
+        incomeDate: new Date().toISOString().split('T')[0],
+        isAdjusted: true,
+        adjustedAmount: adjustment.amount,
+      });
+    }
+  });
+
+  // Sort by week number to keep it tidy
+  return result.sort((a, b) => a.weekNumber - b.weekNumber);
 }
 
 /**

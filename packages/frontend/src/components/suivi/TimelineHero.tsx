@@ -16,7 +16,7 @@ import {
 } from '~/lib/progressCalculator';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { Trophy, Rocket, ThumbsUp, Zap, Calendar, Target, Clock, ArrowRight } from 'lucide-solid';
+import { Trophy, Rocket, ThumbsUp, Zap } from 'lucide-solid';
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { cn } from '~/lib/cn';
 
@@ -52,8 +52,8 @@ export function TimelineHero(props: TimelineHeroProps) {
     return otg && (otg.tradeSales > 0 || otg.tradeBorrow > 0 || otg.pausedSavings > 0);
   };
 
-  // Build breakdown text showing all sources of progress
-  const breakdownText = () => {
+  // Build breakdown text showing all sources of progress (for future tooltip/details)
+  const _breakdownText = () => {
     if (!hasOneTimeGains()) return null;
     const otg = props.oneTimeGains!;
     const parts: string[] = [];
@@ -72,7 +72,8 @@ export function TimelineHero(props: TimelineHeroProps) {
   const amountProgress = () => Math.min((totalAmount() / props.goalAmount) * 100, 100);
   const goalAchieved = () => totalAmount() >= props.goalAmount;
 
-  const daysRemaining = () => {
+  // Days remaining calculation (for future metric display)
+  const _daysRemaining = () => {
     const end = new Date(props.endDate);
     // Use simulated date if provided, otherwise fall back to real date
     const now = props.currentSimulatedDate ? new Date(props.currentSimulatedDate) : new Date();
@@ -175,63 +176,64 @@ export function TimelineHero(props: TimelineHeroProps) {
   return (
     <Card
       class={cn(
-        'transition-all duration-500 overflow-hidden',
+        'transition-all duration-500 overflow-hidden rounded-xl border shadow-sm',
         goalAchieved()
-          ? 'bg-gradient-to-br from-yellow-500 via-amber-500 to-orange-500 dark:from-yellow-600 dark:via-amber-600 dark:to-orange-600 text-white border-yellow-400/50'
-          : 'bg-gradient-to-br from-primary/5 to-primary/10 dark:from-slate-900 dark:to-slate-800'
+          ? 'bg-gradient-to-br from-yellow-500/10 via-amber-500/10 to-orange-500/10 border-yellow-500/20'
+          : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800'
       )}
     >
-      <CardContent class="p-6">
+      <CardContent class="p-6 md:p-8">
         {/* Goal Achieved Banner */}
         <Show when={goalAchieved()}>
-          <div class="mb-4 -mt-2 -mx-2 px-4 py-1.5 bg-white/20 rounded-lg flex items-center justify-center gap-2 animate-pulse">
-            <Trophy class="h-5 w-5 text-yellow-100" />
-            <span class="font-bold text-yellow-100 text-sm">Goal Achieved!</span>
-            <Trophy class="h-5 w-5 text-yellow-100" />
+          <div class="mb-6 px-4 py-2 bg-yellow-500/10 rounded-lg flex items-center justify-center gap-2">
+            <Trophy class="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            <span class="font-bold text-yellow-700 dark:text-yellow-300 text-sm">
+              Goal Achieved!
+            </span>
           </div>
         </Show>
 
         {/* Compact Header */}
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-end justify-between mb-6">
           <div class="flex items-center gap-3">
-            <h2 class="text-xl font-bold">{props.goalName}</h2>
-            <div class={cn('p-1.5 rounded-full bg-white/10', goalAchieved() && 'animate-bounce')}>
+            <h2 class="text-2xl font-bold tracking-tight text-foreground">{props.goalName}</h2>
+            <div
+              class={cn(
+                'p-1.5 rounded-full',
+                goalAchieved() ? 'bg-yellow-100 text-yellow-600' : 'bg-primary/10 text-primary'
+              )}
+            >
               <Dynamic component={status().icon} class="h-5 w-5" />
             </div>
           </div>
-          <div class="text-right">
+          <div class="text-right flex items-baseline gap-2">
             <span
               class={cn(
-                'text-2xl font-bold tabular-nums',
-                goalAchieved() ? 'text-yellow-100' : 'text-primary dark:text-white'
+                'text-3xl font-bold tabular-nums',
+                goalAchieved() ? 'text-yellow-600 dark:text-yellow-400' : 'text-primary'
               )}
             >
               {formatCurrency(animatedAmount(), props.currency)}
             </span>
-            <span
-              class={cn('mx-1', goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground')}
-            >
-              /
-            </span>
-            <span class={cn(goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground')}>
-              {formatCurrency(props.goalAmount, props.currency)}
+            <span class="text-muted-foreground text-base font-medium">
+              / {formatCurrency(props.goalAmount, props.currency)}
             </span>
           </div>
         </div>
 
         {/* Single Progress Bar with status text */}
-        <div class="mb-6">
-          <div class="h-4 bg-secondary dark:bg-slate-700/50 rounded-full overflow-hidden relative border border-black/5 dark:border-white/5">
+        <div class="mb-2">
+          <div class="h-3 bg-secondary dark:bg-slate-800/50 rounded-full overflow-hidden relative">
             {/* Time marker */}
             <div
-              class="absolute top-0 bottom-0 w-[2px] bg-foreground/50 z-10 transition-all duration-1000"
+              class="absolute top-0 bottom-0 w-[2px] bg-foreground/20 z-10"
               style={{ left: `${timeProgress()}%` }}
             />
             <div
               class={cn(
-                'h-full transition-all duration-1000 ease-out',
+                'h-full transition-all duration-1000 ease-out rounded-full',
                 goalAchieved()
-                  ? 'bg-gradient-to-r from-yellow-400 to-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.5)]'
+                  ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
                   : isAhead()
                     ? 'bg-gradient-to-r from-green-500 to-green-400'
                     : isOnTrack()
@@ -241,129 +243,13 @@ export function TimelineHero(props: TimelineHeroProps) {
               style={{ width: `${amountProgress()}%` }}
             />
           </div>
-          <div class="flex justify-between mt-2 text-xs">
-            <span class={cn('font-medium', status().color)}>
+          <div class="flex justify-between mt-2 text-xs uppercase tracking-wider font-medium text-muted-foreground">
+            <span class={cn(status().color)}>
               {Math.round(amountProgress())}% - {status().text}
             </span>
-            <span class="text-muted-foreground">
+            <span>
               Week {props.currentWeek}/{props.totalWeeks}
             </span>
-          </div>
-        </div>
-
-        {/* 4 Metric Cards */}
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div class="bg-background/50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-border/50">
-            <div
-              class={cn(
-                'text-lg font-bold tabular-nums',
-                goalAchieved() ? 'text-slate-900 dark:text-white' : 'text-foreground'
-              )}
-            >
-              {daysRemaining()}
-            </div>
-            <div class="text-xs text-muted-foreground flex items-center justify-center gap-1 mt-1">
-              <Calendar class="h-3 w-3" />
-              days left
-            </div>
-          </div>
-          <div class="bg-background/50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-border/50">
-            <div
-              class={cn(
-                'text-lg font-bold tabular-nums',
-                goalAchieved() ? 'text-slate-900 dark:text-white' : 'text-foreground'
-              )}
-            >
-              {formatCurrency(props.weeklyTarget, props.currency)}
-            </div>
-            <div class="text-xs text-muted-foreground flex items-center justify-center gap-1 mt-1">
-              <Target class="h-3 w-3" />
-              /week
-            </div>
-          </div>
-          <div class="bg-background/50 dark:bg-slate-800/50 rounded-lg p-3 text-center border border-border/50">
-            <div
-              class={cn(
-                'text-lg font-bold tabular-nums',
-                goalAchieved() ? 'text-slate-900 dark:text-white' : 'text-foreground'
-              )}
-            >
-              {props.totalHours ?? 0}h
-            </div>
-            <div class="text-xs text-muted-foreground flex items-center justify-center gap-1 mt-1">
-              <Clock class="h-3 w-3" />
-              worked
-            </div>
-          </div>
-          <div
-            class={cn(
-              'rounded-lg p-3 text-center border',
-              goalAchieved()
-                ? 'bg-yellow-400/30 border-yellow-400/20'
-                : totalAmount() >= 0
-                  ? 'bg-green-500/10 dark:bg-green-900/30 border-green-500/20'
-                  : 'bg-red-500/10 dark:bg-red-900/30 border-red-500/20'
-            )}
-          >
-            <div
-              class={cn(
-                'text-lg font-bold tabular-nums',
-                goalAchieved()
-                  ? 'text-yellow-100' // Darker bg in achieved state
-                  : totalAmount() >= 0
-                    ? 'text-green-700 dark:text-green-400'
-                    : 'text-red-700 dark:text-red-400'
-              )}
-            >
-              {formatCurrency(
-                hasOneTimeGains() ? totalAmount() : props.currentAmount,
-                props.currency,
-                { showSign: goalAchieved() }
-              )}
-            </div>
-            {/* Breakdown text when one-time gains exist */}
-            <Show when={hasOneTimeGains()}>
-              <div
-                class={cn(
-                  'text-[10px] mt-0.5 leading-tight',
-                  goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground'
-                )}
-              >
-                {breakdownText()}
-              </div>
-            </Show>
-            {/* Simple label when no one-time gains */}
-            <Show when={!hasOneTimeGains()}>
-              <div
-                class={cn(
-                  'text-xs flex items-center justify-center gap-1 mt-1',
-                  goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground'
-                )}
-              >
-                {props.currentAmount >= 0 ? (
-                  <ArrowRight class="h-3 w-3 rotate-[-45deg]" />
-                ) : (
-                  <ArrowRight class="h-3 w-3 rotate-[45deg]" />
-                )}
-                earned
-              </div>
-            </Show>
-            {/* "total" label when breakdown is shown */}
-            <Show when={hasOneTimeGains()}>
-              <div
-                class={cn(
-                  'text-xs flex items-center justify-center gap-1 mt-1',
-                  goalAchieved() ? 'text-yellow-100/70' : 'text-muted-foreground'
-                )}
-              >
-                {totalAmount() >= 0 ? (
-                  <ArrowRight class="h-3 w-3 rotate-[-45deg]" />
-                ) : (
-                  <ArrowRight class="h-3 w-3 rotate-[45deg]" />
-                )}
-                total
-              </div>
-            </Show>
           </div>
         </div>
 

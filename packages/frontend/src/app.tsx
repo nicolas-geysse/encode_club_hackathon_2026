@@ -12,7 +12,6 @@ import { SimulationProvider } from '~/lib/simulationContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { AppLayout } from '~/components/layout/AppLayout';
 import { ToastContainer } from '~/components/ui/Toast';
-import { DebugPanel } from '~/components/debug/DebugPanel';
 import {
   notifications,
   addNotification,
@@ -30,10 +29,7 @@ export default function App() {
     offsetDays: 0,
     isSimulating: false,
   });
-  const [progressPercent, setProgressPercent] = createSignal(0);
-
-  // Debug panel state
-  const [debugOpen, setDebugOpen] = createSignal(false);
+  const [_progressPercent, _setProgressPercent] = createSignal(0);
 
   // Client-side only flag for Portal-based components (avoids SSR hydration issues)
   const [mounted, setMounted] = createSignal(false);
@@ -133,7 +129,6 @@ export default function App() {
                   }
                 >
                   <AppLayout
-                    onDebugOpen={() => setDebugOpen(true)}
                     headerContent={
                       <>
                         <SimulationControls
@@ -169,7 +164,6 @@ export default function App() {
           {/* Portal-based components render only on client to avoid SSR hydration issues */}
           <Show when={mounted()}>
             <ToastContainer />
-            <DebugPanel isOpen={debugOpen()} onClose={() => setDebugOpen(false)} />
           </Show>
         </ProfileProvider>
       </SimulationProvider>

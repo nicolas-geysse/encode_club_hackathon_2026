@@ -1,7 +1,7 @@
 import { type Component, For, Show } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { cn } from '~/lib/cn';
-import { LayoutDashboard, Map, GraduationCap, Wrench } from 'lucide-solid';
+import { LayoutDashboard, Map, GraduationCap } from 'lucide-solid';
 import { onboardingIsComplete } from '~/lib/onboardingStateStore';
 
 interface NavItem {
@@ -11,18 +11,13 @@ interface NavItem {
   icon: Component<{ class?: string }>;
 }
 
-interface BottomNavProps {
-  onDebugOpen?: () => void;
-}
-
-export const BottomNav: Component<BottomNavProps> = (props) => {
+export const BottomNav: Component = () => {
   const location = useLocation();
 
   const navItems: NavItem[] = [
     { href: '/', label: 'Onboarding', icon: GraduationCap },
     { href: '/plan', label: 'My Plan', icon: LayoutDashboard },
     { href: '/suivi', label: 'Tracking', icon: Map },
-    { action: 'debug', label: 'Debug', icon: Wrench },
   ];
 
   // Conditionally show nav items based on onboarding state
@@ -54,7 +49,6 @@ export const BottomNav: Component<BottomNavProps> = (props) => {
                 when={item.href}
                 fallback={
                   <button
-                    onClick={() => item.action === 'debug' && props.onDebugOpen?.()}
                     class={cn(
                       'flex flex-col items-center justify-center w-full h-full gap-1 transition-colors',
                       'text-muted-foreground hover:text-foreground',

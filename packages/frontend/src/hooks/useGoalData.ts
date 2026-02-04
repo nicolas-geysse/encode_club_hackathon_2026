@@ -464,13 +464,14 @@ export function useGoalData(
 
   // === RETROPLAN MEMO ===
   // Extract retroplan from resource
+  // Use .latest to prevent "Calculating..." flash during background refetches
   const retroplan = createMemo<Retroplan | undefined>(() => {
-    return retroplanResource();
+    return retroplanResource.latest;
   });
 
   // === COMPUTED MARGIN MEMO ===
   // Reactive margin calculation from income/lifestyle accessors
-  // Ensures earnings calculations stay in sync with Budget tab changes
+  // ... (keep existing computedMargin logic, no changes needed, but context for patch)
   const computedMargin = createMemo(() => {
     const p = profile();
     if (incomeAccessor && lifestyleAccessor) {
@@ -512,7 +513,8 @@ export function useGoalData(
     const incomeDay = p.incomeDay || 15;
 
     // Get trades from resource
-    const trades = tradesResource() || [];
+    // Use .latest to prevent earnings drop during refetch
+    const trades = tradesResource.latest ?? tradesResource() ?? [];
     const tradeData = mapTradesToTradeData(trades);
 
     // Extract savings adjustments if present
@@ -549,7 +551,7 @@ export function useGoalData(
     // Use reactive computed margin (syncs with Budget tab)
     const monthlyMargin = computedMargin();
     const incomeDay = p.incomeDay || 15;
-    const trades = tradesResource() || [];
+    const trades = tradesResource.latest ?? tradesResource() ?? [];
     const tradeData = mapTradesToTradeData(trades);
     const savingsAdjustments = p.followupData?.savingsAdjustments as
       | Record<number, { amount: number; note?: string; adjustedAt: string }>

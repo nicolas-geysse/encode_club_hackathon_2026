@@ -8,7 +8,7 @@
  * are reflected in ProfileSelector and other components.
  */
 
-import { createSignal, Show, For, createEffect, onCleanup, on } from 'solid-js';
+import { createSignal, Show, For, createEffect, onCleanup, on, createResource } from 'solid-js';
 import { createDirtyState } from '~/hooks/createDirtyState';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
@@ -24,7 +24,6 @@ import {
   User,
   ClipboardList,
   GraduationCap,
-  Briefcase,
   Clock,
   X,
   Plus,
@@ -34,6 +33,14 @@ import {
 } from 'lucide-solid';
 import { getCurrentLocation, isGeolocationSupported } from '~/lib/geolocation';
 import ProfileMap, { type LocationChangeData } from './ProfileMap';
+import {
+  fetchDebugState,
+  EnergyStateWidget,
+  ComebackWidget,
+  DebtWidget,
+  PreferencesWidget,
+} from '~/components/debug/DebugPanel';
+import { SkillsTab } from './SkillsTab';
 
 // Alias for cleaner code
 type Profile = FullProfile;
@@ -142,6 +149,8 @@ export function ProfileTab(props: ProfileTabProps) {
   const [isSearching, setIsSearching] = createSignal(false);
   const [isGeolocating, setIsGeolocating] = createSignal(false);
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Resource for debug state (Energy, etc.)
+  const [debugState] = createResource(() => contextProfile()?.id, fetchDebugState);
 
   // Dirty state tracking for unsaved changes warning
   const {
@@ -320,11 +329,18 @@ export function ProfileTab(props: ProfileTabProps) {
         <div class="space-y-6">
           {/* Row 1: Identity (with Preferences) & Location */}
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Identity Card */}
+            {/* Left Column: Identity */}
             <Card class="h-full">
-              <CardContent class="p-0 h-full flex flex-col">
+              <CardContent class="p-6">
+                {/* Energy State - Top */}
+                <div class="mb-6">
+                  <Show when={!debugState.loading && debugState()}>
+                    <EnergyStateWidget state={debugState()!} compact={true} />
+                  </Show>
+                </div>
+
                 {/* Main Identity Section */}
-                <div class="p-6 flex-1">
+                <div>
                   <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
                     <ClipboardList class="h-4 w-4" /> Identity
                   </h3>
@@ -353,11 +369,77 @@ export function ProfileTab(props: ProfileTabProps) {
                         {profile()?.field || 'Not set'}
                       </p>
                     </div>
+                    {/* Certifications - Compact */}
+                    <div class="col-span-2 mt-2">
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Certifications
+                      </label>
+                      <Show
+                        when={(profile()?.certifications || []).length > 0}
+                        fallback={<p class="text-muted-foreground italic text-sm mt-1">None</p>}
+                      >
+                        <div class="flex flex-wrap gap-1.5 mt-1">
+                          <For each={profile()?.certifications || []}>
+                            {(cert: string) => (
+                              <span class="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs font-medium border border-amber-200 dark:border-amber-800">
+                                {cert}
+                              </span>
+                            )}
+                          </For>
+                        </div>
+                      </Show>
+                    </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Sub-pane: Work Preferences (Lighter/Different Bg) */}
-                <div class="bg-muted/30 p-6 border-t border-border mt-auto">
+            {/* Right Column: Location & Availability */}
+            <div class="space-y-6">
+              {/* Location Card */}
+              <Card>
+                <CardContent class="p-6">
+                  <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
+                    <LocateFixed class="h-4 w-4" /> Location
+                  </h3>
+                  {/* Map First */}
+                  <div class="rounded-md overflow-hidden border border-border mb-4">
+                    <ProfileMap
+                      latitude={profile()?.latitude}
+                      longitude={profile()?.longitude}
+                      cityName={profile()?.city}
+                      editable={false}
+                      height="140px"
+                    />
+                  </div>
+                  {/* Address Details Below */}
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        City
+                      </label>
+                      <p class="text-base font-medium text-foreground mt-1">
+                        {profile()?.city || 'Not set'}
+                      </p>
+                    </div>
+                    <div>
+                      <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Address
+                      </label>
+                      <p
+                        class="text-base font-medium text-foreground mt-1 truncate"
+                        title={profile()?.address || profile()?.city}
+                      >
+                        {profile()?.address || profile()?.city || 'Not set'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Availability & Rate */}
+              <Card>
+                <CardContent class="p-6">
                   <h4 class="text-xs font-semibold text-muted-foreground uppercase mb-3 flex items-center gap-2">
                     <Clock class="h-3 w-3" /> Availability & Rate
                   </h4>
@@ -379,101 +461,23 @@ export function ProfileTab(props: ProfileTabProps) {
                       </p>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Location Card */}
-            <Card class="h-full">
-              <CardContent class="p-6">
-                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                  <LocateFixed class="h-4 w-4" /> Location
-                </h3>
-                {/* Map First */}
-                <div class="rounded-md overflow-hidden border border-border mb-4">
-                  <ProfileMap
-                    latitude={profile()?.latitude}
-                    longitude={profile()?.longitude}
-                    cityName={profile()?.city}
-                    editable={false}
-                    height="140px"
-                  />
-                </div>
-                {/* Address Details Below */}
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                      City
-                    </label>
-                    <p class="text-base font-medium text-foreground mt-1">
-                      {profile()?.city || 'Not set'}
-                    </p>
-                  </div>
-                  <div>
-                    <label class="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                      Address
-                    </label>
-                    <p
-                      class="text-base font-medium text-foreground mt-1 truncate"
-                      title={profile()?.address || profile()?.city}
-                    >
-                      {profile()?.address || profile()?.city || 'Not set'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
-          {/* Row 2: Professional Assets */}
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Certifications - Left */}
-            <Card class="h-full">
-              <CardContent class="p-6">
-                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                  <GraduationCap class="h-4 w-4" /> Certifications
-                </h3>
-                <Show
-                  when={(profile()?.certifications || []).length > 0}
-                  fallback={
-                    <p class="text-muted-foreground italic text-sm">No certifications added yet</p>
-                  }
-                >
-                  <div class="flex flex-wrap gap-2">
-                    <For each={profile()?.certifications || []}>
-                      {(cert: string) => (
-                        <span class="px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-md text-sm font-medium border border-amber-200 dark:border-amber-800">
-                          {cert}
-                        </span>
-                      )}
-                    </For>
-                  </div>
-                </Show>
-              </CardContent>
-            </Card>
+          {/* Row 2: System Health Grid (Visible by default) */}
+          <Show when={!debugState.loading && debugState()}>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <ComebackWidget state={debugState()!} />
+              <DebtWidget state={debugState()!} />
+              <PreferencesWidget state={debugState()!} />
+            </div>
+          </Show>
 
-            {/* Skills - Right */}
-            <Card class="h-full">
-              <CardContent class="p-6">
-                <h3 class="text-sm font-medium text-muted-foreground mb-4 flex items-center gap-2">
-                  <Briefcase class="h-4 w-4" /> Skills
-                </h3>
-                <Show
-                  when={(profile()?.skills || []).length > 0}
-                  fallback={<p class="text-muted-foreground italic text-sm">No skills added yet</p>}
-                >
-                  <div class="flex flex-wrap gap-2">
-                    <For each={profile()?.skills || []}>
-                      {(skill: string) => (
-                        <span class="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-md text-sm font-medium">
-                          {skill}
-                        </span>
-                      )}
-                    </For>
-                  </div>
-                </Show>
-              </CardContent>
-            </Card>
+          {/* Skills Section (Full Width) */}
+          <div class="mt-6 border-t border-border">
+            <SkillsTab embedded={false} />
           </div>
         </div>
       </Show>
@@ -651,7 +655,7 @@ export function ProfileTab(props: ProfileTabProps) {
             </Card>
           </div>
 
-          {/* Row 2: Certifications (Editable) - Skills are read-only here as they have their own tab */}
+          {/* Row 2: Certifications (Editable) */}
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card class="h-full">
               <CardContent class="p-6 space-y-4">
@@ -749,20 +753,6 @@ export function ProfileTab(props: ProfileTabProps) {
                     </For>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Skills Link (Read-Only Hint) */}
-            <Card class="bg-muted/30 border-dashed h-full">
-              <CardContent class="p-6 flex flex-col items-center justify-center text-center h-full">
-                <Briefcase class="h-8 w-8 text-muted-foreground mb-3 opacity-50" />
-                <h3 class="font-medium text-muted-foreground">Managing Skills?</h3>
-                <p class="text-sm text-muted-foreground mt-1 mb-4">
-                  Skills have their own dedicated tab for easier management.
-                </p>
-                <Button variant="outline" class="w-full" disabled>
-                  Switch to Skills Tab to Edit
-                </Button>
               </CardContent>
             </Card>
           </div>

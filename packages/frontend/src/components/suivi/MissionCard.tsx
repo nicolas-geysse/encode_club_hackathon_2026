@@ -7,17 +7,14 @@
 import { Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
-import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import {
   Clock,
-  DollarSign,
   Package,
   Briefcase,
   GraduationCap,
   Home,
   Repeat,
-  Hand,
   RotateCcw,
   Trash2,
   CheckCircle2,
@@ -77,149 +74,124 @@ export function MissionCard(props: MissionCardProps) {
   const Icon = () => getCategoryIcon(props.mission.category);
 
   return (
-    <Card
+    <div
       class={cn(
-        'transition-all',
-        props.mission.status === 'completed' &&
-          'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900',
-        props.mission.status === 'skipped' && 'opacity-60 bg-muted/50'
+        'group flex items-center gap-4 p-4 border rounded-xl hover:shadow-md transition-all duration-200',
+        props.mission.status === 'completed'
+          ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900/30'
+          : props.mission.status === 'skipped'
+            ? 'bg-slate-50/50 border-slate-200 dark:bg-slate-900/30 dark:border-slate-800 opacity-60 grayscale'
+            : 'bg-white border-slate-200 dark:bg-slate-900/60 dark:border-slate-800 hover:border-primary/20 dark:hover:border-primary/20'
       )}
     >
-      <CardContent class="p-4">
-        <div class="flex items-start gap-4">
-          {/* Category Icon */}
-          <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-            <Dynamic component={Icon()} class="h-5 w-5" />
-          </div>
+      {/* Icon */}
+      <div class="flex-shrink-0 w-10 h-10 rounded-full bg-muted/40 flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+        <Dynamic component={Icon()} class="h-5 w-5" />
+      </div>
 
-          {/* Content */}
-          <div class="flex-1 min-w-0">
-            {/* Header */}
-            <div class="flex items-center gap-2 mb-1">
-              <h4 class="font-semibold text-foreground truncate">{props.mission.title}</h4>
+      {/* Info Grid */}
+      <div class="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+        {/* Title & Desc (Col 1-5) */}
+        <div class="md:col-span-5">
+          <div class="flex items-center gap-2">
+            <h4 class="font-medium text-foreground truncate">{props.mission.title}</h4>
+            {/* Status Badge (Mini) */}
+            <Show when={props.mission.status !== 'active'}>
               <span
                 class={cn(
-                  'px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded-full',
-                  props.mission.status === 'completed' &&
-                    'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
-                  props.mission.status === 'skipped' && 'bg-muted text-muted-foreground',
-                  props.mission.status === 'active' &&
-                    'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                  'px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded-full',
+                  props.mission.status === 'completed'
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                    : 'bg-muted text-muted-foreground'
                 )}
               >
-                {props.mission.status === 'active' ? 'In progress' : props.mission.status}
+                {props.mission.status}
+              </span>
+            </Show>
+          </div>
+          <p class="text-xs text-muted-foreground truncate">{props.mission.description}</p>
+        </div>
+
+        {/* Progress (Col 6-8) */}
+        <div class="md:col-span-3">
+          <Show when={props.mission.status === 'active'}>
+            <div class="flex items-center gap-2">
+              <div class="h-1.5 flex-1 bg-muted rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${props.mission.progress}%` }}
+                />
+              </div>
+              <span class="text-[10px] text-muted-foreground w-8 text-right">
+                {props.mission.progress}%
               </span>
             </div>
+          </Show>
+        </div>
 
-            {/* Description */}
-            <p class="text-sm text-muted-foreground mb-3">{props.mission.description}</p>
-
-            {/* Progress Bar */}
-            <Show when={props.mission.status === 'active'}>
-              <div class="mb-3">
-                <div class="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>Progress</span>
-                  <span>{props.mission.progress}%</span>
-                </div>
-                <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    class="h-full bg-primary transition-all duration-300"
-                    style={{ width: `${props.mission.progress}%` }}
-                  />
-                </div>
-              </div>
-            </Show>
-
-            {/* Stats */}
-            {/* Bug H Fix: Hide hours for one-time missions (selling, lifestyle, trade) */}
-            <div class="flex items-center gap-4 text-sm">
-              <Show
-                when={!['selling', 'lifestyle', 'trade'].includes(props.mission.category)}
-                fallback={
-                  <div class="flex items-center gap-1 text-muted-foreground">
-                    <Clock class="h-3.5 w-3.5" />
-                    <span>{props.mission.status === 'completed' ? '✓ Done' : 'Pending'}</span>
-                  </div>
-                }
-              >
-                <div class="flex items-center gap-1 text-muted-foreground">
-                  <Clock class="h-3.5 w-3.5" />
-                  <span>
-                    {props.mission.hoursCompleted}/{props.mission.weeklyHours}h
-                  </span>
-                </div>
-              </Show>
-              <div class="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
-                <DollarSign class="h-3.5 w-3.5" />
-                <span>
-                  {formatCurrency(props.mission.earningsCollected, props.currency)}/
-                  {formatCurrency(props.mission.weeklyEarnings, props.currency)}
-                </span>
-              </div>
+        {/* Stats & Actions (Col 9-12) */}
+        <div class="md:col-span-4 flex items-center justify-end gap-4 text-sm">
+          <div class="flex flex-col items-end">
+            <div class="font-medium text-foreground flex items-center gap-1">
+              <span class="text-green-600 dark:text-green-400">
+                {formatCurrency(props.mission.earningsCollected, props.currency)}
+              </span>
+              <span class="text-muted-foreground text-xs font-normal">
+                / {formatCurrency(props.mission.weeklyEarnings, props.currency)}
+              </span>
             </div>
+            <Show when={props.mission.hoursCompleted > 0}>
+              <span class="text-[10px] text-muted-foreground">
+                {props.mission.hoursCompleted}h worked
+              </span>
+            </Show>
           </div>
 
-          {/* Actions */}
-          {/* Actions */}
-          <div class="flex-shrink-0 flex flex-col items-end gap-2">
+          {/* Quick Actions (Visible on Hover on desktop, always on mobile if we wanted compatibility, but let's stick to simple) */}
+          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Show when={props.mission.status === 'active'}>
-              <div class="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  class="gap-1 h-8 bg-green-600 hover:bg-green-700 text-white"
-                  onClick={props.onComplete}
-                >
-                  <CheckCircle2 class="h-4 w-4" />
-                  To be done
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="gap-1 h-8 px-3 text-muted-foreground hover:text-foreground"
-                  onClick={props.onLogProgress}
-                  title="Log Progress"
-                >
-                  <Clock class="h-4 w-4" />
-                  <span>Log</span>
-                </Button>
-              </div>
-              <div class="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="gap-1 h-8 px-3 text-muted-foreground hover:text-foreground"
-                  onClick={props.onSkip}
-                  title="Skip Mission"
-                >
-                  <Hand class="h-4 w-4" />
-                  <span>Skip</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  class="gap-1 h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-                  onClick={props.onDelete}
-                  title="Delete Mission"
-                >
-                  <Trash2 class="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                onClick={props.onComplete}
+                title="Complete"
+              >
+                <CheckCircle2 class="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={props.onLogProgress}
+                title="Log Time"
+              >
+                <Clock class="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={props.onDelete}
+                title="Delete"
+              >
+                <Trash2 class="h-4 w-4" />
+              </Button>
             </Show>
-
             <Show when={props.mission.status !== 'active'}>
               <Button
-                variant="outline"
-                size="sm"
-                class="gap-1 h-8 text-muted-foreground hover:text-primary"
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8 text-muted-foreground hover:text-primary"
                 onClick={props.onUndo}
+                title="Undo"
               >
                 <RotateCcw class="h-4 w-4" />
-                Undo
               </Button>
             </Show>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

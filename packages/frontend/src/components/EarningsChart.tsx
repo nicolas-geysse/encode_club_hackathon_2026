@@ -139,26 +139,18 @@ export function EarningsChart(props: EarningsChartProps) {
       // because weeks are 1-indexed: chart[0]="Now"=week1, chart[1]="W1"=week2, etc.
       const goalWeek = i + 1;
 
-      // Required pace line: use capacity-aware milestones if provided, else linear
-      // Note: Don't cap at goalAmount - with negative margin, cumulativeTarget can exceed goal
-      // because it represents total WORK earnings needed (goal + deficit compensation)
-      if (props.milestones && props.milestones.length > 0) {
-        // v4.0: Capacity-aware pace from milestones
-        const milestone = props.milestones.find((m) => m.week === goalWeek);
-        if (milestone) {
-          requiredPace.push(Math.round(milestone.cumulativeTarget));
-        } else if (i === 0) {
-          // No milestone for week 1 - start from 0
-          requiredPace.push(0);
-        } else {
-          // Week beyond milestones - use last milestone value
-          const lastMilestone = props.milestones[props.milestones.length - 1];
-          requiredPace.push(Math.round(lastMilestone?.cumulativeTarget ?? goalAmount));
-        }
+      // Required pace line: Always show Linear Ideal Path (0 -> Goal)
+      // This represents what is NEEDED to hit the goal, regardless of capacity.
+      // The "Required Pace" must reach the goal at the deadline.
+
+      const idealWeeklyPace = goalAmount / Math.max(1, totalWeeks);
+      const idealCumulative = idealWeeklyPace * i;
+
+      // Ensure the last point snaps exactly to goalAmount for precision
+      if (i === totalWeeks) {
+        requiredPace.push(goalAmount);
       } else {
-        // Fallback: linear pace (existing behavior)
-        const requiredCumulative = currentSaved + weeklyRequired * i;
-        requiredPace.push(Math.round(requiredCumulative));
+        requiredPace.push(Math.round(idealCumulative));
       }
 
       // Cumulative deficit at this week (only if margin is negative)
@@ -591,8 +583,8 @@ export function EarningsChart(props: EarningsChartProps) {
         </div>
       </Show>
 
-      {/* Chart */}
-      <div class={props.compact ? 'h-32' : 'h-48'}>
+      {/* Chart - increased height for better visibility */}
+      <div class={props.compact ? 'h-32' : 'h-56'}>
         <canvas ref={canvasRef} />
       </div>
 

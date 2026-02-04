@@ -11,7 +11,7 @@ import { useNavigate, useSearchParams } from '@solidjs/router';
 import { Dynamic } from 'solid-js/web';
 import { ProfileTab } from '~/components/tabs/ProfileTab';
 import { GoalsTab } from '~/components/tabs/GoalsTab';
-import { SkillsTab } from '~/components/tabs/SkillsTab';
+
 import { BudgetTab } from '~/components/tabs/BudgetTab';
 // v4.2: Lazy load heavy tabs for faster initial page load
 const TradeTab = lazy(() =>
@@ -161,7 +161,6 @@ function TabSkeleton() {
 const TABS = [
   { id: 'profile', label: 'Profile', icon: 'User' },
   { id: 'goals', label: 'Goals', icon: 'Target' },
-  { id: 'skills', label: 'Skills', icon: 'Briefcase' },
   { id: 'budget', label: 'Budget', icon: 'PiggyBank' },
   { id: 'trade', label: 'Trade', icon: 'Handshake' },
   { id: 'prospection', label: 'Jobs', icon: 'Compass' },
@@ -187,6 +186,7 @@ export default function PlanPage() {
   // Get inventory, lifestyle, and trades from profile context (DB-backed data)
   const {
     profile: activeProfile, // Use global profile state
+    skills: contextSkills,
     inventory: contextInventory,
     lifestyle: contextLifestyle,
     trades: contextTrades,
@@ -353,6 +353,26 @@ export default function PlanPage() {
     }
   });
 
+  // Automatically validate Profile tab if Profile exists AND Skills exist
+  createEffect(() => {
+    const profile = activeProfile();
+    const skills = contextSkills();
+    const currentCompleted = planData().completedTabs || [];
+
+    // Profile is complete if we have a name/id and at least one skill
+    const isComplete = !!(profile?.id && profile?.name && skills.length > 0);
+    const isMarked = currentCompleted.includes('profile');
+
+    if (isComplete && !isMarked) {
+      const newCompleted = [...currentCompleted, 'profile'];
+      setPlanData({ ...planData(), completedTabs: newCompleted });
+    } else if (!isComplete && isMarked) {
+      // Optional: uncheck if requirements are no longer met
+      const newCompleted = currentCompleted.filter((t) => t !== 'profile');
+      setPlanData({ ...planData(), completedTabs: newCompleted });
+    }
+  });
+
   const markTabComplete = (tab: string) => {
     const current = planData();
     const completedTabs = current.completedTabs || [];
@@ -372,13 +392,6 @@ export default function PlanPage() {
 
   const handleProfileChange = () => {
     markTabComplete('profile');
-  };
-
-  const handleSkillsChange = (skills: Skill[]) => {
-    setPlanData({ ...planData(), skills });
-    if (skills.length > 0) {
-      markTabComplete('skills');
-    }
   };
 
   const handleBudgetChange = (lifestyle: LifestyleItem[]) => {
@@ -611,15 +624,6 @@ export default function PlanPage() {
                   currency={activeProfile()?.currency}
                   onDirtyChange={setIsCurrentTabDirty}
                   simulatedDate={currentDate()}
-                />
-              </TabsContent>
-
-              <TabsContent value="skills" class="mt-0">
-                <SkillsTab
-                  initialSkills={planData().skills}
-                  onSkillsChange={handleSkillsChange}
-                  currency={activeProfile()?.currency}
-                  onDirtyChange={setIsCurrentTabDirty}
                 />
               </TabsContent>
 

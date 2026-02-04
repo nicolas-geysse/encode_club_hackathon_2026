@@ -140,9 +140,9 @@ function aggregateSavingsEarnings(
 ): EarningEvent[] {
   const events: EarningEvent[] = [];
 
-  if (monthlyMargin <= 0) {
-    return events;
-  }
+  // if (monthlyMargin <= 0) {
+  //   return events;
+  // }
 
   // Calculate which weeks receive savings
   let savingsWeeks = calculateSavingsWeeks(goalStartDate, goalDeadline, incomeDay, monthlyMargin);

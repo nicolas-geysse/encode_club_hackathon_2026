@@ -8,17 +8,11 @@
 import { createSignal, createMemo, createEffect, Show, onMount, onCleanup, on } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
-import { EnergyHistory } from '~/components/suivi/EnergyHistory';
-import { WeeklyProgressCards } from '~/components/WeeklyProgressCards';
 import { getCurrentWeekInfo } from '~/lib/weekCalculator';
-import { ComebackAlert } from '~/components/suivi/ComebackAlert';
 import { MissionList } from '~/components/suivi/MissionList';
-import { AnalyticsDashboard } from '~/components/analytics/AnalyticsDashboard';
 import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary';
 import { BrunoTips } from '~/components/suivi/BrunoTips';
-import { CapacityForecast } from '~/components/suivi/CapacityForecast';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
-import { PredictiveAlerts } from '~/components/suivi/PredictiveAlerts';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
@@ -604,17 +598,8 @@ export default function SuiviPage() {
     }
   };
 
-  onMount(async () => {
-    // Initial load
-    await loadData();
-
-    // Sprint 13.8: Check for auto-credit after data loads
-    // Small delay to ensure followup data is set
-    setTimeout(() => {
-      checkAndApplyAutoCredit();
-    }, 100);
-
-    // Event Bus Subscriptions
+  onMount(() => {
+    // Event Bus Subscriptions (Sync registration to ensure cleanup works)
     const unsubReset = eventBus.on('DATA_RESET', async () => {
       logger.info('DATA_RESET received, reloading...');
       await loadData(); // Full reload with spinner for reset
@@ -625,14 +610,19 @@ export default function SuiviPage() {
       await loadData(); // Full reload with spinner for profile switch
     });
 
-    // Sprint 13.14 Fix: Removed DATA_CHANGED listener to prevent race conditions
-    // The reactive createEffect(on(currentDate, ...)) at line ~820 handles simulation changes
-    // DATA_CHANGED was causing parallel async operations that led to state inconsistency
-    // ProfileContext already handles DATA_CHANGED for goal/profile updates
-
+    // Cleanup must be registered synchronously inside the reactive scope
     onCleanup(() => {
       unsubReset();
       unsubProfile();
+    });
+
+    // Initial load (Async)
+    loadData().then(() => {
+      // Sprint 13.8: Check for auto-credit after data loads
+      // Small delay to ensure followup data is set
+      setTimeout(() => {
+        checkAndApplyAutoCredit();
+      }, 100);
     });
   });
 
@@ -1113,7 +1103,7 @@ export default function SuiviPage() {
             />
           </Show>
 
-          {/* Sprint 13: Weekly Progress Timeline */}
+          {/* Sprint 13: Weekly Progress Timeline - HIDDEN FOR SIMPLIFICATION
           <Show when={currentGoal()}>
             <div class="mt-4">
               <WeeklyProgressCards
@@ -1130,8 +1120,9 @@ export default function SuiviPage() {
               />
             </div>
           </Show>
+          */}
 
-          {/* Capacity Forecast Card */}
+          {/* Capacity Forecast Card - HIDDEN FOR SIMPLIFICATION
           <Show when={currentGoal()}>
             <CapacityForecast
               goalId={currentGoal()!.id}
@@ -1139,8 +1130,9 @@ export default function SuiviPage() {
               onViewDetails={() => setShowRetroplan(true)}
             />
           </Show>
+          */}
 
-          {/* Predictive Alerts - Warn about upcoming difficult weeks */}
+          {/* Predictive Alerts - Warn about upcoming difficult weeks - HIDDEN FOR SIMPLIFICATION
           <Show when={currentGoal()}>
             <PredictiveAlerts
               goalId={currentGoal()!.id}
@@ -1148,15 +1140,17 @@ export default function SuiviPage() {
               onViewPlan={() => setShowRetroplan(true)}
             />
           </Show>
+          */}
 
-          {/* Section 2: Energy (MOVED UP - leading indicator) */}
+          {/* Section 2: Energy (MOVED UP - leading indicator) - HIDDEN FOR SIMPLIFICATION
           <EnergyHistory
             history={followup().energyHistory}
             onEnergyUpdate={handleEnergyUpdate}
             currentWeek={currentWeekNumber()}
           />
+          */}
 
-          {/* Full Comeback Alert (only when conditions met) - inline with Energy */}
+          {/* Full Comeback Alert (only when conditions met) - inline with Energy - HIDDEN FOR SIMPLIFICATION
           <Show when={showComebackAlert()}>
             <ComebackAlert
               energyHistory={followup().energyHistory.map((e) => e.level)}
@@ -1167,9 +1161,11 @@ export default function SuiviPage() {
               onDeclinePlan={() => {}}
             />
           </Show>
+          */}
 
-          {/* Section 3: Financial Breakdown (after energy for context) */}
+          {/* Section 3: Financial Breakdown (after energy for context) - HIDDEN FOR SIMPLIFICATION
           <AnalyticsDashboard profileId={activeProfile()?.id} currency={currency()} />
+          */}
 
           {/* Section 4: Missions */}
           <div>
@@ -1179,6 +1175,18 @@ export default function SuiviPage() {
             <MissionList
               missions={followup().missions}
               currency={currency()}
+              daysRemaining={
+                setup()
+                  ? Math.max(
+                      0,
+                      Math.ceil(
+                        (new Date(setup()!.goalDeadline).getTime() - currentDate().getTime()) /
+                          (1000 * 60 * 60 * 24)
+                      )
+                    )
+                  : 0
+              }
+              weeklyTarget={followup().weeklyTarget}
               onMissionUpdate={handleMissionUpdate}
               onMissionComplete={handleMissionComplete}
               onMissionSkip={handleMissionSkip}

@@ -26,8 +26,7 @@ import { useProfile } from '~/lib/profileContext';
 import { cn } from '~/lib/cn';
 
 // Simple Badge component for status display
-
-function Badge(props: {
+export function Badge(props: {
   children: JSX.Element | string | number;
   class?: string;
   variant?: 'default' | 'secondary';
@@ -48,7 +47,7 @@ function Badge(props: {
 }
 
 // P2-Health: Connectivity status badge
-function ConnectivityBadge(props: { connected: boolean; target: string }) {
+export function ConnectivityBadge(props: { connected: boolean; target: string }) {
   return (
     <span
       class={cn(
@@ -66,7 +65,7 @@ function ConnectivityBadge(props: { connected: boolean; target: string }) {
 }
 
 // P2-Health: Info tooltip for explanations
-function InfoTooltip(props: { text: string }) {
+export function InfoTooltip(props: { text: string }) {
   const [isOpen, setIsOpen] = createSignal(false);
 
   return (
@@ -86,7 +85,7 @@ function InfoTooltip(props: { text: string }) {
 }
 
 // P2-Health: Impact explanation text
-function ImpactText(props: { children: JSX.Element | string; class?: string }) {
+export function ImpactText(props: { children: JSX.Element | string; class?: string }) {
   return (
     <p class={cn('text-[11px] text-muted-foreground/80 italic leading-tight', props.class)}>
       {props.children}
@@ -94,7 +93,7 @@ function ImpactText(props: { children: JSX.Element | string; class?: string }) {
   );
 }
 
-interface DebugState {
+export interface DebugState {
   energyState: 'Normal' | 'Energy Debt' | 'Comeback Active';
   energyConfidence: number;
   currentEnergy: number;
@@ -123,7 +122,7 @@ interface DebugPanelProps {
   onClose: () => void;
 }
 
-async function fetchDebugState(profileId: string | undefined): Promise<DebugState | null> {
+export async function fetchDebugState(profileId: string | undefined): Promise<DebugState | null> {
   if (!profileId) return null;
 
   try {
@@ -135,27 +134,9 @@ async function fetchDebugState(profileId: string | undefined): Promise<DebugStat
   }
 }
 
-export function DebugPanel(props: DebugPanelProps) {
-  const { profile } = useProfile();
-  const [debugState, { refetch }] = createResource(
-    () => (props.isOpen ? profile()?.id : undefined),
-    fetchDebugState
-  );
-  const [isAnimating, setIsAnimating] = createSignal(false);
+// --- Reusable Widgets ---
 
-  // Animate on open
-  onMount(() => {
-    if (props.isOpen) {
-      setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 300);
-    }
-  });
-
-  // Refetch when panel opens
-  const handleRefetch = () => {
-    refetch();
-  };
-
+export function EnergyStateWidget(props: { state: DebugState; compact?: boolean }) {
   const getStateColor = (state: DebugState['energyState']) => {
     switch (state) {
       case 'Normal':
@@ -167,7 +148,143 @@ export function DebugPanel(props: DebugPanelProps) {
     }
   };
 
-  // P2-Health: Unified severity terminology (low/medium/high)
+  // Compact Mode (for Profile Identity Card)
+  if (props.compact) {
+    return (
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-muted-foreground uppercase flex gap-2 items-center">
+            <Battery class="w-3 h-3" /> Energy State
+          </span>
+          <span
+            class={cn(
+              'text-[10px] px-1.5 py-0.5 rounded border font-medium',
+              getStateColor(props.state.energyState)
+            )}
+          >
+            {props.state.energyState}
+          </span>
+        </div>
+        {/* Thin Bars */}
+        <div class="flex items-end gap-0.5 h-4">
+          <For each={props.state.energyHistory}>
+            {(level, i) => (
+              <div
+                class={cn(
+                  'flex-1 transition-all',
+                  level < 40 ? 'bg-red-500' : level < 60 ? 'bg-yellow-500' : 'bg-green-500',
+                  i() === props.state.energyHistory.length - 1 ? 'opacity-100' : 'opacity-60'
+                )}
+                style={{ height: `${Math.max(level, 10)}%`, 'border-radius': '1px' }}
+                title={`Week ${i() + 1}: ${level}%`}
+              />
+            )}
+          </For>
+        </div>
+      </div>
+    );
+  }
+
+  // Full Widget Mode
+  return (
+    <Card class="p-4 space-y-3 h-full">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Battery class="w-4 h-4" />
+          Energy State
+          <InfoTooltip text="Your weekly energy level based on check-ins. Low energy triggers protective measures." />
+        </div>
+        <ConnectivityBadge connected={true} target="Goals" />
+      </div>
+      <div
+        class={cn(
+          'text-xl font-bold px-3 py-1.5 rounded-md border inline-block',
+          getStateColor(props.state.energyState)
+        )}
+      >
+        {props.state.energyState}
+      </div>
+      <div class="flex justify-between text-sm">
+        <span class="text-muted-foreground">Current Level</span>
+        <span class="font-mono font-medium">{props.state.currentEnergy}%</span>
+      </div>
+      <div class="flex justify-between text-sm">
+        <span class="text-muted-foreground">Confidence</span>
+        <span class="font-mono font-medium">{props.state.energyConfidence}%</span>
+      </div>
+      {/* Mini energy chart */}
+      <div class="flex items-end gap-1 h-8 pt-2">
+        <For each={props.state.energyHistory}>
+          {(level, i) => (
+            <div
+              class={cn(
+                'flex-1 rounded-t-sm transition-all',
+                level < 40 ? 'bg-red-500' : level < 60 ? 'bg-yellow-500' : 'bg-green-500',
+                i() === props.state.energyHistory.length - 1 && 'ring-2 ring-primary'
+              )}
+              style={{ height: `${level}%` }}
+              title={`Week ${i() + 1}: ${level}%`}
+            />
+          )}
+        </For>
+      </div>
+      <ImpactText>
+        {props.state.energyState === 'Normal'
+          ? '→ Your weekly targets are at full capacity.'
+          : props.state.energyState === 'Energy Debt'
+            ? '→ Weekly targets reduced to help you recover.'
+            : '→ Catch-up mode active: extra hours suggested.'}
+      </ImpactText>
+    </Card>
+  );
+}
+
+export function ComebackWidget(props: { state: DebugState }) {
+  return (
+    <Card class="p-4 space-y-3 h-full">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Rocket class="w-4 h-4" />
+          Comeback
+          <InfoTooltip text="Detects when you bounce back from low energy. Suggests extra hours to catch up on savings." />
+        </div>
+        <ConnectivityBadge connected={props.state.comebackActive} target="Goals" />
+      </div>
+      <Show
+        when={props.state.comebackActive}
+        fallback={
+          <>
+            <Badge variant="secondary" class="text-xs">
+              Inactive
+            </Badge>
+            <ImpactText>→ No catch-up needed. Regular pace.</ImpactText>
+          </>
+        }
+      >
+        <Badge class="bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs">ACTIVE</Badge>
+        <div class="space-y-1.5 text-sm">
+          <div class="flex justify-between">
+            <span class="text-muted-foreground">Deficit</span>
+            <span class="font-mono font-medium">{props.state.comebackDeficit}€</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-muted-foreground">Recovery</span>
+            <span class="font-mono font-medium">{props.state.recoveryProgress}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-muted-foreground">Low weeks</span>
+            <span class="font-mono font-medium">{props.state.deficitWeeks}</span>
+          </div>
+        </div>
+        <ImpactText>
+          {`→ Catch-up plan generated: ~${Math.ceil(props.state.comebackDeficit / 50)}h extra over 3 weeks.`}
+        </ImpactText>
+      </Show>
+    </Card>
+  );
+}
+
+export function DebtWidget(props: { state: DebugState }) {
   const getSeverityColor = (severity: DebugState['debtSeverity']) => {
     switch (severity) {
       case 'low':
@@ -180,6 +297,162 @@ export function DebugPanel(props: DebugPanelProps) {
         return 'bg-muted text-muted-foreground';
     }
   };
+
+  return (
+    <Card class="p-4 space-y-3 h-full">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <AlertTriangle class="w-4 h-4" />
+          Energy Debt
+          <InfoTooltip text="Triggered after 3+ weeks below 40% energy. Protects you by reducing weekly targets." />
+        </div>
+        <ConnectivityBadge connected={props.state.debtDetected} target="Goals" />
+      </div>
+      <Show
+        when={props.state.debtDetected}
+        fallback={
+          <>
+            <Badge variant="secondary" class="text-xs">
+              No debt
+            </Badge>
+            <ImpactText>→ Full capacity. No target reduction.</ImpactText>
+          </>
+        }
+      >
+        <Badge class={cn('text-xs uppercase', getSeverityColor(props.state.debtSeverity))}>
+          {props.state.debtSeverity}
+        </Badge>
+        <div class="flex justify-between text-sm">
+          <span class="text-muted-foreground">Weeks in debt</span>
+          <span class="font-mono font-medium">{props.state.debtWeeks}</span>
+        </div>
+        <ImpactText>
+          {`→ Goals reduced by ${props.state.debtSeverity === 'high' ? '85%' : props.state.debtSeverity === 'medium' ? '75%' : '50%'} to protect your health.`}
+        </ImpactText>
+      </Show>
+    </Card>
+  );
+}
+
+export function PreferencesWidget(props: { state: DebugState }) {
+  return (
+    <Card class="p-4 space-y-3 h-full">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Sliders class="w-4 h-4" />
+          Swipe Prefs
+          <InfoTooltip text="Learned from your swipes in the Swipe tab. Affects how jobs are ranked." />
+        </div>
+        <ConnectivityBadge connected={true} target="Jobs" />
+      </div>
+      <div class="space-y-2">
+        <PreferenceBar
+          label="Effort"
+          value={props.state.prefs.effortSensitivity}
+          color="blue"
+          description={
+            props.state.prefs.effortSensitivity > 0.6
+              ? 'Prefers easy jobs'
+              : props.state.prefs.effortSensitivity < 0.4
+                ? 'OK with hard work'
+                : 'Neutral'
+          }
+        />
+        <PreferenceBar
+          label="Pay"
+          value={props.state.prefs.hourlyRatePriority}
+          color="green"
+          description={
+            props.state.prefs.hourlyRatePriority > 0.6
+              ? 'Maximizes pay'
+              : props.state.prefs.hourlyRatePriority < 0.4
+                ? 'Pay not priority'
+                : 'Neutral'
+          }
+        />
+        <PreferenceBar
+          label="Flex"
+          value={props.state.prefs.timeFlexibility}
+          color="purple"
+          description={
+            props.state.prefs.timeFlexibility > 0.6
+              ? 'Needs flexibility'
+              : props.state.prefs.timeFlexibility < 0.4
+                ? 'Fixed hours OK'
+                : 'Neutral'
+          }
+        />
+        <PreferenceBar
+          label="Stable"
+          value={props.state.prefs.incomeStability}
+          color="amber"
+          description={
+            props.state.prefs.incomeStability > 0.6
+              ? 'Wants stable income'
+              : props.state.prefs.incomeStability < 0.4
+                ? 'OK with variable'
+                : 'Neutral'
+          }
+        />
+      </div>
+      <ImpactText>{`→ Jobs sorted by preferences.`}</ImpactText>
+    </Card>
+  );
+}
+
+// Exportable content component -> Can now use the widgets
+export function DebugContent(props: { profileId?: string }) {
+  const [debugState, { refetch }] = createResource(() => props.profileId, fetchDebugState);
+
+  const handleRefetch = () => refetch();
+
+  return (
+    <div class="space-y-4">
+      <div class="flex justify-end mb-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefetch}
+          title="Refresh Data"
+          class="h-8 px-2 text-xs"
+        >
+          Refresh Data
+        </Button>
+      </div>
+
+      <Show
+        when={!debugState.loading && debugState()}
+        fallback={
+          <div class="flex items-center justify-center py-12">
+            <div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+        }
+      >
+        {(state) => (
+          <div class="space-y-4">
+            <EnergyStateWidget state={state()} />
+            <ComebackWidget state={state()} />
+            <DebtWidget state={state()} />
+            <PreferencesWidget state={state()} />
+          </div>
+        )}
+      </Show>
+    </div>
+  );
+}
+
+// Keep DebugPanel for compatibility if needed (but we will remove its usage)
+export function DebugPanel(props: DebugPanelProps) {
+  const { profile } = useProfile();
+  const [isAnimating, setIsAnimating] = createSignal(false);
+
+  // Animate on open
+  onMount(() => {
+    if (props.isOpen) {
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 300);
+    }
+  });
 
   return (
     <Show when={props.isOpen}>
@@ -206,16 +479,6 @@ export function DebugPanel(props: DebugPanelProps) {
               System Internals
             </h2>
             <div class="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleRefetch} title="Refresh">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-              </Button>
               <Button variant="ghost" size="sm" onClick={props.onClose}>
                 <X class="w-4 h-4" />
               </Button>
@@ -223,219 +486,8 @@ export function DebugPanel(props: DebugPanelProps) {
           </div>
 
           {/* Content */}
-          <div class="overflow-y-auto h-[calc(100%-60px)] p-4 space-y-4">
-            <Show
-              when={!debugState.loading && debugState()}
-              fallback={
-                <div class="flex items-center justify-center py-12">
-                  <div class="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
-                </div>
-              }
-            >
-              {(state) => (
-                <>
-                  {/* Energy State */}
-                  <Card class="p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <Battery class="w-4 h-4" />
-                        Energy State
-                        <InfoTooltip text="Your weekly energy level based on check-ins. Low energy triggers protective measures." />
-                      </div>
-                      <ConnectivityBadge connected={true} target="Goals" />
-                    </div>
-                    <div
-                      class={cn(
-                        'text-xl font-bold px-3 py-1.5 rounded-md border inline-block',
-                        getStateColor(state().energyState)
-                      )}
-                    >
-                      {state().energyState}
-                    </div>
-                    <div class="flex justify-between text-sm">
-                      <span class="text-muted-foreground">Current Level</span>
-                      <span class="font-mono font-medium">{state().currentEnergy}%</span>
-                    </div>
-                    <div class="flex justify-between text-sm">
-                      <span class="text-muted-foreground">Confidence</span>
-                      <span class="font-mono font-medium">{state().energyConfidence}%</span>
-                    </div>
-                    {/* Mini energy chart */}
-                    <div class="flex items-end gap-1 h-8 pt-2">
-                      <For each={state().energyHistory}>
-                        {(level, i) => (
-                          <div
-                            class={cn(
-                              'flex-1 rounded-t-sm transition-all',
-                              level < 40
-                                ? 'bg-red-500'
-                                : level < 60
-                                  ? 'bg-yellow-500'
-                                  : 'bg-green-500',
-                              i() === state().energyHistory.length - 1 && 'ring-2 ring-primary'
-                            )}
-                            style={{ height: `${level}%` }}
-                            title={`Week ${i() + 1}: ${level}%`}
-                          />
-                        )}
-                      </For>
-                    </div>
-                    <ImpactText>
-                      {state().energyState === 'Normal'
-                        ? '→ Your weekly targets are at full capacity.'
-                        : state().energyState === 'Energy Debt'
-                          ? '→ Weekly targets reduced to help you recover.'
-                          : '→ Catch-up mode active: extra hours suggested.'}
-                    </ImpactText>
-                  </Card>
-
-                  {/* Comeback Detection */}
-                  <Card class="p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <Rocket class="w-4 h-4" />
-                        Comeback Detection
-                        <InfoTooltip text="Detects when you bounce back from low energy. Suggests extra hours to catch up on savings." />
-                      </div>
-                      <ConnectivityBadge connected={state().comebackActive} target="Goals" />
-                    </div>
-                    <Show
-                      when={state().comebackActive}
-                      fallback={
-                        <>
-                          <Badge variant="secondary" class="text-xs">
-                            Inactive
-                          </Badge>
-                          <ImpactText>→ No catch-up needed. Regular pace.</ImpactText>
-                        </>
-                      }
-                    >
-                      <Badge class="bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs">
-                        ACTIVE
-                      </Badge>
-                      <div class="space-y-1.5 text-sm">
-                        <div class="flex justify-between">
-                          <span class="text-muted-foreground">Deficit</span>
-                          <span class="font-mono font-medium">{state().comebackDeficit}€</span>
-                        </div>
-                        <div class="flex justify-between">
-                          <span class="text-muted-foreground">Recovery</span>
-                          <span class="font-mono font-medium">{state().recoveryProgress}%</span>
-                        </div>
-                        <div class="flex justify-between">
-                          <span class="text-muted-foreground">Low weeks</span>
-                          <span class="font-mono font-medium">{state().deficitWeeks}</span>
-                        </div>
-                      </div>
-                      <ImpactText>
-                        {`→ Catch-up plan generated: ~${Math.ceil(state().comebackDeficit / 50)}h extra over 3 weeks.`}
-                      </ImpactText>
-                    </Show>
-                  </Card>
-
-                  {/* Energy Debt */}
-                  <Card class="p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <AlertTriangle class="w-4 h-4" />
-                        Energy Debt
-                        <InfoTooltip text="Triggered after 3+ weeks below 40% energy. Protects you by reducing weekly targets." />
-                      </div>
-                      <ConnectivityBadge connected={state().debtDetected} target="Goals" />
-                    </div>
-                    <Show
-                      when={state().debtDetected}
-                      fallback={
-                        <>
-                          <Badge variant="secondary" class="text-xs">
-                            No debt
-                          </Badge>
-                          <ImpactText>→ Full capacity. No target reduction.</ImpactText>
-                        </>
-                      }
-                    >
-                      <Badge
-                        class={cn('text-xs uppercase', getSeverityColor(state().debtSeverity))}
-                      >
-                        {state().debtSeverity}
-                      </Badge>
-                      <div class="flex justify-between text-sm">
-                        <span class="text-muted-foreground">Weeks in debt</span>
-                        <span class="font-mono font-medium">{state().debtWeeks}</span>
-                      </div>
-                      <ImpactText>
-                        {`→ Goals reduced by ${state().debtSeverity === 'high' ? '85%' : state().debtSeverity === 'medium' ? '75%' : '50%'} to protect your health.`}
-                      </ImpactText>
-                    </Show>
-                  </Card>
-
-                  {/* Preference Weights */}
-                  <Card class="p-4 space-y-3">
-                    <div class="flex items-center justify-between">
-                      <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                        <Sliders class="w-4 h-4" />
-                        Swipe Preferences
-                        <InfoTooltip text="Learned from your swipes in the Swipe tab. Affects how jobs are ranked." />
-                      </div>
-                      <ConnectivityBadge connected={true} target="Jobs" />
-                    </div>
-                    <div class="space-y-2">
-                      <PreferenceBar
-                        label="Effort"
-                        value={state().prefs.effortSensitivity}
-                        color="blue"
-                        description={
-                          state().prefs.effortSensitivity > 0.6
-                            ? 'Prefers easy jobs'
-                            : state().prefs.effortSensitivity < 0.4
-                              ? 'OK with hard work'
-                              : 'Neutral'
-                        }
-                      />
-                      <PreferenceBar
-                        label="Pay"
-                        value={state().prefs.hourlyRatePriority}
-                        color="green"
-                        description={
-                          state().prefs.hourlyRatePriority > 0.6
-                            ? 'Maximizes pay'
-                            : state().prefs.hourlyRatePriority < 0.4
-                              ? 'Pay not priority'
-                              : 'Neutral'
-                        }
-                      />
-                      <PreferenceBar
-                        label="Flexibility"
-                        value={state().prefs.timeFlexibility}
-                        color="purple"
-                        description={
-                          state().prefs.timeFlexibility > 0.6
-                            ? 'Needs flexibility'
-                            : state().prefs.timeFlexibility < 0.4
-                              ? 'Fixed hours OK'
-                              : 'Neutral'
-                        }
-                      />
-                      <PreferenceBar
-                        label="Stability"
-                        value={state().prefs.incomeStability}
-                        color="amber"
-                        description={
-                          state().prefs.incomeStability > 0.6
-                            ? 'Wants stable income'
-                            : state().prefs.incomeStability < 0.4
-                              ? 'OK with variable'
-                              : 'Neutral'
-                        }
-                      />
-                    </div>
-                    <ImpactText>
-                      {`→ Jobs tab is sorted based on these weights (${state().prefs.effortSensitivity === 0.5 && state().prefs.hourlyRatePriority === 0.5 ? 'default' : 'personalized'}).`}
-                    </ImpactText>
-                  </Card>
-                </>
-              )}
-            </Show>
+          <div class="overflow-y-auto h-[calc(100%-60px)] p-4">
+            <DebugContent profileId={profile()?.id} />
           </div>
         </div>
       </Portal>

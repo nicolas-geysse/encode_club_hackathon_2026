@@ -6,17 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { Button } from '~/components/ui/Button';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { LogProgressDialog } from './LogProgressDialog';
-import {
-  CheckCircle2,
-  Clock,
-  Wallet,
-  Target,
-  Trophy,
-  Inbox,
-  Zap,
-  Hand,
-  ArrowRight,
-} from 'lucide-solid';
+import { Target, Trophy, Inbox, Hand, ArrowRight } from 'lucide-solid';
 
 interface MissionListProps {
   missions: Mission[];
@@ -25,6 +15,8 @@ interface MissionListProps {
   onMissionDelete?: (id: string) => void;
   onMissionSkip?: (id: string) => void;
   currency?: Currency;
+  daysRemaining?: number;
+  weeklyTarget?: number;
 }
 
 type FilterType = 'all' | 'active' | 'completed' | 'skipped';
@@ -45,16 +37,37 @@ export function MissionList(props: MissionListProps) {
   }>({ isOpen: false, missionId: null });
 
   const filteredMissions = createMemo(() => {
+    let result: Mission[] = [];
     switch (filter()) {
       case 'active':
-        return props.missions.filter((m) => m.status === 'active');
+        result = props.missions.filter((m) => m.status === 'active');
+        break;
       case 'completed':
-        return props.missions.filter((m) => m.status === 'completed');
+        result = props.missions.filter((m) => m.status === 'completed');
+        break;
       case 'skipped':
-        return props.missions.filter((m) => m.status === 'skipped');
+        result = props.missions.filter((m) => m.status === 'skipped');
+        break;
       default:
-        return props.missions;
+        result = [...props.missions];
+        break;
     }
+
+    // Sort:
+    // 1. Status priority (Active > Completed > Skipped)
+    // 2. Earnings priority (Highest first)
+    return result.sort((a, b) => {
+      const getStatusScore = (s: string) => (s === 'active' ? 3 : s === 'completed' ? 2 : 1);
+      const scoreA = getStatusScore(a.status);
+      const scoreB = getStatusScore(b.status);
+
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA; // High score first
+      }
+
+      // Secondary: Earnings desc
+      return b.weeklyEarnings - a.weeklyEarnings;
+    });
   });
 
   const stats = createMemo(() => {
@@ -110,100 +123,97 @@ export function MissionList(props: MissionListProps) {
 
   return (
     <div class="space-y-6">
-      {/* Stats Summary */}
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent class="p-4 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Active
-              </p>
-              <p class="text-2xl font-bold text-primary mt-1">{stats().active}</p>
-            </div>
-            <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <Zap class="h-4 w-4" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent class="p-4 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Completed
-              </p>
-              <p class="text-2xl font-bold text-green-600 mt-1">{stats().completed}</p>
-            </div>
-            <div class="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-green-600 dark:text-green-400">
-              <CheckCircle2 class="h-4 w-4" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent class="p-4 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Worked
-              </p>
-              <p class="text-2xl font-bold text-foreground mt-1">{stats().totalHours}h</p>
-            </div>
-            <div class="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-              <Clock class="h-4 w-4" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card class="bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-900">
-          <CardContent class="p-4 flex items-center justify-between">
-            <div>
-              <p class="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wider">
-                Earned
-              </p>
-              <p class="text-2xl font-bold text-green-700 dark:text-green-300 mt-1">
-                {formatCurrency(stats().totalEarnings, props.currency)}
-              </p>
-            </div>
-            <div class="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-green-600 dark:text-green-400">
-              <Wallet class="h-4 w-4" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Streamlined Stats Row */}
+      {/* Streamlined Stats Row */}
+      {/* Streamlined Stats Row - More breathing room */}
+      <div class="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-8 py-8 shadow-sm mb-8 flex flex-wrap items-center justify-between gap-x-12 gap-y-8">
+        <div class="flex flex-col">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+            Active
+          </span>
+          <span class="text-2xl font-bold text-foreground">{stats().active}</span>
+        </div>
+
+        <div class="w-px h-12 bg-border/50 hidden sm:block" />
+
+        <div class="flex flex-col">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+            Completed
+          </span>
+          <span class="text-2xl font-bold text-green-600">{stats().completed}</span>
+        </div>
+
+        <div class="w-px h-12 bg-border/50 hidden sm:block" />
+
+        <div class="flex flex-col">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+            Worked
+          </span>
+          <span class="text-2xl font-bold text-foreground">{stats().totalHours}h</span>
+        </div>
+
+        <div class="w-px h-12 bg-border/50 hidden sm:block" />
+
+        <div class="flex flex-col">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+            Earned
+          </span>
+          <span class="text-2xl font-bold text-green-700 dark:text-green-400">
+            {formatCurrency(stats().totalEarnings, props.currency)}
+          </span>
+        </div>
+
+        <div class="w-px h-12 bg-border/50 hidden sm:block" />
+
+        <div class="flex flex-col">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+            Days Left
+          </span>
+          <span class="text-2xl font-bold text-foreground">{props.daysRemaining ?? 0}</span>
+        </div>
+
+        <div class="w-px h-12 bg-border/50 hidden sm:block" />
+
+        <div class="flex flex-col">
+          <span class="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+            Target/Week
+          </span>
+          <span class="text-2xl font-bold text-foreground">
+            {formatCurrency(props.weeklyTarget || 0, props.currency)}
+          </span>
+        </div>
       </div>
 
-      {/* Weekly Potential */}
-      <Show when={stats().weeklyPotential > 0}>
-        <Card class="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent class="p-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                <Target class="h-5 w-5" />
-              </div>
-              <div>
-                <h4 class="font-medium text-foreground">This week's potential</h4>
-                <p class="text-sm text-muted-foreground">
-                  If you complete all your active missions
-                </p>
-              </div>
-            </div>
-            <div class="text-2xl font-bold text-primary">
-              {formatCurrency(stats().weeklyPotential, props.currency, { showSign: true })}
-            </div>
-          </CardContent>
-        </Card>
-      </Show>
-
+      {/* Filter Tabs using Kobalte Tabs */}
       {/* Filter Tabs using Kobalte Tabs */}
       <Tabs value={filter()} onChange={(v: string) => setFilter(v as FilterType)} class="w-full">
-        <TabsList class="mb-4 w-full justify-start overflow-x-auto">
-          <TabsTrigger value="all" class="flex-1 sm:flex-none">
-            All ({stats().total})
+        <TabsList class="flex w-full items-center gap-2 p-1.5 bg-muted/40 rounded-xl mb-6 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <TabsTrigger
+            value="all"
+            class="flex-1 sm:flex-none px-6 py-2.5 rounded-lg data-[selected]:bg-white dark:data-[selected]:bg-slate-800 data-[selected]:text-primary data-[selected]:shadow-sm transition-all text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            All <span class="ml-1 opacity-70">({stats().total})</span>
           </TabsTrigger>
-          <TabsTrigger value="active" class="flex-1 sm:flex-none">
-            Active ({stats().active})
+          <TabsTrigger
+            value="active"
+            class="flex-1 sm:flex-none px-6 py-2.5 rounded-lg data-[selected]:bg-white dark:data-[selected]:bg-slate-800 data-[selected]:text-primary data-[selected]:shadow-sm transition-all text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            Active <span class="ml-1 opacity-70">({stats().active})</span>
           </TabsTrigger>
-          <TabsTrigger value="completed" class="flex-1 sm:flex-none">
-            Completed ({stats().completed})
+          <TabsTrigger
+            value="completed"
+            class="flex-1 sm:flex-none px-6 py-2.5 rounded-lg data-[selected]:bg-white dark:data-[selected]:bg-slate-800 data-[selected]:text-green-600 dark:data-[selected]:text-green-400 data-[selected]:shadow-sm transition-all text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            Completed <span class="ml-1 opacity-70">({stats().completed})</span>
           </TabsTrigger>
-          <TabsTrigger value="skipped" class="flex-1 sm:flex-none">
-            Skipped ({props.missions.filter((m) => m.status === 'skipped').length})
+          <TabsTrigger
+            value="skipped"
+            class="flex-1 sm:flex-none px-6 py-2.5 rounded-lg data-[selected]:bg-white dark:data-[selected]:bg-slate-800 data-[selected]:shadow-sm transition-all text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            Skipped{' '}
+            <span class="ml-1 opacity-70">
+              ({props.missions.filter((m) => m.status === 'skipped').length})
+            </span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -281,14 +291,6 @@ export function MissionList(props: MissionListProps) {
           </Card>
         </Show>
       </div>
-
-      {/* Motivational Footer */}
-      <Show when={stats().active > 0}>
-        <div class="text-center text-sm text-muted-foreground pt-4 border-t border-border">
-          💪 You have {stats().active} mission{stats().active > 1 ? 's' : ''} in progress. Keep it
-          up!
-        </div>
-      </Show>
 
       {/* Dialogs */}
       <ConfirmDialog

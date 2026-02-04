@@ -1,8 +1,7 @@
-import { ScrollArea as ArkScrollArea } from '@ark-ui/solid';
-import { type Component, splitProps, createSignal, onMount, Show } from 'solid-js';
+import { type Component, splitProps, JSX } from 'solid-js';
 import { cn } from '~/lib/cn';
 
-export interface ScrollAreaProps extends ArkScrollArea.RootProps {
+export interface ScrollAreaProps extends JSX.HTMLAttributes<HTMLDivElement> {
   class?: string;
   viewportClass?: string;
   viewportRef?: (el: HTMLDivElement) => void;
@@ -10,13 +9,8 @@ export interface ScrollAreaProps extends ArkScrollArea.RootProps {
   horizontal?: boolean;
   /** Show vertical scrollbar (default: true) */
   vertical?: boolean;
+  children?: JSX.Element;
 }
-
-// Hide native scrollbar styles (required by Ark UI)
-const viewportStyles = `
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-`;
 
 export const ScrollArea: Component<ScrollAreaProps> = (props) => {
   const [local, rest] = splitProps(props, [
@@ -27,92 +21,35 @@ export const ScrollArea: Component<ScrollAreaProps> = (props) => {
     'horizontal',
     'vertical',
   ]);
-  const [mounted, setMounted] = createSignal(false);
-
-  // Default to vertical only if not specified
-  const showVertical = () => local.vertical !== false && !local.horizontal;
-  const showHorizontal = () => local.horizontal === true;
-
-  onMount(() => {
-    setMounted(true);
-  });
 
   return (
-    <Show
-      when={mounted()}
-      fallback={
-        <div
-          ref={local.viewportRef}
-          class={cn('h-full w-full overflow-auto', local.class, local.viewportClass)}
-          {...rest}
-        >
-          {local.children}
-        </div>
-      }
-    >
-      <ArkScrollArea.Root class={cn('relative overflow-hidden', local.class)} {...rest}>
-        <ArkScrollArea.Viewport
-          ref={local.viewportRef}
-          class={cn(
-            'h-full w-full rounded-[inherit]',
-            // Hide native scrollbar with Tailwind utilities
-            '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden',
-            local.viewportClass
-          )}
-          style={viewportStyles}
-        >
-          {local.children}
-        </ArkScrollArea.Viewport>
-
-        {/* Vertical Scrollbar */}
-        <Show when={showVertical()}>
-          <ArkScrollArea.Scrollbar
-            orientation="vertical"
-            class={cn(
-              'absolute right-0 top-0 bottom-0',
-              'flex select-none touch-none',
-              'w-2 p-0.5',
-              'transition-opacity duration-150',
-              'data-[state=hidden]:opacity-0',
-              'bg-transparent'
-            )}
-          >
-            <ArkScrollArea.Thumb
-              class={cn(
-                'relative flex-1 rounded-full',
-                'bg-border/60 hover:bg-border',
-                'transition-colors duration-150'
-              )}
-            />
-          </ArkScrollArea.Scrollbar>
-        </Show>
-
-        {/* Horizontal Scrollbar */}
-        <Show when={showHorizontal()}>
-          <ArkScrollArea.Scrollbar
-            orientation="horizontal"
-            class={cn(
-              'absolute left-0 right-0 bottom-0',
-              'flex select-none touch-none flex-col',
-              'h-2 p-0.5',
-              'transition-opacity duration-150',
-              'data-[state=hidden]:opacity-0',
-              'bg-transparent'
-            )}
-          >
-            <ArkScrollArea.Thumb
-              class={cn(
-                'relative flex-1 rounded-full',
-                'bg-border/60 hover:bg-border',
-                'transition-colors duration-150'
-              )}
-            />
-          </ArkScrollArea.Scrollbar>
-        </Show>
-
-        <ArkScrollArea.Corner class="bg-transparent" />
-      </ArkScrollArea.Root>
-    </Show>
+    <div class={cn('relative overflow-hidden', local.class)} {...rest}>
+      <div
+        ref={local.viewportRef}
+        class={cn(
+          'h-full w-full',
+          // Overflow handling
+          local.horizontal
+            ? 'overflow-x-auto overflow-y-hidden'
+            : 'overflow-y-auto overflow-x-hidden',
+          // Custom Scrollbar - Webkit
+          '[&::-webkit-scrollbar]:w-2',
+          '[&::-webkit-scrollbar]:h-2',
+          '[&::-webkit-scrollbar-track]:bg-transparent',
+          '[&::-webkit-scrollbar-thumb]:bg-border/40',
+          '[&::-webkit-scrollbar-thumb]:rounded-full',
+          '[&::-webkit-scrollbar-thumb]:hover:bg-border/60',
+          '[&::-webkit-scrollbar-corner]:bg-transparent',
+          // Custom Scrollbar - Firefox
+          '[scrollbar-width:thin]',
+          // Ensure smooth scrolling
+          'scroll-smooth',
+          local.viewportClass
+        )}
+      >
+        {local.children}
+      </div>
+    </div>
   );
 };
 

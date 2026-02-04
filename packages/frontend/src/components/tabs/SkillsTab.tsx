@@ -28,7 +28,6 @@ import { FeedbackButton } from '~/components/ui/FeedbackButton';
 import {
   Briefcase,
   Lightbulb,
-  Check,
   Pencil,
   Trash2,
   Plus,
@@ -48,6 +47,8 @@ interface SkillsTabProps {
   currency?: Currency;
   /** Callback when dirty state changes (for parent to track unsaved changes) */
   onDirtyChange?: (isDirty: boolean) => void;
+  /** If true, hides the main header for embedded use */
+  embedded?: boolean;
 }
 
 /**
@@ -649,19 +650,30 @@ export function SkillsTab(props: SkillsTabProps) {
   return (
     <div class="p-6 space-y-6">
       {/* Header */}
-      <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
-            <Briefcase class="h-6 w-6 text-primary" /> Skill Arbitrage
-          </h2>
-          <p class="text-sm text-muted-foreground mt-1">
-            The highest paying job isn't necessarily the best
-          </p>
+      <Show when={!props.embedded}>
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+              <Briefcase class="h-6 w-6 text-primary" /> Skill Arbitrage
+            </h2>
+            <p class="text-sm text-muted-foreground mt-1">
+              The highest paying job isn't necessarily the best
+            </p>
+          </div>
+          <Button onClick={openAddForm} disabled={isLoading()}>
+            <Plus class="h-4 w-4 mr-2" /> Add
+          </Button>
         </div>
-        <Button onClick={openAddForm} disabled={isLoading()}>
-          <Plus class="h-4 w-4 mr-2" /> Add
-        </Button>
-      </div>
+      </Show>
+
+      {/* Embedded Header Action */}
+      <Show when={props.embedded}>
+        <div class="flex justify-end">
+          <Button onClick={openAddForm} disabled={isLoading()} size="sm">
+            <Plus class="h-4 w-4 mr-2" /> Add Skill
+          </Button>
+        </div>
+      </Show>
 
       {/* Scoring Explanation */}
       <Card class="bg-muted/30 border-primary/20">
