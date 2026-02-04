@@ -267,7 +267,7 @@ export function BrunoTips(props: BrunoTipsProps) {
         category: 'warning',
         title: 'Energy debt',
         message: `${lowWeeks} weeks of low energy (${severity}). Reduce target by ${reduction}%.`,
-        action: { label: 'Adjust targets', href: '/plan?tab=goals' },
+        action: { label: 'Adjust targets', href: '/me?tab=goals' },
         priority: 95,
       });
     }
@@ -280,7 +280,7 @@ export function BrunoTips(props: BrunoTipsProps) {
         category: 'celebration',
         title: 'Comeback Mode!',
         message: `Energy at ${energy}%! You could earn ${weeklyPotential}${props.currency || '€'}/week.`,
-        action: { label: 'View catch-up plan', href: '/plan?tab=swipe' },
+        action: { label: 'View catch-up plan', href: '/swipe' },
         priority: 88,
       });
     }
@@ -303,7 +303,7 @@ export function BrunoTips(props: BrunoTipsProps) {
         category: 'warning',
         title: 'Behind on goal',
         message: `Only ${progressPercent}% progress. Explore new scenarios to accelerate.`,
-        action: { label: 'View scenarios', href: '/plan?tab=swipe' },
+        action: { label: 'View scenarios', href: '/swipe' },
         priority: 70,
       });
     }
@@ -315,7 +315,7 @@ export function BrunoTips(props: BrunoTipsProps) {
         category: 'opportunity',
         title: 'Ready to start?',
         message: 'Explore scenarios tailored to you.',
-        action: { label: 'Explore', href: '/plan?tab=swipe' },
+        action: { label: 'Explore', href: '/swipe' },
         priority: 10,
       });
     }

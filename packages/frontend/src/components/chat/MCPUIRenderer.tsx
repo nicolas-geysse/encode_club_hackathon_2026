@@ -663,7 +663,7 @@ function ConfirmationResource(props: {
 /**
  * Swipe Embed Resource - Responsive iframe/button for Swipe strategies
  * Desktop: renders iframe with /embed/swipe
- * Mobile: renders navigation button to /plan?tab=swipe
+ * Mobile: renders navigation button to /swipe
  */
 interface SwipeEmbedParams {
   embedUrl: string;
@@ -674,7 +674,7 @@ interface SwipeEmbedParams {
 
 function SwipeEmbedResource(props: { params?: SwipeEmbedParams }) {
   const embedUrl = () => props.params?.embedUrl || '/embed/swipe';
-  const fallbackUrl = () => props.params?.fallbackUrl || '/plan?tab=swipe';
+  const fallbackUrl = () => props.params?.fallbackUrl || '/swipe';
   const height = () => props.params?.height || 945;
 
   // Viewport detection with reactive signal

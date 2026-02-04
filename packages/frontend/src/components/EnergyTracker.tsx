@@ -82,7 +82,7 @@ export function EnergyTracker(props: EnergyTrackerProps) {
             title: 'Low energy detected',
             message:
               'Consider reducing work hours this week. Rest is important for sustainable progress.',
-            action: { label: 'Adjust goals', href: '/plan?tab=goals' },
+            action: { label: 'Adjust goals', href: '/me?tab=goals' },
           });
         } else if (score > 80) {
           showProactiveAlert({
@@ -91,7 +91,7 @@ export function EnergyTracker(props: EnergyTrackerProps) {
             title: 'Great energy!',
             message:
               "You're feeling energized - perfect time to tackle higher-paying opportunities!",
-            action: { label: 'Find gigs', href: '/plan?tab=swipe' },
+            action: { label: 'Find gigs', href: '/swipe' },
           });
         }
       }

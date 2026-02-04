@@ -362,10 +362,10 @@ function generateUIResourceForResponse(
             type: 'action',
             params: {
               type: 'button',
-              label: 'Go to My Plan',
+              label: 'Go to Me',
               variant: 'primary',
               action: 'navigate',
-              params: { to: '/plan' },
+              params: { to: '/me' },
             },
           },
         ],
@@ -1701,7 +1701,7 @@ async function handleConversationMode(
             type: 'swipe_embed',
             params: {
               embedUrl: '/embed/swipe',
-              fallbackUrl: '/plan?tab=swipe',
+              fallbackUrl: '/swipe',
               height: 945,
               title: 'Swipe Strategies',
             },

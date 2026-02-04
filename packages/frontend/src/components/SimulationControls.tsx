@@ -731,7 +731,7 @@ export function SimulationControls(props: Props) {
                     <Show
                       when={dailyTip()?.action}
                       fallback={
-                        <Button as="a" href="/suivi" onClick={completeDailyCheckin}>
+                        <Button as="a" href="/progress" onClick={completeDailyCheckin}>
                           View progress
                         </Button>
                       }

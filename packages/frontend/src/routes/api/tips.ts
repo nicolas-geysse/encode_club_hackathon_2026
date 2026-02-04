@@ -237,7 +237,7 @@ export async function POST(event: APIEvent): Promise<Response> {
         title: 'Keep going!',
         message: 'Every step counts toward your goal.',
         category: 'opportunity',
-        action: { label: 'Explore', href: '/plan?tab=swipe' },
+        action: { label: 'Explore', href: '/swipe' },
       },
       insights: {
         energyDebt: { detected: false, severity: null, weeks: 0 },

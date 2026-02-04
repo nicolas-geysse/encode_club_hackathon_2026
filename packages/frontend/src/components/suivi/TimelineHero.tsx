@@ -96,28 +96,28 @@ export function TimelineHero(props: TimelineHeroProps) {
     if (gap <= 5) {
       return {
         advice: `You're almost there! Just ${gap}% gap - one good week and you're back on track.`,
-        href: '/plan?tab=swipe',
+        href: '/swipe',
         label: 'Find gigs',
         focusId: null,
       };
     } else if (gap <= 15) {
       return {
         advice: `Aim for ${formatCurrency(adjustedWeekly, props.currency)}/week to catch up. Try adding 2-3 extra hours or explore new opportunities in Swipe.`,
-        href: '/plan?tab=swipe',
+        href: '/swipe',
         label: 'Explore',
         focusId: null,
       };
     } else if (gap <= 30) {
       return {
         advice: `Significant gap - let's replan. Consider selling items you don't need, or find higher-paying gigs in the Jobs tab.`,
-        href: '/plan?tab=prospection',
+        href: '/me?tab=jobs',
         label: 'Find jobs',
         focusId: 'category-select',
       };
     } else {
       return {
         advice: `Major catch-up needed. I recommend reviewing your goal timeline or exploring Trade scenarios for quick wins.`,
-        href: '/plan?tab=trade#add-trade',
+        href: '/me?tab=trade#add-trade',
         label: 'Add trade',
         focusId: 'add-trade-btn',
       };

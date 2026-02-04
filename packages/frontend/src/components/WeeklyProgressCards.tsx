@@ -337,7 +337,7 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
             <span class="text-red-600 dark:text-red-400">🔴 {stats().criticalWeeks} critical</span>
           </Show>
           <Show when={!stats().hasData}>
-            <span class="text-muted-foreground italic">Log earnings on /suivi</span>
+            <span class="text-muted-foreground italic">Log earnings on /progress</span>
           </Show>
         </div>
         <Show

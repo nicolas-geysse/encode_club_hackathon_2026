@@ -372,8 +372,8 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
       message: 'Your personalized plan is ready. Explore the dashboard!',
       category: 'celebration',
       action: {
-        label: 'Go to Plan',
-        href: '/plan',
+        label: 'Go to Me',
+        href: '/me',
         actionType: 'navigate',
       },
     },
@@ -399,7 +399,7 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
       category: 'opportunity',
       action: {
         label: 'Start Swiping',
-        href: '/plan?tab=swipe',
+        href: '/swipe',
         actionType: 'navigate',
       },
     },
@@ -414,7 +414,7 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
       category: 'opportunity',
       action: {
         label: 'Browse Jobs',
-        href: '/plan?tab=prospection',
+        href: '/me?tab=jobs',
         actionType: 'navigate',
       },
     },
@@ -429,7 +429,7 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
       category: 'progress',
       action: {
         label: 'View Dashboard',
-        href: '/suivi',
+        href: '/progress',
         actionType: 'navigate',
       },
     },
@@ -445,7 +445,7 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
       category: 'opportunity',
       action: {
         label: 'Skill Arbitrage',
-        href: '/plan?tab=skills',
+        href: '/me?tab=profile',
         actionType: 'navigate',
       },
     },
@@ -461,7 +461,7 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
       category: 'warning',
       action: {
         label: 'See Options',
-        href: '/plan?tab=budget',
+        href: '/me?tab=budget',
         actionType: 'navigate',
       },
     },
@@ -497,7 +497,7 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
       category: 'opportunity',
       action: {
         label: 'View Inventory',
-        href: '/plan?tab=inventory',
+        href: '/me?tab=profile',
         actionType: 'navigate',
       },
     },

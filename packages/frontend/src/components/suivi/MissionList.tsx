@@ -280,7 +280,7 @@ export function MissionList(props: MissionListProps) {
                     : 'Complete your active missions to see them here'}
                 </p>
                 <Show when={filter() === 'all' || filter() === 'active'}>
-                  <Button as="a" href="/plan?tab=swipe" variant="outline">
+                  <Button as="a" href="/swipe" variant="outline">
                     <Target class="h-4 w-4 mr-2" />
                     Go to Swipe
                     <ArrowRight class="h-4 w-4 ml-2" />

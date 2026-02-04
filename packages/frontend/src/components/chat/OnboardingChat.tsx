@@ -2403,7 +2403,7 @@ export function OnboardingChat() {
   };
 
   const goToPlan = () => {
-    navigate('/plan');
+    navigate('/me');
   };
 
   /**

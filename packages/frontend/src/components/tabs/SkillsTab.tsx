@@ -479,7 +479,7 @@ export function SkillsTab(props: SkillsTabProps) {
           type: 'skill_job',
           title: 'New skill added!',
           message: `I found jobs matching "${created.name}". Check them out in the Jobs tab.`,
-          action: { label: 'View Jobs', href: '/plan?tab=prospection' },
+          action: { label: 'View Jobs', href: '/me?tab=jobs' },
         });
       }
     } finally {

@@ -148,7 +148,7 @@ export async function POST(event: APIEvent): Promise<Response> {
         title: 'Ready for a new day',
         message: 'Every step counts toward your goal. What will you accomplish today?',
         priority: 'general',
-        action: { label: 'View dashboard', href: '/suivi' },
+        action: { label: 'View dashboard', href: '/progress' },
       },
       context: {
         energyTrend: 'stable',
