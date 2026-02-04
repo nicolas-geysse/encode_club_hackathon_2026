@@ -1087,11 +1087,42 @@ chat(messages, { temperature: llmTemperature });
 
 ---
 
+## 🎉 Sprint Complete Summary
+
+**All 5 phases completed successfully:**
+
+| Phase | Description | Key Deliverables |
+|-------|-------------|------------------|
+| **A** | Backend Foundation | Strategy pattern, 6 tab strategies, agent executor, DuckPGQ fallback |
+| **B** | Caching & Performance | LRU cache, tab prediction, warmup on login |
+| **C** | Frontend UI | BrunoHintV2 component, useTipsWarmup hook, 7 tabs migrated |
+| **D** | Opik Observability | Intelligent sampling (100% errors/10% success), prompt versioning |
+| **E** | A/B Testing | Experiment framework, 5 experiments configured (3 active) |
+
+**Key Commits:**
+- `e218606` - Phase A: strategies, context service
+- `12753d5` - Phase A: tab-tips orchestrator
+- `a355ff8` - Phase B: caching, prefetch
+- `12ba213` - Phase C: BrunoHintV2, warmup hook
+- `8ce4f0a` - Phase C: hook integration in me.tsx
+- `e7fa24b` - Phase D: sampling strategy, prompt versioning
+- `2fcff39` - Phase E: A/B testing framework
+
+**Total Files Created:** 12 new files
+**Total Files Modified:** 15+ files
+
+---
+
 ## References
 
 - `packages/mcp-server/src/agents/tips-orchestrator.ts` - Legacy v2 orchestration
 - `packages/mcp-server/src/agents/tab-tips-orchestrator.ts` - **New** Strategy-based orchestrator
-- `packages/frontend/src/components/suivi/BrunoTips.tsx` - v2 component
+- `packages/mcp-server/src/services/experiments.ts` - **New** A/B testing framework
+- `packages/mcp-server/src/services/trace-sampling.ts` - **New** Intelligent sampling
+- `packages/mcp-server/src/agents/strategies/tab-prompts.ts` - **New** Prompt registry
+- `packages/frontend/src/components/ui/BrunoHintV2.tsx` - **New** Enhanced tip component
+- `packages/frontend/src/hooks/useTipsWarmup.ts` - **New** Cache warmup hook
+- `packages/frontend/src/components/suivi/BrunoTips.tsx` - v2 component (reference)
 - `packages/mcp-server/src/agents/onboarding-agent.ts` - Mastra agent patterns
 - `packages/mcp-server/src/services/opik.ts` - Opik tracing utilities
 - `packages/frontend/src/routes/api/chat.ts` - Chat flow patterns
