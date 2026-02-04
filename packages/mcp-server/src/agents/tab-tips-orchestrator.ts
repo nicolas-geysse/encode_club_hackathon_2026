@@ -43,6 +43,12 @@ import { createTabStrategy } from './strategies/factory.js';
 import { mergeContext } from '../services/tab-context.js';
 import { executeAgent } from './agent-executor.js';
 import { getTabPromptMetadata } from './strategies/tab-prompts.js';
+import {
+  getExperimentAssignments,
+  buildExperimentMetadata,
+  getMergedExperimentConfig,
+  type ExperimentAssignment,
+} from '../services/experiments.js';
 
 const logger = createLogger('TabTipsOrchestrator');
 
@@ -80,6 +86,8 @@ interface TipGenerationContext {
   energyDebt: EnergyDebt;
   comeback: ComebackWindow | null;
   topPriority: string;
+  /** A/B test: LLM temperature for creativity experiment */
+  llmTemperature?: number;
 }
 
 // ============================================================================
@@ -248,20 +256,28 @@ async function runStage1(
 // Stage 2: Parallel Agent Analysis
 // ============================================================================
 
+interface Stage2Options {
+  /** A/B test: Skip secondary agents for speed */
+  skipSecondary?: boolean;
+}
+
 async function runStage2(
   strategy: TabAgentStrategy,
   context: TabContext,
-  _span: Span
+  _span: Span,
+  options: Stage2Options = {}
 ): Promise<Stage2Result> {
   return createSpan(
     'stage2.agent_analysis',
     async (analysisSpan) => {
       const primaryAgentId = strategy.getPrimaryAgentId();
-      const secondaryAgentIds = strategy.getSecondaryAgentIds();
+      // A/B test: agent-count experiment can skip secondary agents
+      const secondaryAgentIds = options.skipSecondary ? [] : strategy.getSecondaryAgentIds();
 
       analysisSpan.setInput({
         primaryAgent: primaryAgentId,
         secondaryAgents: secondaryAgentIds,
+        skipSecondary: options.skipSecondary || false,
       });
 
       const result: Stage2Result = {
@@ -492,12 +508,14 @@ async function runStage4(
   return createSpan(
     'stage4.llm_generation',
     async (llmSpan) => {
-      const { context, strategy, stage2, energyDebt, comeback, topPriority } = tipContext;
+      const { context, strategy, stage2, energyDebt, comeback, topPriority, llmTemperature } =
+        tipContext;
 
       llmSpan.setInput({
         tabType: context.tabType,
         topPriority,
         hasAgentAnalysis: !!stage2.primaryAnalysis,
+        llmTemperature: llmTemperature || 0.5,
       });
 
       // Build context for LLM using strategy's format
@@ -536,13 +554,14 @@ async function runStage4(
 
       try {
         const response = await chat(messages, {
-          temperature: 0.5,
+          temperature: llmTemperature || 0.5, // A/B test: llm-temperature experiment
           maxTokens: 256,
           tags: ['ai', 'bruno', 'tips', context.tabType],
           metadata: {
             source: 'tab_tips_orchestrator',
             tabType: context.tabType,
             topPriority,
+            'experiment.llmTemperature': llmTemperature || 0.5,
           },
         });
 
@@ -612,11 +631,30 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
   // Get strategy for this tab
   const strategy = createTabStrategy(input.tabType);
 
+  // === A/B Testing: Get experiment assignments ===
+  const experimentAssignments = getExperimentAssignments(
+    input.profileId,
+    input.options?.experimentIds
+  );
+  const experimentConfig = getMergedExperimentConfig(input.profileId);
+  const experimentMetadata = buildExperimentMetadata(input.profileId, input.options?.experimentIds);
+
+  // Extract experiment-controlled settings
+  const skipSecondaryAgents = experimentConfig.skipSecondary === true;
+  const llmTemperature = (experimentConfig.temperature as number) || 0.5;
+  const guardianMinConfidence = (experimentConfig.minConfidence as number) || 0.7;
+
+  logger.debug('Experiment assignments', {
+    profileId: input.profileId.substring(0, 8) + '...',
+    experiments: experimentAssignments.map((a) => `${a.experimentId}:${a.variant}`),
+    config: { skipSecondaryAgents, llmTemperature, guardianMinConfidence },
+  });
+
   // Build sampling context for conditional tracing
   const samplingContext: SamplingContext = {
     profileId: input.profileId,
     tabType: input.tabType,
-    experimentIds: input.options?.experimentIds,
+    experimentIds: experimentAssignments.map((a) => a.experimentId),
     // These will be checked post-trace for upgrade:
     // - hasKnownError (we don't know yet)
     // - estimatedFallbackLevel (we don't know yet)
@@ -640,11 +678,14 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
         'prompt.version': promptMeta.version,
         'prompt.hash': promptMeta.hash,
       }),
+      // A/B experiment metadata for analysis
+      ...experimentMetadata,
     },
     input: {
       profileId: input.profileId,
       tabType: input.tabType,
       enableFullOrchestration: enableFull,
+      experiments: experimentAssignments.map((a) => `${a.experimentId}:${a.variant}`),
     },
     sampling: samplingContext,
   };
@@ -713,8 +754,9 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
         let stage2: Stage2Result = { secondaryAnalyses: [] };
 
         if (enableFull) {
+          // A/B Test: agent-count experiment can skip secondary agents
           const stage2Result = await withTimeout(
-            runStage2(strategy, context, rootSpan),
+            runStage2(strategy, context, rootSpan, { skipSecondary: skipSecondaryAgents }),
             Math.min(timeoutMs * 0.4, 2000),
             { secondaryAnalyses: [] }
           );
@@ -726,7 +768,9 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
           } else {
             stage2 = stage2Result.result;
             agentsUsed.push(strategy.getPrimaryAgentId());
-            agentsUsed.push(...strategy.getSecondaryAgentIds());
+            if (!skipSecondaryAgents) {
+              agentsUsed.push(...strategy.getSecondaryAgentIds());
+            }
           }
         } else {
           fallbackLevel = 2;
@@ -768,6 +812,7 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
             energyDebt,
             comeback,
             topPriority,
+            llmTemperature, // A/B test: llm-temperature experiment
           };
 
           tip = await runStage4(tipContext, rootSpan);

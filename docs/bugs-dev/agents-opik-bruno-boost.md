@@ -998,12 +998,92 @@ packages/mcp-server/src/agents/tab-tips-orchestrator.ts  # MODIFIED
 
 ---
 
-### Phase E: A/B Testing (Not Started)
+### Phase E: A/B Testing ✅ COMPLETE
 
-| Task | Status | Notes |
-|------|--------|-------|
-| **E14: Experiment Framework** | ⏳ Todo | Hash-based allocation |
-| **E15: First Experiments** | ⏳ Todo | RAG, agent count, guardian |
+| Task | Status | Commit | Notes |
+|------|--------|--------|-------|
+| **E14: Experiment Framework** | ✅ Done | - | `experiments.ts` with hash-based allocation |
+| **E15: First Experiments** | ✅ Done | - | 5 experiments configured (3 enabled) |
+
+**Files Created (Phase E):**
+```
+packages/mcp-server/src/services/experiments.ts     # NEW - A/B Testing Framework
+  - ExperimentConfig interface with control/treatment variants
+  - Deterministic hash-based allocation (same user = same variant)
+  - getExperimentVariant(experimentId, profileId): Get user's variant
+  - getExperimentAssignments(profileId): Get all active assignments
+  - buildExperimentMetadata(profileId): Build Opik trace metadata
+  - getMergedExperimentConfig(profileId): Merge all experiment configs
+  - listExperiments(): Admin view of all experiments
+  - setExperimentEnabled(): Toggle experiments on/off
+```
+
+**Modified Files (Phase E):**
+```
+packages/mcp-server/src/agents/tab-tips-orchestrator.ts  # MODIFIED
+  - Gets experiment assignments at start of orchestration
+  - Extracts experiment-controlled settings:
+    • skipSecondaryAgents (agent-count experiment)
+    • llmTemperature (llm-temperature experiment)
+    • guardianMinConfidence (guardian-strictness experiment)
+  - Passes skipSecondary option to runStage2()
+  - Passes llmTemperature to TipGenerationContext → chat()
+  - Adds experiment metadata to Opik traces
+```
+
+**Configured Experiments:**
+
+| ID | Name | Allocation | Enabled | Control | Treatment |
+|----|------|------------|---------|---------|-----------|
+| `agent-count` | Agent Count Optimization | 30% | ✅ | 4 agents | 2 agents (skip secondary) |
+| `guardian-strictness` | Guardian Strictness Level | 25% | ✅ | minConfidence: 0.7 | minConfidence: 0.5 |
+| `llm-temperature` | LLM Temperature for Tips | 20% | ✅ | temperature: 0.5 | temperature: 0.7 |
+| `rag-social-proof` | RAG Social Proof in Tips | 20% | ❌ | enableRAG: false | enableRAG: true |
+| `tip-length` | Tip Length Optimization | 25% | ❌ | maxTokens: 256 | maxTokens: 128 |
+
+**Experiment Assignment Flow:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ getExperimentVariant('agent-count', profileId)              │
+│                                                             │
+│   1. Check if experiment exists ─────► null if not found    │
+│   2. Check if experiment is active ──► null if disabled     │
+│   3. Hash: hashToFloat('agent-count:profile123')            │
+│      → e.g., 0.234                                          │
+│   4. Compare: 0.234 < 0.30 (allocation)?                    │
+│      → YES: return 'treatment'                              │
+│      → NO:  return 'control'                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Trace Metadata Example:**
+```json
+{
+  "experiment.ids": "agent-count,llm-temperature",
+  "experiment.variants": "agent-count:treatment,llm-temperature:control",
+  "experiment.agent-count.variant": "treatment",
+  "experiment.agent-count.allocation": 0.3,
+  "experiment.llm-temperature.variant": "control",
+  "experiment.llm-temperature.allocation": 0.2
+}
+```
+
+**Usage in Orchestrator:**
+```typescript
+// Get experiment assignments
+const experimentAssignments = getExperimentAssignments(profileId);
+const experimentConfig = getMergedExperimentConfig(profileId);
+
+// Extract experiment-controlled settings
+const skipSecondaryAgents = experimentConfig.skipSecondary === true;
+const llmTemperature = (experimentConfig.temperature as number) || 0.5;
+
+// Use in Stage 2 (agent analysis)
+runStage2(strategy, context, span, { skipSecondary: skipSecondaryAgents });
+
+// Use in Stage 4 (LLM generation)
+chat(messages, { temperature: llmTemperature });
+```
 
 ---
 
