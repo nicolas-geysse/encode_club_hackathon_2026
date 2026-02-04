@@ -45,7 +45,7 @@ export default function App() {
 
     // Only add welcome notification if no notifications exist yet
     if (notifications().length === 0) {
-      addNotification('info', 'Welcome!', 'Start by defining your goal in My Plan.');
+      addNotification('info', 'Welcome!', 'Start by defining your goal in the Me tab.');
     }
   });
 

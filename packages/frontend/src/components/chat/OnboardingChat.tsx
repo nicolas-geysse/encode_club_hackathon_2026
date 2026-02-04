@@ -1521,7 +1521,7 @@ export function OnboardingChat() {
 
       if (lowerMessage.match(/progress|how.*doing|status/)) {
         return {
-          response: `You're making good progress! Head to **My Plan** to see your detailed status and timeline.`,
+          response: `You're making good progress! Head to **Me** to see your detailed status and timeline.`,
           extractedData: {},
           nextStep: 'complete',
           intent: { mode: 'conversation', action: 'check_progress' },
@@ -1531,7 +1531,7 @@ export function OnboardingChat() {
 
       // Default conversation response
       return {
-        response: `I can help with that! For detailed changes, go to **My Plan** or tell me specifically what you'd like to update.`,
+        response: `I can help with that! For detailed changes, go to **Me** or tell me specifically what you'd like to update.`,
         extractedData: {},
         nextStep: 'complete',
         intent: { mode: 'conversation' },
@@ -1592,7 +1592,7 @@ export function OnboardingChat() {
       inventory: `Thanks for sharing!\n\nDo you have any items you could sell? (textbooks, electronics, etc.)`,
       trade: `Good to know!\n\nAre there things you could borrow instead of buying, or skills you could trade with friends? (or say 'none')`,
       lifestyle: `Thanks!\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
-      complete: `Perfect! I have everything I need.\n\nClick on "My Plan" to get started!`,
+      complete: `Perfect! I have everything I need.\n\nClick on "Me" to get started!`,
     };
 
     return {
@@ -2823,7 +2823,7 @@ export function OnboardingChat() {
                       <Show when={msg.isCompletionCta}>
                         <div class="ml-12 mt-2">
                           <GlassButton onClick={goToPlan} class="w-fit">
-                            Start My Plan
+                            Let's Go
                             <svg
                               class="animate-bounce-x ml-2"
                               xmlns="http://www.w3.org/2000/svg"

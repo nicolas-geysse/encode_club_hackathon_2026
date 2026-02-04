@@ -276,7 +276,7 @@ export function MissionList(props: MissionListProps) {
                 </h3>
                 <p class="text-sm max-w-xs mx-auto mb-4">
                   {filter() === 'active' || filter() === 'all'
-                    ? 'Use Swipe Scenarios in My Plan to discover and add missions'
+                    ? 'Use Swipe to discover and add missions'
                     : 'Complete your active missions to see them here'}
                 </p>
                 <Show when={filter() === 'all' || filter() === 'active'}>

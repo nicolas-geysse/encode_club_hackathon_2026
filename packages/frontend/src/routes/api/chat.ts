@@ -1247,7 +1247,7 @@ async function handleConversationMode(
           const continueTraceId = ctx.getTraceId();
           const continueTraceUrl = continueTraceId ? getTraceUrl(continueTraceId) : undefined;
           if (incompleteStep === 'complete') {
-            response = `Your profile is already complete! 🎉 You can:\n\n- **View your plan** - Go to "My Plan"\n- **Update something** - "Change my city to Paris"\n- **Set a new goal** - "I want to save for a laptop"`;
+            response = `Your profile is already complete! 🎉 You can:\n\n- **View your plan** - Go to "Me"\n- **Update something** - "Change my city to Paris"\n- **Set a new goal** - "I want to save for a laptop"`;
             const result = {
               response,
               extractedData: {},
@@ -1493,7 +1493,7 @@ async function handleConversationMode(
             };
 
             const currencySymbol = getCurrencySymbol(context.currency as string);
-            response = `I've created a new goal for you!\n\n🎯 **${goalName}**\n💰 Target: ${currencySymbol}${goalAmount}\n📅 Deadline: ${deadline}\n\nYou can view and manage this goal in the **Goals** tab of My Plan!`;
+            response = `I've created a new goal for you!\n\n🎯 **${goalName}**\n💰 Target: ${currencySymbol}${goalAmount}\n📅 Deadline: ${deadline}\n\nYou can view and manage this goal in the **Goals** tab!`;
           } else if (hasName || hasAmount) {
             // Partial info - ask for the missing piece
             const currencySymbol = getCurrencySymbol(context.currency as string);
@@ -2088,12 +2088,12 @@ async function handleConversationMode(
             const timeRemaining = formatTimeRemaining(goalDeadline, timeCtx);
 
             if (deadlinePassed) {
-              response = `Your deadline for **${goalName}** (${currencySymbol}${goalAmount}) has **passed**. Consider setting a new timeline or adjusting your goal in **My Plan**!`;
+              response = `Your deadline for **${goalName}** (${currencySymbol}${goalAmount}) has **passed**. Consider setting a new timeline or adjusting your goal in **Me**!`;
             } else {
-              response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\n**${timeRemaining}** remaining until your deadline.\n\nHead to **My Plan** for detailed progress!`;
+              response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\n**${timeRemaining}** remaining until your deadline.\n\nHead to **Me** for detailed progress!`;
             }
           } else {
-            response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\nHead to **My Plan** to see your detailed progress, timeline, and weekly targets!`;
+            response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\nHead to **Me** to see your detailed progress, timeline, and weekly targets!`;
           }
           break;
         }
@@ -2103,7 +2103,7 @@ async function handleConversationMode(
           break;
 
         case 'view_plan':
-          response = `Your plan is ready in **My Plan**! There you can:\n\n- View your savings timeline\n- Track weekly progress\n- See job recommendations\n- Explore "what if" scenarios\n\nClick on "My Plan" to get started!`;
+          response = `Your plan is ready in **Me**! There you can:\n\n- View your savings timeline\n- Track weekly progress\n- See job recommendations\n- Explore "what if" scenarios\n\nClick on "Me" to get started!`;
           break;
 
         case 'add_resource': {
@@ -2201,7 +2201,7 @@ The user has already completed onboarding. Their profile: ${JSON.stringify(conte
 ${budgetSection}${ragSection}${timeSection}
 You have access to their consolidated financial data including income, expenses, savings from paused items, and trade values.
 Use this data to provide personalized, specific financial advice.
-Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed information.`,
+Keep responses concise (2-3 sentences). Suggest going to "Me" for detailed information.`,
                       },
                       { role: 'user', content: message },
                     ],
@@ -2237,14 +2237,14 @@ Keep responses concise (2-3 sentences). Suggest going to "My Plan" for detailed 
                   return llmResponse;
                 } catch {
                   const fallbackResponse =
-                    "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+                    "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **Me** for your personalized recommendations.";
                   span.setAttributes({ error: true, used_llm: false });
                   span.setOutput({ response: fallbackResponse, fallback: true });
                   return fallbackResponse;
                 }
               } else {
                 const fallbackResponse =
-                  "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **My Plan** for your personalized recommendations.";
+                  "I'm here to help! You can ask about your plan, update your profile, or get savings advice. Check out **Me** for your personalized recommendations.";
                 span.setAttributes({ error: false, used_llm: false, reason: 'no_client' });
                 span.setOutput({ response: fallbackResponse, fallback: true });
                 return fallbackResponse;

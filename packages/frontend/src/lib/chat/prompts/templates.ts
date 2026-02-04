@@ -136,7 +136,7 @@ Generate a response of 3-4 sentences that:
 1. Briefly summarizes their complete profile
 2. Mentions the key insights (budget margin, goal timeline, potential optimizations)
 3. Congratulates them on completing the setup
-4. Invites them to go to "My Plan" where everything is ready`,
+4. Invites them to go to "Me" where everything is ready`,
 
   complete: '',
 };

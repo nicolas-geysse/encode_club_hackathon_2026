@@ -148,7 +148,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'profile_complete',
     name: 'Profile Complete',
-    description: 'You completed all tabs in My Plan',
+    description: 'You completed all tabs in Me',
     icon: '✅',
     category: 'engagement',
     tier: 'silver',

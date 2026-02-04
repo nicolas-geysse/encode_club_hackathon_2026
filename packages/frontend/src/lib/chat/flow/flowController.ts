@@ -112,7 +112,7 @@ export function getClarificationMessage(step: OnboardingStep): string {
     trade:
       "Are there things you could borrow instead of buying, or skills you could trade with friends? Or say 'none'.",
     lifestyle: "What subscriptions do you pay for? (Netflix, Spotify, gym...) Or 'none'.",
-    complete: "Your profile is complete! Head to 'My Plan' to see your strategies.",
+    complete: "Your profile is complete! Head to 'Me' to see your strategies.",
   };
 
   return clarifications[step] || 'Tell me more about yourself.';
@@ -141,7 +141,7 @@ export function getAdvanceMessage(nextStep: OnboardingStep, profile: ProfileData
     inventory: `Noted! Any items you could sell for extra cash? (textbooks, electronics... or 'none')`,
     trade: `Thanks! Are there things you could borrow instead of buying, or skills you could trade with friends?\n\n📥 "borrow camping gear from Alex"\n🔄 "trade tutoring for web design"\n\n(or say 'none')`,
     lifestyle: `Got it! What subscriptions do you pay for? (Netflix, Spotify, gym... or 'none')`,
-    complete: `Your profile is complete${name ? `, ${name}` : ''}! Head to "My Plan" to see your personalized strategies.`,
+    complete: `Your profile is complete${name ? `, ${name}` : ''}! Head to "Me" to see your personalized strategies.`,
   };
 
   return messages[nextStep] || `Great${name ? `, ${name}` : ''}! Let's continue.`;
@@ -159,7 +159,7 @@ I've created a personalized profile for you. You can now:
 - Explore jobs that match your skills
 - Optimize your budget
 
-**Ready to go?** Click on "My Plan" to get started!`;
+**Ready to go?** Click on "Me" to get started!`;
 }
 
 /**
