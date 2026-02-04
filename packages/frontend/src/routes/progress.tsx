@@ -1,8 +1,9 @@
 /**
- * Suivi Page (suivi.tsx)
+ * Progress Page (progress.tsx)
  *
  * Compact dashboard: Goal Hero + Missions + Energy + Financial Breakdown
  * Uses profileService and simulationService for DuckDB persistence.
+ * Renamed from suivi.tsx for clearer English naming.
  */
 
 import { createSignal, createMemo, createEffect, Show, onMount, onCleanup, on } from 'solid-js';
@@ -44,7 +45,7 @@ import {
 } from '~/lib/progressCalculator';
 // Note: checkAutoCredit replaced by inline multi-month logic in Sprint 13.9
 
-const logger = createLogger('SuiviPage');
+const logger = createLogger('ProgressPage');
 
 // ============================================================================
 // Helper functions for BrunoTips props
@@ -171,7 +172,7 @@ const normalizeFollowup = (data: Partial<FollowupData> | null | undefined): Foll
   savingsAdjustments: data?.savingsAdjustments ?? {},
 });
 
-export default function SuiviPage() {
+export default function ProgressPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = createSignal(true);
   const [hasData, setHasData] = createSignal(false);
@@ -1026,10 +1027,10 @@ export default function SuiviPage() {
         <div class="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
           <ClipboardList class="h-8 w-8 text-muted-foreground" />
         </div>
-        <h2 class="text-xl font-bold text-foreground mb-2">No plan yet</h2>
-        <p class="text-muted-foreground mb-6">First set up your goal in My Plan</p>
-        <Button as="a" href="/plan">
-          Create my plan
+        <h2 class="text-xl font-bold text-foreground mb-2">No goals yet</h2>
+        <p class="text-muted-foreground mb-6">First set up your goal in Me</p>
+        <Button as="a" href="/me">
+          Set up my goals
         </Button>
       </CardContent>
     </Card>
@@ -1041,7 +1042,7 @@ export default function SuiviPage() {
       profileId={activeProfile()?.id || ''}
       currency={currency()}
       followupData={followup()}
-      onCreateNewGoal={() => navigate('/plan?tab=goals&action=new')}
+      onCreateNewGoal={() => navigate('/me?tab=goals&action=new')}
     />
   );
 

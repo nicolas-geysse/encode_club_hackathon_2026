@@ -1,13 +1,13 @@
 /**
- * My Plan Page (plan.tsx)
+ * Me Page (me.tsx)
  *
- * 7 tabs: Profile, Goals, Skills, Budget, Trade, Jobs (Prospection), Swipe
- * Jobs is now BEFORE Swipe so users see job opportunities before swiping scenarios.
+ * 5 tabs: Profile, Goals, Budget, Trade, Jobs
+ * Swipe is now a standalone page at /swipe
  * Uses profileService for DuckDB persistence instead of localStorage.
  */
 
 import { createSignal, createEffect, onMount, Show, For, untrack, lazy, Suspense } from 'solid-js';
-import { useNavigate, useSearchParams } from '@solidjs/router';
+import { useSearchParams } from '@solidjs/router';
 import { Dynamic } from 'solid-js/web';
 import { ProfileTab } from '~/components/tabs/ProfileTab';
 import { GoalsTab } from '~/components/tabs/GoalsTab';
@@ -17,14 +17,9 @@ import { BudgetTab } from '~/components/tabs/BudgetTab';
 const TradeTab = lazy(() =>
   import('~/components/tabs/TradeTab').then((m) => ({ default: m.TradeTab }))
 );
-const SwipeTab = lazy(() =>
-  import('~/components/tabs/SwipeTab').then((m) => ({ default: m.SwipeTab }))
-);
 const ProspectionTab = lazy(() =>
   import('~/components/tabs/ProspectionTab').then((m) => ({ default: m.ProspectionTab }))
 );
-import type { UserPreferences } from '~/components/tabs/SwipeTab';
-import type { Lead } from '~/lib/prospectionTypes';
 import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
@@ -43,17 +38,7 @@ import { Card } from '~/components/ui/Card';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/Sheet';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
-import {
-  Check,
-  User,
-  Target,
-  Briefcase,
-  PiggyBank,
-  Handshake,
-  Dices,
-  Menu,
-  Compass,
-} from 'lucide-solid';
+import { Check, User, Target, Briefcase, PiggyBank, Handshake, Menu, Compass } from 'lucide-solid';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 
 // Types for plan data - local types for plan-specific structures
@@ -163,8 +148,7 @@ const TABS = [
   { id: 'goals', label: 'Goals', icon: 'Target' },
   { id: 'budget', label: 'Budget', icon: 'PiggyBank' },
   { id: 'trade', label: 'Trade', icon: 'Handshake' },
-  { id: 'prospection', label: 'Jobs', icon: 'Compass' },
-  { id: 'swipe', label: 'Swipe', icon: 'Dices' },
+  { id: 'jobs', label: 'Jobs', icon: 'Compass' },
 ] as const;
 
 // Helper to map string icon names to components for Dynamic
@@ -174,15 +158,12 @@ const ICON_MAP = {
   Briefcase,
   PiggyBank,
   Handshake,
-  Dices,
   Compass,
 };
 
-export default function PlanPage() {
-  const navigate = useNavigate();
+export default function MePage() {
   const [searchParams] = useSearchParams();
 
-  // Get inventory, lifestyle, and trades from profile context (DB-backed data)
   // Get inventory, lifestyle, and trades from profile context (DB-backed data)
   const {
     profile: activeProfile, // Use global profile state
@@ -190,12 +171,14 @@ export default function PlanPage() {
     inventory: contextInventory,
     lifestyle: contextLifestyle,
     trades: contextTrades,
+    leads: contextLeads, // Phase 3: Use leads from context for Jobs tab
+    setLeads,
     refreshInventory,
     refreshTrades,
     refreshProfile,
   } = useProfile();
 
-  // Initialize activeTab from URL param (e.g., /plan?tab=goals) or default to 'profile'
+  // Initialize activeTab from URL param (e.g., /me?tab=goals) or default to 'profile'
   const validTabIds = TABS.map((t) => t.id) as readonly string[];
   const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
   const initialTab = tabParam && validTabIds.includes(tabParam) ? tabParam : 'profile';
@@ -215,26 +198,10 @@ export default function PlanPage() {
   const [isSaving] = createSignal(false);
   const [isSheetOpen, setIsSheetOpen] = createSignal(false);
 
-  // Phase 4: Leads from Jobs tab (for Swipe integration)
-  const [leads, setLeads] = createSignal<Lead[]>([]);
-
   // Memoize userLocation to avoid recreating object on every render/access
   const userLocation = () => {
     const p = activeProfile();
     return p?.latitude && p?.longitude ? { lat: p.latitude!, lng: p.longitude! } : undefined;
-  };
-
-  // Memoize swipePreferences
-  const swipePreferences = () => {
-    const p = activeProfile();
-    return p?.swipePreferences
-      ? {
-          effortSensitivity: p.swipePreferences.effort_sensitivity ?? 0.5,
-          hourlyRatePriority: p.swipePreferences.hourly_rate_priority ?? 0.5,
-          timeFlexibility: p.swipePreferences.time_flexibility ?? 0.5,
-          incomeStability: p.swipePreferences.income_stability ?? 0.5,
-        }
-      : undefined;
   };
 
   // Sprint 13.8 Fix: Use SimulationContext for reactive date updates
@@ -432,73 +399,6 @@ export default function PlanPage() {
     }
   };
 
-  // BUG 2 FIX: Actually save swipe preferences to profile
-  const handleSwipePreferencesChange = async (prefs: UserPreferences) => {
-    // Sprint 13.5: Debug log for swipe preference tracking
-    // eslint-disable-next-line no-console
-    console.debug('[plan.tsx] Saving swipe preferences:', prefs);
-
-    markTabComplete('swipe');
-
-    // Save preferences to profile via API
-    const profile = activeProfile();
-    if (profile?.id) {
-      try {
-        // Convert SwipeTab's UserPreferences to DB format
-        const swipePreferences = {
-          effort_sensitivity: prefs.effortSensitivity,
-          hourly_rate_priority: prefs.hourlyRatePriority,
-          time_flexibility: prefs.timeFlexibility,
-          income_stability: prefs.incomeStability,
-        };
-        await profileService.saveProfile(
-          {
-            id: profile.id,
-            name: profile.name,
-            swipePreferences,
-          },
-          { immediate: true, setActive: false }
-        );
-        // Refresh profile to update context
-        await refreshProfile();
-        // Sprint 13.5: Debug log for swipe preference tracking
-        // eslint-disable-next-line no-console
-        console.debug('[plan.tsx] Swipe preferences saved to DB:', swipePreferences);
-      } catch (err) {
-        console.error('Failed to save swipe preferences', err);
-      }
-    }
-  };
-
-  const handleScenariosSelected = async (scenarios: SelectedScenario[]) => {
-    try {
-      // 1. Update local state
-      const newPlanData = { ...planData(), selectedScenarios: scenarios };
-      setPlanData(newPlanData);
-
-      // 2. Explicitly save to DuckDB immediately (awaiting completion)
-      // This ensures data is written before /suivi tries to read it
-      const profile = activeProfile();
-      if (profile) {
-        await profileService.saveProfile(
-          {
-            ...profile,
-            planData: newPlanData as unknown as Record<string, unknown>,
-          },
-          { immediate: true, setActive: false }
-        );
-      }
-    } catch (error) {
-      console.error('Failed to save scenarios before navigation', error);
-      // Fallback: continue navigation anyway, data might be saved by debounce effect later
-      // but strictly speaking we should probably notify user.
-      // For hackathon, proceeding is smoother.
-    }
-
-    // 3. Navigate only after save attempt
-    navigate('/suivi');
-  };
-
   // No profile fallback component
   const NoProfileView = () => (
     <div class="h-[60vh] flex items-center justify-center">
@@ -683,53 +583,7 @@ export default function PlanPage() {
                 </Suspense>
               </TabsContent>
 
-              <TabsContent value="swipe" class="mt-0">
-                <Suspense fallback={<TabSkeleton />}>
-                  <SwipeTab
-                    skills={planData().skills.map((s) => ({
-                      name: s.name,
-                      hourlyRate: s.hourlyRate,
-                    }))}
-                    items={planData()
-                      .inventory.filter((i) => !i.sold)
-                      .map((i) => ({
-                        name: i.name,
-                        estimatedValue: i.estimatedValue,
-                      }))}
-                    lifestyle={planData().lifestyle.map((l) => ({
-                      name: l.name,
-                      currentCost: l.currentCost,
-                      pausedMonths: l.pausedMonths,
-                    }))}
-                    trades={planData().trades.map((t) => ({
-                      name: t.name,
-                      value: t.value,
-                    }))}
-                    leads={leads()}
-                    currency={activeProfile()?.currency}
-                    profileId={activeProfile()?.id}
-                    // BUG 3 FIX: Pass saved preferences from profile
-                    initialPreferences={
-                      activeProfile()?.swipePreferences
-                        ? {
-                            effortSensitivity:
-                              activeProfile()?.swipePreferences?.effort_sensitivity ?? 0.5,
-                            hourlyRatePriority:
-                              activeProfile()?.swipePreferences?.hourly_rate_priority ?? 0.5,
-                            timeFlexibility:
-                              activeProfile()?.swipePreferences?.time_flexibility ?? 0.5,
-                            incomeStability:
-                              activeProfile()?.swipePreferences?.income_stability ?? 0.5,
-                          }
-                        : undefined
-                    }
-                    onPreferencesChange={handleSwipePreferencesChange}
-                    onScenariosSelected={handleScenariosSelected}
-                  />
-                </Suspense>
-              </TabsContent>
-
-              <TabsContent value="prospection" class="mt-0">
+              <TabsContent value="jobs" class="mt-0">
                 <Suspense fallback={<TabSkeleton />}>
                   <ProspectionTab
                     profileId={activeProfile()?.id}
@@ -740,10 +594,9 @@ export default function PlanPage() {
                     userCertifications={activeProfile()?.certifications}
                     minHourlyRate={activeProfile()?.minHourlyRate}
                     onLeadsChange={setLeads}
-                    swipePreferences={swipePreferences()}
                     onLeadSaved={(lead) => {
                       if (lead.status === 'interested') {
-                        // Optional: Navigate to Swipe tab or show notification
+                        // Optional: Navigate to /swipe or show notification
                       }
                     }}
                   />
