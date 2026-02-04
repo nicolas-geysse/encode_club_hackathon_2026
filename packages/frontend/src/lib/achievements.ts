@@ -152,8 +152,8 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: '✅',
     category: 'engagement',
     tier: 'silver',
-    condition: 'completedTabs.length === 6',
-    maxProgress: 6,
+    condition: 'completedTabs.length === 5',
+    maxProgress: 5,
   },
   {
     id: 'daily_check',
@@ -274,7 +274,7 @@ export function checkAchievement(
 
     case 'profile_complete': {
       const tabs = (context.completedTabs as string[]) || [];
-      return { unlocked: tabs.length >= 6, progress: Math.min(6, tabs.length) };
+      return { unlocked: tabs.length >= 5, progress: Math.min(5, tabs.length) };
     }
 
     case 'daily_check': {
