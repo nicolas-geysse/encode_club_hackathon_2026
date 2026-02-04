@@ -111,26 +111,24 @@ Reponds UNIQUEMENT en JSON valide:
 function buildContextDescription(context: EvaluationContext): string {
   const parts: string[] = [];
 
-  parts.push(
-    `- Public cible: ${context.targetAudience === 'etudiant' ? 'Etudiant francais' : 'General'}`
-  );
+  parts.push(`- Target audience: ${context.targetAudience === 'student' ? 'Student' : 'General'}`);
 
   if (context.financialSituation) {
     const situationMap: Record<string, string> = {
-      deficit: 'En deficit (depenses > revenus)',
-      serre: 'Budget serre (peu de marge)',
-      equilibre: 'Budget equilibre',
-      confortable: 'Budget confortable',
+      deficit: 'In deficit (expenses > income)',
+      tight: 'Tight budget (little margin)',
+      balanced: 'Balanced budget',
+      comfortable: 'Comfortable budget',
     };
-    parts.push(`- Situation financiere: ${situationMap[context.financialSituation]}`);
+    parts.push(`- Financial situation: ${situationMap[context.financialSituation]}`);
   }
 
   if (context.hasLoan !== undefined) {
-    parts.push(`- Pret etudiant: ${context.hasLoan ? 'Oui' : 'Non'}`);
+    parts.push(`- Student loan: ${context.hasLoan ? 'Yes' : 'No'}`);
   }
 
   if (context.yearsRemaining !== undefined) {
-    parts.push(`- Annees d'etudes restantes: ${context.yearsRemaining}`);
+    parts.push(`- Years of study remaining: ${context.yearsRemaining}`);
   }
 
   return parts.join('\n');

@@ -109,7 +109,7 @@ export const PROSPECTION_TOOLS = {
       properties: {
         query: {
           type: 'string',
-          description: 'Search query for jobs (e.g., "serveur étudiant")',
+          description: 'Search query for jobs (e.g., "student waiter")',
         },
         city: {
           type: 'string',
@@ -343,21 +343,21 @@ const JOB_PLATFORMS = [
     icon: '💼',
     urlTemplate: (query: string, city: string) =>
       `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(query)}&location=${encodeURIComponent(city)}`,
-    description: 'Offres et networking professionnel',
+    description: 'Professional offers and networking',
   },
   {
     name: 'StudentJob',
     icon: '🎓',
     urlTemplate: (query: string, city: string) =>
       `https://www.studentjob.fr/offres-emploi?search=${encodeURIComponent(query)}&location=${encodeURIComponent(city)}`,
-    description: 'Spécialisé emplois étudiants',
+    description: 'Specialized in student jobs',
   },
   {
     name: 'HelloWork',
     icon: '👋',
     urlTemplate: (query: string, city: string) =>
       `https://www.hellowork.com/fr-fr/emploi/recherche.html?k=${encodeURIComponent(query)}&l=${encodeURIComponent(city)}`,
-    description: 'Offres locales et régionales',
+    description: 'Local and regional offers',
   },
   {
     name: 'Pôle Emploi',
@@ -413,7 +413,7 @@ export async function handleSearchJobOffers(args: Record<string, unknown>) {
             id: 'intro',
             type: 'text',
             params: {
-              content: `## 🔍 Recherche: "${query}" à ${city}\n\nVoici les meilleures plateformes pour trouver de **vraies offres d'emploi**:`,
+              content: `## 🔍 Search: "${query}" in ${city}\n\nHere are the best platforms to find **real job offers**:`,
               markdown: true,
             },
           },
@@ -421,11 +421,11 @@ export async function handleSearchJobOffers(args: Record<string, unknown>) {
             id: 'platforms',
             type: 'table',
             params: {
-              title: 'Plateformes de recherche',
+              title: 'Search platforms',
               columns: [
-                { key: 'platform', label: 'Plateforme' },
+                { key: 'platform', label: 'Platform' },
                 { key: 'description', label: 'Description' },
-                { key: 'link', label: 'Lien' },
+                { key: 'link', label: 'Link' },
               ],
               rows: platforms.map((p) => ({
                 platform: `${p.icon} ${p.name}`,
@@ -438,11 +438,11 @@ export async function handleSearchJobOffers(args: Record<string, unknown>) {
             id: 'tips',
             type: 'text',
             params: {
-              content: `### 💡 Conseils
-- **Indeed** et **LinkedIn** ont le plus grand volume d'offres
-- **StudentJob** est spécialisé pour les jobs étudiants
-- Activez les **alertes email** pour être notifié des nouvelles offres
-- Pensez aussi aux **candidatures spontanées** dans les commerces locaux`,
+              content: `### 💡 Tips
+- **Indeed** and **LinkedIn** have the highest volume of listings
+- **StudentJob** specializes in student jobs
+- Enable **email alerts** to be notified of new postings
+- Also consider **unsolicited applications** to local businesses`,
               markdown: true,
             },
           },

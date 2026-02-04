@@ -478,17 +478,17 @@ async function handleListProfiles(args: Record<string, unknown>) {
     return {
       type: 'table',
       params: {
-        title: 'Profils',
+        title: 'Profiles',
         columns: [
           { key: 'status', label: '' },
-          { key: 'name', label: 'Nom' },
+          { key: 'name', label: 'Name' },
           { key: 'type', label: 'Type' },
-          { key: 'goal', label: 'Objectif' },
+          { key: 'goal', label: 'Goal' },
         ],
         rows: profiles.map((p) => ({
           status: p.isActive ? '✓' : '',
           name: p.name,
-          type: p.profileType === 'main' ? 'Principal' : 'Clone objectif',
+          type: p.profileType === 'main' ? 'Main' : 'Goal clone',
           goal: p.goalName ? `${p.goalName} (${p.goalAmount}€)` : '-',
         })),
       },

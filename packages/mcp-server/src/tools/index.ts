@@ -538,9 +538,9 @@ async function handleAnalyzeBudget(args: Record<string, unknown>) {
                 id: 'income',
                 type: 'metric',
                 params: {
-                  title: 'Revenus',
+                  title: 'Income',
                   value: analysis.totalIncome,
-                  unit: '€/mois',
+                  unit: '€/month',
                   trend: { direction: analysis.margin >= 0 ? 'up' : 'neutral', value: 0 },
                 },
               },
@@ -548,18 +548,18 @@ async function handleAnalyzeBudget(args: Record<string, unknown>) {
                 id: 'expenses',
                 type: 'metric',
                 params: {
-                  title: 'Dépenses',
+                  title: 'Expenses',
                   value: analysis.totalExpenses,
-                  unit: '€/mois',
+                  unit: '€/month',
                 },
               },
               {
                 id: 'margin',
                 type: 'metric',
                 params: {
-                  title: 'Marge',
+                  title: 'Margin',
                   value: analysis.margin,
-                  unit: '€/mois',
+                  unit: '€/month',
                   trend: {
                     direction: analysis.margin >= 0 ? 'up' : 'down',
                     value: Math.abs(analysis.margin),
@@ -573,7 +573,7 @@ async function handleAnalyzeBudget(args: Record<string, unknown>) {
           id: 'summary',
           type: 'text',
           params: {
-            content: `## Analyse\n\n${analysis.summary}\n\n## Recommandations\n\n${analysis.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
+            content: `## Analysis\n\n${analysis.summary}\n\n## Recommendations\n\n${analysis.recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
             markdown: true,
           },
         },
@@ -775,12 +775,12 @@ async function handleFindOptimizations(args: Record<string, unknown>) {
     return {
       type: 'table',
       params: {
-        title: 'Optimisations Budget',
+        title: 'Budget Optimizations',
         columns: [
-          { key: 'expense', label: 'Dépense' },
+          { key: 'expense', label: 'Expense' },
           { key: 'solution', label: 'Solution' },
-          { key: 'savings_pct', label: 'Économie' },
-          { key: 'potential_savings', label: 'Gain/mois' },
+          { key: 'savings_pct', label: 'Savings' },
+          { key: 'potential_savings', label: 'Gain/month' },
         ],
         rows: optimizations.map((o) => ({
           expense: o.expense,
@@ -972,17 +972,17 @@ async function handlePredictGraduationBalance(args: Record<string, unknown>) {
           id: 'balance',
           type: 'metric',
           params: {
-            title: 'Balance projetée',
-            value: finalBalance.toLocaleString('fr-FR'),
+            title: 'Projected balance',
+            value: finalBalance.toLocaleString('en-US'),
             unit: '€',
-            subtitle: `Intervalle: ${confidenceLow.toLocaleString('fr-FR')}€ - ${confidenceHigh.toLocaleString('fr-FR')}€`,
+            subtitle: `Range: ${confidenceLow.toLocaleString('en-US')}€ - ${confidenceHigh.toLocaleString('en-US')}€`,
           },
         },
         {
           id: 'details',
           type: 'text',
           params: {
-            content: `**Détails projection:**\n- Marge mensuelle: ${projectedMonthlyMargin}€\n- Revenu job additionnel: ${additionalJobIncome}€/mois\n- Durée: ${months} mois`,
+            content: `**Projection details:**\n- Monthly margin: ${projectedMonthlyMargin}€\n- Additional job income: ${additionalJobIncome}€/month\n- Duration: ${months} months`,
             markdown: true,
           },
         },
@@ -1027,18 +1027,18 @@ async function handlePredictLoanPayoff(args: Record<string, unknown>) {
           id: 'months',
           type: 'metric',
           params: {
-            title: 'Temps de remboursement',
+            title: 'Time to payoff',
             value: months,
-            unit: 'mois',
-            subtitle: `${Math.floor(months / 12)} ans et ${months % 12} mois`,
+            unit: 'months',
+            subtitle: `${Math.floor(months / 12)} years and ${months % 12} months`,
           },
         },
         {
           id: 'total_paid',
           type: 'metric',
           params: {
-            title: 'Total remboursé',
-            value: (months * monthlyPayment).toLocaleString('fr-FR'),
+            title: 'Total repaid',
+            value: (months * monthlyPayment).toLocaleString('en-US'),
             unit: '€',
           },
         },
@@ -1105,49 +1105,49 @@ async function handleSuggestRelatedJobs(args: Record<string, unknown>) {
     });
 
     // Smart prompt engineering to get personalized job suggestions
-    const systemPrompt = `Tu es un conseiller d'orientation spécialisé pour les étudiants français.
+    const systemPrompt = `You are a career advisor specialized in helping students.
 
-Ton rôle est de suggérer des jobs étudiants qui:
-1. Sont en LIEN DIRECT avec le domaine d'études (pas juste "job alimentaire")
-2. Permettent de RÉSEAUTER et construire des contacts professionnels
-3. Apportent une VALEUR CV significative
-4. Sont RÉALISTES pour un étudiant (temps partiel, flexible)
+Your role is to suggest student jobs that:
+1. Are DIRECTLY RELATED to the field of study (not just "any job")
+2. Allow NETWORKING and building professional contacts
+3. Provide significant CV VALUE
+4. Are REALISTIC for a student (part-time, flexible)
 
-Pour chaque suggestion, explique:
-- Pourquoi ce job est pertinent pour ce profil
-- Comment il aide à réseauter dans le domaine
-- Quel avantage concret pour le CV/carrière
+For each suggestion, explain:
+- Why this job is relevant for this profile
+- How it helps network in the field
+- What concrete advantage for CV/career
 
-Sois créatif mais réaliste. Évite les suggestions génériques comme "caissier" ou "serveur" sauf si vraiment pertinentes.`;
+Be creative but realistic. Avoid generic suggestions like "cashier" or "waiter" unless truly relevant.`;
 
-    const userPrompt = `Profil étudiant:
-- Diplôme: ${diploma}
-- Domaine: ${field}
-${skills ? `- Compétences: ${skills.join(', ')}` : ''}
-${interests ? `- Centres d'intérêt: ${interests.join(', ')}` : ''}
-${networkingPriority ? '- PRIORITÉ: jobs qui permettent de réseauter!' : ''}
+    const userPrompt = `Student profile:
+- Degree: ${diploma}
+- Field: ${field}
+${skills ? `- Skills: ${skills.join(', ')}` : ''}
+${interests ? `- Interests: ${interests.join(', ')}` : ''}
+${networkingPriority ? '- PRIORITY: jobs that allow networking!' : ''}
 
-Propose 4 jobs étudiants adaptés à ce profil.
-Pour chaque job, donne:
-1. Nom du job
-2. Pourquoi c'est pertinent (1-2 phrases)
-3. Potentiel de networking (faible/moyen/fort)
-4. Impact CV (faible/moyen/fort)
-5. Taux horaire estimé
+Suggest 4 student jobs suited to this profile.
+For each job, provide:
+1. Job name
+2. Why it's relevant (1-2 sentences)
+3. Networking potential (low/medium/high)
+4. CV impact (low/medium/high)
+5. Estimated hourly rate
 
-Format ta réponse en JSON comme ceci:
+Format your response as JSON like this:
 {
   "suggestions": [
     {
-      "job": "Nom du job",
-      "relevance": "Explication",
-      "networking": "fort",
-      "cv_impact": "moyen",
+      "job": "Job name",
+      "relevance": "Explanation",
+      "networking": "high",
+      "cv_impact": "medium",
       "hourly_rate": 20,
-      "platform": "Où trouver ce job"
+      "platform": "Where to find this job"
     }
   ],
-  "conseil_networking": "Un conseil personnalisé pour maximiser le networking"
+  "networking_tip": "A personalized tip to maximize networking"
 }`;
 
     try {
@@ -1170,7 +1170,7 @@ Format ta réponse en JSON comme ceci:
           hourly_rate: number;
           platform: string;
         }>;
-        conseil_networking: string;
+        networking_tip: string;
       };
 
       try {
@@ -1197,13 +1197,13 @@ Format ta réponse en JSON comme ceci:
             id: 'jobs-table',
             type: 'table',
             params: {
-              title: `Jobs adaptés à ${field}`,
+              title: `Jobs for ${field}`,
               columns: [
                 { key: 'job', label: 'Job' },
                 { key: 'hourly_rate', label: '€/h' },
                 { key: 'networking', label: 'Networking' },
                 { key: 'cv_impact', label: 'Impact CV' },
-                { key: 'platform', label: 'Où chercher' },
+                { key: 'platform', label: 'Where to find' },
               ],
               rows: suggestions.suggestions.map((s) => ({
                 job: s.job,
@@ -1220,7 +1220,7 @@ Format ta réponse en JSON comme ceci:
             id: 'details',
             type: 'text',
             params: {
-              content: `## Détails\n\n${suggestions.suggestions.map((s) => `### ${s.job}\n${s.relevance}`).join('\n\n')}\n\n---\n\n**💡 Conseil networking:** ${suggestions.conseil_networking}`,
+              content: `## Details\n\n${suggestions.suggestions.map((s) => `### ${s.job}\n${s.relevance}`).join('\n\n')}\n\n---\n\n**💡 Networking tip:** ${suggestions.networking_tip}`,
               markdown: true,
             },
           },
@@ -1230,10 +1230,10 @@ Format ta réponse en JSON comme ceci:
             params: {
               type: 'button',
               variant: 'outline',
-              label: "Explorer d'autres pistes",
+              label: 'Explore other options',
               action: 'tool-call',
               toolName: 'suggest_related_jobs',
-              params: { ...args, interests: [...(interests || []), 'autre piste'] },
+              params: { ...args, interests: [...(interests || []), 'other option'] },
             },
           },
         ],
@@ -1285,138 +1285,138 @@ function generateFallbackSuggestions(field: string, _diploma: string) {
   > = {
     informatique: [
       {
-        job: 'Dev freelance (Malt/Fiverr)',
-        relevance: 'Pratique directe des compétences, portfolio',
-        networking: 'moyen',
-        cv_impact: 'fort',
+        job: 'Freelance developer (Malt/Fiverr)',
+        relevance: 'Direct skill practice, portfolio building',
+        networking: 'medium',
+        cv_impact: 'high',
         hourly_rate: 25,
         platform: 'Malt, Fiverr',
       },
       {
-        job: 'Tuteur en programmation',
-        relevance: 'Renforce tes acquis, contacts avec enseignants',
-        networking: 'fort',
-        cv_impact: 'moyen',
+        job: 'Programming tutor',
+        relevance: 'Reinforces knowledge, teacher contacts',
+        networking: 'high',
+        cv_impact: 'medium',
         hourly_rate: 20,
         platform: 'Superprof, Kelprof',
       },
       {
-        job: 'Stage startup (temps partiel)',
-        relevance: 'Réseau entrepreneurial, expérience concrète',
-        networking: 'fort',
-        cv_impact: 'fort',
+        job: 'Part-time startup internship',
+        relevance: 'Entrepreneurial network, hands-on experience',
+        networking: 'high',
+        cv_impact: 'high',
         hourly_rate: 15,
         platform: 'Welcome to the Jungle',
       },
       {
-        job: 'Community manager tech',
-        relevance: 'Connaissance écosystème, veille techno',
-        networking: 'moyen',
-        cv_impact: 'moyen',
+        job: 'Tech community manager',
+        relevance: 'Ecosystem knowledge, tech watch',
+        networking: 'medium',
+        cv_impact: 'medium',
         hourly_rate: 15,
         platform: 'LinkedIn',
       },
     ],
     langues: [
       {
-        job: 'Traducteur freelance',
-        relevance: 'Pratique professionnelle, clients internationaux',
-        networking: 'moyen',
-        cv_impact: 'fort',
+        job: 'Freelance translator',
+        relevance: 'Professional practice, international clients',
+        networking: 'medium',
+        cv_impact: 'high',
         hourly_rate: 18,
         platform: 'Upwork, Fiverr',
       },
       {
-        job: 'Prof de langues en ligne',
-        relevance: 'Contacts internationaux, pédagogie',
-        networking: 'fort',
-        cv_impact: 'moyen',
+        job: 'Online language teacher',
+        relevance: 'International contacts, pedagogy skills',
+        networking: 'high',
+        cv_impact: 'medium',
         hourly_rate: 20,
         platform: 'Preply, iTalki',
       },
       {
-        job: 'Assistant événementiel international',
-        relevance: 'Networking pro, pratique orale',
-        networking: 'fort',
-        cv_impact: 'moyen',
+        job: 'International event assistant',
+        relevance: 'Professional networking, oral practice',
+        networking: 'high',
+        cv_impact: 'medium',
         hourly_rate: 12,
-        platform: 'Agences événementielles',
+        platform: 'Event agencies',
       },
       {
-        job: 'Guide touristique bilingue',
-        relevance: 'Communication, culture, rencontres',
-        networking: 'moyen',
-        cv_impact: 'faible',
+        job: 'Bilingual tour guide',
+        relevance: 'Communication, culture, meeting people',
+        networking: 'medium',
+        cv_impact: 'low',
         hourly_rate: 15,
-        platform: 'Offices tourisme',
+        platform: 'Tourism offices',
       },
     ],
     droit: [
       {
-        job: 'Assistant juridique cabinet',
-        relevance: 'Expérience cabinet, réseau avocats',
-        networking: 'fort',
-        cv_impact: 'fort',
+        job: 'Law firm assistant',
+        relevance: 'Firm experience, lawyer network',
+        networking: 'high',
+        cv_impact: 'high',
         hourly_rate: 15,
-        platform: 'Barreau local, Indeed',
+        platform: 'Local bar, Indeed',
       },
       {
-        job: 'Rédacteur juridique web',
-        relevance: 'Vulgarisation, portfolio, visibilité',
-        networking: 'moyen',
-        cv_impact: 'moyen',
+        job: 'Legal web writer',
+        relevance: 'Simplification skills, portfolio, visibility',
+        networking: 'medium',
+        cv_impact: 'medium',
         hourly_rate: 18,
         platform: 'Malt, TextBroker',
       },
       {
-        job: 'Permanence aide juridique',
-        relevance: 'Expérience client, réseau associatif',
-        networking: 'fort',
-        cv_impact: 'moyen',
+        job: 'Legal aid volunteer',
+        relevance: 'Client experience, nonprofit network',
+        networking: 'high',
+        cv_impact: 'medium',
         hourly_rate: 0,
-        platform: 'Associations, mairies',
+        platform: 'Nonprofits, city halls',
       },
       {
-        job: 'Tuteur en droit',
-        relevance: 'Révision active, contacts étudiants',
-        networking: 'moyen',
-        cv_impact: 'faible',
+        job: 'Law tutor',
+        relevance: 'Active revision, student contacts',
+        networking: 'medium',
+        cv_impact: 'low',
         hourly_rate: 20,
         platform: 'Superprof',
       },
     ],
     psychologie: [
       {
-        job: 'Assistant recherche labo',
-        relevance: 'Méthodologie, réseau chercheurs',
-        networking: 'fort',
-        cv_impact: 'fort',
+        job: 'Lab research assistant',
+        relevance: 'Methodology, researcher network',
+        networking: 'high',
+        cv_impact: 'high',
         hourly_rate: 12,
-        platform: 'Universités',
+        platform: 'Universities',
       },
       {
-        job: 'Animateur prévention santé',
-        relevance: 'Terrain, réseau associatif santé',
-        networking: 'fort',
-        cv_impact: 'moyen',
+        job: 'Health prevention facilitator',
+        relevance: 'Fieldwork, health nonprofit network',
+        networking: 'high',
+        cv_impact: 'medium',
         hourly_rate: 13,
-        platform: 'Associations santé',
+        platform: 'Health nonprofits',
       },
       {
-        job: 'Rédacteur articles psy',
-        relevance: 'Veille scientifique, portfolio',
-        networking: 'moyen',
-        cv_impact: 'moyen',
+        job: 'Psychology article writer',
+        relevance: 'Scientific monitoring, portfolio',
+        networking: 'medium',
+        cv_impact: 'medium',
         hourly_rate: 15,
-        platform: 'Malt, médias santé',
+        platform: 'Malt, health media',
       },
       {
-        job: 'Soutien scolaire adapté',
-        relevance: 'Approche individuelle, contacts parents/écoles',
-        networking: 'moyen',
-        cv_impact: 'moyen',
+        job: 'Adapted tutoring',
+        relevance: 'Individual approach, parent/school contacts',
+        networking: 'medium',
+        cv_impact: 'medium',
         hourly_rate: 18,
-        platform: 'Complétude, Acadomia',
+        platform: 'Tutoring agencies',
       },
     ],
   };
@@ -1430,42 +1430,42 @@ function generateFallbackSuggestions(field: string, _diploma: string) {
     ? fieldSuggestions[matchingField]
     : [
         {
-          job: 'Tuteur dans ta spécialité',
-          relevance: 'Renforce tes acquis, réseau enseignants',
-          networking: 'fort',
-          cv_impact: 'moyen',
+          job: 'Tutor in your specialty',
+          relevance: 'Reinforces knowledge, teacher network',
+          networking: 'high',
+          cv_impact: 'medium',
           hourly_rate: 18,
           platform: 'Superprof',
         },
         {
-          job: 'Stage temps partiel',
-          relevance: 'Expérience terrain, réseau pro',
-          networking: 'fort',
-          cv_impact: 'fort',
+          job: 'Part-time internship',
+          relevance: 'Hands-on experience, professional network',
+          networking: 'high',
+          cv_impact: 'high',
           hourly_rate: 12,
           platform: 'Welcome to the Jungle',
         },
         {
-          job: 'Freelance dans ton domaine',
-          relevance: 'Pratique concrète, portfolio',
-          networking: 'moyen',
-          cv_impact: 'fort',
+          job: 'Freelance in your field',
+          relevance: 'Practical experience, portfolio',
+          networking: 'medium',
+          cv_impact: 'high',
           hourly_rate: 20,
           platform: 'Malt, Fiverr',
         },
         {
-          job: 'Assistant de recherche',
-          relevance: 'Méthodologie, réseau académique',
-          networking: 'fort',
-          cv_impact: 'fort',
+          job: 'Research assistant',
+          relevance: 'Methodology, academic network',
+          networking: 'high',
+          cv_impact: 'high',
           hourly_rate: 12,
-          platform: 'Universités',
+          platform: 'Universities',
         },
       ];
 
   return {
     suggestions,
-    conseil_networking: `Pour ${field}, privilégie les jobs qui te mettent en contact avec des professionnels du secteur. Les stages, même courts, et le tutorat sont excellents pour ça.`,
+    networking_tip: `For ${field}, prioritize jobs that connect you with industry professionals. Internships, even short ones, and tutoring are excellent for this.`,
   };
 }
 
@@ -1476,9 +1476,9 @@ async function handleGetTraces(args: Record<string, unknown>) {
   return {
     type: 'link',
     params: {
-      label: 'Voir traces Opik',
+      label: 'View Opik traces',
       url,
-      description: 'Visualiser les traces de traitement dans Opik',
+      description: 'View processing traces in Opik',
     },
   };
 }
@@ -1493,7 +1493,7 @@ async function handleLogFeedback(args: Record<string, unknown>) {
   return {
     type: 'text',
     params: {
-      content: `Merci pour votre feedback! ${feedback === 'thumbs_up' ? '👍' : '👎'}`,
+      content: `Thanks for your feedback! ${feedback === 'thumbs_up' ? '👍' : '👎'}`,
       markdown: false,
     },
   };
@@ -1553,27 +1553,27 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
                 id: 'income',
                 type: 'metric',
                 params: {
-                  title: 'Revenus',
+                  title: 'Income',
                   value: result.budget.totalIncome,
-                  unit: 'euro/mois',
+                  unit: 'euro/month',
                 },
               },
               {
                 id: 'expenses',
                 type: 'metric',
                 params: {
-                  title: 'Depenses',
+                  title: 'Expenses',
                   value: result.budget.totalExpenses,
-                  unit: 'euro/mois',
+                  unit: 'euro/month',
                 },
               },
               {
                 id: 'margin',
                 type: 'metric',
                 params: {
-                  title: 'Marge',
+                  title: 'Margin',
                   value: result.budget.margin,
-                  unit: 'euro/mois',
+                  unit: 'euro/month',
                   trend: {
                     direction: result.budget.margin >= 0 ? 'up' : 'down',
                     value: Math.abs(result.budget.margin),
@@ -1588,12 +1588,12 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
           id: 'jobs-table',
           type: 'table',
           params: {
-            title: 'Jobs Recommandes (Mastra JobMatcher)',
+            title: 'Recommended Jobs (Mastra JobMatcher)',
             columns: [
               { key: 'name', label: 'Job' },
               { key: 'hourlyRate', label: 'euro/h' },
               { key: 'matchScore', label: 'Match' },
-              { key: 'coBenefit', label: 'Co-benefice' },
+              { key: 'coBenefit', label: 'Co-benefit' },
             ],
             rows: result.jobs.map((j) => ({
               name: j.name,
@@ -1608,12 +1608,12 @@ async function handleAnalyzeStudentProfile(args: Record<string, unknown>) {
           id: 'optimizations-table',
           type: 'table',
           params: {
-            title: 'Optimisations Budget',
+            title: 'Budget Optimizations',
             columns: [
-              { key: 'expense', label: 'Depense' },
+              { key: 'expense', label: 'Expense' },
               { key: 'solution', label: 'Solution' },
-              { key: 'savingsPct', label: 'Economie' },
-              { key: 'potentialSavings', label: 'Gain/mois' },
+              { key: 'savingsPct', label: 'Savings' },
+              { key: 'potentialSavings', label: 'Gain/month' },
             ],
             rows: result.optimizations.map((o) => ({
               expense: o.expense,

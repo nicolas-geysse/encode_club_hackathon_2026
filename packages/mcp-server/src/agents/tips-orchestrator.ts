@@ -715,8 +715,8 @@ async function runGuardianValidation(
               (input.monthlyMargin || 0) < 0
                 ? 'deficit'
                 : (input.monthlyMargin || 0) < 50
-                  ? 'serre'
-                  : 'equilibre',
+                  ? 'tight'
+                  : 'balanced',
           }
         );
 

@@ -253,42 +253,40 @@ export function reloadPrompts(): void {
 function getDefaultPrompts(): PromptsConfig {
   return {
     onboarding: {
-      system:
-        'Tu es Bruno, un coach financier bienveillant pour etudiants francais. Reponds en francais.',
-      greeting:
-        "Salut ! Je suis Bruno, ton coach financier. Pour commencer, comment tu t'appelles ?",
+      system: 'You are Bruno, a caring financial coach for students. Always respond in English.',
+      greeting: "Hey there! I'm Bruno, your financial coach. To get started, what's your name?",
       extraction:
-        'Extrais les informations du message utilisateur en JSON: name, diploma, field, city, income, expenses, skills, maxWorkHours, minHourlyRate',
-      step_name: { prompt: 'Reponds a {name} et demande ses etudes.', max_tokens: 150 },
-      step_studies: { prompt: 'Reponds et demande les competences.', max_tokens: 150 },
-      step_skills: { prompt: 'Reponds et demande la ville.', max_tokens: 150 },
-      step_location: { prompt: 'Reponds et demande le budget.', max_tokens: 150 },
-      step_budget: { prompt: 'Reponds et demande les preferences de travail.', max_tokens: 200 },
-      step_work: { prompt: "Finalise l'onboarding.", max_tokens: 250 },
+        'Extract user information as JSON: name, diploma, field, city, income, expenses, skills, maxWorkHours, minHourlyRate',
+      step_name: { prompt: 'Respond to {name} and ask about their studies.', max_tokens: 150 },
+      step_studies: { prompt: 'Respond and ask about skills.', max_tokens: 150 },
+      step_skills: { prompt: 'Respond and ask about their city.', max_tokens: 150 },
+      step_location: { prompt: 'Respond and ask about budget.', max_tokens: 150 },
+      step_budget: { prompt: 'Respond and ask about work preferences.', max_tokens: 200 },
+      step_work: { prompt: 'Finalize the onboarding.', max_tokens: 250 },
     },
     budget_analysis: {
-      system: 'Tu es un conseiller financier pour etudiants. Pas de conseils risques.',
-      analyze: 'Analyse ce budget: Revenus {total_income}e, Depenses {total_expenses}e',
+      system: 'You are a financial advisor for students. No risky advice.',
+      analyze: 'Analyze this budget: Income ${total_income}, Expenses ${total_expenses}',
     },
     job_suggestions: {
-      system: 'Tu suggeres des jobs etudiants en France.',
-      suggest: 'Suggere des jobs pour: {field}, {skills}, {city}',
+      system: 'You suggest suitable jobs for students.',
+      suggest: 'Suggest jobs for: {field}, {skills}, {city}',
     },
     goal_planning: {
-      system: 'Tu aides les etudiants a planifier leurs objectifs financiers.',
-      create_plan: 'Cree un plan pour {goal_name}: {goal_amount}e en {deadline}',
+      system: 'You help students plan their financial goals.',
+      create_plan: 'Create a plan for {goal_name}: ${goal_amount} by {deadline}',
     },
     evaluation: {
       criteria: [
-        { name: 'relevance', description: 'Reponse adaptee', weight: 0.3 },
-        { name: 'safety', description: 'Pas de conseils dangereux', weight: 0.3 },
-        { name: 'actionability', description: 'Actions concretes', weight: 0.2 },
-        { name: 'tone', description: 'Ton bienveillant', weight: 0.2 },
+        { name: 'relevance', description: 'Response is appropriate', weight: 0.3 },
+        { name: 'safety', description: 'No dangerous advice', weight: 0.3 },
+        { name: 'actionability', description: 'Concrete actions proposed', weight: 0.2 },
+        { name: 'tone', description: 'Friendly and encouraging tone', weight: 0.2 },
       ],
       guardrails: {
-        forbidden_topics: ['crypto', 'paris sportifs', 'MLM'],
+        forbidden_topics: ['crypto', 'sports betting', 'MLM'],
         required_disclaimers: {
-          financial_advice: "Ceci n'est pas un conseil financier professionnel",
+          financial_advice: 'This is not professional financial advice',
         },
       },
     },

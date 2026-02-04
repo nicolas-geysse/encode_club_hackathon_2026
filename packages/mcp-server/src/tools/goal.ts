@@ -92,12 +92,12 @@ export interface ProgressUpdate {
 // Achievement definitions
 const ACHIEVEMENTS = [
   { id: 'first_100', name: 'First Blood', icon: '💰', description: 'Gagner 100€', threshold: 100 },
-  { id: 'first_500', name: 'Halfway Hero', icon: '🌟', description: 'Gagner 500€', threshold: 500 },
+  { id: 'first_500', name: 'Halfway Hero', icon: '🌟', description: 'Earn 500€', threshold: 500 },
   {
     id: 'streak_2',
-    name: 'Régulier',
+    name: 'Consistent',
     icon: '📈',
-    description: '2 semaines consécutives',
+    description: '2 consecutive weeks',
     type: 'streak',
     threshold: 2,
   },
@@ -105,7 +105,7 @@ const ACHIEVEMENTS = [
     id: 'streak_4',
     name: 'On Fire',
     icon: '🔥',
-    description: '4 semaines consécutives',
+    description: '4 consecutive weeks',
     type: 'streak',
     threshold: 4,
   },
@@ -113,30 +113,30 @@ const ACHIEVEMENTS = [
     id: 'ahead_schedule',
     name: 'Speed Racer',
     icon: '⚡',
-    description: 'En avance sur le planning',
+    description: 'Ahead of schedule',
     type: 'pace',
   },
   {
     id: 'diversified',
-    name: 'Diversifié',
+    name: 'Diversified',
     icon: '📊',
-    description: '3+ sources de revenus',
+    description: '3+ income sources',
     type: 'sources',
     threshold: 3,
   },
   {
     id: 'goal_50pct',
-    name: 'Mi-chemin',
+    name: 'Halfway',
     icon: '🎯',
-    description: "Atteindre 50% de l'objectif",
+    description: 'Reach 50% of the goal',
     type: 'progress',
     threshold: 0.5,
   },
   {
     id: 'goal_complete',
-    name: 'Objectif Atteint!',
+    name: 'Goal Achieved!',
     icon: '🏆',
-    description: "Atteindre 100% de l'objectif",
+    description: 'Reach 100% of the goal',
     type: 'progress',
     threshold: 1.0,
   },
@@ -526,19 +526,19 @@ function assessFeasibility(
   // Weekly target assessment
   if (weeklyTarget > 200) {
     score -= 0.3;
-    factors.push('Objectif hebdomadaire élevé (>200€)');
+    factors.push('High weekly target (>200€)');
   } else if (weeklyTarget > 100) {
     score -= 0.1;
-    factors.push('Objectif hebdomadaire modéré (>100€)');
+    factors.push('Moderate weekly target (>100€)');
   }
 
   // Time pressure
   if (weeksAvailable < 4) {
     score -= 0.2;
-    factors.push('Délai court (<4 semaines)');
+    factors.push('Short deadline (<4 weeks)');
   } else if (weeksAvailable < 8) {
     score -= 0.1;
-    factors.push('Délai serré (<8 semaines)');
+    factors.push('Tight deadline (<8 weeks)');
   }
 
   // Normalize score
@@ -551,7 +551,7 @@ function assessFeasibility(
     level = 'medium';
   } else {
     level = 'high';
-    factors.push('Nécessite des actions immédiates');
+    factors.push('Requires immediate action');
   }
 
   return { score, level, factors };
@@ -571,11 +571,11 @@ function generateMilestones(totalAmount: number, weeks: number): Milestone[] {
 
     // Add rewards at key milestones
     if (week === Math.ceil(weeks / 2)) {
-      milestone.reward = '🎯 Mi-chemin!';
+      milestone.reward = '🎯 Halfway there!';
     } else if (week === weeks) {
-      milestone.reward = '🏆 Objectif atteint!';
+      milestone.reward = '🏆 Goal reached!';
     } else if (week % 4 === 0) {
-      milestone.reward = '⭐ Mois terminé!';
+      milestone.reward = '⭐ Month completed!';
     }
 
     milestones.push(milestone);
@@ -770,7 +770,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
           id: 'goal-header',
           type: 'text',
           params: {
-            content: `# 🎯 Objectif: ${goalName}\n\n**${goalAmount}€** en **${weeksAvailable} semaines** (${weeklyTarget}€/semaine)`,
+            content: `# 🎯 Goal: ${goalName}\n\n**${goalAmount}€** in **${weeksAvailable} weeks** (${weeklyTarget}€/week)`,
             markdown: true,
           },
         },
@@ -786,7 +786,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
                 id: 'feasibility-score',
                 type: 'metric',
                 params: {
-                  title: 'Faisabilité',
+                  title: 'Feasibility',
                   value: `${Math.round(feasibility.score * 100)}%`,
                   trend: { direction: feasibility.score >= 0.6 ? 'up' : 'down' },
                 },
@@ -795,7 +795,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
                 id: 'weekly-target',
                 type: 'metric',
                 params: {
-                  title: 'Objectif/semaine',
+                  title: 'Weekly target',
                   value: weeklyTarget,
                   unit: '€',
                 },
@@ -804,13 +804,13 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
                 id: 'risk-level',
                 type: 'metric',
                 params: {
-                  title: 'Niveau de risque',
+                  title: 'Risk level',
                   value:
                     feasibility.level === 'low'
-                      ? '✅ Faible'
+                      ? '✅ Low'
                       : feasibility.level === 'medium'
-                        ? '⚠️ Moyen'
-                        : '🚨 Élevé',
+                        ? '⚠️ Medium'
+                        : '🚨 High',
                 },
               },
             ],
@@ -821,7 +821,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
           id: 'progress',
           type: 'text',
           params: {
-            content: `## Progression\n\n${progressBar}\n\nSemaine 1/${weeksAvailable} | 0€/${goalAmount}€`,
+            content: `## Progress\n\n${progressBar}\n\nWeek 1/${weeksAvailable} | 0€/${goalAmount}€`,
             markdown: true,
           },
         },
@@ -832,8 +832,8 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
           params: {
             content:
               feasibility.factors.length > 0
-                ? `## ⚠️ Points d'attention\n\n${feasibility.factors.map((f) => `- ${f}`).join('\n')}`
-                : '## ✅ Pas de risque majeur identifié',
+                ? `## ⚠️ Points of attention\n\n${feasibility.factors.map((f) => `- ${f}`).join('\n')}`
+                : '## ✅ No major risk identified',
             markdown: true,
           },
         },
@@ -842,11 +842,11 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
           id: 'strategies',
           type: 'table',
           params: {
-            title: 'Stratégies recommandées',
+            title: 'Recommended strategies',
             columns: [
-              { key: 'name', label: 'Stratégie' },
+              { key: 'name', label: 'Strategy' },
               { key: 'type', label: 'Type' },
-              { key: 'weeklyContribution', label: '€/semaine' },
+              { key: 'weeklyContribution', label: '€/week' },
               { key: 'effort', label: 'Effort' },
             ],
             rows: strategies.map((s) => ({
@@ -1014,7 +1014,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
         id: 'update-header',
         type: 'text',
         params: {
-          content: `# 📊 Semaine ${weekNumber} - ${goal.goal_name}\n\n**+${amountEarned}€** cette semaine`,
+          content: `# 📊 Week ${weekNumber} - ${goal.goal_name}\n\n**+${amountEarned}€** this week`,
           markdown: true,
         },
       },
@@ -1030,7 +1030,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
               id: 'total-earned',
               type: 'metric',
               params: {
-                title: 'Total gagné',
+                title: 'Total earned',
                 value: totalEarned,
                 unit: '€',
               },
@@ -1039,7 +1039,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
               id: 'progress-pct',
               type: 'metric',
               params: {
-                title: 'Progression',
+                title: 'Progress',
                 value: `${progressPct}%`,
                 trend: { direction: paceRatio >= 1 ? 'up' : 'down' },
               },
@@ -1048,16 +1048,16 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
               id: 'pace',
               type: 'metric',
               params: {
-                title: 'Rythme',
+                title: 'Pace',
                 value: `${Math.round(paceRatio * 100)}%`,
                 subtitle:
                   riskAlert === 'on_track'
-                    ? '✅ En avance'
+                    ? '✅ Ahead'
                     : riskAlert === 'slight_delay'
-                      ? '⚠️ Léger retard'
+                      ? '⚠️ Slight delay'
                       : riskAlert === 'at_risk'
-                        ? '🚨 À risque'
-                        : '❌ Critique',
+                        ? '🚨 At risk'
+                        : '❌ Critical',
               },
             },
           ],
@@ -1080,7 +1080,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
         id: 'new-achievements',
         type: 'text',
         params: {
-          content: `## 🏆 Achievements débloqués!\n\n${newAchievementDetails.map((a) => `### ${a.icon} ${a.name}\n${a.description}`).join('\n\n')}`,
+          content: `## 🏆 Achievements unlocked!\n\n${newAchievementDetails.map((a) => `### ${a.icon} ${a.name}\n${a.description}`).join('\n\n')}`,
           markdown: true,
         },
       });
@@ -1093,7 +1093,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
         id: 'risk-alert',
         type: 'text',
         params: {
-          content: `## ${riskAlert === 'slight_delay' ? '⚠️' : '🚨'} Alerte\n\nRetard de **${deficit}€** sur l'objectif.\n\n**Actions suggérées:**\n- Augmenter l'effort la semaine prochaine\n- Explorer une nouvelle source de revenus\n- Vendre un objet pour rattraper`,
+          content: `## ${riskAlert === 'slight_delay' ? '⚠️' : '🚨'} Alert\n\n**${deficit}€** behind on goal.\n\n**Suggested actions:**\n- Increase effort next week\n- Explore a new income source\n- Sell an item to catch up`,
           markdown: true,
         },
       });
@@ -1295,24 +1295,24 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
 
     if (riskRatio <= 1) {
       riskLevel = 'low';
-      message = 'Vous êtes en bonne voie pour atteindre votre objectif!';
+      message = 'You are on track to reach your goal!';
     } else if (riskRatio <= 1.3) {
       riskLevel = 'medium';
-      message = "Léger retard, mais rattrapable avec un peu plus d'effort.";
-      actions.push('Augmenter les heures de travail de 20%');
-      actions.push('Explorer une source de revenus supplémentaire');
+      message = 'Slight delay, but recoverable with a bit more effort.';
+      actions.push('Increase work hours by 20%');
+      actions.push('Explore an additional income source');
     } else if (riskRatio <= 1.8) {
       riskLevel = 'high';
-      message = 'Retard significatif. Actions correctives nécessaires.';
-      actions.push('Ajouter une nouvelle activité rémunérée');
-      actions.push('Vendre des objets pour un gain rapide');
-      actions.push('Réduire les dépenses non essentielles');
+      message = 'Significant delay. Corrective actions needed.';
+      actions.push('Add a new paid activity');
+      actions.push('Sell items for quick cash');
+      actions.push('Reduce non-essential expenses');
     } else {
       riskLevel = 'critical';
-      message = 'Objectif très difficile à atteindre dans le délai imparti.';
-      actions.push("Considérer l'extension du délai");
-      actions.push("Revoir l'objectif à la baisse");
-      actions.push('Combiner plusieurs stratégies agressivement');
+      message = 'Goal very difficult to reach within the deadline.';
+      actions.push('Consider extending the deadline');
+      actions.push('Consider lowering the goal');
+      actions.push('Aggressively combine multiple strategies');
     }
 
     span.setAttributes({
@@ -1359,10 +1359,10 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
                 id: 'required-rate',
                 type: 'metric',
                 params: {
-                  title: 'Requis/semaine',
+                  title: 'Required/week',
                   value: Math.round(requiredWeeklyRate),
                   unit: '€',
-                  subtitle: `vs ${goal.weekly_target}€ planifié`,
+                  subtitle: `vs ${goal.weekly_target}€ planned`,
                 },
               },
             ],
@@ -1372,7 +1372,7 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
           id: 'situation',
           type: 'text',
           params: {
-            content: `## Situation\n\n${message}\n\n- **Reste à gagner:** ${amountRemaining}€\n- **Semaines restantes:** ${weeksRemaining}\n- **Déficit actuel:** ${deficit > 0 ? `${deficit}€` : 'Aucun'}`,
+            content: `## Situation\n\n${message}\n\n- **Remaining to earn:** ${amountRemaining}€\n- **Weeks remaining:** ${weeksRemaining}\n- **Current deficit:** ${deficit > 0 ? `${deficit}€` : 'None'}`,
             markdown: true,
           },
         },
@@ -1382,8 +1382,8 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
           params: {
             content:
               actions.length > 0
-                ? `## 💡 Actions recommandées\n\n${actions.map((a, i) => `${i + 1}. ${a}`).join('\n')}`
-                : '## ✅ Continuez comme ça!',
+                ? `## 💡 Recommended actions\n\n${actions.map((a, i) => `${i + 1}. ${a}`).join('\n')}`
+                : '## ✅ Keep it up!',
             markdown: true,
           },
         },
@@ -1449,7 +1449,7 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
       return {
         type: 'text',
         params: {
-          content: `## Aucun objectif ${status === 'active' ? 'actif' : ''}\n\nCréez votre premier objectif avec \`create_goal_plan\`!`,
+          content: `## No ${status === 'active' ? 'active ' : ''}goals\n\nCreate your first goal with \`create_goal_plan\`!`,
           markdown: true,
         },
         metadata: { traceId: getCurrentTraceId() },
@@ -1459,19 +1459,19 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
     return {
       type: 'table',
       params: {
-        title: `Mes objectifs ${status === 'all' ? '' : `(${status})`}`,
+        title: `My goals ${status === 'all' ? '' : `(${status})`}`,
         columns: [
-          { key: 'goal_name', label: 'Objectif' },
-          { key: 'goal_amount', label: 'Montant' },
-          { key: 'progress', label: 'Progression' },
+          { key: 'goal_name', label: 'Goal' },
+          { key: 'goal_amount', label: 'Amount' },
+          { key: 'progress', label: 'Progress' },
           { key: 'deadline', label: 'Deadline' },
-          { key: 'status', label: 'Statut' },
+          { key: 'status', label: 'Status' },
         ],
         rows: goalsWithProgress.map((g) => ({
           goal_name: g.goal_name,
           goal_amount: `${g.goal_amount}€`,
           progress: `${g.progressPct}% (${g.earned}€)`,
-          deadline: new Date(g.goal_deadline).toLocaleDateString('fr-FR'),
+          deadline: new Date(g.goal_deadline).toLocaleDateString('en-US'),
           status: g.status === 'active' ? '🟢' : g.status === 'completed' ? '✅' : '⏸️',
         })),
       },
@@ -1607,7 +1607,7 @@ export async function handleAddCommitment(args: Record<string, unknown>) {
           id: 'commitment-added',
           type: 'text',
           params: {
-            content: `# ${typeIcons[commitmentType]} Engagement ajouté\n\n**${commitmentName}**\n\n- Type: ${commitmentType}\n- Heures/semaine: ${hoursPerWeek}h\n- Flexible: ${flexibleHours ? 'Oui' : 'Non'}\n- Priorité: ${priority}${dayPreferences ? `\n- Jours: ${dayPreferences.join(', ')}` : ''}`,
+            content: `# ${typeIcons[commitmentType]} Commitment added\n\n**${commitmentName}**\n\n- Type: ${commitmentType}\n- Hours/week: ${hoursPerWeek}h\n- Flexible: ${flexibleHours ? 'Yes' : 'No'}\n- Priority: ${priority}${dayPreferences ? `\n- Days: ${dayPreferences.join(', ')}` : ''}`,
             markdown: true,
           },
         },
@@ -1858,10 +1858,10 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
 
     // Build capacity summary
     const capacitySummary = [
-      `🟢 Haute capacité: ${retroplan.highCapacityWeeks} semaines`,
-      `🟡 Moyenne: ${retroplan.mediumCapacityWeeks} semaines`,
-      `🟠 Basse: ${retroplan.lowCapacityWeeks} semaines`,
-      `🔴 Protégées: ${retroplan.protectedWeeks} semaines`,
+      `🟢 High capacity: ${retroplan.highCapacityWeeks} weeks`,
+      `🟡 Medium: ${retroplan.mediumCapacityWeeks} weeks`,
+      `🟠 Low: ${retroplan.lowCapacityWeeks} weeks`,
+      `🔴 Protected: ${retroplan.protectedWeeks} weeks`,
     ].join('\n');
 
     // Build milestone table
@@ -1939,13 +1939,13 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
           id: 'milestones-table',
           type: 'table',
           params: {
-            title: 'Prochaines semaines',
+            title: 'Upcoming weeks',
             columns: [
-              { key: 'week', label: 'Sem.' },
-              { key: 'target', label: 'Cible' },
-              { key: 'cumul', label: 'Cumulé' },
+              { key: 'week', label: 'Week' },
+              { key: 'target', label: 'Target' },
+              { key: 'cumul', label: 'Cumulative' },
               { key: 'capacity', label: 'Cap.' },
-              { key: 'events', label: 'Événements' },
+              { key: 'events', label: 'Events' },
             ],
             rows: milestoneRows,
           },
@@ -1956,8 +1956,8 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
           params: {
             content:
               retroplan.riskFactors.length > 0
-                ? `## ⚠️ Facteurs de risque\n\n${retroplan.riskFactors.map((r) => `- ${r}`).join('\n')}`
-                : '## ✅ Aucun risque majeur identifié',
+                ? `## ⚠️ Risk factors\n\n${retroplan.riskFactors.map((r) => `- ${r}`).join('\n')}`
+                : '## ✅ No major risk identified',
             markdown: true,
           },
         },
@@ -2099,7 +2099,7 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
           id: 'breakdown',
           type: 'text',
           params: {
-            content: `## Détail\n\n| Facteur | Impact |\n|---------|--------|\n| Événements académiques | ×${academicMultiplier.toFixed(2)} |\n| Énergie moyenne | ×${energyMultiplier.toFixed(2)} |\n| Engagements | -${totalCommitmentHours}h/sem |${events.length > 0 ? `\n\n**Événements cette semaine:**\n${events.map((e) => `- ${e.event_name} (${e.event_type})`).join('\n')}` : ''}`,
+            content: `## Details\n\n| Factor | Impact |\n|---------|--------|\n| Academic events | ×${academicMultiplier.toFixed(2)} |\n| Average energy | ×${energyMultiplier.toFixed(2)} |\n| Commitments | -${totalCommitmentHours}h/week |${events.length > 0 ? `\n\n**Events this week:**\n${events.map((e) => `- ${e.event_name} (${e.event_type})`).join('\n')}` : ''}`,
             markdown: true,
           },
         },
@@ -2247,7 +2247,7 @@ export async function handleListCommitments(args: Record<string, unknown>) {
           id: 'commitments-summary',
           type: 'text',
           params: {
-            content: `## Engagements récurrents\n\n**Total:** ${totalHours}h/semaine`,
+            content: `## Recurring commitments\n\n**Total:** ${totalHours}h/week`,
             markdown: true,
           },
         },
@@ -2257,10 +2257,10 @@ export async function handleListCommitments(args: Record<string, unknown>) {
           params: {
             columns: [
               { key: 'icon', label: '' },
-              { key: 'name', label: 'Engagement' },
-              { key: 'hours', label: 'Heures/sem' },
+              { key: 'name', label: 'Commitment' },
+              { key: 'hours', label: 'Hours/week' },
               { key: 'flexible', label: 'Flexible' },
-              { key: 'priority', label: 'Priorité' },
+              { key: 'priority', label: 'Priority' },
             ],
             rows: commitments.map((c) => ({
               icon: typeIcons[c.commitment_type] || '📌',

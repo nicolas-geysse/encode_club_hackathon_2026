@@ -78,8 +78,8 @@ export interface HybridEvaluationResult {
  * Context for evaluation
  */
 export interface EvaluationContext {
-  targetAudience: 'etudiant' | 'general';
-  financialSituation?: 'deficit' | 'serre' | 'equilibre' | 'confortable';
+  targetAudience: 'student' | 'general';
+  financialSituation?: 'deficit' | 'tight' | 'balanced' | 'comfortable';
   hasLoan?: boolean;
   yearsRemaining?: number;
 }

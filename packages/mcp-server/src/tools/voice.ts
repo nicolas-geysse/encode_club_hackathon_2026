@@ -56,7 +56,8 @@ export const VOICE_TOOLS = {
         context: {
           type: 'string',
           enum: ['budget', 'goal', 'question'],
-          description: 'Analysis context: budget (extract income/expenses), goal (extract financial goal), question (general Q&A)',
+          description:
+            'Analysis context: budget (extract income/expenses), goal (extract financial goal), question (general Q&A)',
           default: 'question',
         },
       },
@@ -189,7 +190,7 @@ export async function handleVoiceToAnalysis(args: Record<string, unknown>) {
                 id: 'goal-amount',
                 type: 'metric',
                 params: {
-                  title: 'Objectif',
+                  title: 'Goal',
                   value: result.extractedData.goalAmount,
                   unit: '€',
                 },
@@ -198,8 +199,8 @@ export async function handleVoiceToAnalysis(args: Record<string, unknown>) {
                 id: 'goal-deadline',
                 type: 'metric',
                 params: {
-                  title: 'Délai',
-                  value: result.extractedData.deadline || 'Non spécifié',
+                  title: 'Deadline',
+                  value: result.extractedData.deadline || 'Not specified',
                 },
               },
             ],
@@ -212,7 +213,7 @@ export async function handleVoiceToAnalysis(args: Record<string, unknown>) {
           id: 'extracted-budget',
           type: 'text',
           params: {
-            content: `**Données extraites:**\n\`\`\`json\n${JSON.stringify(result.extractedData, null, 2)}\n\`\`\``,
+            content: `**Extracted data:**\n\`\`\`json\n${JSON.stringify(result.extractedData, null, 2)}\n\`\`\``,
             markdown: true,
           },
         });
@@ -227,12 +228,12 @@ export async function handleVoiceToAnalysis(args: Record<string, unknown>) {
         params: {
           type: 'button',
           variant: 'primary',
-          label: 'Créer cet objectif',
+          label: 'Create this goal',
           action: 'tool-call',
           toolName: 'create_goal_plan',
           params: {
             goalAmount: result.extractedData.goalAmount,
-            goalName: result.extractedData.goalName || 'Mon objectif',
+            goalName: result.extractedData.goalName || 'My goal',
             goalDeadline: result.extractedData.deadline,
           },
         },
@@ -254,7 +255,10 @@ export async function handleVoiceToAnalysis(args: Record<string, unknown>) {
 /**
  * Handle voice tool by name
  */
-export async function handleVoiceTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+export async function handleVoiceTool(
+  name: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
   switch (name) {
     case 'transcribe_audio':
       return handleTranscribeAudio(args);

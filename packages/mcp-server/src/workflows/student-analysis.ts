@@ -161,9 +161,9 @@ async function analyzeBudget(
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const margin = totalIncome - totalExpenses;
 
-    const status = margin >= 0 ? 'positif' : 'deficit';
+    const status = margin >= 0 ? 'positive' : 'deficit';
     const severity =
-      margin < -100 ? 'critique' : margin < 0 ? 'attention' : margin < 50 ? 'serre' : 'confortable';
+      margin < -100 ? 'critical' : margin < 0 ? 'attention' : margin < 50 ? 'tight' : 'comfortable';
 
     span.setAttributes({
       total_income: totalIncome,
@@ -329,39 +329,39 @@ function generateSynthesis(
   optimizations: Array<{ solution: string; potentialSavings: number }>,
   projection: { finalBalance: number; probabilityDebtFree: number }
 ): string {
-  const name = profile.name || 'Salut';
+  const name = profile.name || 'Hi';
   const bestJob = jobs[0];
   const topOpt = optimizations[0];
 
-  let synthesis = `## ${name}, voici ton analyse\n\n`;
+  let synthesis = `## ${name}, here's your analysis\n\n`;
 
   // Budget status
   if (budget.margin < 0) {
-    synthesis += `**Situation budget**: Deficit de ${Math.abs(budget.margin)}e/mois. C'est urgent d'agir!\n\n`;
+    synthesis += `**Budget situation**: Deficit of ${Math.abs(budget.margin)}€/month. Urgent action needed!\n\n`;
   } else if (budget.margin < 50) {
-    synthesis += `**Situation budget**: Marge serree (${budget.margin}e/mois). Attention.\n\n`;
+    synthesis += `**Budget situation**: Tight margin (${budget.margin}€/month). Be careful.\n\n`;
   } else {
-    synthesis += `**Situation budget**: Marge confortable (${budget.margin}e/mois). Tu as de la flexibilite!\n\n`;
+    synthesis += `**Budget situation**: Comfortable margin (${budget.margin}€/month). You have flexibility!\n\n`;
   }
 
   // Job recommendation
   if (bestJob) {
-    synthesis += `**Job recommande**: ${bestJob.name} a ${bestJob.hourlyRate}e/h. `;
-    synthesis += `Avec ${profile.maxWorkHours}h/sem, ca fait +${Math.round(bestJob.hourlyRate * profile.maxWorkHours * 4)}e/mois.\n\n`;
+    synthesis += `**Recommended job**: ${bestJob.name} at ${bestJob.hourlyRate}€/h. `;
+    synthesis += `With ${profile.maxWorkHours}h/week, that's +${Math.round(bestJob.hourlyRate * profile.maxWorkHours * 4)}€/month.\n\n`;
   }
 
   // Optimization
   if (topOpt) {
-    synthesis += `**Optimisation facile**: ${topOpt.solution} (~${topOpt.potentialSavings}e/mois d'economie).\n\n`;
+    synthesis += `**Easy optimization**: ${topOpt.solution} (~${topOpt.potentialSavings}€/month savings).\n\n`;
   }
 
   // Projection
-  synthesis += `**Projection ${profile.yearsRemaining} ans**: `;
+  synthesis += `**${profile.yearsRemaining}-year projection**: `;
   if (projection.finalBalance >= 0) {
-    synthesis += `${projection.probabilityDebtFree}% de chances de finir sans dette, `;
-    synthesis += `avec environ ${projection.finalBalance.toLocaleString('fr-FR')}e d'epargne!\n`;
+    synthesis += `${projection.probabilityDebtFree}% chance of finishing debt-free, `;
+    synthesis += `with approximately ${projection.finalBalance.toLocaleString('en-US')}€ in savings!\n`;
   } else {
-    synthesis += `Attention, risque de dette de ${Math.abs(projection.finalBalance).toLocaleString('fr-FR')}e.\n`;
+    synthesis += `Warning, risk of ${Math.abs(projection.finalBalance).toLocaleString('en-US')}€ debt.\n`;
   }
 
   return synthesis;

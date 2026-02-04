@@ -24,11 +24,7 @@ export type {
   AggregationConfig,
 } from './types.js';
 
-export {
-  DEFAULT_AGGREGATION_CONFIG,
-  HIGH_RISK_KEYWORDS,
-  SAFE_KEYWORDS,
-} from './types.js';
+export { DEFAULT_AGGREGATION_CONFIG, HIGH_RISK_KEYWORDS, SAFE_KEYWORDS } from './types.js';
 
 // Heuristics
 export {
@@ -58,17 +54,10 @@ export {
 export type { LLMGenerateFunction } from './geval/index.js';
 
 // Aggregation
-export {
-  runHybridEvaluation,
-  runQuickEvaluation,
-  runCriticalValidation,
-} from './aggregation.js';
+export { runHybridEvaluation, runQuickEvaluation, runCriticalValidation } from './aggregation.js';
 
 // Opik Integration
-export {
-  runHybridEvaluationWithTracing,
-  getEvaluationMetrics,
-} from './opik-integration.js';
+export { runHybridEvaluationWithTracing, getEvaluationMetrics } from './opik-integration.js';
 
 /**
  * Quick start: Run full evaluation with tracing
@@ -79,10 +68,10 @@ export {
  *
  * const result = await runHybridEvaluationWithTracing(
  *   {
- *     recommendation: "Je te recommande le Livret A pour ton épargne...",
+ *     recommendation: "I recommend a savings account for your savings...",
  *     context: {
- *       targetAudience: 'etudiant',
- *       financialSituation: 'serre',
+ *       targetAudience: 'student',
+ *       financialSituation: 'tight',
  *       hasLoan: false,
  *     }
  *   },

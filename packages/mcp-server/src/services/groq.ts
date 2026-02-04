@@ -322,24 +322,24 @@ export async function analyzeBudget(
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const margin = totalIncome - totalExpenses;
 
-  const systemPrompt = `Tu es un conseiller financier spécialisé pour les étudiants français.
-Analyse le budget fourni et donne des conseils pratiques et bienveillants.
-Réponds en français, de manière concise et actionnable.
-Ne recommande jamais de solutions risquées ou d'investissements spéculatifs.`;
+  const systemPrompt = `You are a financial advisor specialized for students.
+Analyze the provided budget and give practical, friendly advice.
+Reply in English, in a concise and actionable way.
+Never recommend risky solutions or speculative investments.`;
 
-  const userPrompt = `Analyse ce budget étudiant:
+  const userPrompt = `Analyze this student budget:
 
-REVENUS (${totalIncome}€/mois):
+INCOME (${totalIncome}€/month):
 ${incomes.map((i) => `- ${i.source}: ${i.amount}€`).join('\n')}
 
-DÉPENSES (${totalExpenses}€/mois):
+EXPENSES (${totalExpenses}€/month):
 ${expenses.map((e) => `- ${e.category}: ${e.amount}€`).join('\n')}
 
-MARGE: ${margin}€/mois (${margin >= 0 ? 'positif' : 'DÉFICIT'})
+MARGIN: ${margin}€/month (${margin >= 0 ? 'positive' : 'DEFICIT'})
 
-Fournis:
-1. Un résumé de la situation (2-3 phrases)
-2. 3 recommandations concrètes pour améliorer ce budget`;
+Provide:
+1. A summary of the situation (2-3 sentences)
+2. 3 concrete recommendations to improve this budget`;
 
   const response = await chat([
     { role: 'system', content: systemPrompt },
@@ -355,7 +355,7 @@ Fournis:
     .slice(0, 5);
 
   return {
-    summary: response.split('\n')[0] || 'Analyse en cours...',
+    summary: response.split('\n')[0] || 'Analysis in progress...',
     totalIncome,
     totalExpenses,
     margin,
@@ -376,19 +376,19 @@ export async function generateAdvice(
   },
   context?: string
 ): Promise<string> {
-  const systemPrompt = `Tu es un mentor bienveillant pour étudiants français.
-Donne des conseils personnalisés basés sur le profil.
-Sois encourageant mais réaliste. Réponds en français.`;
+  const systemPrompt = `You are a friendly mentor for students.
+Give personalized advice based on the profile.
+Be encouraging but realistic. Reply in English.`;
 
-  const userPrompt = `Profil étudiant:
-- Diplôme: ${profile.diploma || 'Non renseigné'}
-- Compétences: ${profile.skills?.join(', ') || 'Non renseignées'}
-- Marge mensuelle: ${profile.margin !== undefined ? `${profile.margin}€` : 'Non renseignée'}
-- Prêt étudiant: ${profile.hasLoan ? `Oui (${profile.loanAmount}€)` : 'Non'}
+  const userPrompt = `Student profile:
+- Diploma: ${profile.diploma || 'Not specified'}
+- Skills: ${profile.skills?.join(', ') || 'Not specified'}
+- Monthly margin: ${profile.margin !== undefined ? `${profile.margin}€` : 'Not specified'}
+- Student loan: ${profile.hasLoan ? `Yes (${profile.loanAmount}€)` : 'No'}
 
-${context ? `Contexte: ${context}` : ''}
+${context ? `Context: ${context}` : ''}
 
-Donne un conseil personnalisé et actionnable.`;
+Provide personalized and actionable advice.`;
 
   return chat([
     { role: 'system', content: systemPrompt },
@@ -506,38 +506,38 @@ export async function transcribeAndAnalyze(
     let analysisPrompt = '';
     switch (context) {
       case 'budget':
-        analysisPrompt = `Analyse ce texte et extrait les informations budgétaires:
-- Sources de revenus et montants
-- Catégories de dépenses et montants
-- Préoccupations financières mentionnées
+        analysisPrompt = `Analyze this text and extract budget information:
+- Income sources and amounts
+- Expense categories and amounts
+- Financial concerns mentioned
 
-Texte: "${transcription.text}"
+Text: "${transcription.text}"
 
-Réponds en JSON avec "incomes" et "expenses" si trouvés, sinon donne un "summary".`;
+Reply in JSON with "incomes" and "expenses" if found, otherwise provide a "summary".`;
         break;
       case 'goal':
-        analysisPrompt = `Analyse ce texte et extrait l'objectif financier:
-- Montant cible (en euros)
-- Délai souhaité (en semaines/mois)
-- Nom/description de l'objectif
-- Contraintes mentionnées
+        analysisPrompt = `Analyze this text and extract the financial goal:
+- Target amount (in euros)
+- Desired deadline (in weeks/months)
+- Goal name/description
+- Constraints mentioned
 
-Texte: "${transcription.text}"
+Text: "${transcription.text}"
 
-Réponds en JSON avec "goalAmount", "deadline", "goalName", "constraints" si trouvés.`;
+Reply in JSON with "goalAmount", "deadline", "goalName", "constraints" if found.`;
         break;
       default:
-        analysisPrompt = `Analyse cette question d'étudiant et fournis une réponse utile:
+        analysisPrompt = `Analyze this student question and provide a helpful response:
 
 Question: "${transcription.text}"
 
-Réponds de manière concise et actionnable.`;
+Reply concisely and actionably.`;
     }
 
     const analysis = await chat([
       {
         role: 'system',
-        content: 'Tu es un assistant financier pour étudiants. Réponds en français.',
+        content: 'You are a financial assistant for students. Reply in English.',
       },
       { role: 'user', content: analysisPrompt },
     ]);

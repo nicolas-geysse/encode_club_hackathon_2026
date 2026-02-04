@@ -469,8 +469,8 @@ async function runStage3(
             (context.monthlyMargin ?? 0) < -100
               ? 'deficit'
               : (context.monthlyMargin ?? 0) < 0
-                ? 'serre'
-                : 'equilibre',
+                ? 'tight'
+                : 'balanced',
         }
       );
 

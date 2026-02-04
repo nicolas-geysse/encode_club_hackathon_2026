@@ -128,40 +128,143 @@ export interface Achievement {
 // ============================================
 
 const JOB_DATABASE = [
-  { id: 'freelance_dev', name: 'Dev Freelance', hourlyRate: 25, skills: ['python', 'javascript', 'sql', 'web'], flexibility: 0.9, effort: 'medium' as const, coBenefit: 'CV++ et portfolio' },
-  { id: 'tutoring', name: 'Cours particuliers', hourlyRate: 20, skills: ['python', 'math', 'anglais'], flexibility: 0.8, effort: 'medium' as const, coBenefit: 'Renforce apprentissage' },
-  { id: 'data_entry', name: 'Saisie de données', hourlyRate: 12, skills: ['excel', 'sql'], flexibility: 0.7, effort: 'low' as const, coBenefit: null },
-  { id: 'community_manager', name: 'Community Manager', hourlyRate: 15, skills: ['social_media', 'redaction'], flexibility: 0.8, effort: 'medium' as const, coBenefit: 'Réseau digital' },
+  {
+    id: 'freelance_dev',
+    name: 'Dev Freelance',
+    hourlyRate: 25,
+    skills: ['python', 'javascript', 'sql', 'web'],
+    flexibility: 0.9,
+    effort: 'medium' as const,
+    coBenefit: 'CV++ et portfolio',
+  },
+  {
+    id: 'tutoring',
+    name: 'Cours particuliers',
+    hourlyRate: 20,
+    skills: ['python', 'math', 'anglais'],
+    flexibility: 0.8,
+    effort: 'medium' as const,
+    coBenefit: 'Renforce apprentissage',
+  },
+  {
+    id: 'data_entry',
+    name: 'Saisie de données',
+    hourlyRate: 12,
+    skills: ['excel', 'sql'],
+    flexibility: 0.7,
+    effort: 'low' as const,
+    coBenefit: null,
+  },
+  {
+    id: 'community_manager',
+    name: 'Community Manager',
+    hourlyRate: 15,
+    skills: ['social_media', 'redaction'],
+    flexibility: 0.8,
+    effort: 'medium' as const,
+    coBenefit: 'Réseau digital',
+  },
 ];
 
 const SIDE_HUSTLES = [
-  { id: 'reselling', name: 'Revente (Vinted/Leboncoin)', monthlyPotential: 150, effort: 'low' as const, flexibility: 0.95, coBenefit: 'Zéro compétence requise', startupCost: 0 },
-  { id: 'pet_sitting', name: 'Pet sitting', monthlyPotential: 200, effort: 'low' as const, flexibility: 0.9, coBenefit: 'Détente + animaux', startupCost: 0 },
-  { id: 'delivery', name: 'Livraison vélo', monthlyPotential: 300, effort: 'high' as const, flexibility: 0.7, coBenefit: 'Sport gratuit', startupCost: 0 },
-  { id: 'transcription', name: 'Transcription audio', monthlyPotential: 100, effort: 'medium' as const, flexibility: 0.95, coBenefit: 'Télétravail 100%', startupCost: 0 },
+  {
+    id: 'reselling',
+    name: 'Revente (Vinted/Leboncoin)',
+    monthlyPotential: 150,
+    effort: 'low' as const,
+    flexibility: 0.95,
+    coBenefit: 'Zéro compétence requise',
+    startupCost: 0,
+  },
+  {
+    id: 'pet_sitting',
+    name: 'Pet sitting',
+    monthlyPotential: 200,
+    effort: 'low' as const,
+    flexibility: 0.9,
+    coBenefit: 'Détente + animaux',
+    startupCost: 0,
+  },
+  {
+    id: 'delivery',
+    name: 'Livraison vélo',
+    monthlyPotential: 300,
+    effort: 'high' as const,
+    flexibility: 0.7,
+    coBenefit: 'Sport gratuit',
+    startupCost: 0,
+  },
+  {
+    id: 'transcription',
+    name: 'Transcription audio',
+    monthlyPotential: 100,
+    effort: 'medium' as const,
+    flexibility: 0.95,
+    coBenefit: 'Télétravail 100%',
+    startupCost: 0,
+  },
 ];
 
 const SELLING_ITEMS = [
-  { category: 'electronics', name: 'Électronique', avgPrice: 150, examples: 'Vieux téléphone, tablette, console' },
-  { category: 'clothing', name: 'Vêtements', avgPrice: 50, examples: 'Vêtements non portés, chaussures' },
+  {
+    category: 'electronics',
+    name: 'Électronique',
+    avgPrice: 150,
+    examples: 'Vieux téléphone, tablette, console',
+  },
+  {
+    category: 'clothing',
+    name: 'Vêtements',
+    avgPrice: 50,
+    examples: 'Vêtements non portés, chaussures',
+  },
   { category: 'books', name: 'Livres', avgPrice: 30, examples: 'Manuels scolaires, romans' },
-  { category: 'furniture', name: 'Mobilier', avgPrice: 100, examples: 'Petit meuble, lampe, chaise' },
+  {
+    category: 'furniture',
+    name: 'Mobilier',
+    avgPrice: 100,
+    examples: 'Petit meuble, lampe, chaise',
+  },
 ];
 
 const OPTIMIZATIONS = [
-  { id: 'coloc', name: 'Colocation', category: 'loyer', savingsPct: 0.30, effort: 'medium' as const },
-  { id: 'crous', name: 'Resto U CROUS', category: 'alimentation', savingsPct: 0.50, effort: 'low' as const },
-  { id: 'velo', name: 'Vélo/Marche', category: 'transport', savingsPct: 0.80, effort: 'medium' as const },
-  { id: 'batch_cooking', name: 'Batch cooking', category: 'alimentation', savingsPct: 0.30, effort: 'medium' as const },
+  {
+    id: 'coloc',
+    name: 'Colocation',
+    category: 'loyer',
+    savingsPct: 0.3,
+    effort: 'medium' as const,
+  },
+  {
+    id: 'crous',
+    name: 'Resto U CROUS',
+    category: 'alimentation',
+    savingsPct: 0.5,
+    effort: 'low' as const,
+  },
+  {
+    id: 'velo',
+    name: 'Vélo/Marche',
+    category: 'transport',
+    savingsPct: 0.8,
+    effort: 'medium' as const,
+  },
+  {
+    id: 'batch_cooking',
+    name: 'Batch cooking',
+    category: 'alimentation',
+    savingsPct: 0.3,
+    effort: 'medium' as const,
+  },
 ];
 
 const ACHIEVEMENTS: Achievement[] = [
-  { id: 'first_100', name: 'First Blood', icon: '💰', description: 'Gagner 100€', threshold: 100 },
-  { id: 'first_500', name: 'Halfway Hero', icon: '🌟', description: 'Gagner 500€', threshold: 500 },
-  { id: 'streak_2', name: 'Régulier', icon: '📈', description: '2 semaines consécutives' },
-  { id: 'streak_4', name: 'On Fire', icon: '🔥', description: '4 semaines consécutives' },
-  { id: 'goal_50pct', name: 'Mi-chemin', icon: '🎯', description: 'Atteindre 50% de l\'objectif' },
-  { id: 'goal_complete', name: 'Champion', icon: '🏆', description: 'Atteindre l\'objectif' },
+  { id: 'first_100', name: 'First Blood', icon: '💰', description: 'Earn 100€', threshold: 100 },
+  { id: 'first_500', name: 'Halfway Hero', icon: '🌟', description: 'Earn 500€', threshold: 500 },
+  { id: 'streak_2', name: 'Consistent', icon: '📈', description: '2 consecutive weeks' },
+  { id: 'streak_4', name: 'On Fire', icon: '🔥', description: '4 consecutive weeks' },
+  { id: 'goal_50pct', name: 'Halfway There', icon: '🎯', description: 'Reach 50% of the goal' },
+  { id: 'goal_complete', name: 'Champion', icon: '🏆', description: 'Reach the goal' },
 ];
 
 // ============================================
@@ -178,9 +281,12 @@ async function analyzeGoalFeasibility(
 ) {
   return trace('goal_feasibility_analysis', async (span) => {
     const now = new Date();
-    const weeksAvailable = Math.max(1, Math.ceil((goalDeadline.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000)));
+    const weeksAvailable = Math.max(
+      1,
+      Math.ceil((goalDeadline.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
+    );
     const weeklyTarget = Math.ceil(goalAmount / weeksAvailable);
-    const additionalNeeded = Math.max(0, weeklyTarget - (currentMargin / 4));
+    const additionalNeeded = Math.max(0, weeklyTarget - currentMargin / 4);
 
     // Calculate feasibility score
     let feasibilityScore = 0.8;
@@ -188,36 +294,35 @@ async function analyzeGoalFeasibility(
 
     if (weeklyTarget > 200) {
       feasibilityScore -= 0.3;
-      riskFactors.push('Objectif hebdomadaire élevé (>200€)');
+      riskFactors.push('High weekly target (>200€)');
     } else if (weeklyTarget > 100) {
       feasibilityScore -= 0.15;
-      riskFactors.push('Objectif hebdomadaire modéré (>100€)');
+      riskFactors.push('Moderate weekly target (>100€)');
     }
 
     if (weeksAvailable < 4) {
       feasibilityScore -= 0.2;
-      riskFactors.push('Délai très court (<4 semaines)');
+      riskFactors.push('Very short deadline (<4 weeks)');
     } else if (weeksAvailable < 8) {
       feasibilityScore -= 0.1;
-      riskFactors.push('Délai serré (<8 semaines)');
+      riskFactors.push('Tight deadline (<8 weeks)');
     }
 
     if (additionalNeeded > 0) {
       const ratio = additionalNeeded / weeklyTarget;
       if (ratio > 0.8) {
         feasibilityScore -= 0.2;
-        riskFactors.push('Nécessite revenus supplémentaires importants');
+        riskFactors.push('Requires significant additional income');
       } else if (ratio > 0.5) {
         feasibilityScore -= 0.1;
-        riskFactors.push('Nécessite revenus supplémentaires modérés');
+        riskFactors.push('Requires moderate additional income');
       }
     }
 
     feasibilityScore = Math.max(0.1, Math.min(1, feasibilityScore));
 
     const riskLevel: 'low' | 'medium' | 'high' =
-      feasibilityScore >= 0.7 ? 'low' :
-      feasibilityScore >= 0.4 ? 'medium' : 'high';
+      feasibilityScore >= 0.7 ? 'low' : feasibilityScore >= 0.4 ? 'medium' : 'high';
 
     span.setAttributes({
       'goal.weeks_available': weeksAvailable,
@@ -243,35 +348,33 @@ async function analyzeGoalFeasibility(
  */
 async function findMatchingJobs(skills: string[], availableHours: number): Promise<Strategy[]> {
   return trace('goal_job_matching', async (span) => {
-    const skillsLower = skills.map(s => s.toLowerCase());
+    const skillsLower = skills.map((s) => s.toLowerCase());
 
-    const matchedJobs = JOB_DATABASE
-      .map(job => {
-        const matchingSkills = job.skills.filter(s => skillsLower.includes(s.toLowerCase()));
-        const skillScore = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
+    const matchedJobs = JOB_DATABASE.map((job) => {
+      const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
+      const skillScore = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
 
-        if (skillScore === 0) return null;
+      if (skillScore === 0) return null;
 
-        const weeklyContribution = Math.min(availableHours, 15) * job.hourlyRate;
-        const score = skillScore * 0.4 + job.flexibility * 0.3 + (job.hourlyRate / 30) * 0.3;
+      const weeklyContribution = Math.min(availableHours, 15) * job.hourlyRate;
+      const score = skillScore * 0.4 + job.flexibility * 0.3 + (job.hourlyRate / 30) * 0.3;
 
-        if (score <= 0.2) return null;
+      if (score <= 0.2) return null;
 
-        const strategy: Strategy = {
-          id: job.id,
-          type: 'job',
-          name: job.name,
-          weeklyContribution,
-          monthlyContribution: weeklyContribution * 4,
-          effort: job.effort as 'low' | 'medium' | 'high',
-          flexibility: job.flexibility,
-          coBenefit: job.coBenefit || undefined,
-          score,
-          timeToGoal: 0, // Will be calculated later
-        };
-        return strategy;
-      })
-      .filter((j): j is Strategy => j !== null);
+      const strategy: Strategy = {
+        id: job.id,
+        type: 'job',
+        name: job.name,
+        weeklyContribution,
+        monthlyContribution: weeklyContribution * 4,
+        effort: job.effort as 'low' | 'medium' | 'high',
+        flexibility: job.flexibility,
+        coBenefit: job.coBenefit || undefined,
+        score,
+        timeToGoal: 0, // Will be calculated later
+      };
+      return strategy;
+    }).filter((j): j is Strategy => j !== null);
 
     const matches = matchedJobs.sort((a, b) => b.score - a.score);
 
@@ -289,7 +392,7 @@ async function findMatchingJobs(skills: string[], availableHours: number): Promi
  */
 async function findSideHustles(constraints?: { preferLowEffort?: boolean }) {
   return trace('goal_side_hustles', async (span) => {
-    let hustles = SIDE_HUSTLES.map(h => ({
+    let hustles = SIDE_HUSTLES.map((h) => ({
       id: h.id,
       type: 'hustle' as const,
       name: h.name,
@@ -298,12 +401,15 @@ async function findSideHustles(constraints?: { preferLowEffort?: boolean }) {
       effort: h.effort,
       flexibility: h.flexibility,
       coBenefit: h.coBenefit,
-      score: h.flexibility * 0.4 + (h.effort === 'low' ? 0.3 : h.effort === 'medium' ? 0.2 : 0.1) + (h.monthlyPotential / 400) * 0.3,
+      score:
+        h.flexibility * 0.4 +
+        (h.effort === 'low' ? 0.3 : h.effort === 'medium' ? 0.2 : 0.1) +
+        (h.monthlyPotential / 400) * 0.3,
       timeToGoal: 0,
     }));
 
     if (constraints?.preferLowEffort) {
-      hustles = hustles.filter(h => h.effort !== 'high');
+      hustles = hustles.filter((h) => h.effort !== 'high');
     }
 
     hustles.sort((a, b) => b.score - a.score);
@@ -325,7 +431,7 @@ async function findSellingOptions(constraints?: { avoidSelling?: boolean }) {
       return [];
     }
 
-    const selling = SELLING_ITEMS.map(item => ({
+    const selling = SELLING_ITEMS.map((item) => ({
       id: `sell_${item.category}`,
       type: 'selling' as const,
       name: `Vente ${item.name}`,
@@ -355,8 +461,8 @@ async function findOptimizationsForGoal(expenses: { category: string; amount: nu
 
     for (const expense of expenses) {
       const categoryLower = expense.category.toLowerCase();
-      const matchingOpts = OPTIMIZATIONS.filter(o =>
-        categoryLower.includes(o.category) || o.category.includes(categoryLower)
+      const matchingOpts = OPTIMIZATIONS.filter(
+        (o) => categoryLower.includes(o.category) || o.category.includes(categoryLower)
       );
 
       for (const opt of matchingOpts) {
@@ -369,7 +475,7 @@ async function findOptimizationsForGoal(expenses: { category: string; amount: nu
           monthlyContribution: savings,
           effort: opt.effort,
           flexibility: 1,
-          coBenefit: `Économie sur ${expense.category}`,
+          coBenefit: `Savings on ${expense.category}`,
           score: (savings / 200) * 0.5 + (opt.effort === 'low' ? 0.3 : 0.15) + 0.2,
           timeToGoal: 1,
         });
@@ -402,7 +508,7 @@ async function rankStrategies(
     let allStrategies = [...jobs, ...hustles, ...selling, ...optimizations];
 
     // Calculate time to goal for each
-    allStrategies = allStrategies.map(s => ({
+    allStrategies = allStrategies.map((s) => ({
       ...s,
       timeToGoal: s.weeklyContribution > 0 ? Math.ceil(weeklyTarget / s.weeklyContribution) : 999,
     }));
@@ -410,15 +516,15 @@ async function rankStrategies(
     // Adjust scores based on urgency
     if (urgency === 'high') {
       // Prioritize quick wins and selling
-      allStrategies = allStrategies.map(s => ({
+      allStrategies = allStrategies.map((s) => ({
         ...s,
         score: s.score + (s.type === 'selling' ? 0.2 : 0) + (s.timeToGoal <= 2 ? 0.15 : 0),
       }));
     } else if (urgency === 'low') {
       // Prioritize sustainable options
-      allStrategies = allStrategies.map(s => ({
+      allStrategies = allStrategies.map((s) => ({
         ...s,
-        score: s.score + (s.type === 'job' ? 0.15 : 0) + (s.flexibility * 0.1),
+        score: s.score + (s.type === 'job' ? 0.15 : 0) + s.flexibility * 0.1,
       }));
     }
 
@@ -458,12 +564,14 @@ async function generateMilestones(
       // Suggest actions based on week
       if (week === 1) {
         // First week: quick wins
-        const quickWins = strategies.filter(s => s.type === 'selling' || s.type === 'optimization');
-        milestone.suggestedActions = quickWins.slice(0, 2).map(s => s.name);
+        const quickWins = strategies.filter(
+          (s) => s.type === 'selling' || s.type === 'optimization'
+        );
+        milestone.suggestedActions = quickWins.slice(0, 2).map((s) => s.name);
       } else if (week <= weeksAvailable / 2) {
         // Early weeks: establish income
-        const incomeStrats = strategies.filter(s => s.type === 'job' || s.type === 'hustle');
-        milestone.suggestedActions = incomeStrats.slice(0, 2).map(s => s.name);
+        const incomeStrats = strategies.filter((s) => s.type === 'job' || s.type === 'hustle');
+        milestone.suggestedActions = incomeStrats.slice(0, 2).map((s) => s.name);
       } else {
         // Later weeks: maintain momentum
         milestone.suggestedActions = ['Continuer le rythme', 'Vérifier les achievements'];
@@ -492,7 +600,10 @@ async function generateMilestones(
 /**
  * Generate action plan
  */
-async function generateActionPlan(strategies: Strategy[], weeksAvailable: number): Promise<ActionPlan> {
+async function generateActionPlan(
+  strategies: Strategy[],
+  weeksAvailable: number
+): Promise<ActionPlan> {
   return trace('goal_action_plan', async (span) => {
     const immediateActions: Action[] = [];
     const weeklyActions: Action[] = [];
@@ -501,8 +612,8 @@ async function generateActionPlan(strategies: Strategy[], weeksAvailable: number
     let actionId = 1;
 
     // Immediate actions (week 1)
-    const sellingStrats = strategies.filter(s => s.type === 'selling');
-    const optimStrats = strategies.filter(s => s.type === 'optimization');
+    const sellingStrats = strategies.filter((s) => s.type === 'selling');
+    const optimStrats = strategies.filter((s) => s.type === 'optimization');
 
     for (const s of sellingStrats.slice(0, 2)) {
       immediateActions.push({
@@ -521,7 +632,7 @@ async function generateActionPlan(strategies: Strategy[], weeksAvailable: number
         id: `action_${actionId++}`,
         type: s.type,
         title: s.name,
-        description: s.coBenefit || 'Économie récurrente',
+        description: s.coBenefit || 'Recurring savings',
         estimatedValue: s.weeklyContribution,
         priority: 'high',
         startWeek: 1,
@@ -529,13 +640,13 @@ async function generateActionPlan(strategies: Strategy[], weeksAvailable: number
     }
 
     // Weekly actions (ongoing)
-    const incomeStrats = strategies.filter(s => s.type === 'job' || s.type === 'hustle');
+    const incomeStrats = strategies.filter((s) => s.type === 'job' || s.type === 'hustle');
     for (const s of incomeStrats.slice(0, 3)) {
       weeklyActions.push({
         id: `action_${actionId++}`,
         type: s.type,
         title: s.name,
-        description: s.coBenefit || 'Revenu récurrent',
+        description: s.coBenefit || 'Recurring income',
         estimatedValue: s.weeklyContribution,
         priority: s.score > 0.6 ? 'high' : 'medium',
         startWeek: 2,
@@ -543,9 +654,10 @@ async function generateActionPlan(strategies: Strategy[], weeksAvailable: number
     }
 
     // Buffer actions (if behind schedule)
-    const unusedStrats = strategies.filter(s =>
-      !immediateActions.some(a => a.title === s.name) &&
-      !weeklyActions.some(a => a.title === s.name)
+    const unusedStrats = strategies.filter(
+      (s) =>
+        !immediateActions.some((a) => a.title === s.name) &&
+        !weeklyActions.some((a) => a.title === s.name)
     );
 
     for (const s of unusedStrats.slice(0, 2)) {
@@ -553,7 +665,7 @@ async function generateActionPlan(strategies: Strategy[], weeksAvailable: number
         id: `action_${actionId++}`,
         type: s.type,
         title: s.name,
-        description: 'À activer si retard',
+        description: 'Activate if behind schedule',
         estimatedValue: s.weeklyContribution,
         priority: 'low',
         startWeek: Math.ceil(weeksAvailable / 2),
@@ -580,34 +692,43 @@ async function generateGoalSynthesis(
   actionPlan: ActionPlan
 ): Promise<string> {
   return trace('goal_synthesis_generation', async (span) => {
-    const prompt = `Génère un résumé motivant pour un étudiant qui veut atteindre cet objectif financier:
+    const prompt = `Generate a motivating summary for a student who wants to achieve this financial goal:
 
-Objectif: ${goalName}
-- Montant: ${analysis.weeklyTarget * analysis.weeksAvailable}€
-- Délai: ${analysis.weeksAvailable} semaines
-- Objectif/semaine: ${analysis.weeklyTarget}€
-- Faisabilité: ${Math.round(analysis.feasibilityScore * 100)}%
-- Risque: ${analysis.riskLevel}
+Goal: ${goalName}
+- Amount: ${analysis.weeklyTarget * analysis.weeksAvailable}€
+- Deadline: ${analysis.weeksAvailable} weeks
+- Weekly target: ${analysis.weeklyTarget}€
+- Feasibility: ${Math.round(analysis.feasibilityScore * 100)}%
+- Risk: ${analysis.riskLevel}
 
-Top stratégies:
-${strategies.slice(0, 3).map(s => `- ${s.name} (+${s.weeklyContribution}€/sem)`).join('\n')}
+Top strategies:
+${strategies
+  .slice(0, 3)
+  .map((s) => `- ${s.name} (+${s.weeklyContribution}€/week)`)
+  .join('\n')}
 
-Actions immédiates:
-${actionPlan.immediateActions.map(a => `- ${a.title}`).join('\n')}
+Immediate actions:
+${actionPlan.immediateActions.map((a) => `- ${a.title}`).join('\n')}
 
-Écris un message court (max 150 mots), motivant, qui:
-1. Récapitule le plan
-2. Met en avant les quick wins
-3. Encourage à commencer maintenant
-4. Utilise un ton bienveillant et tutoiement
+Write a short message (max 150 words), motivating, that:
+1. Summarizes the plan
+2. Highlights quick wins
+3. Encourages starting now
+4. Uses a friendly, supportive tone
 
-Ne mentionne pas de chiffres précis sur le succès, reste positif mais réaliste.`;
+Don't mention precise success figures, stay positive but realistic.`;
 
     try {
-      const synthesis = await chat([
-        { role: 'system', content: 'Tu es un coach financier bienveillant pour étudiants. Réponds en français.' },
-        { role: 'user', content: prompt },
-      ], { temperature: 0.7, maxTokens: 300 });
+      const synthesis = await chat(
+        [
+          {
+            role: 'system',
+            content: 'You are a friendly financial coach for students. Reply in English.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        { temperature: 0.7, maxTokens: 300 }
+      );
 
       span.setAttributes({
         'synthesis.length': synthesis.length,
@@ -616,15 +737,15 @@ Ne mentionne pas de chiffres précis sur le succès, reste positif mais réalist
       return synthesis;
     } catch {
       // Fallback if LLM fails
-      return `## Plan pour ${goalName}
+      return `## Plan for ${goalName}
 
-**Objectif**: ${analysis.weeklyTarget * analysis.weeksAvailable}€ en ${analysis.weeksAvailable} semaines (${analysis.weeklyTarget}€/sem)
+**Goal**: ${analysis.weeklyTarget * analysis.weeksAvailable}€ in ${analysis.weeksAvailable} weeks (${analysis.weeklyTarget}€/week)
 
-**Top stratégie**: ${strategies[0]?.name || 'À définir'}
+**Top strategy**: ${strategies[0]?.name || 'To be defined'}
 
-**Commence maintenant** avec les actions immédiates pour prendre de l'élan!
+**Start now** with the immediate actions to build momentum!
 
-Tu vas y arriver! 💪`;
+You've got this! 💪`;
     }
   });
 }
@@ -644,7 +765,9 @@ export async function runGoalPlanningWorkflow(input: GoalPlanningInput): Promise
       'goal.id': goalId,
       'goal.amount': input.goalAmount,
       'goal.name': input.goalName,
-      'goal.weeks_to_deadline': Math.ceil((input.goalDeadline.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)),
+      'goal.weeks_to_deadline': Math.ceil(
+        (input.goalDeadline.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)
+      ),
     });
 
     // Step 1: Analyze feasibility
@@ -657,8 +780,7 @@ export async function runGoalPlanningWorkflow(input: GoalPlanningInput): Promise
 
     // Determine urgency
     const urgency: 'high' | 'medium' | 'low' =
-      analysis.weeksAvailable < 4 ? 'high' :
-      analysis.weeksAvailable < 12 ? 'medium' : 'low';
+      analysis.weeksAvailable < 4 ? 'high' : analysis.weeksAvailable < 12 ? 'medium' : 'low';
 
     // Step 2: Find strategies in parallel
     const [jobs, hustles, selling, optimizations] = await Promise.all([
@@ -693,12 +815,7 @@ export async function runGoalPlanningWorkflow(input: GoalPlanningInput): Promise
     const actionPlan = await generateActionPlan(strategies, analysis.weeksAvailable);
 
     // Step 6: Generate synthesis
-    const synthesis = await generateGoalSynthesis(
-      input.goalName,
-      analysis,
-      strategies,
-      actionPlan
-    );
+    const synthesis = await generateGoalSynthesis(input.goalName, analysis, strategies, actionPlan);
 
     // Step 7: Setup gamification
     const gamification: Gamification = {
@@ -826,7 +943,7 @@ export async function runRetroplanningWorkflow(
     ]);
 
     // Convert to proper types
-    const academicEvents: AcademicEvent[] = academicEventsRows.map(e => ({
+    const academicEvents: AcademicEvent[] = academicEventsRows.map((e) => ({
       id: e.id,
       userId: e.user_id,
       type: e.event_type,
@@ -839,7 +956,7 @@ export async function runRetroplanningWorkflow(
       recurrencePattern: e.recurrence_pattern as 'weekly' | 'monthly' | 'semester' | undefined,
     }));
 
-    const commitments: Commitment[] = commitmentsRows.map(c => ({
+    const commitments: Commitment[] = commitmentsRows.map((c) => ({
       id: c.id,
       userId: c.user_id,
       type: c.commitment_type,
@@ -850,7 +967,7 @@ export async function runRetroplanningWorkflow(
       priority: c.priority,
     }));
 
-    const energyHistory: EnergyLog[] = energyLogsRows.map(e => ({
+    const energyHistory: EnergyLog[] = energyLogsRows.map((e) => ({
       id: e.id,
       userId: e.user_id,
       date: new Date(e.log_date),

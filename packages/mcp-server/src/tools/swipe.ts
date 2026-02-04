@@ -302,8 +302,8 @@ async function handleRollTheDice(args: Record<string, unknown>) {
     if (totalSavings > 0) {
       scenarios.push({
         id: 'lifestyle_opt',
-        title: 'Optimiser mes depenses',
-        description: `Appliquer les optimisations lifestyle pour economiser ${totalSavings} euros/mois`,
+        title: 'Optimize my expenses',
+        description: `Apply lifestyle optimizations to save ${totalSavings} euros/month`,
         category: 'lifestyle',
         weeklyHours: 0,
         weeklyEarnings: Math.round(totalSavings / 4),
@@ -318,8 +318,8 @@ async function handleRollTheDice(args: Record<string, unknown>) {
       const defaults: Scenario[] = [
         {
           id: 'default_babysitting',
-          title: 'Baby-sitting',
-          description: 'Garder des enfants le soir ou le week-end',
+          title: 'Babysitting',
+          description: 'Watch children in the evening or on weekends',
           category: 'freelance',
           weeklyHours: 4,
           weeklyEarnings: 48,
@@ -329,8 +329,8 @@ async function handleRollTheDice(args: Record<string, unknown>) {
         },
         {
           id: 'default_delivery',
-          title: 'Livraison Uber Eats',
-          description: 'Livrer des repas en velo ou scooter',
+          title: 'Uber Eats delivery',
+          description: 'Deliver meals by bike or scooter',
           category: 'freelance',
           weeklyHours: 6,
           weeklyEarnings: 60,
@@ -467,17 +467,12 @@ async function handleGetPreferences() {
                   ? 'Prefere les jobs faciles'
                   : 'OK avec les jobs difficiles',
               money:
-                userPreferences.hourlyRatePriority > 0.6
-                  ? 'Priorite au salaire'
-                  : 'Flexible sur le salaire',
-              time:
-                userPreferences.timeFlexibility > 0.6
-                  ? 'Besoin de flexibilite'
-                  : 'Horaires fixes OK',
+                userPreferences.hourlyRatePriority > 0.6 ? 'Salary priority' : 'Flexible on salary',
+              time: userPreferences.timeFlexibility > 0.6 ? 'Need flexibility' : 'Fixed hours OK',
               stability:
                 userPreferences.incomeStability > 0.6
-                  ? 'Prefere les revenus stables'
-                  : 'OK avec le freelance',
+                  ? 'Prefer stable income'
+                  : 'OK with freelance',
             },
           },
         },

@@ -171,8 +171,8 @@ export function adjustTargetForDebt(weeklyTarget: number, debt: EnergyDebt): Tar
     adjustedTarget,
     reductionPercentage: reduction * 100,
     reason:
-      `Dette énergétique ${severityLabel} (${debt.consecutiveLowWeeks} semaines). ` +
-      `Objectif réduit de ${Math.round(reduction * 100)}% pour préserver ta santé.`,
+      `Energy debt ${severityLabel} (${debt.consecutiveLowWeeks} weeks). ` +
+      `Target reduced by ${Math.round(reduction * 100)}% to preserve your health.`,
   };
 }
 
@@ -227,7 +227,7 @@ export function checkDebtAchievements(
     achievements.push({
       id: 'debt_survivor',
       name: 'Debt Survivor',
-      description: 'Sorti de la dette énergétique',
+      description: 'Escaped energy debt',
       emoji: '🌟',
       unlocked: true,
     });
@@ -238,7 +238,7 @@ export function checkDebtAchievements(
     achievements.push({
       id: 'fully_recharged',
       name: 'Fully Recharged',
-      description: '3 semaines consécutives au-dessus de 60%',
+      description: '3 consecutive weeks above 60%',
       emoji: '🔋',
       unlocked: true,
     });
@@ -249,7 +249,7 @@ export function checkDebtAchievements(
     achievements.push({
       id: 'resilient',
       name: 'Resilient',
-      description: "Récupéré d'une dette critique",
+      description: 'Recovered from critical debt',
       emoji: '💪',
       unlocked: true,
     });
@@ -283,22 +283,22 @@ function generateSuggestions(severity: DebtSeverity, weeks: number): string[] {
   const suggestions: string[] = [];
 
   // Always suggest rest
-  suggestions.push('🧘 Prends du temps pour te reposer');
-  suggestions.push('😴 Assure-toi de dormir 7-8h par nuit');
+  suggestions.push('🧘 Take time to rest');
+  suggestions.push('😴 Make sure to sleep 7-8h per night');
 
   if (severity === 'medium' || severity === 'high') {
-    suggestions.push('📱 Limite les écrans le soir');
-    suggestions.push('🚶 Fais une pause marche de 15 min/jour');
+    suggestions.push('📱 Limit screens in the evening');
+    suggestions.push('🚶 Take a 15 min/day walking break');
   }
 
   if (severity === 'high') {
-    suggestions.push('👨‍⚕️ Considère parler à un professionnel');
-    suggestions.push('📅 Report les engagements non-essentiels');
+    suggestions.push('👨‍⚕️ Consider talking to a professional');
+    suggestions.push('📅 Postpone non-essential commitments');
   }
 
   // Weeks-specific
   if (weeks >= 4) {
-    suggestions.push(`⚠️ ${weeks} semaines c'est long - ta santé passe en premier`);
+    suggestions.push(`⚠️ ${weeks} weeks is a long time - your health comes first`);
   }
 
   return suggestions;

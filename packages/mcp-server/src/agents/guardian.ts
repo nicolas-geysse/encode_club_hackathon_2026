@@ -29,31 +29,31 @@ const HIGH_RISK_KEYWORDS = [
   'trading',
   'options',
   'leverage',
-  'garanti',
-  'sans risque',
-  'rendement eleve',
-  'investis tout',
+  'guaranteed',
+  'risk-free',
+  'high returns',
+  'invest everything',
   'all-in',
-  'emprunte pour investir',
+  'borrow to invest',
 ];
 
 /**
  * Safe keywords that indicate responsible advice
  */
 const SAFE_KEYWORDS = [
-  'livret a',
-  'epargne',
+  'savings account',
+  'savings',
   'budget',
-  'economiser',
-  'apl',
-  'bourse',
-  'crous',
-  'caf',
-  'job etudiant',
-  'tutorat',
+  'save money',
+  'financial aid',
+  'scholarship',
+  'grants',
+  'student loan',
+  'student job',
+  'tutoring',
   'freelance',
-  'colocation',
-  'transport en commun',
+  'roommates',
+  'public transport',
 ];
 
 // === Core Validation Logic ===
@@ -152,8 +152,8 @@ function validateCalculation(
     percentDifference: Math.round(percentDifference * 10000) / 100,
     tolerance: tolerance * 100,
     message: isValid
-      ? 'Calcul valide'
-      : `Ecart de ${Math.round(percentDifference * 100)}% detecte (tolerance: ${tolerance * 100}%)`,
+      ? 'Calculation valid'
+      : `${Math.round(percentDifference * 100)}% deviation detected (tolerance: ${tolerance * 100}%)`,
   };
 }
 
@@ -164,7 +164,7 @@ function checkRiskLevel(
   recommendation: string,
   userContext?: {
     targetAudience?: string;
-    financialSituation?: 'deficit' | 'serre' | 'equilibre' | 'confortable';
+    financialSituation?: 'deficit' | 'tight' | 'balanced' | 'comfortable';
     hasLoan?: boolean;
   }
 ): {
@@ -208,17 +208,17 @@ function checkRiskLevel(
   if (userContext?.financialSituation === 'deficit') {
     if (foundHighRisk.length > 0) {
       riskScore += 0.2;
-      issues.push('Recommandation risquee pour un etudiant en deficit');
+      issues.push('Risky recommendation for a student in deficit');
     }
   }
 
-  if (userContext?.hasLoan && recommendationLower.includes('emprunte')) {
+  if (userContext?.hasLoan && recommendationLower.includes('borrow')) {
     riskScore += 0.2;
-    warnings.push('Attention: etudiant a deja un pret');
+    warnings.push('Warning: student already has a loan');
   }
 
   if (foundHighRisk.length > 0) {
-    issues.push(`Mots-cles a risque detectes: ${foundHighRisk.join(', ')}`);
+    issues.push(`High-risk keywords detected: ${foundHighRisk.join(', ')}`);
   }
 
   // Determine risk level
@@ -244,15 +244,11 @@ function checkRiskLevel(
     safeKeywordsFound: foundSafe,
     highRiskKeywordsFound: foundHighRisk,
     recommendation: passed
-      ? 'Recommandation acceptable'
-      : 'Recommandation a risque - necessite revision',
+      ? 'Recommendation acceptable'
+      : 'Risky recommendation - requires revision',
     suggestions: passed
       ? []
-      : [
-          'Retirer ou modifier les elements a risque',
-          'Ajouter des disclaimers sur les risques',
-          'Proposer des alternatives plus sures',
-        ],
+      : ['Remove or modify risky elements', 'Add risk disclaimers', 'Propose safer alternatives'],
   };
 }
 
@@ -263,14 +259,14 @@ function checkRiskLevel(
  */
 export const validateCalculationTool = createTool({
   id: 'validate_calculation',
-  description: 'Valide les calculs financiers (marges, projections, interets)',
+  description: 'Validates financial calculations (margins, projections, interest)',
   inputSchema: z.object({
     calculationType: z
       .enum(['margin', 'projection', 'compound_interest', 'loan_payoff'])
-      .describe('Type de calcul'),
-    inputs: z.record(z.string(), z.number()).describe("Valeurs d'entree"),
-    expectedOutput: z.number().describe('Resultat attendu'),
-    tolerance: z.number().optional().describe("Tolerance d'erreur (%)"),
+      .describe('Type of calculation'),
+    inputs: z.record(z.string(), z.number()).describe('Input values'),
+    expectedOutput: z.number().describe('Expected result'),
+    tolerance: z.number().optional().describe('Error tolerance (%)'),
   }),
   execute: async (input) => {
     return trace('tool.validate_calculation', async (ctx) => {
@@ -302,13 +298,13 @@ export const validateCalculationTool = createTool({
  */
 export const checkRiskLevelTool = createTool({
   id: 'check_risk_level',
-  description: "Verifie le niveau de risque d'une recommandation",
+  description: 'Checks the risk level of a recommendation',
   inputSchema: z.object({
-    recommendation: z.string().describe('Texte de la recommandation'),
+    recommendation: z.string().describe('Recommendation text'),
     context: z
       .object({
-        targetAudience: z.string().optional().describe('Public cible (etudiant, etc.)'),
-        financialSituation: z.enum(['deficit', 'serre', 'equilibre', 'confortable']).optional(),
+        targetAudience: z.string().optional().describe('Target audience (student, etc.)'),
+        financialSituation: z.enum(['deficit', 'tight', 'balanced', 'comfortable']).optional(),
         hasLoan: z.boolean().optional(),
       })
       .optional(),
@@ -344,9 +340,9 @@ export const checkRiskLevelTool = createTool({
  */
 export const hybridEvaluationTool = createTool({
   id: 'hybrid_evaluation',
-  description: 'Evaluation hybride complete: heuristiques + LLM-as-Judge avec tracing Opik',
+  description: 'Complete hybrid evaluation: heuristics + LLM-as-Judge with Opik tracing',
   inputSchema: z.object({
-    recommendation: z.string().describe('Texte de la recommandation a evaluer'),
+    recommendation: z.string().describe('Recommendation text to evaluate'),
     calculations: z
       .array(
         z.object({
@@ -356,10 +352,10 @@ export const hybridEvaluationTool = createTool({
         })
       )
       .optional()
-      .describe('Calculs a valider'),
+      .describe('Calculations to validate'),
     context: z.object({
-      targetAudience: z.enum(['etudiant', 'general']).default('etudiant'),
-      financialSituation: z.enum(['deficit', 'serre', 'equilibre', 'confortable']).optional(),
+      targetAudience: z.enum(['student', 'general']).default('student'),
+      financialSituation: z.enum(['deficit', 'tight', 'balanced', 'comfortable']).optional(),
       hasLoan: z.boolean().optional(),
       yearsRemaining: z.number().optional(),
     }),
@@ -372,7 +368,7 @@ export const hybridEvaluationTool = createTool({
       calculations: toolInput.calculations,
       context: {
         ...toolInput.context,
-        targetAudience: toolInput.context.targetAudience || 'etudiant',
+        targetAudience: toolInput.context.targetAudience || 'student',
       },
     };
 
@@ -385,8 +381,8 @@ export const hybridEvaluationTool = createTool({
       issues: result.issues,
       mode: 'quick', // Indicates heuristics-only mode
       message: result.passed
-        ? 'Evaluation reussie'
-        : `Evaluation echouee: ${result.issues.slice(0, 2).join('; ')}`,
+        ? 'Evaluation passed'
+        : `Evaluation failed: ${result.issues.slice(0, 2).join('; ')}`,
     };
   },
 });
@@ -409,7 +405,7 @@ export async function validateRecommendation(
     }>;
   },
   profile: {
-    financialSituation?: 'deficit' | 'serre' | 'equilibre' | 'confortable';
+    financialSituation?: 'deficit' | 'tight' | 'balanced' | 'comfortable';
     hasLoan?: boolean;
   }
 ): Promise<{
@@ -430,14 +426,14 @@ export async function validateRecommendation(
       if (!result.valid) {
         calculationsValid = false;
         allIssues.push(result.message);
-        allSuggestions.push('Verifier les calculs');
+        allSuggestions.push('Verify calculations');
       }
     }
   }
 
   // Check risk level using direct function
   const riskResult = checkRiskLevel(recommendation.text, {
-    targetAudience: 'etudiant',
+    targetAudience: 'student',
     financialSituation: profile.financialSituation,
     hasLoan: profile.hasLoan,
   });
