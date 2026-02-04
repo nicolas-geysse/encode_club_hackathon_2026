@@ -820,9 +820,10 @@ swipe   → [goals, jobs]
 
 | Task | Status | Commit | Notes |
 |------|--------|--------|-------|
-| **C8: BrunoHintV2 Component** | ✅ Done | - | `BrunoHintV2.tsx` with expandable agent details |
-| **C9: Warmup Hook** | ✅ Done | - | `useTipsWarmup.ts` with tab prediction |
-| **C10: Migrate All Tabs** | ✅ Done | - | All 7 tabs migrated to BrunoHintV2 |
+| **C8: BrunoHintV2 Component** | ✅ Done | `12ba213` | `BrunoHintV2.tsx` with expandable agent details |
+| **C9: Warmup Hook** | ✅ Done | `12ba213` | `useTipsWarmup.ts` with tab prediction |
+| **C10: Migrate All Tabs** | ✅ Done | `12ba213` | All 7 tabs migrated to BrunoHintV2 |
+| **C11: Hook Integration** | ✅ Done | - | `useTipsWarmup` wired in `routes/me.tsx` |
 
 **Files Created (Phase C):**
 ```
@@ -843,6 +844,35 @@ packages/frontend/src/hooks/useTipsWarmup.ts          # NEW - Cache warmup hook
   - Tracks warmup status per tab
   - Re-warmup on profile change
   - Non-blocking, errors swallowed
+
+packages/frontend/src/routes/me.tsx                    # MODIFIED - Hook integration
+  - Import useTipsWarmup hook
+  - createEffect triggers warmupTabs on activeTab change
+  - Warmup current tab if not already cached
+  - Prefetch predicted tabs after 500ms delay
+  - Dev mode logging for warmup progress
+```
+
+**Hook Integration (C11):**
+```typescript
+// In routes/me.tsx
+const profileIdAccessor = () => activeProfile()?.id;
+const { warmupTabs, warmupStatus, isTabWarmedUp } = useTipsWarmup(
+  profileIdAccessor,
+  'profile',
+  { skipPrefetch: true }  // Manual prefetch based on activeTab
+);
+
+createEffect(() => {
+  const tab = activeTab() as TabType;
+  const pid = profileIdAccessor();
+  if (pid && tab) {
+    // Warm current tab + prefetch predicted tabs
+    if (!isTabWarmedUp(tab)) warmupTabs([tab]);
+    const predictions = TAB_PREDICTION[tab];
+    setTimeout(() => warmupTabs(predictions), 500);
+  }
+});
 ```
 
 **Tabs Migrated (C10):**

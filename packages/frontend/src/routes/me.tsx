@@ -41,6 +41,7 @@ import { cn } from '~/lib/cn';
 import { createLogger } from '~/lib/logger';
 import { Check, User, Target, PiggyBank, Handshake, Menu, Compass } from 'lucide-solid';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
+import { useTipsWarmup, type TabType } from '~/hooks/useTipsWarmup';
 
 const logger = createLogger('MePage');
 
@@ -214,6 +215,51 @@ export default function MePage() {
   const [isCurrentTabDirty, setIsCurrentTabDirty] = createSignal(false);
   const [pendingTabChange, setPendingTabChange] = createSignal<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = createSignal(false);
+
+  // Tips warmup hook - prefetch tips for current and predicted next tabs
+  // Use 'profile' as initial tab (the hook handles re-warmup when tab changes via warmupTabs)
+  const profileIdAccessor = () => activeProfile()?.id;
+  const { warmupTabs, warmupStatus, isTabWarmedUp } = useTipsWarmup(
+    profileIdAccessor,
+    'profile', // Initial tab
+    { skipPrefetch: true } // We'll handle tab prediction manually based on activeTab
+  );
+
+  // Trigger warmup when tab changes - warm current tab + predicted next tabs
+  createEffect(() => {
+    const tab = activeTab() as TabType;
+    const pid = profileIdAccessor();
+    if (pid && tab) {
+      // Warm up current tab if not already done
+      if (!isTabWarmedUp(tab)) {
+        warmupTabs([tab]);
+      }
+      // Prefetch predicted tabs in background after a short delay
+      const predictions: Record<TabType, TabType[]> = {
+        profile: ['goals', 'jobs'],
+        goals: ['budget', 'swipe'],
+        budget: ['jobs', 'trade'],
+        trade: ['budget'],
+        jobs: ['swipe', 'budget'],
+        swipe: ['goals', 'jobs'],
+      };
+      const predictedTabs = predictions[tab] || [];
+      if (predictedTabs.length > 0) {
+        setTimeout(() => warmupTabs(predictedTabs), 500);
+      }
+    }
+  });
+
+  // Log warmup status for debugging (only in dev)
+  if (import.meta.env.DEV) {
+    createEffect(() => {
+      const status = warmupStatus();
+      const loading = Object.entries(status).filter(([, s]) => s.loading);
+      if (loading.length > 0) {
+        logger.debug('Tips warmup in progress', { loading: loading.map(([t]) => t) });
+      }
+    });
+  }
 
   // Handler for tab change that checks for dirty state
   const handleTabChange = (newTab: string) => {
