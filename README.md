@@ -40,7 +40,7 @@ Everything is traced in Opik - you can see exactly why we recommend that job.
 | **Profile** | 👤 | Personal info, energy tracking, work preferences |
 | **Goals** | 🎯 | Savings goal, deadline, progress chart |
 | **Budget** | 🐷 | Monthly income/expenses, subscription optimization |
-| **Trade** | 🤝 | Borrow/lend/swap items instead of buying |
+| **Trade** | 🤝 | Borrow/lend/swap items instead of buying (earns karma) |
 | **Jobs** | 🧭 | Job search with Google Places, save leads |
 
 ### Swipe Scenarios
@@ -54,11 +54,12 @@ Roll the dice to get personalized scenarios based on your profile:
 
 ### Progress Dashboard
 
+- **Daily Mood Check-in** - emoji-based energy input (once per day)
 - **Timeline** with time progress + weekly targets
 - **Comeback Alert** when you can catch up after exams
 - **Energy History** with fatigue detection
 - **Missions** to validate, skip, or delete
-- **Bruno Tips** with contextual advice
+- **Bruno Tips** with contextual advice (karma-aware)
 
 ---
 
@@ -95,6 +96,29 @@ A $22/h SQL job might score higher than $25/h Python if it's less exhausting and
 
 ---
 
+## Karma System
+
+Community contribution through sharing economy. Karma tracks your positive impact:
+
+| Action | Karma Points |
+|--------|--------------|
+| Completed lend | +1 |
+| Completed trade/swap | +1 |
+
+**Karma Tiers:**
+
+| Tier | Threshold | Benefit |
+|------|-----------|---------|
+| Helper | 2+ karma | Unlocks "Community Helper" achievement |
+| Champion | 5+ karma | Unlocks "Sharing Champion" achievement |
+| Legend | 10+ karma | Unlocks "Karma Legend" achievement |
+
+**Energy Bonus:** +2% energy per karma point (capped at +10%)
+
+Bruno Tips adapt based on your karma level, celebrating community contributions.
+
+---
+
 ## Achievements System
 
 Gamification layer with bronze/silver/gold tiers:
@@ -114,6 +138,9 @@ Gamification layer with bronze/silver/gold tiers:
 | Swipe Master | Bronze | Complete swipe session |
 | Profile Complete | Silver | Complete all 5 tabs |
 | Daily Check | Bronze | 7 days consecutive energy updates |
+| Community Helper | Bronze | Reach 2 karma points |
+| Sharing Champion | Silver | Reach 5 karma points |
+| Karma Legend | Gold | Reach 10 karma points |
 
 ---
 
