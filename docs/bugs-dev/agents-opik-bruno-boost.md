@@ -666,18 +666,20 @@ const SWIPE_TIP_PROMPT = registerPrompt('tab-tips.swipe', SWIPE_SYSTEM_PROMPT);
 
 For a faster V1, focus on **high-impact, low-complexity** items:
 
-### Week 1: Core Value
-1. ✅ Refactor `tips-orchestrator.ts` with Strategy pattern
-2. ✅ Create `TabContextService` with DuckPGQ fallback
-3. ✅ Smart cache with hash-based invalidation
-4. ✅ Warmup on login (pre-fetch top 3 tabs)
+### Week 1: Core Value (Backend) ✅ DONE
+1. ✅ Refactor `tips-orchestrator.ts` with Strategy pattern (`12753d5`)
+2. ✅ Create `TabContextService` with DuckDB queries (`e218606`)
+3. ✅ Smart cache with hash-based invalidation (`a355ff8`)
+4. ✅ Warmup on login (pre-fetch top 3 tabs) (`12753d5`)
+5. ✅ Contextual Guardian rules per tab (`12753d5`)
+6. ✅ Pre-fetching on tab navigation (`a355ff8`)
 
-### Week 2: Polish & Observability
-5. ✅ Contextual Guardian rules per tab
-6. ✅ Pre-fetching on tab navigation
-7. ✅ Opik sampling (100% errors, 10% success)
-8. ✅ A/B testing framework ready
-9. ✅ Migrate all tabs to enhanced BrunoHint
+### Week 2: Frontend & Observability 🔄 IN PROGRESS
+7. ✅ Create `BrunoHintV2` component (expandable pattern)
+8. ✅ Create `useTipsWarmup` hook for frontend
+9. ✅ Migrate all tabs to enhanced BrunoHint (7 tabs migrated)
+10. ⏳ Opik sampling (100% errors, 10% success)
+11. ⏳ A/B testing framework ready
 
 ### V2 (Future Sprint)
 - RAG social proof integration (with A/B test)
@@ -764,8 +766,8 @@ packages/frontend/src/routes/api/tab-tips.ts             # Enhanced API endpoint
 |------|--------|--------|-------|
 | **B5: Smart In-Memory Cache** | ✅ Done | `12753d5` | LRU cache in `/api/tab-tips.ts` |
 | **B6: Pre-fetching & Warmup** | ✅ Done | `12753d5` | `warmupTabTips()` + GET endpoint |
-| **B7: Tab Prediction Map** | ✅ Done | Pending | `prefetchNextTabs()` + `getTabPrediction()` |
-| **B8: Cache Metrics** | ✅ Done | Pending | `tip-cache.ts` with `getCacheMetrics()` |
+| **B7: Tab Prediction Map** | ✅ Done | `a355ff8` | `prefetchNextTabs()` + `getTabPrediction()` |
+| **B8: Cache Metrics** | ✅ Done | `a355ff8` | `tip-cache.ts` with `getCacheMetrics()` |
 
 **Files Created (Phase B):**
 ```
@@ -793,13 +795,70 @@ swipe   → [goals, jobs]
 
 ---
 
-### Phase C: Frontend UI (Not Started)
+### Phase C: Frontend UI ✅ COMPLETE
 
-| Task | Status | Notes |
-|------|--------|-------|
-| **C8: BrunoHintV2 Component** | ⏳ Todo | Expand current BrunoHint |
-| **C9: Warmup Hook** | ⏳ Todo | `useTipsWarmup(profileId)` |
-| **C10: Migrate All Tabs** | ⏳ Todo | Wire up new API |
+| Task | Status | Commit | Notes |
+|------|--------|--------|-------|
+| **C8: BrunoHintV2 Component** | ✅ Done | - | `BrunoHintV2.tsx` with expandable agent details |
+| **C9: Warmup Hook** | ✅ Done | - | `useTipsWarmup.ts` with tab prediction |
+| **C10: Migrate All Tabs** | ✅ Done | - | All 7 tabs migrated to BrunoHintV2 |
+
+**Files Created (Phase C):**
+```
+packages/frontend/src/components/ui/BrunoHintV2.tsx   # NEW - Enhanced tip component
+  - Multi-agent orchestration per tab via /api/tab-tips
+  - Expandable agent details panel (click badge to toggle)
+  - Agent badges with icons: Budget (PiggyBank), Jobs (Briefcase), Strategy (TrendingUp), etc.
+  - Processing info: duration, fallback level, orchestration type
+  - Feedback buttons with Opik tracing
+  - Category-based left border colors
+  - Cached indicator
+
+packages/frontend/src/hooks/useTipsWarmup.ts          # NEW - Cache warmup hook
+  - useTipsWarmup(profileIdAccessor, currentTab, options)
+  - Auto-warmup current tab on mount
+  - Prefetch predicted next tabs (500ms debounce)
+  - Tab prediction map mirroring backend
+  - Tracks warmup status per tab
+  - Re-warmup on profile change
+  - Non-blocking, errors swallowed
+```
+
+**Tabs Migrated (C10):**
+1. `ProfileTab.tsx` - profile tab → BrunoHintV2
+2. `GoalsTab.tsx` - goals tab → BrunoHintV2
+3. `BudgetTab.tsx` - budget tab → BrunoHintV2
+4. `TradeTab.tsx` - trade tab → BrunoHintV2
+5. `SkillsTab.tsx` - jobs tab → BrunoHintV2
+6. `ProspectionTab.tsx` - jobs tab → BrunoHintV2
+7. `swipe.tsx` - swipe page → BrunoHintV2
+
+Migration pattern: `message` prop → `fallbackMessage` prop
+
+**BrunoHintV2 Features:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 🟢 Bruno           [AI] [3 👆] [cached]   [↻] [👍] [👎]    │
+│                                                             │
+│ Consider tutoring - it matches your Python skills and pays  │
+│ $35/hour with high flexibility!                             │
+│                                                             │
+│ [Explore jobs →]                                            │
+└─────────────────────────────────────────────────────────────┘
+                    ↓ click [3] badge to expand
+┌─────────────────────────────────────────────────────────────┐
+│ 🟢 Bruno           [AI] [3 ▼]              [↻] [👍] [👎]    │
+│                                                             │
+│ Consider tutoring...                                        │
+│                                                             │
+│ ─────────────────────────────────────────────────────────── │
+│ Agents: [💼 Jobs] [📊 Strategy] [🛡️ Guardian]              │
+│ ⏱️ 847ms • Level: Full • Type: full                        │
+│                                                             │
+│ Jobs: Python tutoring at 35€/h (85%)                        │
+│ Strategy: High flexibility score (72%)                      │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 

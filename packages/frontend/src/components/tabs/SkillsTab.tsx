@@ -23,7 +23,7 @@ import { createLogger } from '~/lib/logger';
 import { showProactiveAlert } from '~/lib/eventBus';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { BrunoHint } from '~/components/ui/BrunoHint';
+import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { Input } from '~/components/ui/Input';
 import { FeedbackButton } from '~/components/ui/FeedbackButton';
 import {
@@ -661,8 +661,7 @@ export function SkillsTab(props: SkillsTabProps) {
         </div>
 
         {/* Bruno Hint */}
-        <BrunoHint
-          message="Add your skills and I'll find the best earning opportunities for you!"
+        <BrunoHintV2
           tabType="jobs"
           profileId={profile()?.id}
           contextData={{
@@ -673,6 +672,7 @@ export function SkillsTab(props: SkillsTabProps) {
             })),
             city: profile()?.city,
           }}
+          fallbackMessage="Add your skills and I'll find the best earning opportunities for you!"
           compact
         />
       </Show>

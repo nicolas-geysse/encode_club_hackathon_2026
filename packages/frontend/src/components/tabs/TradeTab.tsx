@@ -15,7 +15,7 @@ import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { BrunoHint } from '~/components/ui/BrunoHint';
+import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { Handshake } from 'lucide-solid';
 import { Input } from '~/components/ui/Input';
 import { DatePicker } from '~/components/ui/DatePicker';
@@ -623,8 +623,7 @@ export function TradeTab(props: TradeTabProps) {
       </h2>
 
       {/* Bruno Hint */}
-      <BrunoHint
-        message="Sell unused items or borrow from friends to boost your savings!"
+      <BrunoHintV2
         tabType="trade"
         profileId={profile()?.id}
         contextData={{
@@ -639,6 +638,7 @@ export function TradeTab(props: TradeTabProps) {
             status: t.status,
           })),
         }}
+        fallbackMessage="Sell unused items or borrow from friends to boost your savings!"
         compact
       />
 

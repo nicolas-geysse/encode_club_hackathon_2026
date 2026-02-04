@@ -17,7 +17,7 @@ import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/li
 import { POPULAR_CERTIFICATIONS, DIPLOMA_OPTIONS } from '~/lib/chat/stepForms';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { BrunoHint } from '~/components/ui/BrunoHint';
+import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
@@ -302,8 +302,7 @@ export function ProfileTab(props: ProfileTabProps) {
       </div>
 
       {/* Bruno Hint */}
-      <BrunoHint
-        message="Keep your profile up to date for better job matches and personalized advice!"
+      <BrunoHintV2
         tabType="profile"
         profileId={profile()?.id}
         contextData={{
@@ -316,6 +315,7 @@ export function ProfileTab(props: ProfileTabProps) {
           maxWorkHoursWeekly: profile()?.maxWorkHoursWeekly,
           minHourlyRate: profile()?.minHourlyRate,
         }}
+        fallbackMessage="Keep your profile up to date for better job matches and personalized advice!"
         compact
       />
 

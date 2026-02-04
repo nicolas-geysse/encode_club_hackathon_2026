@@ -27,7 +27,7 @@ import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { type LegacyLifestyleItem, itemToLegacy, legacyToItem } from '~/types/entities';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { BrunoHint } from '~/components/ui/BrunoHint';
+import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { Input } from '~/components/ui/Input';
 import { MonthPicker } from '~/components/ui/MonthPicker';
 import {
@@ -478,8 +478,7 @@ export function BudgetTab(props: BudgetTabProps) {
       </h2>
 
       {/* Bruno Hint */}
-      <BrunoHint
-        message="Track your income and expenses to maximize your savings potential!"
+      <BrunoHintV2
         tabType="budget"
         profileId={profile()?.id}
         contextData={{
@@ -491,6 +490,7 @@ export function BudgetTab(props: BudgetTabProps) {
             amount: l.currentCost,
           })),
         }}
+        fallbackMessage="Track your income and expenses to maximize your savings potential!"
         compact
       />
 

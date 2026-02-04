@@ -13,7 +13,7 @@ import { useProfile } from '~/lib/profileContext';
 import { profileService } from '~/lib/profileService';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { BrunoHint } from '~/components/ui/BrunoHint';
+import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { createLogger } from '~/lib/logger';
 import { Dices, ArrowRight } from 'lucide-solid';
 
@@ -161,14 +161,14 @@ export default function SwipePage() {
           <Dices class="h-6 w-6 text-primary" />
           Swipe Scenarios
         </h1>
-        <BrunoHint
-          message="Swipe right on strategies you like, left on those you don't. I'll learn your preferences!"
+        <BrunoHintV2
           tabType="swipe"
           profileId={activeProfile()?.id}
           contextData={{
             preferences: activeProfile()?.swipePreferences,
             scenariosCount: swipeProps()?.skills?.length || 0,
           }}
+          fallbackMessage="Swipe right on strategies you like, left on those you don't. I'll learn your preferences!"
           compact
         />
       </div>

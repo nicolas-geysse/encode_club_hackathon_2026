@@ -21,7 +21,7 @@ import {
 } from '~/components/prospection';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { BrunoHint } from '~/components/ui/BrunoHint';
+import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import {
   RotateCcw,
   MapIcon,
@@ -481,8 +481,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
       </h2>
 
       {/* Bruno Hint */}
-      <BrunoHint
-        message="Explore job opportunities near you. I'll match them to your skills!"
+      <BrunoHintV2
         tabType="jobs"
         profileId={props.profileId}
         contextData={{
@@ -493,6 +492,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
           })),
           city: props.city,
         }}
+        fallbackMessage="Explore job opportunities near you. I'll match them to your skills!"
         compact
       />
 

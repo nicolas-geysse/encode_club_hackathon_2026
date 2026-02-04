@@ -19,7 +19,7 @@ const logger = createLogger('GoalsTab');
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { BrunoHint } from '~/components/ui/BrunoHint';
+import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { Plus, Target } from 'lucide-solid';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
@@ -407,8 +407,7 @@ export function GoalsTab(props: GoalsTabProps) {
       </div>
 
       {/* Bruno Hint */}
-      <BrunoHint
-        message="Break down big goals into smaller milestones. I'll help you track progress!"
+      <BrunoHintV2
         tabType="goals"
         profileId={profile()?.id}
         contextData={{
@@ -421,6 +420,7 @@ export function GoalsTab(props: GoalsTabProps) {
           })),
           monthlyMargin: profile()?.monthlyMargin,
         }}
+        fallbackMessage="Break down big goals into smaller milestones. I'll help you track progress!"
         compact
       />
 
