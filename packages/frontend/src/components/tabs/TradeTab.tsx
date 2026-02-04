@@ -18,7 +18,6 @@ import { Button } from '~/components/ui/Button';
 import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { Handshake } from 'lucide-solid';
 import { Input } from '~/components/ui/Input';
-import { DatePicker } from '~/components/ui/DatePicker';
 import {
   Banknote,
   Download,
@@ -311,7 +310,7 @@ export function TradeTab(props: TradeTabProps) {
     type: 'sell',
     name: '',
     partner: '',
-    value: 0,
+    value: undefined, // Empty by default for easier input
     status: 'pending',
   });
 
@@ -370,6 +369,35 @@ export function TradeTab(props: TradeTabProps) {
     }
   });
 
+  // Auto-convert inventory items to pending sell trades
+  // Items declared during onboarding should appear directly as pending sells
+  createEffect(() => {
+    const inventoryItems = props.inventoryItems || [];
+    const currentTrades = untrack(() => trades());
+
+    // Find inventory items not yet in trades
+    const newItems = inventoryItems.filter(
+      (item) => !currentTrades.some((t) => t.inventoryItemId === item.id)
+    );
+
+    if (newItems.length > 0) {
+      const newTrades: TradeItem[] = newItems.map((item) => ({
+        id: `trade_inv_${item.id}`,
+        type: 'sell' as const,
+        name: item.name,
+        description: item.category ? `${item.category}` : undefined,
+        partner: 'Marketplace',
+        value: item.estimatedValue,
+        status: 'pending' as const,
+        inventoryItemId: item.id,
+      }));
+
+      const updated = [...currentTrades, ...newTrades];
+      setTrades(updated);
+      props.onTradesChange?.(updated);
+    }
+  });
+
   const addTrade = () => {
     const trade = newTrade();
     if (!trade.name) return;
@@ -395,7 +423,7 @@ export function TradeTab(props: TradeTabProps) {
       type: activeType() as TradeItem['type'],
       name: '',
       partner: '',
-      value: 0,
+      value: undefined,
       status: 'pending',
     });
   };
@@ -418,8 +446,17 @@ export function TradeTab(props: TradeTabProps) {
     props.onTradesChange?.(updated);
   };
 
-  const removeTrade = (id: string) => {
-    crud.handleDelete(id);
+  // Request delete confirmation (shows dialog)
+  const requestDeleteTrade = (trade: TradeItem) => {
+    crud.confirmDelete(trade);
+  };
+
+  // Actually delete the trade (called from confirmation dialog)
+  const confirmDeleteTrade = (id: string) => {
+    const updated = trades().filter((t) => t.id !== id);
+    setTrades(updated);
+    props.onTradesChange?.(updated);
+    crud.cancelDelete(); // Close the dialog
   };
 
   const resetForm = () => {
@@ -427,7 +464,7 @@ export function TradeTab(props: TradeTabProps) {
       type: activeType() as TradeItem['type'],
       name: '',
       partner: '',
-      value: 0,
+      value: undefined,
       status: 'pending',
     });
     crud.resetForm();
@@ -495,13 +532,6 @@ export function TradeTab(props: TradeTabProps) {
     resetForm();
   };
 
-  const cancelSale = (id: string) => {
-    // Simply remove the pending trade - inventory item wasn't marked as sold yet
-    const updated = trades().filter((t) => t.id !== id);
-    setTrades(updated);
-    props.onTradesChange?.(updated);
-  };
-
   // Feature N: Borrowed value calculations with pending
   // Bug C Fix: Include completed borrows as they represent savings achieved
   const borrowedValue = () =>
@@ -542,26 +572,8 @@ export function TradeTab(props: TradeTabProps) {
     return pendingSells + availableInventory;
   };
 
-  // Get suggestions based on goal (inventory items shown directly in Sell list)
+  // Get suggestions based on goal
   const suggestions = () => getSuggestions(props.goalName, props.goalAmount);
-
-  // Add inventory item directly as a sell trade (no form)
-  const addInventoryItemToSell = (item: InventoryItemForTrade) => {
-    const newTrade: TradeItem = {
-      id: `trade_${Date.now()}`,
-      type: 'sell',
-      name: item.name,
-      description: `From inventory - ${item.category || 'item'}`,
-      partner: 'Marketplace',
-      value: item.estimatedValue,
-      status: 'pending',
-      inventoryItemId: item.id,
-    };
-
-    const updated = [...trades(), newTrade];
-    setTrades(updated);
-    props.onTradesChange?.(updated);
-  };
 
   // Add a suggestion as a trade
   const addFromSuggestion = (suggestion: TradeSuggestion) => {
@@ -815,59 +827,6 @@ export function TradeTab(props: TradeTabProps) {
             </Button>
           </div>
 
-          {/* For sell tab: show inventory items that aren't yet listed as trades */}
-          <Show when={activeType() === 'sell'}>
-            <For
-              each={(props.inventoryItems || []).filter(
-                (item) => !trades().some((t) => t.inventoryItemId === item.id)
-              )}
-            >
-              {(item) => (
-                <Card class="group hover:shadow-md transition-all duration-300 border-transparent hover:border-border/50 bg-card/60 hover:bg-card">
-                  <CardContent class="p-4 flex items-center gap-4">
-                    {/* Icon */}
-                    <div class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
-                      <Banknote class="h-6 w-6" />
-                    </div>
-
-                    {/* Item Info */}
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2 mb-1">
-                        <h4 class="font-bold text-foreground truncate text-base">{item.name}</h4>
-                        <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-full border border-transparent bg-opacity-50 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                          Available
-                        </span>
-                      </div>
-                      <div class="flex items-center gap-3 text-sm text-muted-foreground">
-                        <Show when={item.category}>
-                          <span class="text-xs text-muted-foreground/60">{item.category}</span>
-                        </Show>
-                      </div>
-                    </div>
-
-                    {/* Value & Actions */}
-                    <div class="flex items-center gap-4">
-                      <div class="font-bold text-lg text-right min-w-[50px]">
-                        {formatCurrency(item.estimatedValue, currency())}
-                      </div>
-
-                      {/* Action to list for sale */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        class="text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                        onClick={() => addInventoryItemToSell(item)}
-                      >
-                        <Plus class="h-4 w-4 mr-1" />
-                        List
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </For>
-          </Show>
-
           <For each={trades().filter((t) => t.type === activeType())}>
             {(trade) => (
               <Card class="group hover:shadow-md transition-all duration-300 border-transparent hover:border-border/50 bg-card/60 hover:bg-card">
@@ -944,25 +903,13 @@ export function TradeTab(props: TradeTabProps) {
 
                     {/* Hover Actions */}
                     <div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100">
-                      <Show when={trade.status === 'pending'}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                          onClick={() => cancelSale(trade.id)}
-                          title="Cancel"
-                        >
-                          <X class="h-4 w-4" />
-                        </Button>
-                      </Show>
-
                       <Show when={trade.status === 'active'}>
                         <Button
                           variant="ghost"
                           size="icon"
                           class="h-8 w-8 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/20"
                           onClick={() => updateStatus(trade.id, 'pending')}
-                          title="Revert"
+                          title="Revert to pending"
                         >
                           <Undo2 class="h-4 w-4" />
                         </Button>
@@ -984,7 +931,7 @@ export function TradeTab(props: TradeTabProps) {
                               trade.status === 'pending' ? 'active' : 'completed'
                             )
                           }
-                          title={trade.status === 'pending' ? 'Start' : 'Complete'}
+                          title={trade.status === 'pending' ? 'Mark as active' : 'Mark as done'}
                         >
                           <Check class="h-4 w-4" />
                         </Button>
@@ -995,6 +942,7 @@ export function TradeTab(props: TradeTabProps) {
                         size="icon"
                         class="h-8 w-8 text-muted-foreground hover:text-primary"
                         onClick={() => handleEditTrade(trade)}
+                        title="Edit"
                       >
                         <Pencil class="h-4 w-4" />
                       </Button>
@@ -1002,7 +950,8 @@ export function TradeTab(props: TradeTabProps) {
                         variant="ghost"
                         size="icon"
                         class="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeTrade(trade.id)}
+                        onClick={() => requestDeleteTrade(trade)}
+                        title="Delete"
                       >
                         <Trash2 class="h-4 w-4" />
                       </Button>
@@ -1112,10 +1061,15 @@ export function TradeTab(props: TradeTabProps) {
                   <Input
                     type="number"
                     min="0"
-                    value={newTrade().value}
-                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                      setNewTrade({ ...newTrade(), value: parseInt(e.currentTarget.value) || 0 })
-                    }
+                    placeholder="0"
+                    value={newTrade().value ?? ''}
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) => {
+                      const val = e.currentTarget.value;
+                      setNewTrade({
+                        ...newTrade(),
+                        value: val === '' ? undefined : parseInt(val) || 0,
+                      });
+                    }}
                   />
                 </div>
 
@@ -1154,14 +1108,14 @@ export function TradeTab(props: TradeTabProps) {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={!!deleteConfirm()}
-        title="Delete trade?"
+        title="Delete item?"
         message={`Are you sure you want to delete "${deleteConfirm()?.name}"? This action cannot be undone.`}
         confirmLabel="Delete"
         variant="danger"
         onConfirm={() => {
           const confirm = deleteConfirm();
           if (confirm) {
-            removeTrade(confirm.id);
+            confirmDeleteTrade(confirm.id);
           }
         }}
         onCancel={crud.cancelDelete}
