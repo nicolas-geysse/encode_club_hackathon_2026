@@ -17,6 +17,7 @@ import { formatCurrencyWithSuffix, getCurrencySymbol, type Currency } from '~/li
 import { POPULAR_CERTIFICATIONS, DIPLOMA_OPTIONS } from '~/lib/chat/stepForms';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { BrunoHint } from '~/components/ui/BrunoHint';
 import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
@@ -292,16 +293,31 @@ export function ProfileTab(props: ProfileTabProps) {
     <div class="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
-            <User class="h-6 w-6 text-primary" /> My Profile
-          </h2>
-          <p class="text-sm text-muted-foreground mt-1">Your personal and professional identity</p>
-        </div>
+        <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+          <User class="h-6 w-6 text-primary" /> My Profile
+        </h2>
         <Show when={!editing() && profile()}>
           <Button onClick={handleStartEdit}>Edit Profile</Button>
         </Show>
       </div>
+
+      {/* Bruno Hint */}
+      <BrunoHint
+        message="Keep your profile up to date for better job matches and personalized advice!"
+        tabType="profile"
+        profileId={profile()?.id}
+        contextData={{
+          name: profile()?.name,
+          diploma: profile()?.diploma,
+          field: profile()?.field,
+          city: profile()?.city,
+          skills: profile()?.skills,
+          certifications: profile()?.certifications,
+          maxWorkHoursWeekly: profile()?.maxWorkHoursWeekly,
+          minHourlyRate: profile()?.minHourlyRate,
+        }}
+        compact
+      />
 
       {/* Loading State */}
       <Show when={loading()}>

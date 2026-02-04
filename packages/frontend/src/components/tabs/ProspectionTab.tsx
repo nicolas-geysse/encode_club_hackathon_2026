@@ -21,6 +21,7 @@ import {
 } from '~/components/prospection';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { BrunoHint } from '~/components/ui/BrunoHint';
 import {
   RotateCcw,
   MapIcon,
@@ -30,6 +31,7 @@ import {
   Bookmark,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   MapPin,
 } from 'lucide-solid';
 import { Slider } from '~/components/ui/Slider';
@@ -473,23 +475,45 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
   return (
     <div class="p-6 space-y-6">
+      {/* Header */}
+      <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+        <Compass class="h-6 w-6 text-primary" /> Jobs
+      </h2>
+
+      {/* Bruno Hint */}
+      <BrunoHint
+        message="Explore job opportunities near you. I'll match them to your skills!"
+        tabType="jobs"
+        profileId={props.profileId}
+        contextData={{
+          skills: (props.userSkills || []).map((s) => ({ name: s })),
+          leads: leads().map((l) => ({
+            status: l.status,
+            title: l.title,
+          })),
+          city: props.city,
+        }}
+        compact
+      />
+
       {/* Top Dashboard - Visible when Idle or Results (but not loading deep search) */}
       <Show when={phase() !== 'loading'}>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Panel 1: My Selection Shortcut */}
           <button
             onClick={() => setShowLeadsPanel(true)}
-            class="group relative overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm transition-all hover:shadow-md text-left h-full min-h-[100px]"
+            class="group relative overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm transition-all hover:shadow-lg hover:border-primary/30 hover:ring-2 hover:ring-primary/10 text-left h-full min-h-[100px] cursor-pointer"
           >
             <div class="p-4 flex flex-col justify-between h-full">
-              <div class="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
-                <Bookmark class="h-4 w-4" />
-                <span>My Selection</span>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Bookmark class="h-4 w-4" />
+                  <span>My Selection</span>
+                </div>
+                <ChevronRight class="h-5 w-5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
               </div>
               <div>
-                <div class="text-2xl font-bold text-foreground group-hover:translate-x-1 transition-transform">
-                  {leads().length}
-                </div>
+                <div class="text-2xl font-bold text-foreground">{leads().length}</div>
                 <div class="text-xs text-muted-foreground mt-1">Saved opportunities</div>
               </div>
             </div>
@@ -502,22 +526,25 @@ export function ProspectionTab(props: ProspectionTabProps) {
               handleCategorySelect(TOP10_ALL_CATEGORY_ID);
             }}
             disabled={phase() === 'loading'}
-            class="group relative overflow-hidden rounded-xl border border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 shadow-sm transition-all hover:shadow-md text-left h-full min-h-[100px]"
+            class="group relative overflow-hidden rounded-xl border border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 shadow-sm transition-all hover:shadow-lg hover:border-purple-400/50 hover:ring-2 hover:ring-purple-500/20 text-left h-full min-h-[100px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div class="p-4 flex flex-col justify-between h-full">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">
                   Highlights
                 </span>
-                <div class="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
-                  <Dynamic
-                    component={getCategoryById(TOP10_ALL_CATEGORY_ID)?.icon || Compass}
-                    class="h-4 w-4 text-purple-600 dark:text-purple-400"
-                  />
+                <div class="flex items-center gap-2">
+                  <div class="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
+                    <Dynamic
+                      component={getCategoryById(TOP10_ALL_CATEGORY_ID)?.icon || Compass}
+                      class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                    />
+                  </div>
+                  <ChevronRight class="h-5 w-5 text-purple-400/50 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
               <div>
-                <div class="text-lg font-bold text-purple-900 dark:text-purple-100 group-hover:translate-x-1 transition-transform">
+                <div class="text-lg font-bold text-purple-900 dark:text-purple-100">
                   Top 10 Opportunities
                 </div>
                 <div class="text-xs text-purple-600/80 dark:text-purple-400/80 mt-1">
@@ -531,22 +558,25 @@ export function ProspectionTab(props: ProspectionTabProps) {
           <button
             onClick={() => handleCategorySelect(REAL_JOBS_CATEGORY_ID)}
             disabled={phase() === 'loading'}
-            class="group relative overflow-hidden rounded-xl border border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 shadow-sm transition-all hover:shadow-md text-left h-full min-h-[100px]"
+            class="group relative overflow-hidden rounded-xl border border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 shadow-sm transition-all hover:shadow-lg hover:border-blue-400/50 hover:ring-2 hover:ring-blue-500/20 text-left h-full min-h-[100px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
             <div class="p-4 flex flex-col justify-between h-full">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
                   Remote First
                 </span>
-                <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
-                  <Dynamic
-                    component={getCategoryById(REAL_JOBS_CATEGORY_ID)?.icon || MapIcon}
-                    class="h-4 w-4 text-blue-600 dark:text-blue-400"
-                  />
+                <div class="flex items-center gap-2">
+                  <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
+                    <Dynamic
+                      component={getCategoryById(REAL_JOBS_CATEGORY_ID)?.icon || MapIcon}
+                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                    />
+                  </div>
+                  <ChevronRight class="h-5 w-5 text-blue-400/50 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
               <div>
-                <div class="text-lg font-bold text-blue-900 dark:text-blue-100 group-hover:translate-x-1 transition-transform">
+                <div class="text-lg font-bold text-blue-900 dark:text-blue-100">
                   Full Remote Jobs
                 </div>
                 <div class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">

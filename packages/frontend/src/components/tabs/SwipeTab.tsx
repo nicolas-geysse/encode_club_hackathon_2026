@@ -385,13 +385,10 @@ export function SwipeTab(props: SwipeTabProps) {
       {/* Complete Phase - Summary before validation */}
       <Show when={phase() === 'complete'}>
         <div class="space-y-6 pb-24">
-          <div class="text-center">
-            <ClipboardList class="h-12 w-12 mx-auto mb-4 text-primary" />
-            <h2 class="text-2xl font-bold text-foreground">Review Your Plan</h2>
-            <p class="text-muted-foreground mt-2">
-              I've learned your preferences. Review your selections before validating.
-            </p>
-          </div>
+          {/* Header */}
+          <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+            <ClipboardList class="h-6 w-6 text-primary" /> Review Your Plan
+          </h2>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             {/* Preference Summary - Vertical Bars Layout (AI Context) */}
@@ -541,16 +538,12 @@ export function SwipeTab(props: SwipeTabProps) {
           </div>
 
           {/* Actions - Sticky Footer */}
-          <div class="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 w-[90%] max-w-md z-50">
-            <Button
-              variant="outline"
-              class="flex-1 shadow-lg bg-background/80 backdrop-blur-md border-border/50"
-              onClick={handleReset}
-            >
+          <div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-50 bg-background/95 backdrop-blur border border-border rounded-lg p-4 shadow-lg flex gap-3">
+            <Button variant="outline" class="flex-1" onClick={handleReset}>
               <RotateCcw class="h-4 w-4 mr-2" />
               Start over
             </Button>
-            <Button class="flex-1 shadow-lg" onClick={handleValidate}>
+            <Button class="flex-1" onClick={handleValidate}>
               <Check class="h-4 w-4 mr-2" />
               Validate plan
             </Button>

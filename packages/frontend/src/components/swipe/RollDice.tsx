@@ -28,7 +28,6 @@ export function RollDice(props: RollDiceProps) {
     <div class="flex flex-col items-center justify-center py-12">
       {/* Header */}
       <div class="text-center mb-6">
-        <h2 class="text-2xl font-bold text-foreground mb-2">Swipe Scenarios</h2>
         <p class="text-muted-foreground max-w-md">
           We'll suggest strategies based on your profile.
           <br />

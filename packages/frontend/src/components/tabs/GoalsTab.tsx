@@ -19,6 +19,7 @@ const logger = createLogger('GoalsTab');
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { BrunoHint } from '~/components/ui/BrunoHint';
 import { Plus, Target } from 'lucide-solid';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
@@ -395,20 +396,33 @@ export function GoalsTab(props: GoalsTabProps) {
     <div class="p-6 space-y-6">
       {/* Header */}
       <div class="flex items-center justify-between">
-        <div>
-          <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
-            <Target class="h-6 w-6 text-primary" /> My Goals
-          </h2>
-          <p class="text-sm text-muted-foreground mt-1">
-            Set your financial goals and track progress
-          </p>
-        </div>
+        <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+          <Target class="h-6 w-6 text-primary" /> My Goals
+        </h2>
         <Show when={!showNewGoalForm() && goals().length > 0}>
           <Button onClick={() => setShowNewGoalForm(true)}>
             <Plus class="h-4 w-4 mr-2" /> New Goal
           </Button>
         </Show>
       </div>
+
+      {/* Bruno Hint */}
+      <BrunoHint
+        message="Break down big goals into smaller milestones. I'll help you track progress!"
+        tabType="goals"
+        profileId={profile()?.id}
+        contextData={{
+          goals: goals().map((g) => ({
+            name: g.name,
+            amount: g.amount,
+            deadline: g.deadline,
+            progress: g.progress,
+            status: g.status,
+          })),
+          monthlyMargin: profile()?.monthlyMargin,
+        }}
+        compact
+      />
 
       {/* Loading */}
       <Show when={loading()}>

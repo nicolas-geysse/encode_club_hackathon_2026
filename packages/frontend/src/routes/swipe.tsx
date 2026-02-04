@@ -13,6 +13,7 @@ import { useProfile } from '~/lib/profileContext';
 import { profileService } from '~/lib/profileService';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { BrunoHint } from '~/components/ui/BrunoHint';
 import { createLogger } from '~/lib/logger';
 import { Dices, ArrowRight } from 'lucide-solid';
 
@@ -155,16 +156,21 @@ export default function SwipePage() {
   return (
     <div class="flex flex-col h-full space-y-6">
       {/* Page Header */}
-      <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <h1 class="text-2xl font-bold text-foreground flex items-center gap-3">
-          <div class="p-2 rounded-lg bg-primary/10">
-            <Dices class="h-6 w-6 text-primary" />
-          </div>
+      <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-4 bg-background/80 backdrop-blur-xl border-b border-border/50 space-y-3">
+        <h1 class="text-xl font-bold text-foreground flex items-center gap-2">
+          <Dices class="h-6 w-6 text-primary" />
           Swipe Scenarios
         </h1>
-        <p class="text-muted-foreground mt-1">
-          Discover personalized earning opportunities based on your profile
-        </p>
+        <BrunoHint
+          message="Swipe right on strategies you like, left on those you don't. I'll learn your preferences!"
+          tabType="swipe"
+          profileId={activeProfile()?.id}
+          contextData={{
+            preferences: activeProfile()?.swipePreferences,
+            scenariosCount: swipeProps()?.skills?.length || 0,
+          }}
+          compact
+        />
       </div>
 
       {/* Content */}

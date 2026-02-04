@@ -27,6 +27,7 @@ import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { type LegacyLifestyleItem, itemToLegacy, legacyToItem } from '~/types/entities';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { BrunoHint } from '~/components/ui/BrunoHint';
 import { Input } from '~/components/ui/Input';
 import { MonthPicker } from '~/components/ui/MonthPicker';
 import {
@@ -471,6 +472,28 @@ export function BudgetTab(props: BudgetTabProps) {
 
   return (
     <div class="p-6 space-y-6">
+      {/* Header */}
+      <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+        <PiggyBank class="h-6 w-6 text-primary" /> My Budget
+      </h2>
+
+      {/* Bruno Hint */}
+      <BrunoHint
+        message="Track your income and expenses to maximize your savings potential!"
+        tabType="budget"
+        profileId={profile()?.id}
+        contextData={{
+          monthlyIncome: totalIncome(),
+          monthlyExpenses: activeMonthlyTotal(),
+          monthlyMargin: netMargin(),
+          expenses: items().map((l) => ({
+            category: l.category || 'other',
+            amount: l.currentCost,
+          })),
+        }}
+        compact
+      />
+
       {/* Summary Cards */}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Income */}

@@ -372,13 +372,9 @@ export function GoalForm(props: GoalFormProps) {
         onDeleteRequest={(commit) => setDeleteCommitmentConfirm(commit)}
       />
 
-      {/* Actions */}
-      <div class="flex gap-4 pt-4">
-        <Button
-          variant="outline"
-          class="flex-1 bg-[#F4F4F5] hover:bg-[#E4E4E7] dark:bg-[#27272A] dark:hover:bg-[#3F3F46] border-border"
-          onClick={handleCancel}
-        >
+      {/* Actions - Sticky Footer */}
+      <div class="sticky bottom-6 bg-background/95 backdrop-blur border border-border rounded-lg p-4 shadow-lg flex gap-3 z-10">
+        <Button variant="outline" class="flex-1" onClick={handleCancel}>
           Cancel
         </Button>
         <Button class="flex-1" onClick={handleSubmit} disabled={!goalName() || goalAmount() <= 0}>

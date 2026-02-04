@@ -23,6 +23,7 @@ import { createLogger } from '~/lib/logger';
 import { showProactiveAlert } from '~/lib/eventBus';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { BrunoHint } from '~/components/ui/BrunoHint';
 import { Input } from '~/components/ui/Input';
 import { FeedbackButton } from '~/components/ui/FeedbackButton';
 import {
@@ -651,18 +652,29 @@ export function SkillsTab(props: SkillsTabProps) {
       {/* Header */}
       <Show when={!props.embedded}>
         <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
-              <Briefcase class="h-6 w-6 text-primary" /> Skill Arbitrage
-            </h2>
-            <p class="text-sm text-muted-foreground mt-1">
-              The highest paying job isn't necessarily the best
-            </p>
-          </div>
+          <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+            <Briefcase class="h-6 w-6 text-primary" /> Skill Arbitrage
+          </h2>
           <Button onClick={openAddForm} disabled={isLoading()}>
             <Plus class="h-4 w-4 mr-2" /> Add
           </Button>
         </div>
+
+        {/* Bruno Hint */}
+        <BrunoHint
+          message="Add your skills and I'll find the best earning opportunities for you!"
+          tabType="jobs"
+          profileId={profile()?.id}
+          contextData={{
+            skills: skills().map((s) => ({
+              name: s.name,
+              hourlyRate: s.hourlyRate,
+              arbitrageScore: s.score,
+            })),
+            city: profile()?.city,
+          }}
+          compact
+        />
       </Show>
 
       {/* Embedded Header Action */}

@@ -7,6 +7,7 @@
 
 import { createSignal, createEffect, For, Show, untrack } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
+import { useProfile } from '~/lib/profileContext';
 import { createCrudTab } from '~/hooks/createCrudTab';
 import { createDirtyState } from '~/hooks/createDirtyState';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
@@ -14,6 +15,8 @@ import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { BrunoHint } from '~/components/ui/BrunoHint';
+import { Handshake } from 'lucide-solid';
 import { Input } from '~/components/ui/Input';
 import { DatePicker } from '~/components/ui/DatePicker';
 import {
@@ -272,6 +275,8 @@ function TradeSkeleton() {
 }
 
 export function TradeTab(props: TradeTabProps) {
+  const { profile } = useProfile();
+
   // Currency from props, defaults to USD
   const currency = () => props.currency || 'USD';
   const currencySymbol = () => getCurrencySymbol(currency());
@@ -612,6 +617,31 @@ export function TradeTab(props: TradeTabProps) {
 
   return (
     <div class="p-6 space-y-6">
+      {/* Header */}
+      <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
+        <Handshake class="h-6 w-6 text-primary" /> Trade & Sell
+      </h2>
+
+      {/* Bruno Hint */}
+      <BrunoHint
+        message="Sell unused items or borrow from friends to boost your savings!"
+        tabType="trade"
+        profileId={profile()?.id}
+        contextData={{
+          inventory: (props.inventoryItems || []).map((i) => ({
+            name: i.name,
+            estimatedValue: i.estimatedValue,
+          })),
+          trades: trades().map((t) => ({
+            type: t.type,
+            name: t.name,
+            value: t.value,
+            status: t.status,
+          })),
+        }}
+        compact
+      />
+
       <Show when={!isLoading()} fallback={<TradeSkeleton />}>
         {/* Summary Cards */}
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
