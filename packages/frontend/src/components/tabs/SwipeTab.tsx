@@ -10,11 +10,12 @@ import { SwipeSession, updatePreferences } from '../swipe/SwipeSession';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { celebrateBig } from '~/lib/confetti';
 import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
-import { formatCurrency, type Currency } from '~/lib/dateUtils';
+import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { Input } from '~/components/ui/Input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
-import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot } from 'lucide-solid';
+import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot, Plus, X } from 'lucide-solid';
 import { toastPopup } from '~/components/ui/Toast';
 import type { Lead } from '~/lib/prospectionTypes';
 
@@ -249,6 +250,7 @@ export function SwipeTab(props: SwipeTabProps) {
   const [phase, setPhase] = createSignal<'idle' | 'rolling' | 'swiping' | 'complete'>('idle');
   const [scenarios, setScenarios] = createSignal<Scenario[]>([]);
   const [selectedScenarios, setSelectedScenarios] = createSignal<Scenario[]>([]);
+  const [rejectedScenarios, setRejectedScenarios] = createSignal<Scenario[]>([]);
   // BUG 3 FIX: Use initialPreferences from profile if available
   const [preferences, setPreferences] = createSignal<UserPreferences>(
     props.initialPreferences || {
@@ -258,6 +260,13 @@ export function SwipeTab(props: SwipeTabProps) {
       incomeStability: 0.5,
     }
   );
+
+  // Popup state for configuring rate on scenarios without pricing
+  const [rateConfigPopup, setRateConfigPopup] = createSignal<{
+    scenario: Scenario;
+    weeklyHours: number;
+    hourlyRate: number;
+  } | null>(null);
 
   const handleRoll = () => {
     setPhase('rolling');
@@ -283,6 +292,7 @@ export function SwipeTab(props: SwipeTabProps) {
     mehIds?: Set<string>
   ) => {
     setSelectedScenarios(accepted);
+    setRejectedScenarios(rejected);
     setPreferences(updatedPrefs);
     if (mehIds) {
       setMehScenarioIds(mehIds);
@@ -332,6 +342,7 @@ export function SwipeTab(props: SwipeTabProps) {
     setPhase('idle');
     setScenarios([]);
     setSelectedScenarios([]);
+    setRejectedScenarios([]);
   };
 
   // Feature J: Delete confirmation state
@@ -340,17 +351,66 @@ export function SwipeTab(props: SwipeTabProps) {
     title: string;
   } | null>(null);
 
-  // Handle scenario deletion from review phase
+  // Handle scenario deletion from review phase - moves to rejected list
   const handleScenarioDelete = (scenarioId: string) => {
-    // Reactivity: Update AI profile (treat deletion as a rejection)
     const scenario = selectedScenarios().find((s) => s.id === scenarioId);
     if (scenario) {
+      // Update AI profile (treat deletion as a rejection)
       const updatedPrefs = updatePreferences(preferences(), scenario, 'left');
       setPreferences(updatedPrefs);
+      // Move to rejected list
+      setRejectedScenarios((prev) => [...prev, scenario]);
     }
 
     setSelectedScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
     setDeleteConfirm(null);
+  };
+
+  // Handle adding a rejected scenario back to selected
+  const handleAddFromRejected = (scenario: Scenario) => {
+    // If scenario has no rate, show popup to configure
+    if (scenario.hourlyRate <= 0 && scenario.weeklyEarnings <= 0) {
+      setRateConfigPopup({
+        scenario,
+        weeklyHours: scenario.weeklyHours || 5,
+        hourlyRate: 15, // Default rate
+      });
+      return;
+    }
+
+    // Move from rejected to selected
+    setRejectedScenarios((prev) => prev.filter((s) => s.id !== scenario.id));
+    setSelectedScenarios((prev) => [...prev, scenario]);
+
+    // Update AI profile (treat as acceptance)
+    const updatedPrefs = updatePreferences(preferences(), scenario, 'right');
+    setPreferences(updatedPrefs);
+  };
+
+  // Confirm adding scenario with configured rate
+  const handleConfirmRateConfig = () => {
+    const config = rateConfigPopup();
+    if (!config) return;
+
+    const { scenario, weeklyHours, hourlyRate } = config;
+
+    // Create updated scenario with new rate
+    const updatedScenario: Scenario = {
+      ...scenario,
+      weeklyHours,
+      hourlyRate,
+      weeklyEarnings: weeklyHours * hourlyRate,
+    };
+
+    // Move from rejected to selected
+    setRejectedScenarios((prev) => prev.filter((s) => s.id !== scenario.id));
+    setSelectedScenarios((prev) => [...prev, updatedScenario]);
+
+    // Update AI profile
+    const updatedPrefs = updatePreferences(preferences(), updatedScenario, 'right');
+    setPreferences(updatedPrefs);
+
+    setRateConfigPopup(null);
   };
 
   return (
@@ -391,98 +451,155 @@ export function SwipeTab(props: SwipeTabProps) {
           </h2>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-            {/* Preference Summary - Vertical Bars Layout (AI Context) */}
-            <Card>
-              <CardContent class="p-6">
-                <div class="flex items-center gap-2 mb-6">
-                  <div class="p-1.5 bg-purple-500/10 rounded-lg">
-                    <Bot class="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            {/* Left Column: AI Profile + Rejected Scenarios */}
+            <div class="space-y-4">
+              {/* Preference Summary - Vertical Bars Layout (AI Context) */}
+              <Card>
+                <CardContent class="p-4">
+                  <div class="flex items-center gap-2 mb-4">
+                    <div class="p-1.5 bg-purple-500/10 rounded-lg">
+                      <Bot class="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <h3 class="font-bold text-sm text-foreground">AI Profile Analysis</h3>
                   </div>
-                  <h3 class="font-bold text-foreground">AI Profile Analysis</h3>
-                </div>
 
-                {/* Pillars Container */}
-                <div class="flex items-end justify-around h-48 pt-4 px-2 sm:px-8 gap-4">
-                  {/* Effort Pillar */}
-                  <Tooltip>
-                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                        {Math.round((1 - (preferences().effortSensitivity ?? 0.5)) * 100)}%
-                      </div>
-                      <div class="w-3 sm:w-4 bg-blue-100 dark:bg-blue-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-blue-500/20 transition-colors">
-                        <div
-                          class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                          style={{
-                            height: `${(1 - (preferences().effortSensitivity ?? 0.5)) * 100}%`,
-                          }}
-                        />
-                      </div>
-                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-tight">
-                        Effort
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Higher effort tolerance</TooltipContent>
-                  </Tooltip>
+                  {/* Pillars Container - Reduced height */}
+                  <div class="flex items-end justify-around h-32 pt-2 px-2 sm:px-6 gap-3">
+                    {/* Effort Pillar */}
+                    <Tooltip>
+                      <TooltipTrigger class="flex flex-col items-center gap-2 group w-12 sm:w-14 h-full cursor-default">
+                        <div class="text-[9px] sm:text-[10px] font-mono text-muted-foreground group-hover:text-foreground transition-colors">
+                          {Math.round((1 - (preferences().effortSensitivity ?? 0.5)) * 100)}%
+                        </div>
+                        <div class="w-2.5 sm:w-3 bg-blue-100 dark:bg-blue-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-blue-500/20 transition-colors">
+                          <div
+                            class="absolute bottom-0 w-full bg-blue-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                            style={{
+                              height: `${(1 - (preferences().effortSensitivity ?? 0.5)) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <span class="text-[9px] sm:text-[10px] font-bold text-muted-foreground group-hover:text-blue-500 transition-colors uppercase tracking-tight">
+                          Effort
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Higher effort tolerance</TooltipContent>
+                    </Tooltip>
 
-                  {/* Pay Pillar */}
-                  <Tooltip>
-                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                        {Math.round((preferences().hourlyRatePriority ?? 0.5) * 100)}%
-                      </div>
-                      <div class="w-3 sm:w-4 bg-green-100 dark:bg-green-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-green-500/20 transition-colors">
-                        <div
-                          class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                          style={{ height: `${(preferences().hourlyRatePriority ?? 0.5) * 100}%` }}
-                        />
-                      </div>
-                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-green-500 transition-colors uppercase tracking-tight">
-                        Pay
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Importance of high pay</TooltipContent>
-                  </Tooltip>
+                    {/* Pay Pillar */}
+                    <Tooltip>
+                      <TooltipTrigger class="flex flex-col items-center gap-2 group w-12 sm:w-14 h-full cursor-default">
+                        <div class="text-[9px] sm:text-[10px] font-mono text-muted-foreground group-hover:text-foreground transition-colors">
+                          {Math.round((preferences().hourlyRatePriority ?? 0.5) * 100)}%
+                        </div>
+                        <div class="w-2.5 sm:w-3 bg-green-100 dark:bg-green-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-green-500/20 transition-colors">
+                          <div
+                            class="absolute bottom-0 w-full bg-green-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                            style={{
+                              height: `${(preferences().hourlyRatePriority ?? 0.5) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <span class="text-[9px] sm:text-[10px] font-bold text-muted-foreground group-hover:text-green-500 transition-colors uppercase tracking-tight">
+                          Pay
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Importance of high pay</TooltipContent>
+                    </Tooltip>
 
-                  {/* Flex Pillar */}
-                  <Tooltip>
-                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                        {Math.round((preferences().timeFlexibility ?? 0.5) * 100)}%
-                      </div>
-                      <div class="w-3 sm:w-4 bg-purple-100 dark:bg-purple-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-purple-500/20 transition-colors">
-                        <div
-                          class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                          style={{ height: `${(preferences().timeFlexibility ?? 0.5) * 100}%` }}
-                        />
-                      </div>
-                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-purple-500 transition-colors uppercase tracking-tight">
-                        Flex
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Need for flexibility</TooltipContent>
-                  </Tooltip>
+                    {/* Flex Pillar */}
+                    <Tooltip>
+                      <TooltipTrigger class="flex flex-col items-center gap-2 group w-12 sm:w-14 h-full cursor-default">
+                        <div class="text-[9px] sm:text-[10px] font-mono text-muted-foreground group-hover:text-foreground transition-colors">
+                          {Math.round((preferences().timeFlexibility ?? 0.5) * 100)}%
+                        </div>
+                        <div class="w-2.5 sm:w-3 bg-purple-100 dark:bg-purple-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-purple-500/20 transition-colors">
+                          <div
+                            class="absolute bottom-0 w-full bg-purple-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                            style={{ height: `${(preferences().timeFlexibility ?? 0.5) * 100}%` }}
+                          />
+                        </div>
+                        <span class="text-[9px] sm:text-[10px] font-bold text-muted-foreground group-hover:text-purple-500 transition-colors uppercase tracking-tight">
+                          Flex
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Need for flexibility</TooltipContent>
+                    </Tooltip>
 
-                  {/* Stability Pillar */}
-                  <Tooltip>
-                    <TooltipTrigger class="flex flex-col items-center gap-3 group w-14 sm:w-16 h-full cursor-default">
-                      <div class="text-[10px] sm:text-xs font-mono text-muted-foreground mb-1 group-hover:text-foreground transition-colors">
-                        {Math.round((preferences().incomeStability ?? 0.5) * 100)}%
+                    {/* Stability Pillar */}
+                    <Tooltip>
+                      <TooltipTrigger class="flex flex-col items-center gap-2 group w-12 sm:w-14 h-full cursor-default">
+                        <div class="text-[9px] sm:text-[10px] font-mono text-muted-foreground group-hover:text-foreground transition-colors">
+                          {Math.round((preferences().incomeStability ?? 0.5) * 100)}%
+                        </div>
+                        <div class="w-2.5 sm:w-3 bg-amber-100 dark:bg-amber-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-amber-500/20 transition-colors">
+                          <div
+                            class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
+                            style={{ height: `${(preferences().incomeStability ?? 0.5) * 100}%` }}
+                          />
+                        </div>
+                        <span class="text-[9px] sm:text-[10px] font-bold text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-tight">
+                          Stable
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Income stability priority</TooltipContent>
+                    </Tooltip>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Rejected Scenarios - Below AI Profile */}
+              <Show when={rejectedScenarios().length > 0}>
+                <Card class="border-red-200 dark:border-red-900/50">
+                  <CardContent class="p-4">
+                    <h3 class="font-medium text-sm text-muted-foreground mb-3">
+                      Skipped ({rejectedScenarios().length})
+                    </h3>
+                    <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                      <For each={rejectedScenarios()}>
+                        {(scenario) => (
+                          <div class="group flex items-center justify-between p-2 bg-red-50/50 dark:bg-red-950/20 rounded-lg border border-red-100 dark:border-red-900/30 hover:border-red-200 dark:hover:border-red-800/50 transition-colors">
+                            <div class="flex-1 min-w-0">
+                              <p class="text-sm font-medium text-foreground truncate">
+                                {scenario.title}
+                              </p>
+                              <p class="text-xs text-muted-foreground">
+                                {scenario.weeklyHours}h/wk •{' '}
+                                {scenario.weeklyEarnings > 0
+                                  ? formatCurrency(scenario.weeklyEarnings, currency())
+                                  : 'No rate'}
+                                /wk
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAddFromRejected(scenario)}
+                              class="p-1.5 rounded-md text-muted-foreground hover:text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30 transition-all"
+                              title="Add to plan"
+                            >
+                              <Plus class="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+
+                    <div class="mt-3 pt-3 border-t border-red-100 dark:border-red-900/30">
+                      <div class="flex items-center justify-between text-sm">
+                        <span class="text-muted-foreground">Missed potential</span>
+                        <span class="font-bold text-red-600 dark:text-red-400">
+                          {formatCurrency(
+                            rejectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
+                            currency()
+                          )}
+                          /wk
+                        </span>
                       </div>
-                      <div class="w-3 sm:w-4 bg-amber-100 dark:bg-amber-950/30 rounded-full relative flex-grow overflow-hidden border border-transparent group-hover:border-amber-500/20 transition-colors">
-                        <div
-                          class="absolute bottom-0 w-full bg-amber-500 rounded-full transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)"
-                          style={{ height: `${(preferences().incomeStability ?? 0.5) * 100}%` }}
-                        />
-                      </div>
-                      <span class="text-[10px] sm:text-xs font-bold text-muted-foreground group-hover:text-amber-500 transition-colors uppercase tracking-tight">
-                        Stable
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>Income stability priority</TooltipContent>
-                  </Tooltip>
-                </div>
-              </CardContent>
-            </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Show>
+            </div>
 
             {/* Selected Scenarios */}
             <Card class="h-full">
@@ -561,6 +678,97 @@ export function SwipeTab(props: SwipeTabProps) {
         onConfirm={() => handleScenarioDelete(deleteConfirm()!.id)}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {/* Rate configuration popup for scenarios without pricing */}
+      <Show when={rateConfigPopup()}>
+        {(config) => (
+          <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <Card class="w-full max-w-sm mx-4 shadow-2xl animate-in zoom-in-95 duration-200">
+              <CardContent class="p-6">
+                {/* Header */}
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="font-bold text-lg text-foreground">Set Rate</h3>
+                  <button
+                    type="button"
+                    onClick={() => setRateConfigPopup(null)}
+                    class="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <X class="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Scenario info */}
+                <div class="mb-6 p-3 bg-muted/50 rounded-lg">
+                  <p class="font-medium text-foreground">{config().scenario.title}</p>
+                  <p class="text-sm text-muted-foreground">{config().scenario.description}</p>
+                </div>
+
+                {/* Form fields */}
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium text-foreground mb-1.5">
+                      Hours per week
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="40"
+                      value={config().weeklyHours}
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                        setRateConfigPopup({
+                          ...config(),
+                          weeklyHours: parseInt(e.currentTarget.value) || 1,
+                        })
+                      }
+                      class="w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-foreground mb-1.5">
+                      Hourly rate ({getCurrencySymbol(currency())})
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="200"
+                      value={config().hourlyRate}
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                        setRateConfigPopup({
+                          ...config(),
+                          hourlyRate: parseInt(e.currentTarget.value) || 1,
+                        })
+                      }
+                      class="w-full"
+                    />
+                  </div>
+
+                  {/* Preview */}
+                  <div class="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900/50">
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-muted-foreground">Weekly earnings</span>
+                      <span class="font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(config().weeklyHours * config().hourlyRate, currency())}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div class="flex gap-3 mt-6">
+                  <Button variant="outline" class="flex-1" onClick={() => setRateConfigPopup(null)}>
+                    Cancel
+                  </Button>
+                  <Button class="flex-1" onClick={handleConfirmRateConfig}>
+                    <Plus class="h-4 w-4 mr-2" />
+                    Add to plan
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </Show>
     </div>
   );
 }
