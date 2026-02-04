@@ -296,7 +296,7 @@ export function BrunoHintV2(props: BrunoHintV2Props) {
           traceId: currentTraceId,
           scores: [
             {
-              name: `tab_tip_${props.tabType}`,
+              name: 'User feedback',
               value: isHelpful ? 1 : 0,
               reason: isHelpful
                 ? `User found ${props.tabType} tab tip helpful`

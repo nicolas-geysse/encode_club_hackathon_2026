@@ -887,8 +887,8 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
             orchestrationType,
             cached: false,
           },
-          traceId: getCurrentTraceId() || '',
-          traceUrl: getTraceUrl(getCurrentTraceId() || ''),
+          traceId: rootSpan.getTraceId() || '',
+          traceUrl: getTraceUrl(rootSpan.getTraceId() || ''),
         };
       } catch (error) {
         rootSpan.setAttributes({
@@ -913,8 +913,8 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
             orchestrationType: 'static' as const,
             cached: false,
           },
-          traceId: getCurrentTraceId() || '',
-          traceUrl: getTraceUrl(getCurrentTraceId() || ''),
+          traceId: rootSpan.getTraceId() || '',
+          traceUrl: getTraceUrl(rootSpan.getTraceId() || ''),
         };
       }
     },
