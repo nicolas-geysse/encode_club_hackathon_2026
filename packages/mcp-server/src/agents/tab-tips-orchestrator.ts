@@ -660,10 +660,15 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
   });
 
   // Build sampling context for conditional tracing
+  // IMPORTANT: Tips UI always shows feedback buttons (thumbs up/down),
+  // so we MUST trace to capture user evaluations. Without trace, feedback is lost.
   const samplingContext: SamplingContext = {
     profileId: input.profileId,
     tabType: input.tabType,
     experimentIds: experimentAssignments.map((a) => a.experimentId),
+    // Force trace because tips can receive user feedback (thumbs up/down)
+    // and feedback requires an existing trace to attach scores
+    forceTrace: true,
     // These will be checked post-trace for upgrade:
     // - hasKnownError (we don't know yet)
     // - estimatedFallbackLevel (we don't know yet)
