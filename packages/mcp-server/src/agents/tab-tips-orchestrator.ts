@@ -353,16 +353,25 @@ async function runStage2(
 // Stage 3: Contextual Guardian Validation
 // ============================================================================
 
+interface Stage3Options {
+  /** A/B test: Override minConfidence for guardian strictness experiment */
+  minConfidence?: number;
+}
+
 async function runStage3(
   strategy: TabAgentStrategy,
   context: TabContext,
   recommendation: string,
-  _span: Span
+  _span: Span,
+  options: Stage3Options = {}
 ): Promise<Stage3Result> {
   return createSpan(
     'stage3.guardian_validation',
     async (guardSpan) => {
       const rules = strategy.getValidationRules();
+
+      // Apply experiment overrides if present
+      const minConfidence = options.minConfidence ?? rules.minConfidence;
 
       guardSpan.setInput({
         tabType: rules.tabType,
@@ -370,7 +379,7 @@ async function runStage3(
         checkSolvency: rules.checkSolvency,
         checkRealism: rules.checkRealism,
         checkTimeline: rules.checkTimeline,
-        minConfidence: rules.minConfidence,
+        minConfidence,
         maxRiskLevel: rules.maxRiskLevel,
       });
 
@@ -471,10 +480,10 @@ async function runStage3(
       }
 
       // Check against min confidence threshold
-      if (confidence < rules.minConfidence) {
+      if (confidence < minConfidence) {
         passed = false;
         issues.push(
-          `Confidence ${Math.round(confidence * 100)}% below threshold ${Math.round(rules.minConfidence * 100)}%`
+          `Confidence ${Math.round(confidence * 100)}% below threshold ${Math.round(minConfidence * 100)}%`
         );
       }
 
@@ -790,7 +799,9 @@ export async function orchestrateTabTips(input: TabTipsInput): Promise<TabTipsOu
             stage2.primaryAnalysis?.recommendation || strategy.getFallbackMessage();
 
           const validationResult = await withTimeout(
-            runStage3(strategy, context, recommendationText, rootSpan),
+            runStage3(strategy, context, recommendationText, rootSpan, {
+              minConfidence: guardianMinConfidence,
+            }),
             Math.min(timeoutMs * 0.2, 1000),
             { passed: true, confidence: 0.5, issues: [], rulesApplied: [] }
           );
