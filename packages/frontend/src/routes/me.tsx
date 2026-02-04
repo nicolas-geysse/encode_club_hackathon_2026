@@ -226,12 +226,15 @@ export default function MePage() {
   );
 
   // Trigger warmup when tab changes - warm current tab + predicted next tabs
+  // IMPORTANT: Use untrack for isTabWarmedUp to prevent infinite loop
+  // (warmupStatus changes → effect re-runs → warmupTabs → warmupStatus changes → ...)
   createEffect(() => {
     const tab = activeTab() as TabType;
     const pid = profileIdAccessor();
     if (pid && tab) {
-      // Warm up current tab if not already done
-      if (!isTabWarmedUp(tab)) {
+      // Use untrack to read warmup status without creating dependency
+      const alreadyWarmed = untrack(() => isTabWarmedUp(tab));
+      if (!alreadyWarmed) {
         warmupTabs([tab]);
       }
       // Prefetch predicted tabs in background after a short delay
@@ -245,7 +248,13 @@ export default function MePage() {
       };
       const predictedTabs = predictions[tab] || [];
       if (predictedTabs.length > 0) {
-        setTimeout(() => warmupTabs(predictedTabs), 500);
+        setTimeout(() => {
+          // Also untrack for predicted tabs check
+          const tabsToWarmup = predictedTabs.filter((t) => !untrack(() => isTabWarmedUp(t)));
+          if (tabsToWarmup.length > 0) {
+            warmupTabs(tabsToWarmup);
+          }
+        }, 500);
       }
     }
   });
