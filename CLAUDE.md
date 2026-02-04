@@ -37,7 +37,7 @@ pnpm --filter @stride/mcp-server test   # Run vitest tests
 packages/
 ├── frontend/          # SolidStart (SSR meta-framework for SolidJS)
 │   └── src/
-│       ├── routes/    # Pages (index.tsx, plan.tsx, suivi.tsx)
+│       ├── routes/    # Pages (index.tsx, me.tsx, swipe.tsx, progress.tsx)
 │       │   └── api/   # Server functions (chat.ts, goals.ts, voice.ts)
 │       ├── components/
 │       └── lib/       # profileService, utilities
@@ -87,10 +87,11 @@ Frontend Components → Server Functions (routes/api/*.ts) → MCP Tools → Mas
 | **Swipe Preference Learning** | Updates weights (effort_sensitivity, hourly_rate_priority, time_flexibility) based on swipes |
 | **Energy Debt** | ≥3 consecutive weeks with energy <40% triggers target reduction + achievement |
 
-### 3 Screens Navigation
+### 4 Screens Navigation
 - **Screen 0** (`/`): Onboarding chat with Bruno avatar
-- **Screen 1** (`/plan`): 7 tabs (Profile, Goals, Skills, Budget, Trade, Swipe, Jobs/Prospection)
-- **Screen 2** (`/suivi`): Dashboard with timeline, energy history, missions
+- **Screen 1** (`/me`): 5 tabs (Profile, Goals, Budget, Trade, Jobs)
+- **Screen 2** (`/swipe`): Tinder-style strategy swiper (standalone page)
+- **Screen 3** (`/progress`): Dashboard with timeline, energy history, missions
 
 ## ESLint Rules
 
