@@ -72,7 +72,8 @@ export function LocationConsent(props: LocationConsentProps) {
 
         {/* Privacy note */}
         <p class="mb-8 text-sm text-muted-foreground/70">
-          Your precise location is never stored - only your city or a fuzzy area (~1km radius).
+          Your location is used to find jobs near you. We store a neighborhood-level precision for
+          commute calculations.
         </p>
 
         {/* Action buttons */}
