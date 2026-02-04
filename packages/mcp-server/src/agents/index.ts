@@ -100,6 +100,20 @@ export type {
 export { generateDailyBriefing } from './daily-briefing.js';
 export type { DailyBriefingInput, DailyBriefingOutput } from './daily-briefing.js';
 
+// Tab Agent Strategies
+export {
+  createTabStrategy,
+  getAvailableTabTypes,
+  isValidTabType,
+  getStrategyConfig,
+  type TabType,
+  type TabContext,
+  type TabAgentStrategy,
+  type TabTipsInput,
+  type TabTipsOutput,
+  type ValidationRules,
+} from './strategies/index.js';
+
 // Initialize all tools (must be called before creating agents)
 import './budget-coach.js';
 import './job-matcher.js';
