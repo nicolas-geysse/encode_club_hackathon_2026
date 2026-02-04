@@ -823,7 +823,7 @@ swipe   → [goals, jobs]
 | **C8: BrunoHintV2 Component** | ✅ Done | `12ba213` | `BrunoHintV2.tsx` with expandable agent details |
 | **C9: Warmup Hook** | ✅ Done | `12ba213` | `useTipsWarmup.ts` with tab prediction |
 | **C10: Migrate All Tabs** | ✅ Done | `12ba213` | All 7 tabs migrated to BrunoHintV2 |
-| **C11: Hook Integration** | ✅ Done | - | `useTipsWarmup` wired in `routes/me.tsx` |
+| **C11: Hook Integration** | ✅ Done | `8ce4f0a` | `useTipsWarmup` wired in `routes/me.tsx` |
 
 **Files Created (Phase C):**
 ```
