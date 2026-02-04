@@ -18,6 +18,7 @@ import { profileService, type FullProfile } from './profileService';
 import { skillService, type Skill } from './skillService';
 import { createLogger } from './logger';
 import { eventBus } from './eventBus';
+import type { Lead } from './prospectionTypes';
 
 const logger = createLogger('ProfileContext');
 
@@ -123,6 +124,8 @@ interface ProfileContextValue {
   income: () => IncomeItem[];
   /** Trade items for the active profile (reactive) */
   trades: () => TradeItem[];
+  /** Leads from prospection (for Swipe integration) */
+  leads: () => Lead[];
   /** Whether profile is loading */
   loading: () => boolean;
   /** Refresh profile from API - call after updates */
@@ -139,7 +142,15 @@ interface ProfileContextValue {
   refreshIncome: () => Promise<void>;
   /** Refresh trades from API - call after trade updates */
   refreshTrades: () => Promise<void>;
-  /** Refresh all data (profile, goals, skills, inventory, lifestyle, income, trades) */
+  /** Refresh leads from API - call after lead updates */
+  refreshLeads: () => Promise<void>;
+  /** Set leads directly (for ProspectionTab integration) */
+  setLeads: (leads: Lead[]) => void;
+  /** Add a single lead (avoids duplicates by place_id) */
+  addLead: (lead: Lead) => void;
+  /** Update lead status */
+  updateLeadStatus: (leadId: string, status: Lead['status']) => void;
+  /** Refresh all data (profile, goals, skills, inventory, lifestyle, income, trades, leads) */
   refreshAll: () => Promise<void>;
 }
 
@@ -153,6 +164,7 @@ export const ProfileProvider: ParentComponent = (props) => {
   const [lifestyle, setLifestyle] = createSignal<LifestyleItem[]>([]);
   const [income, setIncome] = createSignal<IncomeItem[]>([]);
   const [trades, setTrades] = createSignal<TradeItem[]>([]);
+  const [leads, setLeads] = createSignal<Lead[]>([]);
   const [loading, setLoading] = createSignal(true);
 
   // BUG L FIX: Track previous profile ID to detect profile switches
@@ -299,6 +311,41 @@ export const ProfileProvider: ParentComponent = (props) => {
     }
   };
 
+  // Phase 1: Leads management for Swipe integration
+  const refreshLeads = async () => {
+    const currentProfile = profile();
+    if (currentProfile?.id) {
+      try {
+        const response = await fetch(`/api/leads?profileId=${currentProfile.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setLeads(Array.isArray(data) ? data : []);
+        } else {
+          setLeads([]);
+        }
+      } catch (error) {
+        logger.error('Failed to load leads', { error });
+        setLeads([]);
+      }
+    } else {
+      setLeads([]);
+    }
+  };
+
+  const addLead = (lead: Lead) => {
+    setLeads((prev) => {
+      // Avoid duplicates by checking id or place_id
+      if (prev.some((l) => l.id === lead.id)) {
+        return prev;
+      }
+      return [...prev, lead];
+    });
+  };
+
+  const updateLeadStatus = (leadId: string, status: Lead['status']) => {
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, status } : l)));
+  };
+
   const refreshAll = async () => {
     // Silent refresh to avoid flickering
     await refreshProfile({ silent: true });
@@ -325,6 +372,7 @@ export const ProfileProvider: ParentComponent = (props) => {
       setLifestyle([]);
       setIncome([]);
       setTrades([]);
+      setLeads([]);
 
       previousProfileId = currentProfileId;
     }
@@ -338,6 +386,7 @@ export const ProfileProvider: ParentComponent = (props) => {
         refreshLifestyle(),
         refreshIncome(),
         refreshTrades(),
+        refreshLeads(),
       ]).catch((err) => {
         logger.error('Failed to refresh data', { error: err });
       });
@@ -389,6 +438,7 @@ export const ProfileProvider: ParentComponent = (props) => {
         lifestyle,
         income,
         trades,
+        leads,
         loading,
         refreshProfile,
         refreshGoals,
@@ -397,6 +447,10 @@ export const ProfileProvider: ParentComponent = (props) => {
         refreshLifestyle,
         refreshIncome,
         refreshTrades,
+        refreshLeads,
+        setLeads,
+        addLead,
+        updateLeadStatus,
         refreshAll,
       }}
     >
