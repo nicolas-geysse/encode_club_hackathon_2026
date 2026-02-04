@@ -96,8 +96,8 @@ export default function App() {
     clearAllNotifications();
   };
 
-  // Update progress based on profile changes (placeholder for future use)
-  const _handleProfileChange = () => {
+  // Update progress based on profile changes
+  const handleProfileChange = () => {
     // Progress will be updated when we have actual goal data
     // For now, base it on simulation offset
     const dayProgress = (simulationState().offsetDays / 56) * 100;
