@@ -80,6 +80,7 @@ export function GoalsTab(props: GoalsTabProps) {
 
   const contextIncome = () => context.income();
   const contextLifestyle = () => context.lifestyle();
+  const contextTrades = () => context.trades();
 
   const currency = () => props.currency || 'USD';
   const profileId = () => profile()?.id || null;
@@ -119,7 +120,8 @@ export function GoalsTab(props: GoalsTabProps) {
       simulatedDateAccessor,
     },
     contextIncome,
-    contextLifestyle
+    contextLifestyle,
+    contextTrades // Reactive trades accessor for same-day sync with Trade tab
   );
 
   // Force refetch on mount

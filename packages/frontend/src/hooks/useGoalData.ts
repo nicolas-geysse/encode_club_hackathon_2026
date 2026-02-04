@@ -218,6 +218,24 @@ function mapTradesToTradeData(trades: Trade[]): TradeData[] {
 }
 
 /**
+ * Convert TradeItem[] (from profile context) to TradeData[] for aggregator
+ * Similar to mapTradesToTradeData but with optional date fields
+ */
+function mapTradeItemsToTradeData(trades: TradeItem[]): TradeData[] {
+  const now = new Date().toISOString();
+  return trades.map((t) => ({
+    id: t.id,
+    type: t.type === 'trade' ? 'sell' : t.type, // Map 'trade' to 'sell' for compatibility
+    status: t.status,
+    itemName: t.name,
+    expectedPrice: t.type === 'sell' || t.type === 'trade' ? t.value : undefined,
+    retailPrice: t.type === 'borrow' ? t.value : undefined,
+    created_at: t.createdAt || now,
+    updated_at: t.updatedAt || now,
+  }));
+}
+
+/**
  * Extract MissionData[] from followupData
  */
 function extractMissions(followupData: Record<string, unknown> | undefined): MissionData[] {
@@ -279,13 +297,26 @@ function extractMissions(followupData: Record<string, unknown> | undefined): Mis
  * };
  * ```
  */
+// Trade item type from profile context (for reactive trades accessor)
+interface TradeItem {
+  id: string;
+  type: 'borrow' | 'lend' | 'trade' | 'sell';
+  name: string;
+  value: number;
+  status: 'pending' | 'active' | 'completed';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export function useGoalData(
   goal: Accessor<Goal | undefined>,
   profile: Accessor<FullProfile | undefined>,
   options: UseGoalDataOptions = {},
   // Optional accessors for reactive margin calculation (sync with Budget tab)
   incomeAccessor?: Accessor<IncomeItem[]>,
-  lifestyleAccessor?: Accessor<LifestyleItem[]>
+  lifestyleAccessor?: Accessor<LifestyleItem[]>,
+  // Optional accessor for reactive trades (sync with Trade tab)
+  tradesAccessor?: Accessor<TradeItem[]>
 ): UseGoalDataResult {
   // Error state for manual errors
   const [manualError, setManualError] = createSignal<Error | undefined>(undefined);
@@ -512,10 +543,17 @@ export function useGoalData(
     // Get income day (default to 15)
     const incomeDay = p.incomeDay || 15;
 
-    // Get trades from resource
-    // Use .latest to prevent earnings drop during refetch
-    const trades = tradesResource.latest ?? tradesResource() ?? [];
-    const tradeData = mapTradesToTradeData(trades);
+    // Get trades: prefer reactive accessor (syncs with Trade tab) over resource
+    // This ensures earnings update immediately when trades change in Trade tab
+    let tradeData: TradeData[];
+    if (tradesAccessor) {
+      tradeData = mapTradeItemsToTradeData(tradesAccessor());
+    } else {
+      // Fallback to resource (for backwards compatibility)
+      // Use .latest to prevent earnings drop during refetch
+      const trades = tradesResource.latest ?? tradesResource() ?? [];
+      tradeData = mapTradesToTradeData(trades);
+    }
 
     // Extract savings adjustments if present
     const savingsAdjustments = p.followupData?.savingsAdjustments as
@@ -551,8 +589,16 @@ export function useGoalData(
     // Use reactive computed margin (syncs with Budget tab)
     const monthlyMargin = computedMargin();
     const incomeDay = p.incomeDay || 15;
-    const trades = tradesResource.latest ?? tradesResource() ?? [];
-    const tradeData = mapTradesToTradeData(trades);
+
+    // Get trades: prefer reactive accessor (syncs with Trade tab) over resource
+    let tradeData: TradeData[];
+    if (tradesAccessor) {
+      tradeData = mapTradeItemsToTradeData(tradesAccessor());
+    } else {
+      const trades = tradesResource.latest ?? tradesResource() ?? [];
+      tradeData = mapTradesToTradeData(trades);
+    }
+
     const savingsAdjustments = p.followupData?.savingsAdjustments as
       | Record<number, { amount: number; note?: string; adjustedAt: string }>
       | undefined;
