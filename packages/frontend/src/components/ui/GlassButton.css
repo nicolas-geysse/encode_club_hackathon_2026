@@ -91,6 +91,14 @@
     width: 100%;
 }
 
+/* In w-full mode, make text span fill the button and center its content */
+.glass-button-wrap.w-full button.glass-button span.glass-text {
+    width: 100%;
+    justify-content: center;
+    padding-inline: 1em;
+    /* Reduce padding since we have full width */
+}
+
 
 /* Button Shadow Container */
 .glass-button-shadow {
