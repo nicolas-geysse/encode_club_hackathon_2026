@@ -11,11 +11,10 @@ import { Show, Suspense, lazy } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { useProfile } from '~/lib/profileContext';
 import { profileService } from '~/lib/profileService';
-import { Card, CardContent } from '~/components/ui/Card';
-import { Button } from '~/components/ui/Button';
+import { Card } from '~/components/ui/Card';
 import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { createLogger } from '~/lib/logger';
-import { Dices, ArrowRight } from 'lucide-solid';
+import { Dices } from 'lucide-solid';
 
 const logger = createLogger('SwipePage');
 
@@ -167,22 +166,21 @@ export default function SwipePage() {
     }
   };
 
-  // No profile view - prompt to complete onboarding
+  // No profile view - prompt to complete onboarding (consistent with me.tsx and progress.tsx)
   const NoProfileView = () => (
-    <div class="flex items-center justify-center min-h-[60vh]">
-      <Card class="p-8 text-center max-w-md">
-        <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Dices class="h-8 w-8 text-primary" />
-        </div>
-        <h2 class="text-xl font-bold text-foreground mb-2">Set up your profile first</h2>
+    <div class="h-[60vh] flex items-center justify-center">
+      <Card class="text-center py-12 px-8 max-w-md mx-auto">
+        <div class="text-4xl mb-4">👋</div>
+        <h2 class="text-xl font-bold text-foreground mb-2">No profile yet</h2>
         <p class="text-muted-foreground mb-6">
-          Complete your profile to unlock personalized swipe scenarios based on your skills and
-          situation.
+          Complete the onboarding first to create your profile
         </p>
-        <Button as="a" href="/me">
-          Go to Profile
-          <ArrowRight class="h-4 w-4 ml-2" />
-        </Button>
+        <a
+          href="/"
+          class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+        >
+          Start onboarding
+        </a>
       </Card>
     </div>
   );
@@ -198,28 +196,28 @@ export default function SwipePage() {
   );
 
   return (
-    <div class="flex flex-col h-full space-y-6">
-      {/* Page Header */}
-      <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-4 bg-background/80 backdrop-blur-xl border-b border-border/50 space-y-3">
-        <h1 class="text-xl font-bold text-foreground flex items-center gap-2">
-          <Dices class="h-6 w-6 text-primary" />
-          Swipe Scenarios
-        </h1>
-        <BrunoHintV2
-          tabType="swipe"
-          profileId={activeProfile()?.id}
-          contextData={{
-            preferences: activeProfile()?.swipePreferences,
-            scenariosCount: swipeProps()?.skills?.length || 0,
-          }}
-          fallbackMessage="Swipe right on strategies you like, left on those you don't. I'll learn your preferences!"
-          compact
-        />
-      </div>
+    <Show when={!isLoading()} fallback={<LoadingView />}>
+      <Show when={hasProfile()} fallback={<NoProfileView />}>
+        <div class="flex flex-col h-full space-y-6">
+          {/* Page Header */}
+          <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-4 bg-background/80 backdrop-blur-xl border-b border-border/50 space-y-3">
+            <h1 class="text-xl font-bold text-foreground flex items-center gap-2">
+              <Dices class="h-6 w-6 text-primary" />
+              Swipe Scenarios
+            </h1>
+            <BrunoHintV2
+              tabType="swipe"
+              profileId={activeProfile()?.id}
+              contextData={{
+                preferences: activeProfile()?.swipePreferences,
+                scenariosCount: swipeProps()?.skills?.length || 0,
+              }}
+              fallbackMessage="Swipe right on strategies you like, left on those you don't. I'll learn your preferences!"
+              compact
+            />
+          </div>
 
-      {/* Content */}
-      <Show when={!isLoading()} fallback={<LoadingView />}>
-        <Show when={hasProfile()} fallback={<NoProfileView />}>
+          {/* Content */}
           <Show when={swipeProps()}>
             {(props) => (
               <Suspense fallback={<SwipeSkeleton />}>
@@ -231,8 +229,8 @@ export default function SwipePage() {
               </Suspense>
             )}
           </Show>
-        </Show>
+        </div>
       </Show>
-    </div>
+    </Show>
   );
 }
