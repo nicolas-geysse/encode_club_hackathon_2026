@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from './logger';
+import { todayISO } from './dateUtils';
 
 const logger = createLogger('SimulationService');
 
@@ -116,7 +117,7 @@ export function formatSimulatedDate(
  * Get default simulation state (real time)
  */
 function getDefaultState(): SimulationState {
-  const now = new Date().toISOString().split('T')[0];
+  const now = todayISO();
   return {
     simulatedDate: now,
     realDate: now,

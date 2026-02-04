@@ -5,6 +5,8 @@
  * Used by WeeklyProgressCards to display savings badges on the appropriate weeks.
  */
 
+import { toISODate, todayISO } from './dateUtils';
+
 /**
  * Information about a month's savings being applied to a specific week
  */
@@ -80,7 +82,7 @@ export function calculateSavingsWeeks(
           amount: monthlyMargin,
           month: incomeDate.toLocaleString('en', { month: 'long' }),
           year: incomeDate.getFullYear(),
-          incomeDate: incomeDate.toISOString().split('T')[0],
+          incomeDate: toISODate(incomeDate),
           isAdjusted: false,
         });
       }
@@ -172,7 +174,7 @@ export function applySavingsAdjustments(
         amount: 0, // Base was 0
         month: 'Extra', // Label
         year: new Date().getFullYear(),
-        incomeDate: new Date().toISOString().split('T')[0],
+        incomeDate: todayISO(),
         isAdjusted: true,
         adjustedAmount: adjustment.amount,
       });

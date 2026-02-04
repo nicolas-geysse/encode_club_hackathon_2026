@@ -11,6 +11,7 @@
  */
 
 import { trace } from '../services/opik.js';
+import { toISODate } from '../utils/dateUtils.js';
 import type {
   AcademicEvent,
   Commitment,
@@ -701,7 +702,7 @@ export function generateCalendarView(retroplan: Retroplan): CalendarViewData[] {
 
     const weeks: CalendarWeek[] = milestones.map((m) => ({
       weekNumber: m.weekNumber,
-      startDate: m.weekStartDate.toISOString().split('T')[0],
+      startDate: toISODate(m.weekStartDate),
       days: generateWeekDays(m),
       summary: {
         targetAmount: m.adjustedTarget,
@@ -755,7 +756,7 @@ function generateWeekDays(milestone: DynamicMilestone): CalendarDay[] {
     }
 
     days.push({
-      date: date.toISOString().split('T')[0],
+      date: toISODate(date),
       dayOfWeek,
       dayNumber: date.getDate(),
       isWeekend,

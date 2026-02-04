@@ -11,6 +11,7 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { query } from './_db';
 import { createLogger } from '~/lib/logger';
+import { toISODate } from '~/lib/dateUtils';
 
 const logger = createLogger('Analytics');
 
@@ -394,7 +395,7 @@ export async function GET(event: APIEvent) {
         const daysToGoal = Math.ceil((goalAmount - currentAmount) / avgDailyEarnings);
         const projectedDate = new Date();
         projectedDate.setDate(projectedDate.getDate() + daysToGoal);
-        projectedCompletion = projectedDate.toISOString().split('T')[0];
+        projectedCompletion = toISODate(projectedDate);
       }
 
       goalMetrics = {

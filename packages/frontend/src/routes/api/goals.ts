@@ -22,6 +22,7 @@ import {
   uuidv4,
 } from './_crud-helpers';
 import { createLogger } from '../../lib/logger';
+import { toISODate } from '~/lib/dateUtils';
 
 const logger = createLogger('Goals');
 
@@ -192,7 +193,7 @@ function rowToGoal(row: GoalRow, components?: GoalComponent[]): Goal {
       // Handle various date formats from DuckDB
       const date = new Date(row.deadline);
       if (!isNaN(date.getTime())) {
-        formattedDeadline = date.toISOString().split('T')[0];
+        formattedDeadline = toISODate(date);
       } else {
         // If it's already in YYYY-MM-DD format, use as-is
         formattedDeadline = row.deadline;

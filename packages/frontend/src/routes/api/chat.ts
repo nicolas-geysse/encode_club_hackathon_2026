@@ -73,6 +73,7 @@ import {
   buildEnergyChart,
   type EnergyLogEntry,
 } from '../../lib/chatChartBuilder';
+import { toISODate } from '../../lib/dateUtils';
 
 const logger = createLogger('ChatAPI');
 
@@ -1486,7 +1487,7 @@ async function handleConversationMode(
               deadlineDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // Default 3 months
             }
 
-            const deadline = deadlineDate.toISOString().split('T')[0];
+            const deadline = toISODate(deadlineDate);
 
             // Store goal data in extractedData for the frontend to save
             extractedData.newGoal = {

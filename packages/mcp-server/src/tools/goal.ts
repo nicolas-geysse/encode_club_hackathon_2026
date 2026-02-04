@@ -9,6 +9,7 @@
 import { trace, getCurrentTraceId } from '../services/opik.js';
 import { query, execute, getSimulationState } from '../services/duckdb.js';
 import { randomUUID } from 'crypto';
+import { toISODate, todayISO } from '../utils/dateUtils.js';
 import type {
   AcademicEventType,
   EventPriority,
@@ -699,7 +700,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
       'profile.id': profileId || userId,
       'simulation.is_simulating': simState.isSimulating,
       'simulation.offset_days': simState.offsetDays,
-      'simulation.simulated_date': simState.simulatedDate.toISOString().split('T')[0],
+      'simulation.simulated_date': toISODate(simState.simulatedDate),
     });
 
     // Assess feasibility
@@ -717,7 +718,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
       INSERT INTO goals (id, user_id, goal_name, goal_amount, goal_deadline, minimum_budget,
                          feasibility_score, risk_level, weekly_target, status)
       VALUES ('${goalId}', '${userId}', '${goalName.replace(/'/g, "''")}', ${goalAmount},
-              '${goalDeadline.toISOString().split('T')[0]}', ${minimumBudget || 'NULL'},
+              '${toISODate(goalDeadline)}', ${minimumBudget || 'NULL'},
               ${feasibility.score}, '${feasibility.level}', ${weeklyTarget}, 'active')
     `);
 
@@ -1624,7 +1625,7 @@ export async function handleAddCommitment(args: Record<string, unknown>) {
 export async function handleLogEnergy(args: Record<string, unknown>) {
   return trace('tool_log_energy', async (span) => {
     const userId = (args.user_id as string) || 'default';
-    const date = (args.date as string) || new Date().toISOString().split('T')[0];
+    const date = (args.date as string) || todayISO();
     const energyLevel = args.energy_level as 1 | 2 | 3 | 4 | 5;
     const moodScore = args.mood_score as 1 | 2 | 3 | 4 | 5;
     const stressLevel = args.stress_level as 1 | 2 | 3 | 4 | 5;
@@ -1997,8 +1998,8 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
       capacity_impact: number;
     }>(`SELECT event_name, event_type, capacity_impact FROM academic_events
         WHERE user_id = '${userId}'
-        AND start_date <= '${weekEnd.toISOString().split('T')[0]}'
-        AND end_date >= '${weekStart.toISOString().split('T')[0]}'`);
+        AND start_date <= '${toISODate(weekEnd)}'
+        AND end_date >= '${toISODate(weekStart)}'`);
 
     // Get commitments
     const commitments = await query<{

@@ -8,6 +8,7 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { query, execute, executeSchema } from './_db';
 import { createLogger } from '~/lib/logger';
+import { toISODate, todayISO } from '~/lib/dateUtils';
 
 const logger = createLogger('Simulation');
 
@@ -66,7 +67,7 @@ export async function GET() {
     }>(`SELECT simulated_date, real_date, offset_days FROM simulation_state WHERE id = 'global'`);
 
     if (result.length === 0) {
-      const now = new Date().toISOString().split('T')[0];
+      const now = todayISO();
       return new Response(
         JSON.stringify({
           simulatedDate: now,
@@ -112,7 +113,7 @@ export async function GET() {
   } catch (error) {
     logger.error('GET error', { error });
     // Return a fallback state instead of crashing
-    const now = new Date().toISOString().split('T')[0];
+    const now = todayISO();
     return new Response(
       JSON.stringify({
         simulatedDate: now,
@@ -149,8 +150,8 @@ export async function POST(event: APIEvent) {
 
       await execute(`
         UPDATE simulation_state SET
-          simulated_date = '${simulatedDate.toISOString().split('T')[0]}',
-          real_date = '${realDate.toISOString().split('T')[0]}',
+          simulated_date = '${toISODate(simulatedDate)}',
+          real_date = '${toISODate(realDate)}',
           offset_days = ${newOffset},
           updated_at = CURRENT_TIMESTAMP
         WHERE id = 'global'
@@ -171,7 +172,7 @@ export async function POST(event: APIEvent) {
               energyHistory,
               currentAmount,
               goalAmount,
-              simulatedDate: simulatedDate.toISOString().split('T')[0],
+              simulatedDate: toISODate(simulatedDate),
             }),
           });
 
@@ -186,8 +187,8 @@ export async function POST(event: APIEvent) {
 
       return new Response(
         JSON.stringify({
-          simulatedDate: simulatedDate.toISOString().split('T')[0],
-          realDate: realDate.toISOString().split('T')[0],
+          simulatedDate: toISODate(simulatedDate),
+          realDate: toISODate(realDate),
           offsetDays: newOffset,
           isSimulating: true,
           insightsTriggered: !!insightsResult,
@@ -207,11 +208,12 @@ export async function POST(event: APIEvent) {
 
     if (action === 'reset') {
       const realDate = new Date();
+      const realDateStr = toISODate(realDate);
 
       await execute(`
         UPDATE simulation_state SET
-          simulated_date = '${realDate.toISOString().split('T')[0]}',
-          real_date = '${realDate.toISOString().split('T')[0]}',
+          simulated_date = '${realDateStr}',
+          real_date = '${realDateStr}',
           offset_days = 0,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = 'global'
@@ -219,8 +221,8 @@ export async function POST(event: APIEvent) {
 
       return new Response(
         JSON.stringify({
-          simulatedDate: realDate.toISOString().split('T')[0],
-          realDate: realDate.toISOString().split('T')[0],
+          simulatedDate: realDateStr,
+          realDate: realDateStr,
           offsetDays: 0,
           isSimulating: false,
         } as SimulationState),

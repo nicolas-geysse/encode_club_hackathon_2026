@@ -20,12 +20,13 @@ import {
 } from '~/lib/notificationStore';
 import { eventBus } from '~/lib/eventBus';
 import { initOnboardingState } from '~/lib/onboardingStateStore';
+import { todayISO } from '~/lib/dateUtils';
 
 export default function App() {
   // Simulation state (managed by SimulationControls, shared with app)
   const [simulationState, setSimulationState] = createSignal<SimulationState>({
-    simulatedDate: new Date().toISOString().split('T')[0],
-    realDate: new Date().toISOString().split('T')[0],
+    simulatedDate: todayISO(),
+    realDate: todayISO(),
     offsetDays: 0,
     isSimulating: false,
   });

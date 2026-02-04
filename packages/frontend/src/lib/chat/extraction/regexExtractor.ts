@@ -24,6 +24,7 @@ import {
 } from './patterns';
 import type { ProfileData, OnboardingStep } from '../types';
 import { getReferenceDate, type TimeContext } from '../../timeAwareDate';
+import { toISODate } from '../../dateUtils';
 
 /**
  * Extract profile data from message using regex patterns
@@ -367,7 +368,7 @@ function extractGoal(
     if (targetDate < refDate) {
       targetDate.setFullYear(targetDate.getFullYear() + 1);
     }
-    extracted.goalDeadline = targetDate.toISOString().split('T')[0];
+    extracted.goalDeadline = toISODate(targetDate);
   }
 
   // Relative deadline
@@ -387,7 +388,7 @@ function extractGoal(
       targetDate.setFullYear(targetDate.getFullYear() + amount);
     }
 
-    extracted.goalDeadline = targetDate.toISOString().split('T')[0];
+    extracted.goalDeadline = toISODate(targetDate);
   }
 
   // If only amount, add missing info

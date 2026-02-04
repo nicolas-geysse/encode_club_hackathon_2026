@@ -17,6 +17,7 @@ import type { APIEvent } from '@solidjs/start/server';
 import { query, execute, escapeSQL } from './_db';
 import { ensureSchema, SCHEMAS } from '../../lib/api/schemaManager';
 import { createLogger } from '~/lib/logger';
+import { toISODate, todayISO } from '~/lib/dateUtils';
 
 const logger = createLogger('Retroplan');
 
@@ -152,8 +153,8 @@ function normalizeDate(d: unknown): string {
     return '';
   }
   if (d instanceof Date) {
-    // Date object - convert to YYYY-MM-DD in UTC (DuckDB stores dates as UTC)
-    return d.toISOString().split('T')[0];
+    // Date object - convert to YYYY-MM-DD in local timezone
+    return toISODate(d);
   }
   if (typeof d === 'string') {
     // Already a string - extract date part (handles "2025-02-15" and "2025-02-15T00:00:00Z")
@@ -164,7 +165,7 @@ function normalizeDate(d: unknown): string {
     const ms = typeof d === 'bigint' ? Number(d) : d;
     // If value is small, it's likely seconds not milliseconds
     const date = new Date(ms < 1e12 ? ms * 1000 : ms);
-    return date.toISOString().split('T')[0];
+    return toISODate(date);
   }
   // Fallback: convert to string
   logger.warn('Unexpected date type', { type: typeof d, value: d });
@@ -404,7 +405,7 @@ async function calculateWeekCapacity(
 
   return {
     weekNumber: 0, // Will be set by caller
-    weekStartDate: weekStart.toISOString().split('T')[0],
+    weekStartDate: toISODate(weekStart),
     capacityScore,
     capacityCategory,
     effectiveHours,
@@ -983,7 +984,7 @@ export async function POST(event: APIEvent) {
       // Energy Logs - Sprint 13.7: Now persisted in DuckDB
       case 'log_energy': {
         const { date, energyLevel, moodScore, stressLevel, hoursSlept, notes } = body;
-        const logDate = date || new Date().toISOString().split('T')[0];
+        const logDate = date || todayISO();
         await ensureRetroplanSchemas();
 
         // Check for existing log on this date

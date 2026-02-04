@@ -15,6 +15,7 @@ import { trace, getCurrentTraceId } from '../services/opik.js';
 import { query, execute } from '../services/duckdb.js';
 import { chat } from '../services/groq.js';
 import { randomUUID } from 'crypto';
+import { toISODate } from '../utils/dateUtils.js';
 import type {
   Retroplan,
   RetroplanInput,
@@ -830,7 +831,7 @@ export async function runGoalPlanningWorkflow(input: GoalPlanningInput): Promise
         INSERT INTO goals (id, user_id, goal_name, goal_amount, goal_deadline,
                            feasibility_score, risk_level, weekly_target, status)
         VALUES ('${goalId}', '${input.userId || 'default'}', '${input.goalName.replace(/'/g, "''")}',
-                ${input.goalAmount}, '${input.goalDeadline.toISOString().split('T')[0]}',
+                ${input.goalAmount}, '${toISODate(input.goalDeadline)}',
                 ${analysis.feasibilityScore}, '${analysis.riskLevel}', ${analysis.weeklyTarget}, 'active')
       `);
     } catch (error) {

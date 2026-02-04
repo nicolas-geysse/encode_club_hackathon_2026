@@ -8,7 +8,7 @@ import { DatePicker } from '~/components/ui/DatePicker';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { createDirtyState } from '~/hooks/createDirtyState';
-import { formatCurrency } from '~/lib/dateUtils';
+import { formatCurrency, toISODate, todayISO } from '~/lib/dateUtils';
 import type { Goal } from '~/lib/profileContext';
 import type { Currency } from '~/lib/dateUtils';
 import {
@@ -140,7 +140,7 @@ export function GoalForm(props: GoalFormProps) {
       // Default deadline for new goals (8 weeks)
       const defaultDeadline = new Date();
       defaultDeadline.setDate(defaultDeadline.getDate() + 56);
-      setGoalDeadline(defaultDeadline.toISOString().split('T')[0]);
+      setGoalDeadline(toISODate(defaultDeadline));
     }
 
     // Set original state for dirty tracking after initialization
@@ -272,7 +272,7 @@ export function GoalForm(props: GoalFormProps) {
                   label="Deadline"
                   value={goalDeadline() || ''}
                   onChange={(date) => setGoalDeadline(date)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={todayISO()}
                   fullWidth={false}
                 />
               </div>

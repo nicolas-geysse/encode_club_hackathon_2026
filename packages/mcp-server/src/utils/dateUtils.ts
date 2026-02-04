@@ -228,6 +228,30 @@ export function isValidDeadline(deadline: string | Date | Dayjs): boolean {
   return dayjs(deadline).isAfter(dayjs());
 }
 
+/**
+ * Normalize database date values to YYYY-MM-DD string
+ *
+ * DuckDB can return dates in various formats:
+ * - Date objects
+ * - ISO strings with time (YYYY-MM-DDTHH:mm:ss.sssZ)
+ * - YYYY-MM-DD strings
+ * - BigInt timestamps (microseconds since epoch)
+ * - Number timestamps (milliseconds or seconds)
+ *
+ * This function normalizes all these to YYYY-MM-DD local date strings.
+ */
+export function normalizeDbDate(d: unknown): string {
+  if (d === null || d === undefined) return '';
+  if (d instanceof Date) return toISODate(d);
+  if (typeof d === 'string') return d.split('T')[0];
+  if (typeof d === 'bigint' || typeof d === 'number') {
+    const ms = typeof d === 'bigint' ? Number(d) : d;
+    // Detect if timestamp is in seconds (< 1e12) or milliseconds
+    return toISODate(new Date(ms < 1e12 ? ms * 1000 : ms));
+  }
+  return String(d);
+}
+
 export default {
   dayjs,
   now,
@@ -252,4 +276,5 @@ export default {
   parseDeadline,
   msUntilDeadline,
   isValidDeadline,
+  normalizeDbDate,
 };

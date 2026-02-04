@@ -15,6 +15,7 @@ import {
   type TimeContext,
 } from '../../timeAwareDate';
 import { createLogger } from '../../logger';
+import { toISODate } from '../../dateUtils';
 
 const logger = createLogger('GroqExtractor');
 
@@ -163,7 +164,7 @@ export function normalizeGoalDeadline(
     if (targetDate < refDate) {
       targetDate.setFullYear(targetDate.getFullYear() + 1);
     }
-    return targetDate.toISOString().split('T')[0];
+    return toISODate(targetDate);
   }
 
   // Try French month names
@@ -186,14 +187,14 @@ export function normalizeGoalDeadline(
       if (targetDate < refDate) {
         targetDate.setFullYear(targetDate.getFullYear() + 1);
       }
-      return targetDate.toISOString().split('T')[0];
+      return toISODate(targetDate);
     }
   }
 
   // Try to parse as date directly
   const parsed = new Date(deadline);
   if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().split('T')[0];
+    return toISODate(parsed);
   }
 
   // Couldn't parse, return undefined to avoid DB errors
@@ -223,7 +224,7 @@ function calculateRelativeDateInternal(
   }
 
   const targetDate = calculateRelativeDateFromReference(amount, normalizedUnit, timeContext);
-  return targetDate.toISOString().split('T')[0];
+  return toISODate(targetDate);
 }
 
 // =============================================================================

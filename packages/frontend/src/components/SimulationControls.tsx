@@ -31,6 +31,7 @@ import {
 } from 'lucide-solid';
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { createLogger } from '~/lib/logger';
+import { todayISO } from '~/lib/dateUtils';
 
 const logger = createLogger('SimulationControls');
 
@@ -71,8 +72,8 @@ interface DailyTip {
 
 export function SimulationControls(props: Props) {
   const [state, setState] = createSignal<SimulationState>({
-    simulatedDate: new Date().toISOString().split('T')[0],
-    realDate: new Date().toISOString().split('T')[0],
+    simulatedDate: todayISO(),
+    realDate: todayISO(),
     offsetDays: 0,
     isSimulating: false,
   });
@@ -169,7 +170,7 @@ export function SimulationControls(props: Props) {
   // Check if we need to show daily check-in
   // Only shows once per REAL day, not simulated day
   const checkDailyCheckin = () => {
-    const today = new Date().toISOString().split('T')[0]; // Real date
+    const today = todayISO(); // Real date
     const lastCheckin = localStorage.getItem(LAST_CHECKIN_KEY);
 
     if (lastCheckin !== today) {
@@ -315,7 +316,7 @@ export function SimulationControls(props: Props) {
   };
 
   const completeDailyCheckin = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayISO();
     localStorage.setItem(LAST_CHECKIN_KEY, today);
     setShowDailyCheckin(false);
   };

@@ -10,6 +10,7 @@
 
 import { query, execute, getSimulationState } from '../services/duckdb.js';
 import { trace, getCurrentTraceId } from '../services/opik.js';
+import { toISODate, todayISO } from '../utils/dateUtils.js';
 
 // Tool definitions
 export const SIMULATION_TOOLS = {
@@ -107,8 +108,8 @@ async function handleAdvanceDay(args: Record<string, unknown>) {
     // Update simulation state
     await execute(`
       UPDATE simulation_state SET
-        simulated_date = '${newSimulatedDate.toISOString().split('T')[0]}',
-        real_date = '${realDate.toISOString().split('T')[0]}',
+        simulated_date = '${toISODate(newSimulatedDate)}',
+        real_date = '${toISODate(realDate)}',
         offset_days = ${newOffsetDays},
         updated_at = CURRENT_TIMESTAMP
       WHERE id = 'global'
@@ -116,7 +117,7 @@ async function handleAdvanceDay(args: Record<string, unknown>) {
 
     span.setAttributes({
       'simulation.new_offset_days': newOffsetDays,
-      'simulation.simulated_date': newSimulatedDate.toISOString().split('T')[0],
+      'simulation.simulated_date': toISODate(newSimulatedDate),
       'simulation.is_simulating': newOffsetDays > 0,
     });
 
@@ -149,8 +150,8 @@ async function handleAdvanceDay(args: Record<string, unknown>) {
         },
       ],
       data: {
-        simulatedDate: newSimulatedDate.toISOString().split('T')[0],
-        realDate: realDate.toISOString().split('T')[0],
+        simulatedDate: toISODate(newSimulatedDate),
+        realDate: toISODate(realDate),
         offsetDays: newOffsetDays,
         isSimulating: true,
       },
@@ -197,8 +198,8 @@ async function handleGetSimulationDate() {
         },
       ],
       data: {
-        simulatedDate: state.simulatedDate.toISOString().split('T')[0],
-        realDate: state.realDate.toISOString().split('T')[0],
+        simulatedDate: toISODate(state.simulatedDate),
+        realDate: toISODate(state.realDate),
         offsetDays: state.offsetDays,
         isSimulating: state.isSimulating,
       },
@@ -213,8 +214,8 @@ async function handleResetSimulation() {
 
     await execute(`
       UPDATE simulation_state SET
-        simulated_date = '${realDate.toISOString().split('T')[0]}',
-        real_date = '${realDate.toISOString().split('T')[0]}',
+        simulated_date = '${toISODate(realDate)}',
+        real_date = '${toISODate(realDate)}',
         offset_days = 0,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = 'global'
@@ -232,8 +233,8 @@ async function handleResetSimulation() {
         markdown: true,
       },
       data: {
-        simulatedDate: realDate.toISOString().split('T')[0],
-        realDate: realDate.toISOString().split('T')[0],
+        simulatedDate: toISODate(realDate),
+        realDate: toISODate(realDate),
         offsetDays: 0,
         isSimulating: false,
       },
@@ -360,7 +361,7 @@ async function handleSimulateWeekProgress(args: Record<string, unknown>) {
 
     await execute(`
       UPDATE simulation_state SET
-        simulated_date = '${newSimulatedDate.toISOString().split('T')[0]}',
+        simulated_date = '${toISODate(newSimulatedDate)}',
         offset_days = ${newOffsetDays},
         updated_at = CURRENT_TIMESTAMP
       WHERE id = 'global'
@@ -427,7 +428,7 @@ async function handleSimulateWeekProgress(args: Record<string, unknown>) {
         goalAmount: goal.goal_amount,
         progressPercent: Math.round((totalEarned / goal.goal_amount) * 100),
         weekResults,
-        simulatedDate: newSimulatedDate.toISOString().split('T')[0],
+        simulatedDate: toISODate(newSimulatedDate),
         offsetDays: newOffsetDays,
       },
       metadata: { traceId: getCurrentTraceId() },

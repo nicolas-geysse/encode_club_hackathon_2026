@@ -40,6 +40,7 @@ import { hasStepForm } from '~/lib/chat/stepForms';
 import { useSimulation } from '~/lib/simulationContext';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
 import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardingStateStore';
+import { toISODate, addDays, now } from '~/lib/dateUtils';
 
 // Message type imported from ~/types/chat
 
@@ -2196,9 +2197,7 @@ export function OnboardingChat() {
           setup: {
             goalName: finalProfile.goalName || 'Savings Goal',
             goalAmount: finalProfile.goalAmount || 1000,
-            goalDeadline:
-              finalProfile.goalDeadline ||
-              new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            goalDeadline: finalProfile.goalDeadline || addDays(now(), 180).format('YYYY-MM-DD'),
             academicEvents: finalProfile.academicEvents || [],
             commitments: [],
           },
