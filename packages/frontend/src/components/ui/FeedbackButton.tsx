@@ -8,6 +8,9 @@
 import { createSignal, Show } from 'solid-js';
 import { ThumbsUp, ThumbsDown } from 'lucide-solid';
 import { cn } from '~/lib/cn';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('FeedbackButton');
 
 export type FeedbackValue = 'up' | 'down' | null;
 
@@ -65,7 +68,7 @@ export function FeedbackButton(props: FeedbackButtonProps) {
           }),
         });
       } catch (err) {
-        console.error('[FeedbackButton] Failed to submit:', err);
+        logger.error('Failed to submit feedback', { error: err });
       } finally {
         setIsSubmitting(false);
       }

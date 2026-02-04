@@ -9,6 +9,9 @@ import { onMount, onCleanup, Show, createMemo, createEffect, on } from 'solid-js
 import type { Goal } from '~/lib/goalService';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
 import { GOAL_STATUS_THRESHOLDS } from '~/lib/goalStatus';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('EarningsChart');
 
 // Chart.js imports
 import {
@@ -371,7 +374,7 @@ export function EarningsChart(props: EarningsChartProps) {
         options,
       });
     } catch (err) {
-      console.warn('Chart creation failed, retrying...', err);
+      logger.warn('Chart creation failed, retrying...', { error: err });
       // If creation fails, force cleanup and retry once
       destroyExistingChart();
       try {

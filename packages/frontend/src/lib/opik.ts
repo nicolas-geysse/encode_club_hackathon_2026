@@ -18,6 +18,10 @@
  * - Spans must end() before parent trace ends
  */
 
+import { createLogger } from './logger';
+
+const logger = createLogger('Opik');
+
 // Configuration - env vars read lazily to avoid race conditions with .env loading
 // in server-side frameworks (Vinxi/SolidStart)
 // Functions below read process.env directly at runtime
@@ -114,13 +118,13 @@ async function getOpikClient() {
   if (!cfg.enabled) {
     // Only log once to avoid spamming
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[Opik] Tracing disabled by ENABLE_OPIK=false');
+      logger.warn('Tracing disabled by ENABLE_OPIK=false');
     }
     return null;
   }
 
   if (!cfg.apiKey) {
-    console.error('[Opik] OPIK_API_KEY not set, tracing disabled');
+    logger.error('OPIK_API_KEY not set, tracing disabled');
     return null;
   }
 
@@ -151,12 +155,10 @@ async function getOpikClient() {
         authorization: cfg.apiKey, // Workaround SDK bug - pass API key directly
       },
     });
-    console.error(
-      `[Opik] Initialized - project: ${cfg.project}, workspace: ${cfg.workspace || 'default'}`
-    );
+    logger.info('Initialized', { project: cfg.project, workspace: cfg.workspace || 'default' });
     return opikClient;
   } catch (error) {
-    console.error('[Opik] Failed to initialize:', error);
+    logger.error('Failed to initialize', { error });
     return null;
   }
 }
@@ -221,7 +223,7 @@ export async function trace<T>(
   const createMockContext = (): TraceContext => ({
     setAttributes: (attrs) => Object.assign(collectedAttrs, attrs),
     addEvent: (eventName, attrs) => {
-      console.error(`[Trace:${name}] Event: ${eventName}`, attrs ? JSON.stringify(attrs) : '');
+      logger.debug(`Trace:${name} Event: ${eventName}`, attrs ? { attrs } : {});
     },
     setOutput: (output) => {
       outputData = output;
@@ -234,7 +236,7 @@ export async function trace<T>(
     },
     end: () => {
       const duration = Date.now() - startTime.getTime();
-      console.error(`[Trace:${name}] Duration: ${duration}ms`);
+      logger.debug(`Trace:${name} completed`, { duration });
     },
     createChildSpan: async <S>(spanName: string, spanFn: (span: Span) => Promise<S>) => {
       const mockSpan: Span = {
@@ -365,7 +367,7 @@ export async function trace<T>(
 
     // Flush - await to ensure data is sent
     if (flushFn) {
-      await flushFn().catch((err) => console.error('[Opik] Flush error:', err));
+      await flushFn().catch((err) => logger.error('Flush error', { error: err }));
     }
 
     return result;
@@ -439,7 +441,7 @@ async function createSpanInternal<T>(
         costData = cost;
       },
       end: () => {
-        console.error(`[Span:${name}] Duration: ${Date.now() - startTime.getTime()}ms`);
+        logger.debug(`Span:${name} completed`, { duration: Date.now() - startTime.getTime() });
       },
     };
     return fn(mockSpan);
@@ -622,7 +624,7 @@ export async function logFeedbackScores(
 ): Promise<boolean> {
   const id = traceId || currentTraceId;
   if (!id) {
-    console.error('[Opik] No trace ID available for feedback scores');
+    logger.error('No trace ID available for feedback scores');
     return false;
   }
 
@@ -630,7 +632,7 @@ export async function logFeedbackScores(
   const cfg = getOpikConfig();
 
   if (!cfg.apiKey) {
-    console.error('[Opik] OPIK_API_KEY not set, cannot log feedback scores');
+    logger.error('OPIK_API_KEY not set, cannot log feedback scores');
     return false;
   }
 
@@ -662,20 +664,24 @@ export async function logFeedbackScores(
       if (!response.ok) {
         allSucceeded = false;
         const errorText = await response.text();
-        console.error(
-          `[Opik] Failed to log feedback score "${score.name}": ${response.status} - ${errorText}`
-        );
+        logger.error(`Failed to log feedback score "${score.name}"`, {
+          status: response.status,
+          error: errorText,
+        });
       } else {
         successCount++;
       }
     }
 
-    console.error(
-      `[Opik] Logged ${successCount}/${scores.length} feedback scores to trace ${id}${allSucceeded ? '' : ' (some failed)'}`
-    );
+    logger.info('Logged feedback scores', {
+      successCount,
+      totalCount: scores.length,
+      traceId: id,
+      allSucceeded,
+    });
     return allSucceeded;
   } catch (error) {
-    console.error('[Opik] Error logging feedback scores:', error);
+    logger.error('Error logging feedback scores', { error });
     return false;
   }
 }
@@ -883,7 +889,7 @@ export function getPromptMetadata(agentId: string): PromptMetadata | undefined {
 export function setPromptAttributes(ctx: Span | TraceContext, agentId: string): void {
   const meta = getPromptMetadata(agentId);
   if (!meta) {
-    console.warn(`[Opik] No prompt metadata registered for agent '${agentId}'`);
+    logger.warn('No prompt metadata registered for agent', { agentId });
     return;
   }
   ctx.setAttributes({

@@ -10,6 +10,9 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { query } from './_db';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('Analytics');
 
 // Types
 interface ProfileRow {
@@ -490,7 +493,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Analytics] GET error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,

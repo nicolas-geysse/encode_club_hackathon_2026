@@ -13,6 +13,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { trace, getTraceUrl, type TraceOptions } from '~/lib/opik';
 import { getCachedJobs, setCachedJobs } from './_job-cache';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('JobListings');
 
 // =============================================================================
 // Types
@@ -121,7 +124,7 @@ async function fetchRemotiveJobs(
     });
 
     if (!response.ok) {
-      console.error(`[JobListings] Remotive API error: ${response.status}`);
+      logger.error(`Remotive API error: ${response.status}`);
       return [];
     }
 
@@ -146,7 +149,7 @@ async function fetchRemotiveJobs(
       source: 'remotive' as const,
     }));
   } catch (error) {
-    console.error('[JobListings] Remotive fetch error:', error);
+    logger.error('Remotive fetch error', { error });
     return [];
   }
 }
@@ -167,7 +170,7 @@ async function fetchArbeitnowJobs(search?: string, page = 1): Promise<RealJobLis
     });
 
     if (!response.ok) {
-      console.error(`[JobListings] Arbeitnow API error: ${response.status}`);
+      logger.error(`Arbeitnow API error: ${response.status}`);
       return [];
     }
 
@@ -201,7 +204,7 @@ async function fetchArbeitnowJobs(search?: string, page = 1): Promise<RealJobLis
       source: 'arbeitnow' as const,
     }));
   } catch (error) {
-    console.error('[JobListings] Arbeitnow fetch error:', error);
+    logger.error('Arbeitnow fetch error', { error });
     return [];
   }
 }
@@ -342,7 +345,7 @@ export async function GET(event: APIEvent) {
   if (!skipCache && !search) {
     const cached = await getCachedJobs('job_listings', category || 'all');
     if (cached) {
-      console.log(`[JobListings] Cache hit for ${category || 'all'}, ${cached.resultCount} jobs`);
+      logger.info(`Cache hit for ${category || 'all'}`, { resultCount: cached.resultCount });
       return new Response(
         JSON.stringify({
           jobs: cached.jobs,
@@ -473,7 +476,7 @@ export async function POST(event: APIEvent) {
 
     return GET(mockEvent as APIEvent);
   } catch (error) {
-    console.error('[JobListings] POST error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,

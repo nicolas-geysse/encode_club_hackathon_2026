@@ -8,6 +8,9 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { query, escapeSQL } from './_db';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('EnergyLogs');
 
 interface EnergyLog {
   id: string;
@@ -59,7 +62,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[EnergyLogs] Query failed:', error);
+    logger.error('Query failed', { error });
     return new Response(JSON.stringify({ error: 'Failed to fetch energy logs', logs: [] }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

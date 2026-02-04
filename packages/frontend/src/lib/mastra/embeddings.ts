@@ -3,6 +3,10 @@
  * Generates vector embeddings for text using available providers.
  */
 
+import { createLogger } from '../logger';
+
+const logger = createLogger('Embedding');
+
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11435';
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || 'm2v-bge-m3-1024d'; // TurboV2 Primary Model
 const IS_TEST_MODE = process.env.NODE_ENV === 'test' || process.env.VITE_TEST_MODE === 'true';
@@ -49,10 +53,10 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
     // 2. Fallback: Mock/Deterministic (for dev without GPU/API)
     // In production, this should throw or use a real API like OpenAI
-    console.warn('[Embedding] Using mock embedding (Ollama unreachable)');
+    logger.warn('Using mock embedding (Ollama unreachable)');
     return getMockEmbedding(text, 1024); // Default to 1024 for compatibility
   } catch (error) {
-    console.error('[Embedding] Generation failed:', error);
+    logger.error('Generation failed', { error });
     return [];
   }
 }

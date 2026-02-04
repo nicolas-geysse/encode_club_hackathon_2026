@@ -10,6 +10,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { initDatabase, execute, query, escapeSQL, executeSchema } from './_db';
 import { trace, logFeedbackScores, getTraceUrl, type TraceOptions } from '../../lib/opik';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('SuggestionFeedback');
 
 // Track if table is created
 let tableCreated = false;
@@ -134,7 +137,7 @@ export async function POST(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[SuggestionFeedback] POST error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -189,7 +192,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[SuggestionFeedback] GET error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,

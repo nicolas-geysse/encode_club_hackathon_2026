@@ -7,6 +7,9 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { initDatabase, execute, query, escapeSQL, escapeJSON } from './_db';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('ChatHistory');
 
 // Initialize chat_messages table
 async function initChatTable() {
@@ -106,7 +109,7 @@ export async function GET({ request }: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Failed to get chat history:', error);
+    logger.error('Failed to get chat history', { error });
     return new Response(JSON.stringify({ error: 'Failed to get chat history' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -156,7 +159,7 @@ export async function POST({ request }: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Failed to save chat message:', error);
+    logger.error('Failed to save chat message', { error });
     return new Response(JSON.stringify({ error: 'Failed to save chat message' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -196,7 +199,7 @@ export async function DELETE({ request }: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Failed to delete chat history:', error);
+    logger.error('Failed to delete chat history', { error });
     return new Response(JSON.stringify({ error: 'Failed to delete chat history' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

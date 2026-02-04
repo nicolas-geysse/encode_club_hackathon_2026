@@ -6,6 +6,9 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('Voice');
 
 // Environment-based API URL for MCP server (if we add HTTP support later)
 // For now, we'll make direct calls to Groq API from here
@@ -40,7 +43,7 @@ export async function POST(event: APIEvent) {
 
     const apiKey = getGroqApiKey();
     if (!apiKey) {
-      console.error('[Voice API] GROQ_API_KEY not found in process.env');
+      logger.error('GROQ_API_KEY not found in process.env');
       return new Response(JSON.stringify({ error: true, message: 'GROQ_API_KEY not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
@@ -73,7 +76,7 @@ export async function POST(event: APIEvent) {
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text();
-      console.error('Groq API error:', errorText);
+      logger.error('Groq API error', { status: groqResponse.status, error: errorText });
       return new Response(
         JSON.stringify({ error: true, message: `Groq API error: ${groqResponse.status}` }),
         {
@@ -97,7 +100,7 @@ export async function POST(event: APIEvent) {
       }
     );
   } catch (error) {
-    console.error('Voice API error:', error);
+    logger.error('Error', { error });
     return new Response(
       JSON.stringify({
         error: true,

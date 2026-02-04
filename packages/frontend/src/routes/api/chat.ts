@@ -266,11 +266,11 @@ async function ensureOpikSetup(): Promise<void> {
       const projectName = process.env.OPIK_PROJECT || 'stride';
       await initializeStrideOpikSetup(projectName);
       opikInitialized = true;
-      console.error('[Chat] Opik evaluators auto-initialized for project:', projectName);
+      logger.info('Opik evaluators auto-initialized', { projectName });
     }
   } catch (error) {
     // Non-fatal: evaluators are optional enhancement
-    console.error('[Chat] Opik setup skipped (non-fatal):', error);
+    logger.info('Opik setup skipped (non-fatal)', { error });
     opikInitialized = true; // Mark as done to avoid retrying every request
   }
 }
@@ -464,7 +464,7 @@ export async function POST(event: APIEvent) {
       try {
         currentWorkingMemory = await WorkingMemory.get(profileId);
       } catch (e) {
-        console.error('Failed to load working memory:', e);
+        logger.error('Failed to load working memory', { error: e });
       }
     }
 
@@ -628,10 +628,12 @@ export async function POST(event: APIEvent) {
         ) {
           WorkingMemory.update(profileId, workingMemoryUpdates as string[])
             .then(() => {
-              console.error(`[WorkingMemory] Updated for ${profileId}:`, workingMemoryUpdates);
+              logger.debug(`WorkingMemory updated for ${profileId}`, {
+                updates: workingMemoryUpdates,
+              });
             })
             .catch((err) => {
-              console.error('[WorkingMemory] Failed to save updates:', err);
+              logger.error('WorkingMemory failed to save updates', { error: err });
             });
         }
 
@@ -654,13 +656,13 @@ export async function POST(event: APIEvent) {
           uiResource,
         };
 
-        console.error(`[Chat] Response source: ${groqResult.source}`);
+        logger.debug(`Response source: ${groqResult.source}`);
         return new Response(JSON.stringify(result), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       } catch (groqError) {
-        console.error('[Chat] Groq extractor failed, falling back to legacy:', groqError);
+        logger.error('Groq extractor failed, falling back to legacy', { error: groqError });
         // Fall through to legacy Groq approach
       }
     }
@@ -669,7 +671,7 @@ export async function POST(event: APIEvent) {
     const client = getGroqClient();
     if (!client) {
       // Fallback: return simple response without LLM
-      console.error('[Chat] Response from fallback (no LLM)');
+      logger.debug('Response from fallback (no LLM)');
       const fallbackResult = getFallbackResponse(message, step, context);
       const fallbackUiResource = generateUIResourceForResponse(
         fallbackResult.extractedData,
@@ -784,13 +786,13 @@ export async function POST(event: APIEvent) {
       traceOptions // Use full trace options with threadId
     );
 
-    console.error('[Chat] Response from Groq (legacy path)');
+    logger.debug('Response from Groq (legacy path)');
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Chat API error:', error);
+    logger.error('Chat API error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -863,7 +865,10 @@ async function extractDataFromMessage(
           });
           return merged;
         } catch (parseError) {
-          console.error('JSON parse error:', parseError, 'Content:', content);
+          logger.error('JSON parse error', {
+            error: parseError,
+            content: content?.substring(0, 200),
+          });
         }
       }
 
@@ -874,7 +879,7 @@ async function extractDataFromMessage(
       });
       return regexData;
     } catch (error) {
-      console.error('Extraction error:', error);
+      logger.error('Extraction error', { error });
       span.setAttributes({
         'extraction.fields_found': Object.keys(regexData).length,
         'extraction.method': 'regex_fallback',
@@ -934,7 +939,7 @@ async function generateStepResponse(
 
       return response;
     } catch (error) {
-      console.error('Response generation error:', error);
+      logger.error('Response generation error', { error });
       span.setAttributes({ 'generation.method': 'fallback' });
       return getFallbackStepResponse(step, context);
     }
@@ -1201,7 +1206,7 @@ async function handleConversationMode(
             };
           }
         } catch (err) {
-          console.error('[ActionDispatcher] Error:', err);
+          logger.error('ActionDispatcher error', { error: err });
         }
       }
       // -----------------------------------------------------------------------
@@ -2227,9 +2232,7 @@ Keep responses concise (2-3 sentences). Suggest going to "Me" for detailed infor
                       total_tokens: completion.usage.total_tokens || 0,
                     });
                   } else {
-                    console.warn(
-                      `[chat.llm_generation] No usage data returned from Groq for model ${GROQ_MODEL}`
-                    );
+                    logger.warn(`No usage data returned from Groq for model ${GROQ_MODEL}`);
                     span.setAttributes({ usage_missing: true });
                   }
 

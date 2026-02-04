@@ -3,6 +3,9 @@ import { Button } from '~/components/ui/Button';
 import { Textarea } from '~/components/ui/Textarea';
 import { Mic, Square, Loader2, Send } from 'lucide-solid';
 import { cn } from '~/lib/cn';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('ChatInput');
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -124,7 +127,7 @@ export function ChatInput(props: ChatInputProps) {
       setIsRecording(true);
       updateAudioLevel();
     } catch (err) {
-      console.error('[ChatInput] Microphone error:', err);
+      logger.error('Microphone error', { error: err });
     }
   };
 
@@ -185,7 +188,7 @@ export function ChatInput(props: ChatInputProps) {
         }
       }
     } catch (err) {
-      console.error('[ChatInput] STT error:', err);
+      logger.error('STT error', { error: err });
     } finally {
       setIsProcessing(false);
     }

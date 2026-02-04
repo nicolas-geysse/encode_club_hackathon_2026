@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Centralized DuckDB Connection - Singleton Pattern
  *
@@ -13,6 +12,9 @@ import { duckdb } from '../../lib/nativeModule';
 import type { DuckDBDatabase, DuckDBConnection } from '../../types/duckdb';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createLogger } from '../../lib/logger';
+
+const logger = createLogger('DuckDB');
 
 // Database paths - resolve relative to project root
 function getProjectRoot(): string {
@@ -52,7 +54,7 @@ function getGlobalState(): DuckDBState {
       initPromise: null,
       initializing: false,
     };
-    console.log('[DuckDB] Created new global state');
+    logger.info('Created new global state');
   }
   return g[GLOBAL_KEY] as DuckDBState;
 }
@@ -63,19 +65,19 @@ function getGlobalState(): DuckDBState {
 function ensureDataDir(): void {
   if (!fs.existsSync(DB_DIR)) {
     fs.mkdirSync(DB_DIR, { recursive: true });
-    console.log(`[DuckDB] Created data directory: ${DB_DIR}`);
+    logger.info(`Created data directory: ${DB_DIR}`);
   } else {
     // Debug: list existing files
     try {
       const files = fs.readdirSync(DB_DIR);
-      console.log(`[DuckDB] Existing files in ${DB_DIR}:`, files.length > 0 ? files : '(empty)');
+      logger.debug(`Existing files in ${DB_DIR}`, { files: files.length > 0 ? files : '(empty)' });
       // Check for WAL files that might cause issues
       const walFiles = files.filter((f) => f.includes('.wal'));
       if (walFiles.length > 0) {
-        console.warn(`[DuckDB] Found WAL files: ${walFiles.join(', ')} - may cause lock issues`);
+        logger.warn(`Found WAL files - may cause lock issues`, { walFiles: walFiles.join(', ') });
       }
     } catch (e) {
-      console.error(`[DuckDB] Cannot read directory ${DB_DIR}:`, e);
+      logger.error(`Cannot read directory ${DB_DIR}`, { error: e });
     }
   }
 }
@@ -86,14 +88,14 @@ function ensureDataDir(): void {
  */
 function openDatabase(): Promise<DuckDBDatabase> {
   ensureDataDir();
-  console.log(`[DuckDB] Opening database: ${DB_PATH}`);
+  logger.info(`Opening database: ${DB_PATH}`);
 
   return new Promise((resolve, reject) => {
     // Timeout after 10 seconds - if callback never fires, something is wrong
     const timeout = setTimeout(() => {
-      console.error('[DuckDB] TIMEOUT: Database open callback never fired after 10s');
-      console.error('[DuckDB] This usually means corrupted DB file or WAL lock');
-      console.error('[DuckDB] Try deleting the database file and restarting');
+      logger.error('TIMEOUT: Database open callback never fired after 10s');
+      logger.error('This usually means corrupted DB file or WAL lock');
+      logger.error('Try deleting the database file and restarting');
       reject(new Error('Database open timeout - callback never fired'));
     }, 10000);
 
@@ -103,10 +105,10 @@ function openDatabase(): Promise<DuckDBDatabase> {
     ) => DuckDBDatabase)(DB_PATH, (err) => {
       clearTimeout(timeout);
       if (err) {
-        console.error('[DuckDB] Failed to open database:', err.message);
+        logger.error('Failed to open database', { error: err.message });
         reject(err);
       } else {
-        console.log('[DuckDB] Database opened successfully');
+        logger.info('Database opened successfully');
         resolve(db);
       }
     });
@@ -124,18 +126,18 @@ async function initializeDatabaseInternal(state: DuckDBState): Promise<void> {
   // Now safe to connect
   const conn = db.connect();
   state.conn = conn;
-  console.log('[DuckDB] Connection established');
+  logger.info('Connection established');
 
   // Verify connection works
   await new Promise<void>((resolve, reject) => {
     conn.exec('SELECT 1 as test', (err) => {
       if (err) {
-        console.error('[DuckDB] Connection verification failed:', err.message);
+        logger.error('Connection verification failed', { error: err.message });
         state.conn = null;
         state.db = null;
         reject(err);
       } else {
-        console.log('[DuckDB] Connection verified - ready for queries');
+        logger.info('Connection verified - ready for queries');
         state.initialized = true;
         // Start periodic checkpoint after successful init
         startPeriodicCheckpoint();
@@ -143,10 +145,10 @@ async function initializeDatabaseInternal(state: DuckDBState): Promise<void> {
         // Load VSS extension for vector operations
         conn.exec('INSTALL vss; LOAD vss;', (err) => {
           if (err) {
-            console.warn('[DuckDB] Failed to load VSS extension:', err.message);
+            logger.warn('Failed to load VSS extension', { error: err.message });
             // Non-fatal for now, but vector functions won't work
           } else {
-            console.log('[DuckDB] VSS extension loaded');
+            logger.info('VSS extension loaded');
           }
           resolve();
         });
@@ -159,9 +161,9 @@ async function initializeDatabaseInternal(state: DuckDBState): Promise<void> {
   await new Promise<void>((resolve) => {
     conn.exec(`SET checkpoint_threshold = '1MB'`, (err) => {
       if (err) {
-        console.warn('[DuckDB] Failed to set checkpoint_threshold:', err.message);
+        logger.warn('Failed to set checkpoint_threshold', { error: err.message });
       } else {
-        console.log('[DuckDB] Checkpoint threshold set to 1MB');
+        logger.info('Checkpoint threshold set to 1MB');
       }
       resolve(); // Non-fatal, continue regardless
     });
@@ -276,7 +278,7 @@ export async function executeSchema(sql: string): Promise<void> {
     await new Promise<void>((resolve) => {
       state.conn!.exec('CHECKPOINT', (err) => {
         if (err) {
-          console.warn('[DuckDB] Schema checkpoint failed:', err.message);
+          logger.warn('Schema checkpoint failed', { error: err.message });
         }
         resolve();
       });
@@ -348,7 +350,7 @@ export async function closeDatabase(): Promise<void> {
   }
   state.initialized = false;
   state.initPromise = null;
-  console.log('[DuckDB] Database closed');
+  logger.info('Database closed');
 }
 
 export const DATABASE_PATH = DB_PATH;
@@ -361,7 +363,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   if (shutdownInProgress) return;
   shutdownInProgress = true;
 
-  console.log(`[DuckDB] ${signal} received, checkpointing before shutdown...`);
+  logger.info(`${signal} received, checkpointing before shutdown...`);
 
   const state = getGlobalState();
   if (state.conn && state.initialized) {
@@ -369,9 +371,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
       await new Promise<void>((resolve) => {
         state.conn!.exec('CHECKPOINT', (err) => {
           if (err) {
-            console.warn('[DuckDB] Checkpoint on shutdown failed:', err.message);
+            logger.warn('Checkpoint on shutdown failed', { error: err.message });
           } else {
-            console.log('[DuckDB] Checkpoint completed');
+            logger.info('Checkpoint completed');
           }
           resolve();
         });
@@ -406,7 +408,7 @@ function startPeriodicCheckpoint(): void {
 
     state.conn.exec('CHECKPOINT', (err) => {
       if (err) {
-        console.warn('[DuckDB] Periodic checkpoint failed:', err.message);
+        logger.warn('Periodic checkpoint failed', { error: err.message });
       }
       // Silent success - don't spam logs
     });

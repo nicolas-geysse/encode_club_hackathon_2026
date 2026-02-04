@@ -12,6 +12,9 @@
 
 import { initDatabase, execute, query, escapeSQL, executeSchema } from './_db';
 import crypto from 'crypto';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('JobCache');
 
 // Track if table is created
 let tableCreated = false;
@@ -122,7 +125,7 @@ export async function getCachedJobs(
       expiresAt: new Date(row.expires_at),
     };
   } catch (error) {
-    console.error('[JobCache] Error reading cache:', error);
+    logger.error('Error reading cache', { error });
     return null;
   }
 }
@@ -165,11 +168,11 @@ export async function setCachedJobs(
       )
     `);
 
-    console.log(
-      `[JobCache] Cached ${jobs.length} jobs for ${cacheKey}, expires ${expiresAt.toISOString()}`
-    );
+    logger.info(`Cached ${jobs.length} jobs for ${cacheKey}`, {
+      expiresAt: expiresAt.toISOString(),
+    });
   } catch (error) {
-    console.error('[JobCache] Error writing cache:', error);
+    logger.error('Error writing cache', { error });
     // Don't throw - caching is non-critical
   }
 }
@@ -190,12 +193,12 @@ export async function clearExpiredCache(): Promise<number> {
 
     if (expiredCount > 0) {
       await execute(`DELETE FROM job_cache WHERE expires_at <= CURRENT_TIMESTAMP`);
-      console.log(`[JobCache] Cleared ${expiredCount} expired cache entries`);
+      logger.info(`Cleared ${expiredCount} expired cache entries`);
     }
 
     return expiredCount;
   } catch (error) {
-    console.error('[JobCache] Error clearing cache:', error);
+    logger.error('Error clearing cache', { error });
     return 0;
   }
 }
@@ -207,9 +210,9 @@ export async function clearAllCache(): Promise<void> {
   try {
     await ensureCacheTable();
     await execute(`DELETE FROM job_cache`);
-    console.log('[JobCache] Cleared all cache entries');
+    logger.info('Cleared all cache entries');
   } catch (error) {
-    console.error('[JobCache] Error clearing all cache:', error);
+    logger.error('Error clearing all cache', { error });
   }
 }
 
@@ -245,7 +248,7 @@ export async function getCacheStats(): Promise<{
       bySource,
     };
   } catch (error) {
-    console.error('[JobCache] Error getting stats:', error);
+    logger.error('Error getting stats', { error });
     return { totalEntries: 0, expiredEntries: 0, bySource: {} };
   }
 }

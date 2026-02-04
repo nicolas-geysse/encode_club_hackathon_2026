@@ -7,6 +7,9 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { logFeedbackScores, type FeedbackScore } from '../../lib/opik';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('Feedback');
 
 interface FeedbackRequest {
   traceId: string;
@@ -29,7 +32,7 @@ export async function POST(event: APIEvent) {
     const success = await logFeedbackScores(traceId, scores);
 
     if (success) {
-      console.error(`[Feedback] Logged ${scores.length} score(s) for trace ${traceId}`);
+      logger.info(`Logged ${scores.length} score(s) for trace ${traceId}`);
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -41,7 +44,7 @@ export async function POST(event: APIEvent) {
       });
     }
   } catch (error) {
-    console.error('[Feedback] Error:', error);
+    logger.error('Error', { error });
     return new Response(
       JSON.stringify({
         error: true,

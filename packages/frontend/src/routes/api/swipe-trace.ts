@@ -7,6 +7,9 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { trace, logFeedbackScores, getTraceUrl } from '../../lib/opik';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('SwipeTrace');
 
 interface SwipeTraceRequest {
   direction: 'left' | 'right' | 'up' | 'down';
@@ -107,9 +110,9 @@ export async function POST(event: APIEvent) {
       }
     );
 
-    console.error(
-      `[SwipeTrace] ${data.direction} on "${data.scenarioTitle}" - profile: ${data.profileId || 'anonymous'}`
-    );
+    logger.info(`${data.direction} on "${data.scenarioTitle}"`, {
+      profileId: data.profileId || 'anonymous',
+    });
 
     return new Response(JSON.stringify(result), {
       status: 200,
@@ -117,7 +120,8 @@ export async function POST(event: APIEvent) {
     });
   } catch (error) {
     // Structured error logging with context for debugging
-    console.error(`[SwipeTrace:${requestId}] Error:`, {
+    logger.error('Error', {
+      requestId,
       error: error instanceof Error ? error.message : error,
       stack: error instanceof Error ? error.stack : undefined,
     });

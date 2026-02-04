@@ -10,6 +10,10 @@
  * API Reference: https://www.comet.com/docs/opik/reference/rest-api/
  */
 
+import { createLogger } from './logger';
+
+const logger = createLogger('OpikRest');
+
 // Configuration
 const OPIK_API_KEY = process.env.OPIK_API_KEY;
 const OPIK_WORKSPACE = process.env.OPIK_WORKSPACE || 'default';
@@ -39,7 +43,7 @@ export async function getProjectIdByName(projectName: string): Promise<string | 
   }
 
   if (!OPIK_API_KEY) {
-    console.error('[Opik REST] Cannot lookup project: OPIK_API_KEY not configured');
+    logger.error('Cannot lookup project: OPIK_API_KEY not configured');
     return null;
   }
 
@@ -54,7 +58,7 @@ export async function getProjectIdByName(projectName: string): Promise<string | 
     });
 
     if (!response.ok) {
-      console.error(`[Opik REST] Failed to lookup project: ${response.status}`);
+      logger.error('Failed to lookup project', { status: response.status });
       return null;
     }
 
@@ -63,18 +67,16 @@ export async function getProjectIdByName(projectName: string): Promise<string | 
 
     if (project) {
       cachedProjectId = project.id;
-      console.error(`[Opik REST] Resolved project "${projectName}" to UUID: ${project.id}`);
+      logger.info('Resolved project to UUID', { projectName, projectId: project.id });
       return project.id;
     }
 
     // Project not found - this is normal on first run before any trace is sent
     // Opik SDK auto-creates the project when first trace is logged
-    console.error(
-      `[Opik REST] Project "${projectName}" not found yet (will be created on first trace)`
-    );
+    logger.warn('Project not found yet (will be created on first trace)', { projectName });
     return null;
   } catch (error) {
-    console.error('[Opik REST] Error looking up project:', error);
+    logger.error('Error looking up project', { error });
     return null;
   }
 }
@@ -1375,7 +1377,7 @@ export async function initializeStrideOpikSetup(projectNameOrId: string): Promis
   feedbackDefinitions: FeedbackDefinition[];
   annotationQueue: AnnotationQueue;
 }> {
-  console.error('[Opik REST] Initializing Stride Opik setup...');
+  logger.info('Initializing Stride Opik setup...');
 
   // Resolve project name to UUID if needed
   // UUIDs are 36 characters with dashes, names typically aren't
@@ -1391,7 +1393,7 @@ export async function initializeStrideOpikSetup(projectNameOrId: string): Promis
     } else {
       // Project doesn't exist yet - evaluators/queues require project UUID
       // They will be created on next app restart after first traces are logged
-      console.error(`[Opik REST] Skipping evaluators/queue setup (project UUID not available yet)`);
+      logger.warn('Skipping evaluators/queue setup (project UUID not available yet)');
       // Continue with feedback definitions which don't need project ID
     }
   }
@@ -1402,13 +1404,13 @@ export async function initializeStrideOpikSetup(projectNameOrId: string): Promis
     try {
       const created = await createFeedbackDefinition(def);
       feedbackDefinitions.push(created);
-      console.error(`[Opik REST] Created feedback definition: ${def.name}`);
+      logger.info('Created feedback definition', { name: def.name });
     } catch (error) {
       if (isAlreadyExistsError(error)) {
         // 409 = already exists, that's expected and ok
-        console.error(`[Opik REST] Feedback definition "${def.name}" already exists (ok)`);
+        logger.debug('Feedback definition already exists (ok)', { name: def.name });
       } else {
-        console.error(`[Opik REST] Failed to create feedback definition ${def.name}:`, error);
+        logger.error('Failed to create feedback definition', { name: def.name, error });
       }
     }
   }
@@ -1423,12 +1425,12 @@ export async function initializeStrideOpikSetup(projectNameOrId: string): Promis
           projectIds: [projectId],
         });
         evaluators.push(created);
-        console.error(`[Opik REST] Created evaluator: ${key}`);
+        logger.info('Created evaluator', { key });
       } catch (error) {
         if (isAlreadyExistsError(error)) {
-          console.error(`[Opik REST] Evaluator "${key}" already exists (ok)`);
+          logger.debug('Evaluator already exists (ok)', { key });
         } else {
-          console.error(`[Opik REST] Failed to create evaluator ${key}:`, error);
+          logger.error('Failed to create evaluator', { key, error });
         }
       }
     }
@@ -1461,12 +1463,12 @@ Flag any concerning advice for team review.`,
         commentsEnabled: true,
         feedbackDefinitionNames: ['safety', 'appropriateness', 'actionability'],
       });
-      console.error('[Opik REST] Created annotation queue: Stride Advice Review');
+      logger.info('Created annotation queue: Stride Advice Review');
     } catch (error) {
       if (isAlreadyExistsError(error)) {
-        console.error('[Opik REST] Annotation queue "Stride Advice Review" already exists (ok)');
+        logger.debug('Annotation queue "Stride Advice Review" already exists (ok)');
       } else {
-        console.error('[Opik REST] Failed to create annotation queue:', error);
+        logger.error('Failed to create annotation queue', { error });
       }
       // Keep the placeholder
       annotationQueue = {
@@ -1481,7 +1483,7 @@ Flag any concerning advice for team review.`,
     }
   }
 
-  console.error('[Opik REST] Stride Opik setup complete!');
+  logger.info('Stride Opik setup complete!');
 
   return {
     evaluators,

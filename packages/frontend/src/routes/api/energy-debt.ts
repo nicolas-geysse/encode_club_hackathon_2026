@@ -16,6 +16,9 @@ import {
   calculateRecoveryProgress,
   type EnergyEntry,
 } from '~/lib/algorithms';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('EnergyDebt');
 
 // ============================================
 // API HANDLER
@@ -105,7 +108,7 @@ export async function GET(event: APIEvent) {
       { source: 'energy_debt_api' }
     );
   } catch (error) {
-    console.error('[EnergyDebt] Error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -163,7 +166,7 @@ export async function POST(event: APIEvent) {
       { source: 'energy_debt_api_direct' }
     );
   } catch (error) {
-    console.error('[EnergyDebt] POST Error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,

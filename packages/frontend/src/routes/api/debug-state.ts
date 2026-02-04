@@ -16,6 +16,9 @@ import type { APIEvent } from '@solidjs/start/server';
 import { query, initDatabase } from './_db';
 // P1-Health: Import unified algorithms from lib
 import { detectEnergyDebt, detectComebackWindow, type EnergyEntry } from '~/lib/algorithms';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('DebugState');
 
 // ============================================
 // TYPES
@@ -100,7 +103,7 @@ export async function GET(event: APIEvent) {
           energyHistory = energyEntries.map((e: EnergyEntry) => e.level);
         }
       } catch (parseErr) {
-        console.error('[DebugState] Failed to parse followup_data:', parseErr);
+        logger.error('Failed to parse followup_data', { error: parseErr });
       }
     }
 
@@ -193,7 +196,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[DebugState] Error:', error);
+    logger.error('Error getting debug state', { error });
     return new Response(
       JSON.stringify({
         error: true,

@@ -8,6 +8,9 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('RAG');
 
 /**
  * RAG Context structure
@@ -68,7 +71,7 @@ async function getRAGContextFromServices(
 
     // Check if RAG services are available
     if (!services.getRAGContext) {
-      console.warn('[RAG] getRAGContext not exported from services');
+      logger.warn('getRAGContext not exported from services');
       return getEmptyContext();
     }
 
@@ -95,10 +98,9 @@ async function getRAGContextFromServices(
     };
   } catch (error) {
     // RAG services not available (expected during development or if not initialized)
-    console.warn(
-      '[RAG] Services not available, using empty context:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
+    logger.warn('Services not available, using empty context', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return getEmptyContext();
   }
 }
@@ -177,7 +179,7 @@ export async function POST({ request }: APIEvent) {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('[RAG API] Error:', error);
+    logger.error('Error', { error });
     return new Response(
       JSON.stringify({
         error: 'RAG retrieval failed',

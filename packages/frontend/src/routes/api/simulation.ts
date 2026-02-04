@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 /**
  * Simulation API Route
  *
@@ -8,6 +7,9 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { query, execute, executeSchema } from './_db';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('Simulation');
 
 // Helper to get base URL from request
 function getBaseUrl(event: APIEvent): string {
@@ -45,7 +47,7 @@ async function ensureSimulationState(): Promise<void> {
       WHERE NOT EXISTS (SELECT 1 FROM simulation_state WHERE id = 'global')
     `);
     schemaInitialized = true;
-    console.log('[Simulation] Schema initialized');
+    logger.info('Schema initialized');
   } catch {
     // Table might already exist
     schemaInitialized = true;
@@ -88,7 +90,7 @@ export async function GET() {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Simulation] GET error:', error);
+    logger.error('GET error', { error });
     // Return a fallback state instead of crashing
     const now = new Date().toISOString().split('T')[0];
     return new Response(
@@ -157,7 +159,7 @@ export async function POST(event: APIEvent) {
             insightsResult = await insightsResponse.json();
           }
         } catch (error) {
-          console.error('[Simulation] Failed to trigger insights:', error);
+          logger.error('Failed to trigger insights', { error });
           // Don't fail the simulation if insights fail
         }
       }
@@ -211,7 +213,7 @@ export async function POST(event: APIEvent) {
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('[Simulation] POST error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,

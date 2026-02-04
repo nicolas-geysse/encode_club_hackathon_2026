@@ -11,6 +11,9 @@ import type { APIEvent } from '@solidjs/start/server';
 import { query, initDatabase } from './_db';
 import { trace } from '~/lib/opik';
 import { analyzeComeback, type EnergyEntry } from '~/lib/algorithms';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('ComebackDetection');
 
 // ============================================
 // API HANDLER
@@ -91,7 +94,7 @@ export async function GET(event: APIEvent) {
       { source: 'comeback_detection_api' }
     );
   } catch (error) {
-    console.error('[ComebackDetection] Error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,
@@ -141,7 +144,7 @@ export async function POST(event: APIEvent) {
       { source: 'comeback_detection_api_direct' }
     );
   } catch (error) {
-    console.error('[ComebackDetection] POST Error:', error);
+    logger.error('POST error', { error });
     return new Response(
       JSON.stringify({
         error: true,

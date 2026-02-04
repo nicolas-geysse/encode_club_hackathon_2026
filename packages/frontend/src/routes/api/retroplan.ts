@@ -16,6 +16,9 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { query, execute, escapeSQL } from './_db';
 import { ensureSchema, SCHEMAS } from '../../lib/api/schemaManager';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('Retroplan');
 
 // Types for retroplanning
 interface AcademicEvent {
@@ -164,7 +167,7 @@ function normalizeDate(d: unknown): string {
     return date.toISOString().split('T')[0];
   }
   // Fallback: convert to string
-  console.warn('[Sprint 13.19] Unexpected date type:', typeof d, d);
+  logger.warn('Unexpected date type', { type: typeof d, value: d });
   return String(d);
 }
 
@@ -376,7 +379,7 @@ async function calculateWeekCapacity(
     const baseHours = Math.max(0, defaultMaxFreeHours - totalCommitmentHours);
     // Apply 0.3 conversion: only ~30% of "free time" is realistic work time
     effectiveHours = Math.round(baseHours * academicMultiplier * energyMultiplier * 0.3);
-    console.log('[Capacity] Default calculation:', {
+    logger.debug('Default capacity calculation', {
       defaultMaxFreeHours,
       totalCommitmentHours,
       baseHours,
@@ -521,7 +524,7 @@ async function generateRetroplanForGoal(
     totalCapacity > 0 ? effectiveGoalForWork / totalCapacity : effectiveGoalForWork / totalWeeks;
 
   // DEBUG: Log target calculation
-  console.log('[Retroplan] Target calculation:', {
+  logger.debug('Target calculation', {
     goalAmount,
     monthlyMargin,
     projectedSavingsBasis,
@@ -616,14 +619,19 @@ async function generateRetroplanForGoal(
   const remainingGoal = Math.max(0, goalAmount - totalEarned);
 
   // Debug log for feasibility calculation
-  console.log(
-    `[Feasibility] goalAmount: ${goalAmount}€, Earned: ${totalEarned}€, Remaining: ${remainingGoal}€, Capacity: ${effectiveMaxEarnings}€ (work: ${remainingMaxEarnings}€ + savings: ${marginBasedCapacity}€)`
-  );
+  logger.debug('Feasibility calculation', {
+    goalAmount,
+    totalEarned,
+    remainingGoal,
+    effectiveMaxEarnings,
+    remainingMaxEarnings,
+    marginBasedCapacity,
+  });
 
   // SHORT-CIRCUIT: If goal is already achieved (remaining <= 0), feasibility is 100%
   // No need to apply urgency/intensity/performance penalties
   if (remainingGoal <= 0) {
-    console.log('[Feasibility] Goal already achieved! Returning 100%');
+    logger.debug('Goal already achieved! Returning 100%');
     // Still generate the retroplan with milestones, but feasibility is perfect
     const retroplan: Retroplan = {
       id: generateId('rp'),
@@ -707,9 +715,12 @@ async function generateRetroplanForGoal(
       }
     }
 
-    console.log(
-      `[Feasibility] Progress: ${Math.round(progressThroughGoal * 100)}%, Performance: ${Math.round(performanceRatio * 100)}%, Scale: ${scaleFactor.toFixed(2)}, Penalty: ${performancePenalty.toFixed(2)}`
-    );
+    logger.debug('Feasibility progress', {
+      progressPercent: Math.round(progressThroughGoal * 100),
+      performancePercent: Math.round(performanceRatio * 100),
+      scaleFactor: scaleFactor.toFixed(2),
+      penalty: performancePenalty.toFixed(2),
+    });
   }
 
   // Add progress context to risk factors
@@ -827,9 +838,8 @@ export async function POST(event: APIEvent) {
 
     // Sprint 13.19: Warn when using 'default' userId - this often indicates a bug
     if (userId === 'default') {
-      console.warn(
-        `[WARN Sprint 13.19] Action "${action}" using userId="default". ` +
-          'This may cause events to not appear for the actual profile.'
+      logger.warn(
+        `Action "${action}" using userId="default". This may cause events to not appear for the actual profile.`
       );
     }
 
@@ -854,9 +864,7 @@ export async function POST(event: APIEvent) {
         // Delete all events for this userId
         await execute(`DELETE FROM academic_events WHERE profile_id = ${escapeSQL(targetUserId)}`);
 
-        console.log(
-          `[Sprint 13.19] Cleaned up ${countBefore} zombie events for profile_id="${targetUserId}"`
-        );
+        logger.info(`Cleaned up ${countBefore} zombie events`, { profileId: targetUserId });
 
         return new Response(JSON.stringify({ success: true, deletedCount: countBefore }), {
           status: 200,
@@ -1084,7 +1092,7 @@ export async function POST(event: APIEvent) {
         } = body;
 
         // DEBUG: Log received parameters
-        console.log('[Retroplan API] Received params:', {
+        logger.debug('Received generate_retroplan params', {
           goalId,
           goalAmount,
           deadline,
@@ -1261,7 +1269,7 @@ export async function POST(event: APIEvent) {
         });
     }
   } catch (error) {
-    console.error('Retroplan API error:', error);
+    logger.error('API error', { error });
     return new Response(
       JSON.stringify({
         error: true,

@@ -34,8 +34,11 @@ import {
   PiggyBank,
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
+import { createLogger } from '~/lib/logger';
 import type { Mission } from './MissionCard';
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
+
+const logger = createLogger('BrunoTips');
 
 // ============================================================================
 // Types
@@ -228,7 +231,7 @@ export function BrunoTips(props: BrunoTipsProps) {
         }),
       });
     } catch (error) {
-      console.error('[BrunoTips] Feedback error:', error);
+      logger.error('Feedback error', { error });
     }
   };
 
@@ -419,7 +422,7 @@ export function BrunoTips(props: BrunoTipsProps) {
         props.onTraceGenerated(data.traceId, data.traceUrl);
       }
     } catch (error) {
-      console.error('[BrunoTips] AI tip fetch error:', error);
+      logger.error('AI tip fetch error', { error });
     } finally {
       setIsLoadingAI(false);
     }

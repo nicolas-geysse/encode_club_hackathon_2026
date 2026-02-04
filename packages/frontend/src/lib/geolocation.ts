@@ -8,6 +8,10 @@
  * @see https://nominatim.org/release-docs/develop/api/Reverse/
  */
 
+import { createLogger } from './logger';
+
+const logger = createLogger('Geolocation');
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -139,14 +143,14 @@ async function reverseGeocode(
     );
 
     if (!response.ok) {
-      console.warn('[Geolocation] Nominatim request failed:', response.status);
+      logger.warn('Nominatim request failed', { status: response.status });
       return null;
     }
 
     const data: NominatimResponse = await response.json();
 
     if (!data.address) {
-      console.warn('[Geolocation] No address in Nominatim response');
+      logger.warn('No address in Nominatim response');
       return null;
     }
 
@@ -175,7 +179,7 @@ async function reverseGeocode(
       address,
     };
   } catch (error) {
-    console.warn('[Geolocation] Reverse geocoding failed:', error);
+    logger.warn('Reverse geocoding failed', { error });
     return null;
   }
 }
@@ -219,14 +223,14 @@ export async function forwardGeocode(cityName: string): Promise<GeolocationResul
     );
 
     if (!response.ok) {
-      console.warn('[Geolocation] Nominatim search failed:', response.status);
+      logger.warn('Nominatim search failed', { status: response.status });
       return null;
     }
 
     const data: NominatimSearchResult[] = await response.json();
 
     if (!data || data.length === 0) {
-      console.warn('[Geolocation] No results for city:', cityName);
+      logger.warn('No results for city', { cityName });
       return null;
     }
 
@@ -259,7 +263,7 @@ export async function forwardGeocode(cityName: string): Promise<GeolocationResul
       coordinates: { latitude, longitude },
     };
   } catch (error) {
-    console.warn('[Geolocation] Forward geocoding failed:', error);
+    logger.warn('Forward geocoding failed', { error });
     return null;
   }
 }

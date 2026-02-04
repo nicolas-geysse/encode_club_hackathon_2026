@@ -8,6 +8,9 @@
 import { createSignal, onCleanup, Show } from 'solid-js';
 import { transcribeAudio, blobToBase64 } from '~/lib/api';
 import { Mic, Square, Loader2 } from 'lucide-solid';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('VoiceInput');
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
@@ -80,7 +83,7 @@ export function VoiceInput(props: VoiceInputProps) {
             setError('No speech detected. Try again!');
           }
         } catch (err) {
-          console.error('Transcription error:', err);
+          logger.error('Transcription error', { error: err });
           setError(err instanceof Error ? err.message : 'Transcription error');
         } finally {
           setIsTranscribing(false);
@@ -88,7 +91,7 @@ export function VoiceInput(props: VoiceInputProps) {
       };
 
       mediaRecorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
+        logger.error('MediaRecorder error', { event });
         setError('Recording error');
         setIsRecording(false);
       };
@@ -96,7 +99,7 @@ export function VoiceInput(props: VoiceInputProps) {
       mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
     } catch (err) {
-      console.error('Failed to start recording:', err);
+      logger.error('Failed to start recording', { error: err });
       if (err instanceof DOMException && err.name === 'NotAllowedError') {
         setPermissionDenied(true);
         setError('Microphone access denied. Enable it in your browser settings.');

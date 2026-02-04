@@ -14,6 +14,9 @@ import {
   calculateRelativeDateFromReference,
   type TimeContext,
 } from '../../timeAwareDate';
+import { createLogger } from '../../logger';
+
+const logger = createLogger('GroqExtractor');
 
 // =============================================================================
 // Groq Client Management
@@ -194,7 +197,7 @@ export function normalizeGoalDeadline(
   }
 
   // Couldn't parse, return undefined to avoid DB errors
-  console.warn(`[GroqExtractor] Could not parse goalDeadline: "${deadline}"`);
+  logger.warn('Could not parse goalDeadline', { deadline });
   return undefined;
 }
 
@@ -348,7 +351,7 @@ export async function extractWithGroq(
       },
     };
   } catch (error) {
-    console.error('[GroqExtractor] Extraction failed:', error);
+    logger.error('Extraction failed', { error });
     return null;
   }
 }

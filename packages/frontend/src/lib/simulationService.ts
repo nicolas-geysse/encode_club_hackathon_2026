@@ -5,7 +5,9 @@
  * Allows advancing simulated time for testing goal progress.
  */
 
-// Unused: import { eventBus } from './eventBus';
+import { createLogger } from './logger';
+
+const logger = createLogger('SimulationService');
 
 export interface SimulationState {
   simulatedDate: string;
@@ -21,12 +23,12 @@ export async function getSimulationState(): Promise<SimulationState> {
   try {
     const response = await fetch('/api/simulation');
     if (!response.ok) {
-      console.error('Failed to get simulation state');
+      logger.error('Failed to get simulation state');
       return getDefaultState();
     }
     return response.json();
   } catch (error) {
-    console.error('Error getting simulation state:', error);
+    logger.error('Error getting simulation state', { error });
     return getDefaultState();
   }
 }
@@ -51,13 +53,13 @@ export async function advanceDays(days: number = 1): Promise<SimulationState> {
     });
 
     if (!response.ok) {
-      console.error('Failed to advance simulation');
+      logger.error('Failed to advance simulation');
       return getSimulationState();
     }
 
     return response.json();
   } catch (error) {
-    console.error('Error advancing simulation:', error);
+    logger.error('Error advancing simulation', { error });
     return getSimulationState();
   }
 }
@@ -74,13 +76,13 @@ export async function resetToRealTime(): Promise<SimulationState> {
     });
 
     if (!response.ok) {
-      console.error('Failed to reset simulation');
+      logger.error('Failed to reset simulation');
       return getSimulationState();
     }
 
     return response.json();
   } catch (error) {
-    console.error('Error resetting simulation:', error);
+    logger.error('Error resetting simulation', { error });
     return getSimulationState();
   }
 }

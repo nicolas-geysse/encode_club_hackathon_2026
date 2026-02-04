@@ -5,6 +5,10 @@
  * This is the backbone of our "Quickwin Realtime" strategy.
  */
 
+import { createLogger } from './logger';
+
+const logger = createLogger('EventBus');
+
 // Define supported event types
 export type AppEvent =
   | 'DATA_CHANGED' // Generic data update (skills, inventory, etc.)
@@ -72,7 +76,7 @@ class GlobalEventBus {
         try {
           cb(payload);
         } catch (e) {
-          console.error(`Error in event listener for ${type}:`, e);
+          logger.error(`Error in event listener for ${type}`, { error: e });
         }
       });
     }

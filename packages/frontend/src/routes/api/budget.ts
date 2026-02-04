@@ -23,6 +23,9 @@ import {
   type AuditInfo,
 } from '../../lib/opik';
 import type { ConsolidatedBudget } from '../../lib/budgetService';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('Budget');
 
 // Types for database rows
 interface ProfileRow {
@@ -458,7 +461,7 @@ export async function GET(event: APIEvent) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('[Budget] GET error:', error);
+    logger.error('GET error', { error });
     return new Response(
       JSON.stringify({
         error: true,

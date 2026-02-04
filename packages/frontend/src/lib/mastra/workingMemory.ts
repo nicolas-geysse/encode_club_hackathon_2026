@@ -1,4 +1,7 @@
 import { execute, query, escapeSQL, escapeJSON } from '../../routes/api/_db';
+import { createLogger } from '../logger';
+
+const logger = createLogger('WorkingMemory');
 
 export interface WorkingMemoryItem {
   fact: string;
@@ -50,7 +53,7 @@ export class WorkingMemory {
       }
       return Array.isArray(parsed.facts) ? parsed.facts : [];
     } catch (e) {
-      console.error('[WorkingMemory] Failed to parse memory:', e);
+      logger.error('Failed to parse memory', { error: e });
       return [];
     }
   }
