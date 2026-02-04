@@ -12,7 +12,7 @@
  * - Smart cache integration
  */
 
-import { createSignal, createEffect, Show, onMount, For } from 'solid-js';
+import { createSignal, createEffect, Show, onMount, For, untrack } from 'solid-js';
 import { Card, CardContent } from '~/components/ui/Card';
 import {
   ThumbsUp,
@@ -217,23 +217,58 @@ export function BrunoHintV2(props: BrunoHintV2Props) {
     }
   };
 
+  // Track if initial fetch was done to prevent double-fetch
+  let initialFetchDone = false;
+  // Track last context data hash to only refetch on actual changes
+  let lastContextHash = '';
+
   // Fetch on mount
   onMount(() => {
     if (props.tabType && props.profileId && !props.disableLLM) {
+      initialFetchDone = true;
       fetchTip();
     }
   });
 
-  // Refetch when context data changes meaningfully
+  // Refetch when context data changes meaningfully (NOT on initial render or loading state changes)
   createEffect(() => {
     const data = props.contextData;
+    // Create a simple hash of context data to detect actual changes
+    const contextHash = data ? JSON.stringify(data) : '';
+
+    // Only proceed if context actually changed (not just reference)
+    if (contextHash === lastContextHash) {
+      return;
+    }
+
     const hasData = data && Object.keys(data).length > 0;
 
-    if (hasData && props.tabType && props.profileId && !props.disableLLM && !isLoading()) {
-      // Debounce
-      const timeout = setTimeout(() => fetchTip(), 1500);
-      return () => clearTimeout(timeout);
+    // Use untrack for isLoading to prevent re-triggering when loading state changes
+    const currentlyLoading = untrack(() => isLoading());
+
+    // Skip if: no data, disabled, already loading, or this is the initial mount (onMount handles that)
+    if (!hasData || !props.tabType || !props.profileId || props.disableLLM || currentlyLoading) {
+      lastContextHash = contextHash;
+      return;
     }
+
+    // Skip if this is the first render (onMount handles initial fetch)
+    if (!initialFetchDone) {
+      lastContextHash = contextHash;
+      return;
+    }
+
+    // Context actually changed - update hash and schedule refetch
+    lastContextHash = contextHash;
+
+    // Debounce
+    const timeout = setTimeout(() => {
+      // Double-check we're not already loading
+      if (!untrack(() => isLoading())) {
+        fetchTip();
+      }
+    }, 1500);
+    return () => clearTimeout(timeout);
   });
 
   // Handle refresh
