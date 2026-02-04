@@ -36,12 +36,12 @@ export function LocationConsent(props: LocationConsentProps) {
   return (
     <div class="flex flex-col items-center justify-center p-6 text-center">
       {/* Main content card */}
-      <div class="max-w-md rounded-2xl bg-white/5 p-8 backdrop-blur-lg">
+      <div class="max-w-md rounded-2xl bg-black/5 p-8 backdrop-blur-lg dark:bg-white/5">
         {/* Location icon */}
         <div class="mb-6 flex justify-center">
           <div class="flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/20">
             <svg
-              class="h-8 w-8 text-purple-400"
+              class="h-8 w-8 text-purple-500 dark:text-purple-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -64,21 +64,22 @@ export function LocationConsent(props: LocationConsentProps) {
         </div>
 
         {/* Explanation */}
-        <h2 class="mb-3 text-xl font-semibold text-white">Find jobs near you</h2>
-        <p class="mb-4 text-gray-300">
+        <h2 class="mb-3 text-xl font-semibold text-foreground">Find jobs near you</h2>
+        <p class="mb-4 text-muted-foreground">
           We use your location to show you part-time jobs near you. You can refuse and just enter
           your city instead.
         </p>
 
         {/* Privacy note */}
-        <p class="mb-8 text-sm text-gray-400">
+        <p class="mb-8 text-sm text-muted-foreground/70">
           Your precise location is never stored - only your city or a fuzzy area (~1km radius).
         </p>
 
         {/* Action buttons */}
-        <div class="flex flex-col gap-3">
+        <div class="flex flex-col items-center gap-3">
           <GlassButton
             onClick={() => props.onAllow()}
+            class="w-full"
             aria-label="Allow location access to find nearby jobs"
           >
             Allow location access
@@ -86,7 +87,7 @@ export function LocationConsent(props: LocationConsentProps) {
 
           <button
             onClick={() => props.onDecline()}
-            class="rounded-lg px-4 py-3 text-gray-400 transition-colors hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+            class="w-full rounded-lg px-4 py-3 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:hover:bg-white/5"
             aria-label="Enter city manually instead of using location"
           >
             Enter my city instead

@@ -81,6 +81,16 @@
     /* Center vertically */
 }
 
+/* Full-width mode (when w-full class is applied) */
+.glass-button-wrap.w-full {
+    display: flex;
+    width: 100%;
+}
+
+.glass-button-wrap.w-full button.glass-button {
+    width: 100%;
+}
+
 
 /* Button Shadow Container */
 .glass-button-shadow {
