@@ -869,7 +869,71 @@ export async function warmupTabTips(
   return results;
 }
 
+/**
+ * Prefetch tips for predicted next tabs (fire-and-forget)
+ *
+ * Call this after a tip is generated to prefetch likely next tabs.
+ * Non-blocking - errors are swallowed.
+ */
+export function prefetchNextTabs(
+  currentTab: TabType,
+  profileId: string,
+  cachedTabs: Set<TabType> = new Set()
+): void {
+  // Tab prediction map
+  const TAB_PREDICTION: Record<TabType, TabType[]> = {
+    profile: ['goals', 'jobs'],
+    goals: ['budget', 'swipe'],
+    budget: ['jobs', 'trade'],
+    trade: ['budget'],
+    jobs: ['swipe', 'budget'],
+    swipe: ['goals', 'jobs'],
+  };
+
+  const predictedTabs = TAB_PREDICTION[currentTab] || [];
+  const tabsToFetch = predictedTabs.filter((tab) => !cachedTabs.has(tab));
+
+  if (tabsToFetch.length === 0) {
+    logger.debug('No tabs to prefetch', { currentTab, profileId });
+    return;
+  }
+
+  logger.debug('Prefetching tabs', { currentTab, profileId, tabs: tabsToFetch });
+
+  // Fire-and-forget: run in background without blocking
+  tabsToFetch.forEach((tabType) => {
+    orchestrateTabTips({
+      profileId,
+      tabType,
+      options: {
+        enableFullOrchestration: false, // Partial for prefetch (faster)
+        timeoutMs: 3000,
+      },
+    }).catch((error) => {
+      logger.debug('Prefetch failed (expected)', { tabType, error: error?.message });
+    });
+  });
+}
+
+/**
+ * Get tab prediction for a given tab
+ */
+export function getTabPrediction(currentTab: TabType): TabType[] {
+  const TAB_PREDICTION: Record<TabType, TabType[]> = {
+    profile: ['goals', 'jobs'],
+    goals: ['budget', 'swipe'],
+    budget: ['jobs', 'trade'],
+    trade: ['budget'],
+    jobs: ['swipe', 'budget'],
+    swipe: ['goals', 'jobs'],
+  };
+
+  return TAB_PREDICTION[currentTab] || [];
+}
+
 export default {
   orchestrateTabTips,
   warmupTabTips,
+  prefetchNextTabs,
+  getTabPrediction,
 };

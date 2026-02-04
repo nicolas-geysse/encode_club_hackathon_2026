@@ -97,7 +97,12 @@ export type {
 } from './tips-orchestrator.js';
 
 // Tab Tips Orchestrator (Strategy Pattern - New)
-export { orchestrateTabTips, warmupTabTips } from './tab-tips-orchestrator.js';
+export {
+  orchestrateTabTips,
+  warmupTabTips,
+  prefetchNextTabs,
+  getTabPrediction,
+} from './tab-tips-orchestrator.js';
 
 // Daily Briefing Agent
 export { generateDailyBriefing } from './daily-briefing.js';

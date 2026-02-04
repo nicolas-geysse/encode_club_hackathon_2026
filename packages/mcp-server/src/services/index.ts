@@ -181,3 +181,27 @@ export {
   googleMaps,
 } from './google-maps.js';
 export type { Coordinates, Place, DistanceResult, PlaceType, TravelMode } from './google-maps.js';
+
+// Tab Context Service
+export { loadTabContext, mergeContext } from './tab-context.js';
+
+// Tip Cache Service
+export {
+  tipCache,
+  getCachedTip,
+  setCachedTip,
+  hasCachedTip,
+  clearCache,
+  hashContext,
+  getCacheKey,
+  getPredictedTabs,
+  getTabsToPreFetch,
+  getWarmupTabs,
+  getCacheMetrics,
+  resetCacheMetrics,
+  logCacheMetrics,
+} from './tip-cache.js';
+export type {} from './tip-cache.js';
+
+// Logger
+export { createLogger } from './logger.js';

@@ -716,9 +716,116 @@ packages/frontend/src/
 └── ...
 ```
 
+---
+
+## Progress Tracking
+
+### Phase A: Backend Foundation ✅ COMPLETE
+
+| Task | Status | Commit | Notes |
+|------|--------|--------|-------|
+| **A1: Strategy/Factory Architecture** | ✅ Done | `e218606` | Created 6 strategies, factory, base class |
+| **A2: Tab-Agnostic Orchestrator** | ✅ Done | `12753d5` | `tab-tips-orchestrator.ts` with 4-stage pipeline |
+| **A3: TabContextService** | ✅ Done | `e218606` | `tab-context.ts` with DuckDB queries |
+| **A4: Contextual Guardian** | ✅ Done | `12753d5` | Validation rules per tab in Stage 3 |
+
+**Files Created (Phase A):**
+```
+packages/mcp-server/src/agents/strategies/
+├── types.ts              # TabAgentStrategy interface, TabContext, ValidationRules
+├── base.strategy.ts      # Abstract base with helpers (formatCurrency, formatList, etc.)
+├── factory.ts            # createTabStrategy() factory function
+├── profile.strategy.ts   # Primary: guardian, completeness calculation
+├── goals.strategy.ts     # Primary: strategy-comparator, checkTimeline=true
+├── budget.strategy.ts    # Primary: budget-coach, checkSolvency=true
+├── trade.strategy.ts     # Primary: money-maker, checkRealism=true
+├── jobs.strategy.ts      # Primary: job-matcher, checkFeasibility=true
+├── swipe.strategy.ts     # Primary: strategy-comparator, maxRiskLevel=high
+└── index.ts              # Re-exports
+
+packages/mcp-server/src/agents/tab-tips-orchestrator.ts  # New orchestrator
+packages/mcp-server/src/services/tab-context.ts          # DuckDB context loader
+packages/mcp-server/src/services/logger.ts               # Logger utility
+packages/frontend/src/routes/api/tab-tips.ts             # Enhanced API endpoint
+```
+
+**Key Implementation Decisions:**
+- 4-stage pipeline: Context Loading → Agent Analysis → Guardian Validation → LLM Generation
+- 4-level fallback: full (0) → partial (1) → algorithms (2) → static (3)
+- Smart LRU cache with hash-based invalidation in API endpoint
+- `warmupTabTips()` function for pre-fetching on login
+- Backwards compatible with legacy implementation
+
+---
+
+### Phase B: Caching & Performance ✅ COMPLETE
+
+| Task | Status | Commit | Notes |
+|------|--------|--------|-------|
+| **B5: Smart In-Memory Cache** | ✅ Done | `12753d5` | LRU cache in `/api/tab-tips.ts` |
+| **B6: Pre-fetching & Warmup** | ✅ Done | `12753d5` | `warmupTabTips()` + GET endpoint |
+| **B7: Tab Prediction Map** | ✅ Done | Pending | `prefetchNextTabs()` + `getTabPrediction()` |
+| **B8: Cache Metrics** | ✅ Done | Pending | `tip-cache.ts` with `getCacheMetrics()` |
+
+**Files Created (Phase B):**
+```
+packages/mcp-server/src/services/tip-cache.ts    # Dedicated cache service
+  - LRU cache with 10-min TTL, max 200 entries
+  - hashContext() for smart invalidation
+  - Tab prediction map for prefetching
+  - Full metrics: hits, misses, invalidations, evictions, hitRate
+  - getPredictedTabs(), getTabsToPreFetch(), getWarmupTabs()
+
+packages/mcp-server/src/agents/tab-tips-orchestrator.ts
+  - Added: prefetchNextTabs(currentTab, profileId, cachedTabs)
+  - Added: getTabPrediction(currentTab)
+```
+
+**Tab Prediction Map:**
+```
+profile → [goals, jobs]
+goals   → [budget, swipe]
+budget  → [jobs, trade]
+trade   → [budget]
+jobs    → [swipe, budget]
+swipe   → [goals, jobs]
+```
+
+---
+
+### Phase C: Frontend UI (Not Started)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| **C8: BrunoHintV2 Component** | ⏳ Todo | Expand current BrunoHint |
+| **C9: Warmup Hook** | ⏳ Todo | `useTipsWarmup(profileId)` |
+| **C10: Migrate All Tabs** | ⏳ Todo | Wire up new API |
+
+---
+
+### Phase D: Opik Observability (Not Started)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| **D11: Sampling Strategy** | ⏳ Todo | 100% errors, 10% success |
+| **D12: Trace Hierarchy** | ⏳ Todo | Per-tab trace naming |
+| **D13: Prompt Versioning** | ⏳ Todo | registerPrompt per tab |
+
+---
+
+### Phase E: A/B Testing (Not Started)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| **E14: Experiment Framework** | ⏳ Todo | Hash-based allocation |
+| **E15: First Experiments** | ⏳ Todo | RAG, agent count, guardian |
+
+---
+
 ## References
 
-- `packages/mcp-server/src/agents/tips-orchestrator.ts` - v2 orchestration
+- `packages/mcp-server/src/agents/tips-orchestrator.ts` - Legacy v2 orchestration
+- `packages/mcp-server/src/agents/tab-tips-orchestrator.ts` - **New** Strategy-based orchestrator
 - `packages/frontend/src/components/suivi/BrunoTips.tsx` - v2 component
 - `packages/mcp-server/src/agents/onboarding-agent.ts` - Mastra agent patterns
 - `packages/mcp-server/src/services/opik.ts` - Opik tracing utilities
