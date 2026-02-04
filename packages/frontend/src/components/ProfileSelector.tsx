@@ -247,11 +247,12 @@ export function ProfileSelector(props: Props) {
       localStorage.removeItem('activeProfileId');
       localStorage.removeItem('followupData');
       localStorage.removeItem('achievements');
-      localStorage.removeItem('forceNewProfile');
       localStorage.removeItem('onboardingComplete');
       localStorage.removeItem('stride_chat_onboarding_temp'); // Temp chat messages during onboarding
       localStorage.removeItem('stride_last_mood_check'); // Daily mood check timestamp
       localStorage.removeItem('stride_has_visited'); // First visit flag
+      // Signal OnboardingChat to start completely fresh (skip API profile loading)
+      localStorage.setItem('forceNewProfile', 'true');
 
       setIsOpen(false);
 
