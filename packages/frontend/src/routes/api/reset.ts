@@ -59,6 +59,14 @@ export async function DELETE(_event: APIEvent) {
       // Table might not exist
     }
 
+    // 5b. Delete all leads (saved job opportunities)
+    try {
+      await execute(`DELETE FROM leads`);
+      logger.info('Deleted all leads');
+    } catch {
+      // Table might not exist
+    }
+
     // 6. Reset simulation state to today (UPDATE, not DELETE)
     // Sprint 13.14 Fix: UPDATE instead of DELETE to preserve the 'global' row
     // Deleting causes the simulation to not have a row, which breaks the context

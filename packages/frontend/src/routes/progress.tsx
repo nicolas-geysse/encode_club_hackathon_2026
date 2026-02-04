@@ -1017,7 +1017,9 @@ export default function ProgressPage() {
 
   const handleMissionDelete = (id: string) => {
     const missions = followup().missions.filter((m) => m.id !== id);
-    updateFollowup({ missions });
+    // Recalculate currentAmount after deletion (same as handleMissionUpdate)
+    const totalEarnings = missions.reduce((sum, m) => sum + m.earningsCollected, 0);
+    updateFollowup({ missions, currentAmount: totalEarnings });
   };
 
   // No data fallback component

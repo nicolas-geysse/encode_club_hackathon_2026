@@ -799,6 +799,46 @@ export function TradeTab(props: TradeTabProps) {
           </For>
         </div>
 
+        {/* Available Inventory Items (only shown in Sell tab) */}
+        <Show
+          when={
+            activeType() === 'sell' &&
+            (props.inventoryItems || []).filter(
+              (item) => !trades().some((t) => t.inventoryItemId === item.id)
+            ).length > 0
+          }
+        >
+          <Card class="border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10">
+            <CardContent class="p-4">
+              <h4 class="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-3 flex items-center gap-2">
+                <Upload class="h-4 w-4" />
+                Your Inventory - Click to list for sale
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                <For
+                  each={(props.inventoryItems || []).filter(
+                    (item) => !trades().some((t) => t.inventoryItemId === item.id)
+                  )}
+                >
+                  {(item) => (
+                    <button
+                      class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-card border border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md transition-all group"
+                      onClick={() => addInventoryItemToSell(item)}
+                      title={`List ${item.name} for sale at ${formatCurrency(item.estimatedValue, currency())}`}
+                    >
+                      <span class="text-sm font-medium text-foreground">{item.name}</span>
+                      <span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                        {formatCurrency(item.estimatedValue, currency())}
+                      </span>
+                      <Plus class="h-3.5 w-3.5 text-muted-foreground group-hover:text-emerald-600 transition-colors" />
+                    </button>
+                  )}
+                </For>
+              </div>
+            </CardContent>
+          </Card>
+        </Show>
+
         {/* Trades List */}
         <div class="space-y-3">
           <div class="flex items-center justify-between">

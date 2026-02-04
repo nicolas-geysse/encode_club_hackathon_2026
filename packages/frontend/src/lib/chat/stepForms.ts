@@ -409,7 +409,7 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
         name: 'incomeDay',
         type: 'select',
         label: 'When does your income arrive?',
-        required: false,
+        required: true,
         options: [
           { value: '1', label: 'Beginning of month (1st-5th)' },
           { value: '15', label: 'Mid-month (15th)' },

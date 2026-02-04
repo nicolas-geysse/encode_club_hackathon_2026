@@ -67,6 +67,14 @@ export async function POST(event: APIEvent) {
       // Income table might not exist yet, ignore
     }
 
+    // Delete leads (saved job opportunities) for this profile
+    try {
+      await execute(`DELETE FROM leads WHERE profile_id = ${escapedProfileId}`);
+      deletedTables.push('leads');
+    } catch {
+      // Leads table might not exist yet, ignore
+    }
+
     logger.info('Profile data reset', { profileId, deletedTables });
 
     return new Response(
