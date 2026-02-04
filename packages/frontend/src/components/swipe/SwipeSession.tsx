@@ -256,7 +256,13 @@ export function SwipeSession(props: SwipeSessionProps) {
 
     // Update accepted/rejected
     if (isAccepted) {
-      setAccepted([...accepted(), scenario]);
+      // Merge user's adjustments into the scenario (rate, hours)
+      const adjustedScenario: Scenario = {
+        ...scenario,
+        hourlyRate: adjustments().customHourlyRate ?? scenario.hourlyRate,
+        weeklyHours: adjustments().customWeeklyHours ?? scenario.weeklyHours,
+      };
+      setAccepted([...accepted(), adjustedScenario]);
     } else {
       setRejected([...rejected(), scenario]);
     }
