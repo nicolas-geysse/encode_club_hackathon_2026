@@ -815,6 +815,59 @@ export function TradeTab(props: TradeTabProps) {
             </Button>
           </div>
 
+          {/* For sell tab: show inventory items that aren't yet listed as trades */}
+          <Show when={activeType() === 'sell'}>
+            <For
+              each={(props.inventoryItems || []).filter(
+                (item) => !trades().some((t) => t.inventoryItemId === item.id)
+              )}
+            >
+              {(item) => (
+                <Card class="group hover:shadow-md transition-all duration-300 border-transparent hover:border-border/50 bg-card/60 hover:bg-card">
+                  <CardContent class="p-4 flex items-center gap-4">
+                    {/* Icon */}
+                    <div class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
+                      <Banknote class="h-6 w-6" />
+                    </div>
+
+                    {/* Item Info */}
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <h4 class="font-bold text-foreground truncate text-base">{item.name}</h4>
+                        <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-full border border-transparent bg-opacity-50 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                          Available
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-3 text-sm text-muted-foreground">
+                        <Show when={item.category}>
+                          <span class="text-xs text-muted-foreground/60">{item.category}</span>
+                        </Show>
+                      </div>
+                    </div>
+
+                    {/* Value & Actions */}
+                    <div class="flex items-center gap-4">
+                      <div class="font-bold text-lg text-right min-w-[50px]">
+                        {formatCurrency(item.estimatedValue, currency())}
+                      </div>
+
+                      {/* Action to list for sale */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        class="text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        onClick={() => addInventoryItemToSell(item)}
+                      >
+                        <Plus class="h-4 w-4 mr-1" />
+                        List
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </For>
+          </Show>
+
           <For each={trades().filter((t) => t.type === activeType())}>
             {(trade) => (
               <Card class="group hover:shadow-md transition-all duration-300 border-transparent hover:border-border/50 bg-card/60 hover:bg-card">
@@ -960,7 +1013,16 @@ export function TradeTab(props: TradeTabProps) {
             )}
           </For>
 
-          <Show when={trades().filter((t) => t.type === activeType()).length === 0}>
+          {/* Empty state - for sell tab, only show if no trades AND no inventory items */}
+          <Show
+            when={
+              trades().filter((t) => t.type === activeType()).length === 0 &&
+              (activeType() !== 'sell' ||
+                (props.inventoryItems || []).filter(
+                  (item) => !trades().some((t) => t.inventoryItemId === item.id)
+                ).length === 0)
+            }
+          >
             <div class="text-center py-12">
               <div
                 class={cn(
@@ -979,44 +1041,6 @@ export function TradeTab(props: TradeTabProps) {
               <Button variant="outline" class="mt-4" onClick={openAddForm}>
                 <Plus class="h-4 w-4 mr-2" /> Add first item
               </Button>
-            </div>
-          </Show>
-
-          {/* Quick-add from Inventory (only shown in Sell tab when inventory available) */}
-          <Show
-            when={
-              activeType() === 'sell' &&
-              (props.inventoryItems || []).filter(
-                (item) => !trades().some((t) => t.inventoryItemId === item.id)
-              ).length > 0
-            }
-          >
-            <div class="pt-4 border-t border-border/50">
-              <h4 class="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <Upload class="h-4 w-4" />
-                Quick add from inventory
-              </h4>
-              <div class="flex flex-wrap gap-2">
-                <For
-                  each={(props.inventoryItems || []).filter(
-                    (item) => !trades().some((t) => t.inventoryItemId === item.id)
-                  )}
-                >
-                  {(item) => (
-                    <button
-                      class="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted border border-border hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm transition-all group text-sm"
-                      onClick={() => addInventoryItemToSell(item)}
-                      title={`List ${item.name} for sale at ${formatCurrency(item.estimatedValue, currency())}`}
-                    >
-                      <span class="font-medium text-foreground">{item.name}</span>
-                      <span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                        {formatCurrency(item.estimatedValue, currency())}
-                      </span>
-                      <Plus class="h-3.5 w-3.5 text-muted-foreground group-hover:text-emerald-600 transition-colors" />
-                    </button>
-                  )}
-                </For>
-              </div>
             </div>
           </Show>
         </div>
