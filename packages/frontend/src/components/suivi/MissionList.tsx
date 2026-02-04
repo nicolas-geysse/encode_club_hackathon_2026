@@ -238,7 +238,7 @@ export function MissionList(props: MissionListProps) {
           )}
         </For>
 
-        {/* Empty State - BUG T FIX: Improved empty state with action button */}
+        {/* Empty State */}
         <Show when={filteredMissions().length === 0}>
           <Card class="border-dashed">
             <CardContent class="py-12">

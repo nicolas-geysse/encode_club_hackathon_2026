@@ -94,7 +94,7 @@ interface TradeOpportunity {
   estimatedValue?: number;
 }
 
-// BUG J FIX: Add swipePreferences type
+// Swipe preferences for personalized scenario scoring
 interface SwipePreferences {
   effort_sensitivity: number;
   hourly_rate_priority: number;
@@ -130,7 +130,7 @@ interface ProfileData {
   inventoryItems?: InventoryItem[];
   subscriptions?: Subscription[];
   tradeOpportunities?: TradeOpportunity[];
-  swipePreferences?: SwipePreferences; // BUG J FIX: Add swipe preferences to profile
+  swipePreferences?: SwipePreferences;
   // Sprint Graphiques: Include followupData for energy history
   followupData?: Record<string, unknown>;
 }
@@ -238,7 +238,7 @@ export function OnboardingChat() {
     inventoryItems: [],
     subscriptions: [],
     tradeOpportunities: [],
-    // BUG J FIX: Initialize swipePreferences with neutral defaults (0.5 = balanced)
+    // Initialize swipePreferences with neutral defaults (0.5 = balanced)
     swipePreferences: {
       effort_sensitivity: 0.5,
       hourly_rate_priority: 0.5,
@@ -1647,7 +1647,6 @@ export function OnboardingChat() {
       inventoryItems: [],
       subscriptions: [],
       tradeOpportunities: [],
-      // BUG J FIX: Include swipePreferences in reset
       swipePreferences: {
         effort_sensitivity: 0.5,
         hourly_rate_priority: 0.5,
@@ -1689,7 +1688,6 @@ export function OnboardingChat() {
       inventoryItems: [],
       subscriptions: [],
       tradeOpportunities: [],
-      // BUG J FIX: Include swipePreferences in reset
       swipePreferences: {
         effort_sensitivity: 0.5,
         hourly_rate_priority: 0.5,
@@ -1926,9 +1924,8 @@ export function OnboardingChat() {
     }
 
     // Smart merge for academic events - collected at 'academic_events' step
-    // BUG P FIX: Changed step parameter from 'goal' to 'academic_events'
     if (data.academicEvents !== undefined && Array.isArray(data.academicEvents)) {
-      // BUG K FIX: Normalize dates - ensure endDate defaults to startDate if missing
+      // Normalize dates - ensure endDate defaults to startDate if missing
       const normalizedEvents = (data.academicEvents as AcademicEvent[]).map((event) => ({
         ...event,
         endDate: event.endDate || event.startDate, // Default endDate to startDate
@@ -1964,8 +1961,7 @@ export function OnboardingChat() {
       if (merged !== undefined) updates.subscriptions = merged;
     }
 
-    // BUG H FIX: Handle trade opportunities (borrow/lend/trade/sell)
-    // This was missing, causing Trade tab Borrow section to be empty
+    // Handle trade opportunities (borrow/lend/trade/sell)
     if (data.tradeOpportunities !== undefined && Array.isArray(data.tradeOpportunities)) {
       const merged = smartMergeArrays(
         currentProfile.tradeOpportunities,
@@ -1977,7 +1973,7 @@ export function OnboardingChat() {
     }
 
     // Also handle borrowItems if extracted separately (some LLM responses use this)
-    // BUG R FIX: Include estimatedValue for borrow items (e.g., "borrow camping gear worth $150")
+    // Include estimatedValue for borrow items (e.g., "borrow camping gear worth $150")
     if (data.borrowItems !== undefined && Array.isArray(data.borrowItems)) {
       const borrowTrades: TradeOpportunity[] = (
         data.borrowItems as Array<{
@@ -1992,7 +1988,7 @@ export function OnboardingChat() {
         type: 'borrow' as const,
         description: typeof item === 'string' ? item : item.name || item.item || 'Item',
         withPerson: typeof item === 'string' ? 'Friend' : item.from || 'Friend',
-        // BUG R FIX: Extract value from various possible field names
+        // Extract value from various possible field names
         estimatedValue:
           typeof item === 'string' ? undefined : item.value || item.estimatedValue || item.worth,
       }));
@@ -2260,8 +2256,7 @@ export function OnboardingChat() {
           goalDeadline: finalProfile.goalDeadline,
           planData, // Include planData for all tabs
           followupData: {}, // Explicitly initialize to prevent localStorage fallback
-          subscriptions: finalProfile.subscriptions, // Bug fix: subscriptions were missing
-          // BUG J FIX: Include swipePreferences with defaults
+          subscriptions: finalProfile.subscriptions,
           swipePreferences: finalProfile.swipePreferences || {
             effort_sensitivity: 0.5,
             hourly_rate_priority: 0.5,

@@ -43,6 +43,9 @@ import type {
 } from '~/lib/prospectionTypes';
 import { getCategoryById, PROSPECTION_CATEGORIES } from '~/config/prospectionCategories';
 import { scoreJobsForProfile, type ScoredJob, type UserProfile } from '~/lib/jobScoring';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('ProspectionTab');
 
 type Phase = 'idle' | 'loading' | 'results' | 'complete';
 type ViewMode = 'list' | 'map';
@@ -86,7 +89,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
             setLeads(data);
           }
         } catch (err) {
-          console.error('Failed to load leads', err);
+          logger.error('Failed to load leads', { error: err });
         }
       }
     )
@@ -203,7 +206,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
           `Found ${allJobs.length} jobs across ${searchedCats.length} categories`
         );
       } catch (err) {
-        console.error('Deep search error', err);
+        logger.error('Deep search error', { error: err });
         toastPopup.error('Deep Search failed', 'Could not complete the search. Try again.');
         setPhase('idle');
       } finally {
@@ -287,7 +290,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
           `Found ${jobCards.length} remote positions - work from anywhere!`
         );
       } catch (err) {
-        console.error('Real jobs fetch error', err);
+        logger.error('Real jobs fetch error', { error: err });
         toastPopup.error('Fetch failed', 'Could not load job listings. Try again.');
         setPhase('idle');
       } finally {
@@ -344,7 +347,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
         return [...prev, ...newJobs];
       });
     } catch (err) {
-      console.error('Search error', err);
+      logger.error('Search error', { error: err });
       toastPopup.error('Search failed', 'Could not find opportunities. Try again.');
       setPhase('idle');
     } finally {
@@ -384,7 +387,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
         props.onLeadSaved?.(lead);
       }
     } catch (err) {
-      console.error('Failed to save lead', err);
+      logger.error('Failed to save lead', { error: err });
       toastPopup.error('Save failed', 'Could not save this opportunity');
     }
   };
@@ -411,7 +414,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
         toastPopup.success('Status updated', `Lead marked as ${status}`);
       }
     } catch (err) {
-      console.error('Failed to update lead', err);
+      logger.error('Failed to update lead', { error: err });
       toastPopup.error('Update failed', 'Could not update lead status');
     }
   };
@@ -428,7 +431,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
         toastPopup.success('Lead deleted', 'Opportunity removed from your list');
       }
     } catch (err) {
-      console.error('Failed to delete lead', err);
+      logger.error('Failed to delete lead', { error: err });
       toastPopup.error('Delete failed', 'Could not delete lead');
     }
   };

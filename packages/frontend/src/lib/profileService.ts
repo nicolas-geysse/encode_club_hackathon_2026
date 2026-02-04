@@ -55,7 +55,7 @@ export interface IncomeSource {
 // Re-export Expense from canonical source
 export type { Expense };
 
-// BUG J FIX: Add swipe preferences type
+// Swipe preferences for personalized scenario scoring
 export interface SwipePreferences {
   effort_sensitivity: number;
   hourly_rate_priority: number;
@@ -97,7 +97,7 @@ export interface FullProfile {
   followupData?: Record<string, unknown>;
   achievements?: string[];
   isActive: boolean;
-  swipePreferences?: SwipePreferences; // BUG J FIX: Add swipe preferences
+  swipePreferences?: SwipePreferences;
   subscriptions?: { name: string; currentCost?: number }[];
   inventoryItems?: { name: string; category?: string; estimatedValue?: number }[];
 }

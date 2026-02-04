@@ -30,6 +30,9 @@ import {
   Bot,
 } from 'lucide-solid';
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
+import { createLogger } from '~/lib/logger';
+
+const logger = createLogger('SimulationControls');
 
 // Export SimulationState type for use in app.tsx
 export interface SimulationState {
@@ -146,7 +149,7 @@ export function SimulationControls(props: Props) {
         }
       }
     } catch (error) {
-      console.error('Error loading goal info:', error);
+      logger.error('Error loading goal info', { error });
     }
   };
 
@@ -157,7 +160,7 @@ export function SimulationControls(props: Props) {
       setState(simState);
       props.onSimulationChange?.(simState);
     } catch (error) {
-      console.error('Error loading simulation state:', error);
+      logger.error('Error loading simulation state', { error });
     } finally {
       setLoading(false);
     }
@@ -269,7 +272,7 @@ export function SimulationControls(props: Props) {
         throw new Error('Failed to fetch briefing');
       }
     } catch (error) {
-      console.error('[DailyBriefing] Failed to fetch:', error);
+      logger.error('Failed to fetch daily briefing', { error });
       setDailyTip({
         greeting: 'Good day',
         title: 'New day!',
@@ -307,7 +310,7 @@ export function SimulationControls(props: Props) {
         }),
       });
     } catch (error) {
-      console.error('[DailyTip] Feedback error:', error);
+      logger.error('Failed to submit tip feedback', { error });
     }
   };
 

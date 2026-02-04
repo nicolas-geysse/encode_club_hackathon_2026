@@ -38,8 +38,11 @@ import { Card } from '~/components/ui/Card';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/Sheet';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
-import { Check, User, Target, Briefcase, PiggyBank, Handshake, Menu, Compass } from 'lucide-solid';
+import { createLogger } from '~/lib/logger';
+import { Check, User, Target, PiggyBank, Handshake, Menu, Compass } from 'lucide-solid';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
+
+const logger = createLogger('MePage');
 
 // Types for plan data - local types for plan-specific structures
 type AcademicEventType =
@@ -155,7 +158,6 @@ const TABS = [
 const ICON_MAP = {
   User,
   Target,
-  Briefcase,
   PiggyBank,
   Handshake,
   Compass,
@@ -394,7 +396,7 @@ export default function MePage() {
         );
         await refreshTrades();
       } catch (err) {
-        console.error('Failed to persist trades', err);
+        logger.error('Failed to persist trades', { error: err });
       }
     }
   };

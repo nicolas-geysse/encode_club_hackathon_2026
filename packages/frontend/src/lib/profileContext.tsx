@@ -167,7 +167,7 @@ export const ProfileProvider: ParentComponent = (props) => {
   const [leads, setLeads] = createSignal<Lead[]>([]);
   const [loading, setLoading] = createSignal(true);
 
-  // BUG L FIX: Track previous profile ID to detect profile switches
+  // Track previous profile ID to detect profile switches and clear stale data
   let previousProfileId: string | null = null;
 
   const refreshProfile = async (options: { silent?: boolean } = {}) => {
@@ -353,7 +353,7 @@ export const ProfileProvider: ParentComponent = (props) => {
   };
 
   // Refresh all data when profile changes
-  // BUG L FIX: Clear data IMMEDIATELY when profile ID changes to prevent showing stale data
+  // Clear data immediately when profile ID changes to prevent showing stale data
   createEffect(() => {
     const p = profile();
     const currentProfileId = p?.id || null;

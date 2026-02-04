@@ -299,8 +299,7 @@ export function GoalsTab(props: GoalsTabProps) {
     // This allows the progress to update immediately when simulating future dates or adjusting savings.
     const stats = goalData.stats();
 
-    // Debug to confirm correct behavior
-    console.log('[DEBUG] Dynamic Progress:', {
+    logger.debug('Dynamic Progress', {
       percentComplete: stats.percentComplete,
       totalEarned: stats.totalEarned,
       isSimulated: !!props.simulatedDate,

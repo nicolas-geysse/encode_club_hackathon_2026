@@ -295,7 +295,7 @@ export function SkillsTab(props: SkillsTabProps) {
     props.onDirtyChange?.(isDirty());
   });
 
-  // BUG Q FIX: Track skills loading state to distinguish "loading" from "no skills"
+  // Track skills loading state to distinguish "loading" from "no skills"
   // 'initial' = first load, 'loaded' = skills fetched successfully, 'error' = fetch failed
   const [skillsLoadState, setSkillsLoadState] = createSignal<'initial' | 'loaded' | 'error'>(
     'initial'
@@ -306,8 +306,7 @@ export function SkillsTab(props: SkillsTabProps) {
 
   // Use context skills (from DB) as source of truth when profile exists
   // Only fall back to initialSkills when no profile (backward compat)
-  // BUG Q FIX: Track skills load state to distinguish "loading" from "no skills"
-  // BUG FIX: Sync skills to planData when loaded from DB (for SwipeTab to see correct hourlyRate)
+  // Sync skills to planData when loaded from DB (for SwipeTab to see correct hourlyRate)
   createEffect(() => {
     const ctxSkills = contextSkills();
     const currentProfile = profile();
@@ -689,7 +688,7 @@ export function SkillsTab(props: SkillsTabProps) {
         </CardContent>
       </Card>
 
-      {/* BUG Q FIX: Show loading state while skills are being fetched */}
+      {/* Show loading state while skills are being fetched */}
       <Show when={skillsLoadState() === 'initial'}>
         <SkillsSkeleton />
       </Show>
