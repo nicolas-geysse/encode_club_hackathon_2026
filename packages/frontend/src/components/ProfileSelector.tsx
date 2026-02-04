@@ -214,6 +214,8 @@ export function ProfileSelector(props: Props) {
     localStorage.removeItem('activeProfileId');
     localStorage.removeItem('followupData');
     localStorage.removeItem('achievements');
+    localStorage.removeItem('onboardingComplete');
+    localStorage.removeItem('stride_chat_onboarding_temp'); // Temp chat messages
     // Set flag to force fresh onboarding (skip API profile loading)
     localStorage.setItem('forceNewProfile', 'true');
     setIsOpen(false);
@@ -239,14 +241,17 @@ export function ProfileSelector(props: Props) {
       // 1. Notify other components/tabs immediately (use DATA_RESET for full reset)
       eventBus.emit('DATA_RESET');
 
-      // 2. Clear all localStorage
+      // 2. Clear all localStorage (profile + onboarding + wellbeing data)
       localStorage.removeItem('studentProfile');
       localStorage.removeItem('planData');
       localStorage.removeItem('activeProfileId');
       localStorage.removeItem('followupData');
       localStorage.removeItem('achievements');
       localStorage.removeItem('forceNewProfile');
-      localStorage.removeItem('onboardingComplete'); // Reset onboarding state
+      localStorage.removeItem('onboardingComplete');
+      localStorage.removeItem('stride_chat_onboarding_temp'); // Temp chat messages during onboarding
+      localStorage.removeItem('stride_last_mood_check'); // Daily mood check timestamp
+      localStorage.removeItem('stride_has_visited'); // First visit flag
 
       setIsOpen(false);
 

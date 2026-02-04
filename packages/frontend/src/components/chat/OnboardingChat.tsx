@@ -1741,6 +1741,7 @@ export function OnboardingChat() {
     localStorage.removeItem('activeProfileId');
     localStorage.removeItem('followupData');
     localStorage.removeItem('achievements');
+    localStorage.removeItem(ONBOARDING_TEMP_KEY); // Clear temp chat messages
 
     const oldProfileId = profileId();
     if (oldProfileId) {
