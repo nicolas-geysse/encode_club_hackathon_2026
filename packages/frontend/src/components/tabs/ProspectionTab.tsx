@@ -704,7 +704,12 @@ export function ProspectionTab(props: ProspectionTabProps) {
             </div>
             {/* Phase 8b: Quick access button at top */}
             <div class="flex flex-col items-end gap-2">
-              <Button variant="outline" size="sm" onClick={handleReset} class="shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReset}
+                class="shrink-0 border-foreground text-foreground hover:bg-muted hover:text-foreground"
+              >
                 <RotateCcw class="h-4 w-4 mr-2" />
                 Change category
               </Button>
