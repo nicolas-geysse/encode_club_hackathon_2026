@@ -153,9 +153,9 @@ export default function SwipePage() {
   );
 
   return (
-    <div class="container mx-auto px-4 py-6 max-w-4xl">
+    <div class="flex flex-col h-full space-y-6">
       {/* Page Header */}
-      <div class="mb-6">
+      <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-4 bg-background/80 backdrop-blur-xl border-b border-border/50">
         <h1 class="text-2xl font-bold text-foreground flex items-center gap-3">
           <div class="p-2 rounded-lg bg-primary/10">
             <Dices class="h-6 w-6 text-primary" />
