@@ -489,14 +489,14 @@ export function SwipeSession(props: SwipeSessionProps) {
                       {(months) => {
                         const maxMonths = props.monthsRemaining ?? 6;
                         const isDisabled = months > maxMonths;
-                        const isSelected = adjustments().pauseMonths === months;
+                        // isSelected must be reactive - inline in class for SolidJS reactivity
                         return (
                           <button
                             type="button"
                             disabled={isDisabled}
                             class={cn(
                               'flex-1 h-9 rounded-lg text-xs font-medium transition-all',
-                              isSelected
+                              adjustments().pauseMonths === months
                                 ? 'bg-primary text-primary-foreground shadow-sm'
                                 : isDisabled
                                   ? 'bg-muted/30 text-muted-foreground/40 cursor-not-allowed'
