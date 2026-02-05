@@ -499,27 +499,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
       {/* Top Dashboard - Visible when Idle or Results (but not loading deep search) */}
       <Show when={phase() !== 'loading'}>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Panel 1: My Selection Shortcut */}
-          <button
-            onClick={() => setShowLeadsPanel(true)}
-            class="group relative overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm transition-all hover:shadow-lg hover:border-primary/30 hover:ring-2 hover:ring-primary/10 text-left h-full min-h-[100px] cursor-pointer"
-          >
-            <div class="p-4 flex flex-col justify-between h-full">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Bookmark class="h-4 w-4" />
-                  <span>My Selection</span>
-                </div>
-                <ChevronRight class="h-5 w-5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
-              </div>
-              <div>
-                <div class="text-2xl font-bold text-foreground">{leads().length}</div>
-                <div class="text-xs text-muted-foreground mt-1">Saved opportunities</div>
-              </div>
-            </div>
-          </button>
-
-          {/* Panel 2: Quick Action - Top 10 */}
+          {/* Panel 1: Quick Action - Top 10 Highlights */}
           <button
             onClick={() => {
               setSearchRadius(DEEP_SEARCH_RADIUS_METERS); // Set to 50km for initial "Deep Search"
@@ -554,7 +534,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
             </div>
           </button>
 
-          {/* Panel 3: Quick Action - Remote */}
+          {/* Panel 2: Quick Action - Remote */}
           <button
             onClick={() => handleCategorySelect(REAL_JOBS_CATEGORY_ID)}
             disabled={phase() === 'loading'}
@@ -582,6 +562,26 @@ export function ProspectionTab(props: ProspectionTabProps) {
                 <div class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
                   Work from anywhere in the world
                 </div>
+              </div>
+            </div>
+          </button>
+
+          {/* Panel 3: My Selection Shortcut */}
+          <button
+            onClick={() => setShowLeadsPanel(true)}
+            class="group relative overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm transition-all hover:shadow-lg hover:border-primary/30 hover:ring-2 hover:ring-primary/10 text-left h-full min-h-[100px] cursor-pointer"
+          >
+            <div class="p-4 flex flex-col justify-between h-full">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Bookmark class="h-4 w-4" />
+                  <span>My Selection</span>
+                </div>
+                <ChevronRight class="h-5 w-5 text-muted-foreground/50 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+              </div>
+              <div>
+                <div class="text-2xl font-bold text-foreground">{leads().length}</div>
+                <div class="text-xs text-muted-foreground mt-1">Saved opportunities</div>
               </div>
             </div>
           </button>
