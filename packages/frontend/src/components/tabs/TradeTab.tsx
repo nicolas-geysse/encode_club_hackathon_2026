@@ -761,10 +761,19 @@ export function TradeTab(props: TradeTabProps) {
                     </div>
                   </div>
 
-                  {/* Value & Actions */}
+                  {/* Value/Karma & Actions */}
                   <div class="flex items-center gap-4">
                     <div class="font-bold text-lg text-right min-w-[50px]">
-                      {formatCurrency(trade.value, currency())}
+                      <Show
+                        when={trade.type === 'sell' || trade.type === 'borrow'}
+                        fallback={
+                          <span class="text-purple-600 dark:text-purple-400">
+                            +{trade.type === 'lend' ? '50' : '30'} karma
+                          </span>
+                        }
+                      >
+                        {formatCurrency(trade.value, currency())}
+                      </Show>
                     </div>
 
                     {/* Hover Actions */}

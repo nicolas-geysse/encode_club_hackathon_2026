@@ -152,7 +152,8 @@ export function SwipeSession(props: SwipeSessionProps) {
     category === 'pause_expense' ||
     category === 'sell_item' ||
     category === 'karma_trade' ||
-    category === 'karma_lend';
+    category === 'karma_lend' ||
+    category === 'karma_borrow';
 
   const isCardValid = createMemo(() => {
     const scenario = currentScenario();
