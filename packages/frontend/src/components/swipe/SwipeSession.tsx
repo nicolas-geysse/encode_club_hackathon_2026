@@ -640,15 +640,6 @@ export function SwipeSession(props: SwipeSessionProps) {
                     // Goal Impact - dynamic recalculation for job_lead
                     goalImpactPercent={(() => {
                       const originalImpact = scenario.metadata?.goalImpactPercent ?? 0;
-                      // Debug log for goal impact calculation
-                      if (index() === currentIndex()) {
-                        // eslint-disable-next-line no-console
-                        console.debug('[SwipeCard] Goal impact debug:', {
-                          category: scenario.category,
-                          originalImpact,
-                          metadata: scenario.metadata,
-                        });
-                      }
                       if (index() !== currentIndex() || scenario.category !== 'job_lead') {
                         return originalImpact;
                       }
