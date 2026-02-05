@@ -1060,26 +1060,34 @@ export function TradeTab(props: TradeTabProps) {
                 {/* Type Selection Pills */}
                 <div class="flex flex-wrap gap-2">
                   <For each={TRADE_TYPES}>
-                    {(type) => (
-                      <button
-                        class={cn(
-                          'px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full border transition-all flex items-center gap-1',
-                          newTrade().type === type.id
-                            ? `bg-${type.color}-600 text-white border-${type.color}-600 shadow-sm`
-                            : 'bg-background hover:bg-muted text-muted-foreground border-border'
-                        )}
-                        onClick={() => {
-                          setNewTrade({
-                            ...newTrade(),
-                            type: type.id as TradeItem['type'],
-                            // Simpler partner logic
-                          });
-                        }}
-                      >
-                        <Dynamic component={type.icon} class="h-3 w-3" />
-                        {type.label}
-                      </button>
-                    )}
+                    {(type) => {
+                      // Explicit class mapping (Tailwind can't compile dynamic classes)
+                      const activeClasses: Record<string, string> = {
+                        sell: 'bg-emerald-600 text-white border-emerald-600 shadow-sm',
+                        borrow: 'bg-blue-600 text-white border-blue-600 shadow-sm',
+                        trade: 'bg-purple-600 text-white border-purple-600 shadow-sm',
+                        lend: 'bg-orange-600 text-white border-orange-600 shadow-sm',
+                      };
+                      return (
+                        <button
+                          class={cn(
+                            'px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full border transition-all flex items-center gap-1',
+                            newTrade().type === type.id
+                              ? activeClasses[type.id]
+                              : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                          )}
+                          onClick={() => {
+                            setNewTrade({
+                              ...newTrade(),
+                              type: type.id as TradeItem['type'],
+                            });
+                          }}
+                        >
+                          <Dynamic component={type.icon} class="h-3 w-3" />
+                          {type.label}
+                        </button>
+                      );
+                    }}
                   </For>
                 </div>
               </div>
