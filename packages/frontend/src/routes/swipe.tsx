@@ -7,14 +7,15 @@
  * Phase 2 of navigation restructure.
  */
 
-import { Show, Suspense, lazy } from 'solid-js';
+import { Show, Suspense, lazy, createMemo } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { useProfile } from '~/lib/profileContext';
 import { profileService } from '~/lib/profileService';
 import { Card } from '~/components/ui/Card';
+import { Button } from '~/components/ui/Button';
 import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
 import { createLogger } from '~/lib/logger';
-import { Dices } from 'lucide-solid';
+import { Dices, ShoppingBag, Briefcase, Pause, Heart } from 'lucide-solid';
 
 const logger = createLogger('SwipePage');
 
@@ -46,6 +47,43 @@ export default function SwipePage() {
   const activeProfile = () => profile();
   const isLoading = () => loading();
   const hasProfile = () => !!activeProfile()?.id;
+
+  // Access control: Check if user has content to swipe (Pull Architecture)
+  const swipeAccess = createMemo(() => {
+    const t = trades();
+    const l = leads();
+    const ls = lifestyle();
+
+    // Check each source
+    const hasSellableItems = t.some((item) => item.type === 'sell' && item.status !== 'completed');
+    const hasInterestedLeads = l.some((lead) => lead.status === 'interested');
+    const hasPausableExpenses = ls.some((item) => item.currentCost > 0 && !item.pausedMonths);
+    const hasKarmaItems = t.some(
+      (item) => (item.type === 'trade' || item.type === 'lend') && item.status !== 'completed'
+    );
+
+    const canAccess =
+      hasSellableItems || hasInterestedLeads || hasPausableExpenses || hasKarmaItems;
+
+    // Build helpful message
+    const sources: string[] = [];
+    if (hasSellableItems) sources.push('sellable items');
+    if (hasInterestedLeads) sources.push('saved jobs');
+    if (hasPausableExpenses) sources.push('pausable subscriptions');
+    if (hasKarmaItems) sources.push('trade/lend items');
+
+    return {
+      canAccess,
+      hasSellableItems,
+      hasInterestedLeads,
+      hasPausableExpenses,
+      hasKarmaItems,
+      sources,
+      message: canAccess
+        ? `Ready to swipe: ${sources.join(', ')}`
+        : 'Add items to sell, save job listings, or add subscriptions to pause before swiping!',
+    };
+  });
 
   // Build props for SwipeTab from ProfileContext (Pull Architecture)
   const swipeProps = () => {
@@ -228,6 +266,51 @@ export default function SwipePage() {
     </div>
   );
 
+  // Empty state - nothing to swipe yet (Pull Architecture access control)
+  const EmptySwipeView = () => (
+    <div class="h-[60vh] flex items-center justify-center">
+      <Card class="text-center py-12 px-8 max-w-md mx-auto">
+        <div class="text-5xl mb-4">🎲</div>
+        <h2 class="text-xl font-bold text-foreground mb-2">Nothing to swipe yet</h2>
+        <p class="text-muted-foreground mb-6">{swipeAccess().message}</p>
+
+        <div class="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            class="flex items-center justify-center gap-2"
+            onClick={() => navigate('/me?tab=trade')}
+          >
+            <ShoppingBag class="h-4 w-4" />
+            Add items to sell
+          </Button>
+          <Button
+            class="flex items-center justify-center gap-2"
+            onClick={() => navigate('/me?tab=jobs')}
+          >
+            <Briefcase class="h-4 w-4" />
+            Find jobs
+          </Button>
+          <Button
+            variant="outline"
+            class="flex items-center justify-center gap-2"
+            onClick={() => navigate('/me?tab=budget')}
+          >
+            <Pause class="h-4 w-4" />
+            Pause subscriptions
+          </Button>
+          <Button
+            variant="outline"
+            class="flex items-center justify-center gap-2"
+            onClick={() => navigate('/me?tab=trade')}
+          >
+            <Heart class="h-4 w-4" />
+            Lend or trade
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+
   return (
     <Show when={!isLoading()} fallback={<LoadingView />}>
       <Show when={hasProfile()} fallback={<NoProfileView />}>
@@ -250,17 +333,19 @@ export default function SwipePage() {
             />
           </div>
 
-          {/* Content */}
-          <Show when={swipeProps()}>
-            {(props) => (
-              <Suspense fallback={<SwipeSkeleton />}>
-                <SwipeTab
-                  {...props()}
-                  onPreferencesChange={handlePreferencesChange}
-                  onScenariosSelected={handleScenariosSelected}
-                />
-              </Suspense>
-            )}
+          {/* Content - Check access control first */}
+          <Show when={swipeAccess().canAccess} fallback={<EmptySwipeView />}>
+            <Show when={swipeProps()}>
+              {(props) => (
+                <Suspense fallback={<SwipeSkeleton />}>
+                  <SwipeTab
+                    {...props()}
+                    onPreferencesChange={handlePreferencesChange}
+                    onScenariosSelected={handleScenariosSelected}
+                  />
+                </Suspense>
+              )}
+            </Show>
           </Show>
         </div>
       </Show>
