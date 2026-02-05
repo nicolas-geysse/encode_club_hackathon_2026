@@ -63,24 +63,37 @@ Trade/Jobs/Lifestyle → Scenarios → Missions
 
 ## 🔲 Checkpoints restants
 
-### Checkpoint A: Urgency Data (Priorité Haute)
-**Objectif**: Activer l'urgency intelligente avec des vraies données
+### Checkpoint A: Lifestyle Pause UX (Priorité Haute)
+**Objectif**: Améliorer l'interface de pause des abonnements
+
+**Approche simplifiée**: Pas de `nextBillingDate` - on utilise la règle de trois :
+- L'utilisateur sélectionne combien de mois il veut pauser (déjà dans l'UI)
+- Économies = `coût_mensuel × mois_de_pause`
+- Calcul d'impact sur le goal automatique
 
 ```
-□ A.1 Ajouter `nextBillingDate` à LifestyleItem
-      - Migration DB: ALTER TABLE lifestyle_items ADD next_billing_date DATE
-      - API: Retourner le champ dans GET /api/lifestyle
-      - UI: Champ date dans BudgetTab pour saisie
+□ A.1 Contraindre pausedMonths par la deadline
+      - Si deadline dans 3 mois et déjà avancé de 2 mois → max 1 mois de pause possible
+      - Griser les mois non disponibles dans le sélecteur
+      - Calcul: mois_disponibles = mois_restants_avant_deadline
 
-□ A.2 Ajouter `applicationDeadline` et `isHot` aux Leads
+□ A.2 Mettre à jour les mois disponibles quand le temps avance
+      - Quand simulation avance → recalculer mois_disponibles
+      - Réduire automatiquement pausedMonths si > mois_disponibles
+
+□ A.3 Afficher impact visuel dans Budget Tab
+      - "Pausing Netflix 2 months = 26€ saved (5% of goal)"
+```
+
+### Checkpoint A.bis: Job Urgency (Priorité Moyenne)
+**Objectif**: Prioriser les jobs avec deadlines
+
+```
+□ A.bis.1 Ajouter `applicationDeadline` et `isHot` aux Leads
       - API: Enrichir la réponse Prospection
       - Optionnel: Détecter "Hot" via Google Places activity
 
-□ A.3 Implémenter calculateLifestyleUrgency() avec vraie date
-      - daysToBilling <= 3 → score 95
-      - daysToBilling <= 7 → score 80
-
-□ A.4 Implémenter calculateJobUrgency() avec deadline/hot
+□ A.bis.2 Implémenter calculateJobUrgency() avec deadline/hot
       - daysToDeadline <= 2 → score 90
       - isHot → score 75
 ```
