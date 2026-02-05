@@ -3,10 +3,10 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { cn } from '~/lib/cn';
 import {
   Briefcase,
-  GraduationCap,
   ShoppingBag,
-  Home,
-  RefreshCw,
+  Pause,
+  Repeat,
+  HandHeart,
   Clock,
   DollarSign,
   ArrowLeft,
@@ -14,6 +14,9 @@ import {
   ArrowUp,
   ArrowDown,
   MapPin,
+  Tag,
+  CreditCard,
+  Sparkles,
 } from 'lucide-solid';
 import { formatCurrency, formatCurrencyWithSuffix, type Currency } from '~/lib/dateUtils';
 import './HoloCard.css';
@@ -259,18 +262,42 @@ export function SwipeCard(props: SwipeCardProps) {
 
   const getCategoryIcon = (category: string) => {
     const icons: Record<string, typeof Briefcase> = {
+      // New Pull Architecture categories
+      sell_item: ShoppingBag,
+      job_lead: Briefcase,
+      pause_expense: Pause,
+      karma_trade: Repeat,
+      karma_lend: HandHeart,
+      // Legacy fallbacks
       freelance: Briefcase,
-      tutoring: GraduationCap,
       selling: ShoppingBag,
-      lifestyle: Home,
-      trade: RefreshCw,
+      lifestyle: Pause,
+      trade: Repeat,
     };
     const Icon = icons[category] || Briefcase;
     return <Icon class="h-5 w-5" />;
   };
 
   const getCategoryLabel = (category: string) => {
-    return category.charAt(0).toUpperCase() + category.slice(1);
+    const labels: Record<string, string> = {
+      sell_item: 'Sell',
+      job_lead: 'Job',
+      pause_expense: 'Save',
+      karma_trade: 'Trade',
+      karma_lend: 'Lend',
+    };
+    return labels[category] || category.charAt(0).toUpperCase() + category.slice(1);
+  };
+
+  // Determine if this is a karma (non-monetary) scenario
+  const isKarmaScenario = () => props.category === 'karma_trade' || props.category === 'karma_lend';
+
+  // Determine display mode based on category
+  const getDisplayMode = () => {
+    if (props.category === 'sell_item') return 'one-time';
+    if (props.category === 'pause_expense') return 'monthly';
+    if (isKarmaScenario()) return 'karma';
+    return 'weekly'; // job_lead and legacy
   };
 
   return (
@@ -373,6 +400,29 @@ export function SwipeCard(props: SwipeCardProps) {
                 From Jobs
               </div>
             </Show>
+            <Show when={props.source === 'trade' && props.category === 'sell_item'}>
+              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 px-2 py-1 rounded-full mb-2">
+                <Tag class="h-3 w-3" />
+                From Inventory
+              </div>
+            </Show>
+            <Show when={props.source === 'lifestyle'}>
+              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-950/30 dark:text-orange-400 px-2 py-1 rounded-full mb-2">
+                <CreditCard class="h-3 w-3" />
+                Subscription
+              </div>
+            </Show>
+            <Show
+              when={
+                props.source === 'trade' &&
+                (props.category === 'karma_trade' || props.category === 'karma_lend')
+              }
+            >
+              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400 px-2 py-1 rounded-full mb-2">
+                <Sparkles class="h-3 w-3" />
+                Community Action
+              </div>
+            </Show>
 
             {/* Urgency Badge */}
             <Show when={props.urgency && props.urgency.score >= 75}>
@@ -393,33 +443,86 @@ export function SwipeCard(props: SwipeCardProps) {
               {props.description}
             </p>
 
-            {/* Stats */}
+            {/* Stats - Conditional based on scenario type */}
             <div class="space-y-4 mb-6">
-              <div class="flex items-center justify-between">
+              {/* Weekly earnings (jobs) */}
+              <Show when={getDisplayMode() === 'weekly'}>
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-2xl bg-green-500/10 text-green-600">
+                      <DollarSign class="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div class="text-3xl font-extrabold text-foreground tracking-tight">
+                        {formatCurrency(props.weeklyEarnings, props.currency)}
+                      </div>
+                      <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Per week
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="flex items-center justify-end gap-1.5 text-foreground font-bold text-lg">
+                      <Clock class="h-4 w-4 text-muted-foreground" />
+                      {props.weeklyHours}h
+                    </div>
+                    <div class="text-xs text-muted-foreground">
+                      {formatCurrencyWithSuffix(props.hourlyRate, props.currency, '/h')} rate
+                    </div>
+                  </div>
+                </div>
+              </Show>
+
+              {/* One-time amount (sell items) */}
+              <Show when={getDisplayMode() === 'one-time'}>
                 <div class="flex items-center gap-3">
-                  <div class="p-2.5 rounded-2xl bg-green-500/10 text-green-600">
-                    <DollarSign class="h-6 w-6" />
+                  <div class="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600">
+                    <ShoppingBag class="h-6 w-6" />
                   </div>
                   <div>
                     <div class="text-3xl font-extrabold text-foreground tracking-tight">
-                      {formatCurrency(props.weeklyEarnings, props.currency)}
+                      {formatCurrency(props.oneTimeAmount || 0, props.currency)}
                     </div>
                     <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Per week
+                      One-time sale
                     </div>
                   </div>
                 </div>
+              </Show>
 
-                <div class="text-right">
-                  <div class="flex items-center justify-end gap-1.5 text-foreground font-bold text-lg">
-                    <Clock class="h-4 w-4 text-muted-foreground" />
-                    {props.weeklyHours}h
+              {/* Monthly savings (pause expenses) */}
+              <Show when={getDisplayMode() === 'monthly'}>
+                <div class="flex items-center gap-3">
+                  <div class="p-2.5 rounded-2xl bg-orange-500/10 text-orange-600">
+                    <Pause class="h-6 w-6" />
                   </div>
-                  <div class="text-xs text-muted-foreground">
-                    {formatCurrencyWithSuffix(props.hourlyRate, props.currency, '/h')} rate
+                  <div>
+                    <div class="text-3xl font-extrabold text-foreground tracking-tight">
+                      {formatCurrency(props.monthlyAmount || 0, props.currency)}
+                    </div>
+                    <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Saved per month
+                    </div>
                   </div>
                 </div>
-              </div>
+              </Show>
+
+              {/* Karma points (social actions) */}
+              <Show when={getDisplayMode() === 'karma'}>
+                <div class="flex items-center gap-3">
+                  <div class="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600">
+                    <Sparkles class="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div class="text-3xl font-extrabold text-foreground tracking-tight">
+                      +{props.karmaPoints || 0}
+                    </div>
+                    <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Karma points
+                    </div>
+                  </div>
+                </div>
+              </Show>
             </div>
 
             {/* Footer Hint */}

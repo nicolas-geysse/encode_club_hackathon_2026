@@ -622,7 +622,8 @@ export function SwipeSession(props: SwipeSessionProps) {
                     isActive={index() === currentIndex()}
                     triggerSwipe={triggerSwipe()}
                     returnFrom={index() === currentIndex() ? returnFromDirection() : null}
-                    // New fields for display
+                    // Pull Architecture fields
+                    source={scenario.source}
                     oneTimeAmount={scenario.oneTimeAmount}
                     monthlyAmount={scenario.monthlyAmount}
                     urgency={scenario.urgency}
