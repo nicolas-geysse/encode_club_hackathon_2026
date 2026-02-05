@@ -321,6 +321,13 @@ function generateScenarios(
 
   // 2. Job leads (status='interested')
   const weeksRemaining = context.weeksRemaining ?? Math.ceil(daysToGoal / 7);
+  // eslint-disable-next-line no-console
+  console.debug('[generateScenarios] Job context:', {
+    weeksRemaining,
+    daysToGoal,
+    remainingAmount,
+    contextWeeksRemaining: context.weeksRemaining,
+  });
   leads
     ?.filter((l) => l.status === 'interested')
     .forEach((lead) => {
@@ -336,6 +343,15 @@ function generateScenarios(
       // Calculate goal impact: total earnings over remaining weeks / remaining amount
       const totalEarnings = weeklyEarnings * weeksRemaining;
       const goalImpact = remainingAmount > 0 ? (totalEarnings / remainingAmount) * 100 : 0;
+      // eslint-disable-next-line no-console
+      console.debug('[generateScenarios] Job lead calc:', {
+        leadTitle: lead.title,
+        hourlyRate,
+        weeklyHours,
+        weeklyEarnings,
+        totalEarnings,
+        goalImpact,
+      });
 
       scenarios.push({
         id: `job_${lead.id}`,

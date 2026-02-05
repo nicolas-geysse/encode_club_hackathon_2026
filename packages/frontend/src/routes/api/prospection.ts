@@ -224,11 +224,124 @@ const TEXT_SEARCH_QUERIES: Record<string, string[]> = {
   auto: ['station service', 'lavage auto'],
 };
 
+import { promises as fs } from 'fs';
+import path from 'path';
+
+// ... (existing imports)
+
+// =============================================================================
+// Caching System (Flat File JSON)
+// =============================================================================
+
+const CACHE_FILE = path.resolve(process.cwd(), '.cache/prospection_cache.json');
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+interface CacheEntry {
+  timestamp: number;
+  data: ProspectionCard[];
+}
+
+interface CacheStore {
+  [key: string]: CacheEntry;
+}
+
+/**
+ * Generate a deterministic cache key
+ * Rounds coordinates to ~100m precision (3 decimals) to optimize hit rate
+ */
+function getCacheKey(
+  categoryId: string,
+  city: string | undefined,
+  lat: number | undefined,
+  lng: number | undefined,
+  radius: number
+): string {
+  const c = city || 'unknown';
+  // If no coords, use city only
+  if (!lat || !lng) {
+    return `cat_${categoryId}_city_${c.toLowerCase().replace(/\s/g, '_')}`;
+  }
+  // Round to 3 decimals (~111m precision)
+  const rLat = lat.toFixed(3);
+  const rLng = lng.toFixed(3);
+  return `cat_${categoryId}_loc_${rLat}_${rLng}_rad_${radius}`;
+}
+
+/**
+ * Read from file cache
+ */
+async function getCache(key: string): Promise<ProspectionCard[] | null> {
+  try {
+    // Check if file exists
+    try {
+      await fs.access(CACHE_FILE);
+    } catch {
+      return null;
+    }
+
+    const content = await fs.readFile(CACHE_FILE, 'utf-8');
+    const store: CacheStore = JSON.parse(content);
+    const entry = store[key];
+
+    if (!entry) return null;
+
+    // Check TTL
+    if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+      // Expired
+      logger.info('Cache expired', { key });
+      return null;
+    }
+
+    logger.info('Cache HIT', { key });
+    return entry.data;
+  } catch (error) {
+    logger.warn('Cache read error', { error });
+    return null;
+  }
+}
+
+/**
+ * Write to file cache
+ */
+async function setCache(key: string, data: ProspectionCard[]): Promise<void> {
+  try {
+    // Ensure dir exists
+    const dir = path.dirname(CACHE_FILE);
+    try {
+      await fs.access(dir);
+    } catch {
+      await fs.mkdir(dir, { recursive: true });
+    }
+
+    // Read existing store to avoid wiping other keys
+    let store: CacheStore = {};
+    try {
+      const content = await fs.readFile(CACHE_FILE, 'utf-8');
+      store = JSON.parse(content);
+    } catch {
+      // File doesn't exist or corrupt, start fresh
+    }
+
+    // Update entry
+    store[key] = {
+      timestamp: Date.now(),
+      data,
+    };
+
+    await fs.writeFile(CACHE_FILE, JSON.stringify(store, null, 2), 'utf-8');
+    logger.info('Cache saved', { key, items: data.length });
+  } catch (error) {
+    logger.error('Cache write error', { error });
+  }
+}
+
 /**
  * Search for real places using Google Places API
  * Strategy:
- * 1. Nearby Search with progressive radius (starting from user-provided radius)
- * 2. If still empty, fallback to Text Search (more flexible queries)
+ * 1. Check Cache
+ * 2. Nearby Search with progressive radius (starting from user-provided radius)
+ * 3. If still empty, fallback to Text Search (more flexible queries)
+ * 4. Save to Cache if results found
  *
  * v4.1: Now respects user-provided radius instead of always starting at 5km
  */
@@ -251,11 +364,21 @@ async function searchRealPlaces(
     return generatePlatformCards(category, city, currencySymbol);
   }
 
+  // 1. Check Cache
+  const cacheKey = getCacheKey(category.id, city, latitude, longitude, initialRadius);
+  const cachedResults = await getCache(cacheKey);
+  if (cachedResults) {
+    // Add "cached" flag to source for debugging UI if needed (optional)
+    return cachedResults;
+  }
+
   const maps = await getGoogleMaps();
   const location = { lat: latitude, lng: longitude };
 
   // v4.1: Progressive radius starting from user-provided value
   const radiusFallbacks = getRadiusFallbacks(initialRadius);
+
+  let finalResults: ProspectionCard[] = [];
 
   // Strategy 1: Try Nearby Search with progressive radius
   for (const radius of radiusFallbacks) {
@@ -268,7 +391,8 @@ async function searchRealPlaces(
         count: allPlaces.length,
         method: 'nearby_search',
       });
-      return allPlaces;
+      finalResults = allPlaces;
+      break; // Found results, stop expanding
     }
 
     logger.info('No results at radius, trying larger', {
@@ -278,23 +402,32 @@ async function searchRealPlaces(
     });
   }
 
-  // Strategy 2: Fallback to Text Search (more flexible)
-  logger.info('Nearby Search exhausted, trying Text Search', { categoryId: category.id, city });
+  // Strategy 2: Fallback to Text Search (more flexible) if Nearby failed
+  if (finalResults.length === 0) {
+    logger.info('Nearby Search exhausted, trying Text Search', { categoryId: category.id, city });
 
-  const textSearchResults = await searchWithTextSearch(
-    maps,
-    category,
-    location,
-    city,
-    currencySymbol
-  );
-  if (textSearchResults.length > 0) {
-    logger.info('Places found via Text Search', {
-      categoryId: category.id,
-      count: textSearchResults.length,
-      method: 'text_search',
-    });
-    return textSearchResults;
+    const textSearchResults = await searchWithTextSearch(
+      maps,
+      category,
+      location,
+      city,
+      currencySymbol
+    );
+    if (textSearchResults.length > 0) {
+      logger.info('Places found via Text Search', {
+        categoryId: category.id,
+        count: textSearchResults.length,
+        method: 'text_search',
+      });
+      finalResults = textSearchResults;
+    }
+  }
+
+  // Handle results (Cache save or Return empty)
+  if (finalResults.length > 0) {
+    // Save to cache
+    await setCache(cacheKey, finalResults);
+    return finalResults;
   }
 
   // No results from any method
