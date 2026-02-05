@@ -153,7 +153,7 @@ function TradeSkeleton() {
 }
 
 export function TradeTab(props: TradeTabProps) {
-  const { profile } = useProfile();
+  const { profile, trades: contextTrades } = useProfile();
 
   // Currency from props, defaults to USD
   const currency = () => props.currency || 'USD';
@@ -442,9 +442,10 @@ export function TradeTab(props: TradeTabProps) {
   const totalBorrowPotential = () => borrowedValue() + pendingBorrowValue();
 
   // Feature I: Karma score for lend/trade/borrow actions (circular economy contribution)
-  // Uses KARMA_POINTS constant for consistency with SwipeCard display
+  // Uses contextTrades from profileContext (source of truth from DB)
+  // This ensures karma updates when missions are completed in /progress
   const karmaScore = () => {
-    const items = trades();
+    const items = contextTrades();
     const lendKarma =
       items.filter((t) => t.type === 'lend' && t.status === 'completed').length * 50;
     const tradeKarma =
@@ -612,16 +613,16 @@ export function TradeTab(props: TradeTabProps) {
                     Saves {formatCurrency(totalBorrowPotential(), currency(), { showSign: false })}
                   </span>
                 </Show>
-                {/* Karma bonus from completed borrows */}
+                {/* Karma bonus from completed borrows - uses contextTrades for accurate count */}
                 <Show
                   when={
-                    trades().filter((t) => t.type === 'borrow' && t.status === 'completed').length >
-                    0
+                    contextTrades().filter((t) => t.type === 'borrow' && t.status === 'completed')
+                      .length > 0
                   }
                 >
                   <span class="px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border border-purple-200/50">
                     +
-                    {trades().filter((t) => t.type === 'borrow' && t.status === 'completed')
+                    {contextTrades().filter((t) => t.type === 'borrow' && t.status === 'completed')
                       .length * 20}{' '}
                     karma
                   </span>
