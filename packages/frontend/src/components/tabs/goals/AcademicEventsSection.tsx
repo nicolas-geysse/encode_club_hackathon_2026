@@ -12,6 +12,7 @@ import { Input } from '~/components/ui/Input';
 import { Select } from '~/components/ui/Select';
 import { DatePicker } from '~/components/ui/DatePicker';
 import { GraduationCap, Pencil, Trash2, Plus, Check, X } from 'lucide-solid';
+import { todayISO } from '~/lib/dateUtils';
 
 export interface AcademicEvent {
   id: string;
@@ -235,6 +236,7 @@ export function AcademicEventsSection(props: AcademicEventsSectionProps) {
                       endDate: props.isSameDay() ? start : end,
                     });
                   }}
+                  min={todayISO()}
                 />
               </div>
               <label

@@ -25,6 +25,7 @@ import {
 import MapPicker, { type MapCoordinates } from './MapPicker';
 import { DatePicker } from '~/components/ui/DatePicker';
 import GridMultiSelect from './GridMultiSelect';
+import { todayISO } from '~/lib/dateUtils';
 
 // =============================================================================
 // Types
@@ -369,7 +370,7 @@ function DynamicSubField(props: {
             min={props.subField.min}
             max={props.subField.max}
             required={props.subField.required}
-            class="flex-1 px-2 py-1.5 bg-background border border-input rounded text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
+            class="w-20 max-w-20 px-2 py-1.5 bg-background border border-input rounded text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
           />
           <Show when={props.subField.suffix}>
             <span class="text-muted-foreground text-xs">
@@ -449,6 +450,7 @@ function DynamicDatePair(props: {
         <DatePicker
           value={props.startValue || ''}
           onChange={handleStartDateChange}
+          min={todayISO()}
           fullWidth={false}
         />
       </div>
@@ -475,6 +477,7 @@ function DynamicDatePair(props: {
         <DatePicker
           value={props.endValue || ''}
           onChange={(date) => props.onUpdateEnd(date)}
+          min={props.startValue || todayISO()}
           disabled={sameDay()}
           fullWidth={false}
         />
@@ -817,6 +820,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
           <DatePicker
             value={(value() as string) || ''}
             onChange={(date) => updateField(field.name, date)}
+            min={todayISO()}
             fullWidth={false}
           />
         );
