@@ -196,6 +196,9 @@ export default function ProgressPage() {
     income: contextIncome,
     lifestyle: contextLifestyle,
     trades: contextTrades,
+    refreshProfile,
+    refreshTrades,
+    refreshLifestyle,
   } = useProfile();
 
   // Sprint 13.8 Fix: Use SimulationContext for reactive date updates
@@ -963,18 +966,37 @@ export default function ProgressPage() {
   // When a sell_item mission is completed, mark the trade as 'completed'
   // When undone, mark it back to 'pending' so it can be re-proposed
   const syncMissionToSource = async (mission: Mission, newStatus: 'completed' | 'active') => {
-    if (!mission.source || !mission.sourceId) return;
+    logger.debug('syncMissionToSource called', {
+      missionId: mission.id,
+      source: mission.source,
+      sourceId: mission.sourceId,
+      category: mission.category,
+      newStatus,
+    });
+
+    if (!mission.source || !mission.sourceId) {
+      logger.warn('Mission missing source/sourceId, cannot sync', { mission });
+      return;
+    }
 
     try {
       if (mission.source === 'trade') {
-        // Sync to trades table
+        // Sync to trades table (sell_item, karma_trade, karma_lend all come from trades)
         const tradeStatus = newStatus === 'completed' ? 'completed' : 'pending';
-        await fetch('/api/trades', {
+        logger.debug('Syncing to trades API', { id: mission.sourceId, status: tradeStatus });
+        const response = await fetch('/api/trades', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: mission.sourceId, status: tradeStatus }),
         });
-        logger.info('Synced trade status', { sourceId: mission.sourceId, status: tradeStatus });
+        const result = await response.json();
+        logger.info('Synced trade status', {
+          sourceId: mission.sourceId,
+          status: tradeStatus,
+          result,
+        });
+        // Refresh trades to update UI
+        await refreshTrades();
       } else if (mission.source === 'lifestyle' && mission.category === 'pause_expense') {
         // Sync to lifestyle table
         // For pause_expense, we need to set pausedMonths when completed, reset when undone
@@ -986,6 +1008,8 @@ export default function ProgressPage() {
           body: JSON.stringify({ id: mission.sourceId, pausedMonths }),
         });
         logger.info('Synced lifestyle pause', { sourceId: mission.sourceId, pausedMonths });
+        // Refresh lifestyle to update UI
+        await refreshLifestyle();
       }
       // prospection leads don't need sync - they're external job listings
     } catch (error) {
