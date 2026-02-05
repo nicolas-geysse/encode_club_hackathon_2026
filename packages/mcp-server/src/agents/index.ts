@@ -148,6 +148,60 @@ export type {
   DailySwipeConfig,
 } from './swipe-orchestrator.js';
 
+// Guardrail Agents (Checkpoint H.5)
+export {
+  // H.5.4 Essential Guardian
+  detectNaiveSuggestionsTool,
+  suggestStructuralAlternativesTool,
+  calculateStructuralImpactTool,
+  essentialGuardianTool,
+  STRUCTURAL_ALTERNATIVES,
+  // H.5.1 Ghost Observer
+  detectRejectionPatternsTool,
+  filterByPatternsTool,
+  generateBehaviorInsightsTool,
+  ghostObserverTool,
+  GHOST_CONFIG,
+  // H.5.3 Asset Pivot
+  detectProductiveAssetsTool,
+  calculatePivotEconomicsTool,
+  suggestMonetizationPlatformsTool,
+  assetPivotTool,
+  RENTAL_RATES,
+  MONETIZATION_PLATFORMS,
+  // H.5.2 Cash Flow Smoother
+  detectTimingMismatchesTool,
+  suggestTimingSolutionsTool,
+  evaluateUrgencySaleTool,
+  cashFlowSmootherTool,
+  CASHFLOW_CONFIG,
+  // Meta exports
+  GUARDRAIL_TOOLS,
+  GUARDRAIL_AGENTS,
+} from './guardrails/index.js';
+export type {
+  // Essential Guardian types
+  EssentialCategory,
+  StructuralAlternative,
+  BlockedScenario,
+  EssentialGuardianOutput,
+  // Ghost Observer types
+  SwipeHistory,
+  PatternType,
+  RejectionPattern,
+  GhostObserverOutput,
+  // Asset Pivot types
+  ProductivityType,
+  RentalPotential,
+  ProductiveAsset,
+  AssetPivotSuggestion,
+  AssetPivotOutput,
+  // Cash Flow types
+  TimingMismatch,
+  CashFlowSolution,
+  CashFlowOutput,
+} from './guardrails/index.js';
+
 // Tab Agent Strategies
 export {
   createTabStrategy,
@@ -175,3 +229,8 @@ import './tab-tips-orchestrator.js';
 import './daily-briefing.js';
 import './lifestyle-agent.js';
 import './swipe-orchestrator.js';
+// H.5 Guardrail Agents
+import './essential-guardian.js';
+import './ghost-observer.js';
+import './asset-pivot.js';
+import './cashflow-smoother.js';
