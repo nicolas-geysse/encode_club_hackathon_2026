@@ -23,7 +23,6 @@ import {
   Download,
   Repeat,
   Upload,
-  Lightbulb,
   Plus,
   Trash2,
   Pencil,
@@ -73,128 +72,6 @@ interface TradeTabProps {
   onInventorySold?: (inventoryItemId: string, soldPrice: number) => Promise<void>;
   /** Callback when dirty state changes (for parent to track unsaved changes) */
   onDirtyChange?: (isDirty: boolean) => void;
-}
-
-interface TradeSuggestion {
-  type: 'borrow' | 'lend' | 'trade' | 'sell';
-  name: string;
-  description: string;
-  estimatedSavings: number;
-  sourceType?: 'goal' | 'inventory';
-}
-
-// Generate suggestions based on goal and inventory
-function getSuggestions(
-  goalName?: string,
-  _goalAmount?: number,
-  _inventoryItems?: InventoryItemForTrade[]
-): TradeSuggestion[] {
-  const suggestions: TradeSuggestion[] = [];
-  const lowerGoal = (goalName || '').toLowerCase();
-
-  // Note: Inventory items are now shown directly in the Sell tab list,
-  // not as suggestions here
-
-  // GOAL-BASED SUGGESTIONS: Context-aware borrow/trade suggestions
-
-  // Camping/vacation goal suggestions
-  if (
-    lowerGoal.includes('camping') ||
-    lowerGoal.includes('vacation') ||
-    lowerGoal.includes('travel')
-  ) {
-    suggestions.push({
-      type: 'borrow',
-      name: 'Camping tent',
-      description: 'Borrow a 2-person tent for your trip',
-      estimatedSavings: 80,
-      sourceType: 'goal',
-    });
-    suggestions.push({
-      type: 'borrow',
-      name: 'Sleeping bag',
-      description: 'Ask a friend or family member',
-      estimatedSavings: 40,
-      sourceType: 'goal',
-    });
-    suggestions.push({
-      type: 'borrow',
-      name: 'Cooler/Ice box',
-      description: 'To keep your food fresh during the trip',
-      estimatedSavings: 30,
-      sourceType: 'goal',
-    });
-  }
-
-  // Tech/electronics goal suggestions
-  if (lowerGoal.includes('computer') || lowerGoal.includes('pc') || lowerGoal.includes('tech')) {
-    suggestions.push({
-      type: 'borrow',
-      name: 'Repair tools',
-      description: 'To upgrade it yourself',
-      estimatedSavings: 25,
-      sourceType: 'goal',
-    });
-  }
-
-  // Moving/housing goal suggestions
-  if (
-    lowerGoal.includes('apartment') ||
-    lowerGoal.includes('moving') ||
-    lowerGoal.includes('housing')
-  ) {
-    suggestions.push({
-      type: 'borrow',
-      name: 'Moving boxes',
-      description: 'Reuse from your friends',
-      estimatedSavings: 20,
-      sourceType: 'goal',
-    });
-    suggestions.push({
-      type: 'borrow',
-      name: 'Hand truck/Dolly',
-      description: 'To move heavy furniture',
-      estimatedSavings: 35,
-      sourceType: 'goal',
-    });
-  }
-
-  // Study/school goal suggestions
-  if (
-    lowerGoal.includes('study') ||
-    lowerGoal.includes('school') ||
-    lowerGoal.includes('training') ||
-    lowerGoal.includes('license')
-  ) {
-    suggestions.push({
-      type: 'borrow',
-      name: 'Textbooks',
-      description: 'Borrow from previous year students',
-      estimatedSavings: 50,
-      sourceType: 'goal',
-    });
-  }
-
-  // 4. GENERIC SUGGESTIONS: Only if nothing else available
-  const nonGenericCount = suggestions.filter((s) => s.sourceType !== undefined).length;
-  if (nonGenericCount < 2) {
-    suggestions.push({
-      type: 'borrow',
-      name: 'Power tools',
-      description: 'Borrow drill, saw, etc. for occasional DIY',
-      estimatedSavings: 30,
-      sourceType: 'goal',
-    });
-    suggestions.push({
-      type: 'trade',
-      name: 'Skill exchange',
-      description: 'Offer tutoring/design in exchange for help',
-      estimatedSavings: 40,
-      sourceType: 'goal',
-    });
-  }
-
-  return suggestions;
 }
 
 const TRADE_TYPES = [
@@ -588,9 +465,6 @@ export function TradeTab(props: TradeTabProps) {
     return pendingSells + availableInventory;
   };
 
-  // Get suggestions based on goal
-  const suggestions = () => getSuggestions(props.goalName, props.goalAmount);
-
   // Count pending/active items by type for reminder messages
   const pendingCountByType = (type: string) =>
     trades().filter((t) => t.type === type && (t.status === 'pending' || t.status === 'active'))
@@ -613,26 +487,6 @@ export function TradeTab(props: TradeTabProps) {
       default:
         return null;
     }
-  };
-
-  // Add a suggestion as a trade
-  const addFromSuggestion = (suggestion: TradeSuggestion) => {
-    const newTrade: TradeItem = {
-      id: `trade_${Date.now()}`,
-      type: suggestion.type,
-      name: suggestion.name,
-      description: suggestion.description,
-      partner: '', // User fills this in
-      value: suggestion.estimatedSavings,
-      status: 'pending',
-    };
-
-    setNewTrade({
-      ...newTrade,
-      partner: '',
-    });
-    setShowAddForm(true);
-    setDirtyOriginal(); // Capture initial state for dirty tracking
   };
 
   const getTypeInfo = (type: string) => TRADE_TYPES.find((t) => t.id === type);
@@ -774,41 +628,6 @@ export function TradeTab(props: TradeTabProps) {
             </CardContent>
           </Card>
         </div>
-
-        {/* Goal Suggestions */}
-        <Show when={suggestions().filter((s) => s.sourceType === 'goal').length > 0}>
-          <Card class="bg-purple-500/5 border-purple-500/20">
-            <CardContent class="p-4">
-              <h3 class="font-medium text-purple-900 dark:text-purple-200 mb-3 flex items-center gap-2">
-                <Lightbulb class="h-4 w-4" /> Suggestions for "{props.goalName || 'your goal'}"
-              </h3>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <For each={suggestions().filter((s) => s.sourceType === 'goal')}>
-                  {(suggestion) => (
-                    <Button
-                      variant="outline"
-                      class="h-auto p-3 flex items-center justify-between text-left whitespace-normal hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                      onClick={() => addFromSuggestion(suggestion)}
-                    >
-                      <div>
-                        <div class="font-medium text-foreground">{suggestion.name}</div>
-                        <div class="text-xs text-muted-foreground font-normal">
-                          {suggestion.description}
-                        </div>
-                      </div>
-                      <div class="text-right ml-2">
-                        <div class="text-green-600 dark:text-green-400 font-bold">
-                          -{formatCurrency(suggestion.estimatedSavings, currency())}
-                        </div>
-                        <div class="text-xs text-muted-foreground font-normal">to save</div>
-                      </div>
-                    </Button>
-                  )}
-                </For>
-              </div>
-            </CardContent>
-          </Card>
-        </Show>
 
         {/* Type Tabs (Pill Design) */}
         <div class="flex flex-wrap gap-2 p-1 bg-muted/20 border border-border/50 rounded-2xl w-fit">
