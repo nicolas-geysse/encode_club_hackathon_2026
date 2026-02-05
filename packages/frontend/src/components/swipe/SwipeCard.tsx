@@ -450,13 +450,14 @@ export function SwipeCard(props: SwipeCardProps) {
               </div>
             </Show>
 
-            {/* Goal Impact Badge - Display if >= 5% (not for karma or sell_item - sell uses urgency badge) */}
+            {/* Goal Impact Badge - Display if >= 5% (not for karma; sell_item shows if urgency badge isn't visible) */}
             <Show
               when={
                 props.goalImpactPercent &&
                 props.goalImpactPercent >= 5 &&
                 !isKarmaScenario() &&
-                props.category !== 'sell_item'
+                // For sell_item: show goal impact if urgency badge isn't already showing (score < 75)
+                (props.category !== 'sell_item' || !props.urgency || props.urgency.score < 75)
               }
             >
               <div
