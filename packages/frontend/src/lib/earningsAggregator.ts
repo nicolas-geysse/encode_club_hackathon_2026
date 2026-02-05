@@ -271,13 +271,14 @@ function aggregateTradeSaleEarnings(trades: TradeData[], goalStartDate: Date): E
  *
  * Uses created_at for date attribution (when borrow was initiated).
  * Amount is retailPrice - money saved by borrowing vs buying.
+ * Only counts COMPLETED borrows - pending/active borrows haven't saved money yet.
  */
 function aggregateTradeBorrowEarnings(trades: TradeData[], goalStartDate: Date): EarningEvent[] {
   const events: EarningEvent[] = [];
 
   for (const trade of trades) {
-    // Only include borrows (any status - saving happens immediately)
-    if (trade.type !== 'borrow') {
+    // Only include completed borrows - saving happens when actually borrowed
+    if (trade.type !== 'borrow' || trade.status !== 'completed') {
       continue;
     }
 
