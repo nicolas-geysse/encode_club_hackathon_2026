@@ -110,12 +110,12 @@ export function ChatMessage(props: ChatMessageProps) {
                     'text-[10px] px-1.5 py-0.5 rounded-full font-medium uppercase tracking-wider',
                     props.badge === 'mastra'
                       ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                      : props.badge === 'groq'
+                      : props.badge === 'llm' || props.badge === 'groq'
                         ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                         : 'bg-muted text-muted-foreground'
                   )}
                 >
-                  {props.badge}
+                  {props.badge === 'llm' ? 'LLM' : props.badge}
                 </span>
               </Show>
             </div>

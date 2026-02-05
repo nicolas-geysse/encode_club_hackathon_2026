@@ -1,15 +1,17 @@
 /**
  * LLM-based Intent Classifier
  *
- * Fallback classifier using Groq LLM when regex patterns don't match.
+ * Fallback classifier using LLM when regex patterns don't match.
  * Provides intelligent understanding of user intent for natural language variations.
+ * Supports any OpenAI-compatible provider (Groq, Mistral, OpenAI, etc.)
  *
  * Sprint Graphiques Phase 2: Context-aware classification with Zod validation.
  */
 
 import { z } from 'zod';
-import Groq from 'groq-sdk';
+import type OpenAI from 'openai';
 import { trace, registerPrompt, type TraceOptions } from '../../opik';
+import { getModel, getProvider } from '../../llm';
 
 // =============================================================================
 // SUPPORTED ACTIONS
@@ -108,15 +110,18 @@ export interface ClassificationContext {
  * Classify user intent using LLM when regex patterns fail.
  *
  * @param message - User message to classify
- * @param groqClient - Groq SDK client instance
+ * @param llmClient - OpenAI-compatible client instance
  * @param context - Current application context (mode, step, available data)
  * @returns Classification result or null if confidence too low / error
  */
 export async function classifyIntentWithLLM(
   message: string,
-  groqClient: Groq,
+  llmClient: OpenAI,
   context: ClassificationContext
 ): Promise<LLMClassificationResult | null> {
+  const model = getModel();
+  const provider = getProvider();
+
   // Build trace options with prompt metadata
   const traceOptions: TraceOptions = {
     source: 'intent_llm_classifier',
@@ -151,8 +156,8 @@ export async function classifyIntentWithLLM(
 
         const startTime = Date.now();
 
-        const response = await groqClient.chat.completions.create({
-          model: 'llama-3.1-70b-versatile',
+        const response = await llmClient.chat.completions.create({
+          model,
           messages: [{ role: 'user', content: prompt }],
           response_format: { type: 'json_object' },
           temperature: 0.1, // Deterministic for consistent classification
@@ -165,7 +170,8 @@ export async function classifyIntentWithLLM(
         ctx.setAttributes({
           latency_ms: latencyMs,
           raw_response: rawContent,
-          model: 'llama-3.1-70b-versatile',
+          model,
+          provider,
         });
 
         // Set token usage if available

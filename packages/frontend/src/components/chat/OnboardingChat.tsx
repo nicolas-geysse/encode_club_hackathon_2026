@@ -38,9 +38,15 @@ import { OnboardingTips } from './OnboardingTips';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { hasStepForm } from '~/lib/chat/stepForms';
 import { useSimulation } from '~/lib/simulationContext';
+import { ConfirmChangeButtons } from './ConfirmChangeButtons';
+import {
+  detectSensitiveChanges,
+  validateFieldChange,
+  type FieldChange,
+} from '~/lib/chat/fieldValidation';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
 import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardingStateStore';
-import { toISODate, addDays, now } from '~/lib/dateUtils';
+import { addDays, now } from '~/lib/dateUtils';
 
 // Message type imported from ~/types/chat
 
@@ -264,6 +270,14 @@ export function OnboardingChat() {
   // Restart confirmation state (double confirmation like "Reset all data")
   const [showRestartConfirm1, setShowRestartConfirm1] = createSignal(false);
   const [showRestartConfirm2, setShowRestartConfirm2] = createSignal(false);
+
+  // B.1 Guardrails: Pending change confirmation for sensitive fields
+  // Stores the extracted data and detected change until user confirms/rejects
+  const [pendingChange, setPendingChange] = createSignal<{
+    change: FieldChange;
+    extractedData: Record<string, unknown>;
+    step: OnboardingStep;
+  } | null>(null);
 
   // Ref for auto-focusing input after response
   let chatInputRef: { focus: () => void } | null = null;
@@ -788,7 +802,7 @@ export function OnboardingChat() {
                   id: `assistant-chart-${Date.now()}`,
                   role: 'assistant',
                   content: result.response || 'Here is your chart:',
-                  source: result.source || 'groq',
+                  source: result.source || 'llm',
                   uiResource: result.uiResource,
                   traceId: result.traceId,
                   traceUrl: result.traceUrl,
@@ -1437,7 +1451,7 @@ export function OnboardingChat() {
     intent?: DetectedIntent;
     traceId?: string;
     traceUrl?: string; // Opik trace URL for "Explain This" feature
-    source?: 'mastra' | 'groq' | 'fallback';
+    source?: 'mastra' | 'llm' | 'fallback';
   }> => {
     try {
       // Build time context for simulation support
@@ -1493,7 +1507,7 @@ export function OnboardingChat() {
     intent?: DetectedIntent;
     traceId?: string;
     traceUrl?: string;
-    source?: 'mastra' | 'groq' | 'fallback';
+    source?: 'mastra' | 'llm' | 'fallback';
   } => {
     // Handle conversation mode
     if (mode === 'conversation' || mode === 'profile-edit') {
@@ -1811,6 +1825,56 @@ export function OnboardingChat() {
     }
 
     const currentProfile = profile();
+
+    // B.1 Guardrails: Check for changes to sensitive fields in conversation/profile-edit mode
+    // During onboarding, we trust the flow and don't require confirmation
+    const currentMode = chatMode();
+    if (currentMode === 'conversation' || currentMode === 'profile-edit') {
+      const sensitiveChange = detectSensitiveChanges(data, {
+        name: currentProfile.name,
+        city: currentProfile.city,
+        diploma: currentProfile.diploma,
+        field: currentProfile.field,
+      });
+
+      if (sensitiveChange) {
+        // Validate the new value
+        const validation = validateFieldChange(sensitiveChange.field, sensitiveChange.newValue);
+
+        if (!validation.valid) {
+          // Invalid value - add error message and don't apply
+          const errorMsg: Message = {
+            id: `validation-error-${Date.now()}`,
+            role: 'assistant',
+            content: `Hmm, "${sensitiveChange.newValue}" doesn't look valid. ${validation.error || ''} Want to try again?`,
+            source: 'fallback',
+          };
+          setMessages((prev) => [...prev, errorMsg]);
+          saveMessageToDb(errorMsg);
+          return; // Don't process - wait for valid input
+        }
+
+        // Store pending change for confirmation
+        setPendingChange({
+          change: sensitiveChange,
+          extractedData: data,
+          step: currentStep,
+        });
+
+        // Add Bruno's confirmation request as a message
+        const confirmMsg: Message = {
+          id: `confirm-${Date.now()}`,
+          role: 'assistant',
+          content: `Want me to change your ${sensitiveChange.field === 'name' ? 'name' : sensitiveChange.field === 'city' ? 'city' : sensitiveChange.field === 'diploma' ? 'education level' : 'field of study'}?`,
+          source: 'fallback',
+        };
+        setMessages((prev) => [...prev, confirmMsg]);
+        saveMessageToDb(confirmMsg);
+
+        return; // Wait for user confirmation
+      }
+    }
+
     const updates: Partial<ProfileData> = {};
 
     if (data.name) updates.name = String(data.name);
@@ -2065,6 +2129,85 @@ export function OnboardingChat() {
     }
 
     setProfile({ ...currentProfile, ...updates });
+  };
+
+  // B.1 Guardrails: Handle confirmation of pending sensitive field change
+  const handleConfirmChange = () => {
+    const pending = pendingChange();
+    if (!pending) return;
+
+    // Clear the pending state
+    setPendingChange(null);
+
+    // Re-run updateProfileFromExtracted without the sensitivity check
+    // We do this by directly applying the updates since user confirmed
+    const currentProfile = profile();
+    const updates: Partial<ProfileData> = {};
+
+    const data = pending.extractedData;
+    if (data.name) updates.name = String(data.name);
+    if (data.diploma) updates.diploma = String(data.diploma);
+    if (data.field) updates.field = String(data.field);
+    if (data.city) {
+      updates.city = String(data.city);
+      const { size, currency } = detectCityMetadata(String(data.city));
+      updates.citySize = size;
+      if (!currentProfile.currency && currency) {
+        updates.currency = currency;
+      }
+    }
+
+    const updatedProfile = { ...currentProfile, ...updates };
+    setProfile(updatedProfile);
+
+    // Add confirmation message
+    const confirmMsg: Message = {
+      id: `confirmed-${Date.now()}`,
+      role: 'assistant',
+      content: `Done! I've updated your ${pending.change.field === 'name' ? 'name' : pending.change.field === 'city' ? 'city' : pending.change.field === 'diploma' ? 'education level' : 'field of study'}.`,
+      source: 'fallback',
+    };
+    setMessages((prev) => [...prev, confirmMsg]);
+    saveMessageToDb(confirmMsg);
+
+    // Save to DB if in conversation mode
+    const currentProfileId = profileId();
+    const finalName = updatedProfile.name || currentProfile.name;
+    if (currentProfileId && finalName) {
+      profileService
+        .saveProfile(
+          {
+            id: currentProfileId,
+            name: finalName,
+            diploma: updatedProfile.diploma,
+            field: updatedProfile.field,
+            city: updatedProfile.city,
+            citySize: updatedProfile.citySize,
+          },
+          { immediate: true }
+        )
+        .then(() => refreshProfile())
+        .catch((err) => logger.error('Failed to save confirmed profile update', { error: err }));
+    }
+  };
+
+  // B.1 Guardrails: Handle rejection of pending sensitive field change
+  const handleRejectChange = () => {
+    const pending = pendingChange();
+    if (!pending) return;
+
+    // Clear the pending state
+    setPendingChange(null);
+
+    // Add rejection acknowledgment
+    const rejectMsg: Message = {
+      id: `rejected-${Date.now()}`,
+      role: 'assistant',
+      content: `No problem, keeping "${pending.change.oldValue}". What can I help you with?`,
+      source: 'fallback',
+    };
+    setMessages((prev) => [...prev, rejectMsg]);
+    saveMessageToDb(rejectMsg);
   };
 
   const handleSend = async (text: string) => {
@@ -2864,6 +3007,21 @@ export function OnboardingChat() {
                       />
                     </div>
                   </div>
+                </Show>
+
+                {/* B.1 Guardrails: Confirmation buttons for sensitive field changes */}
+                <Show when={pendingChange()}>
+                  {(pending) => (
+                    <div class="ml-12 mb-4 max-w-md">
+                      <ConfirmChangeButtons
+                        field={pending().change.field}
+                        oldValue={pending().change.oldValue}
+                        newValue={pending().change.newValue}
+                        onConfirm={handleConfirmChange}
+                        onReject={handleRejectChange}
+                      />
+                    </div>
+                  )}
                 </Show>
 
                 {/* Contextual form for current step */}

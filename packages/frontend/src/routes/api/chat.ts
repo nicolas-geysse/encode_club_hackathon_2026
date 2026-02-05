@@ -2,7 +2,7 @@
  * Chat API Route
  *
  * Handles LLM-powered chat for onboarding and general conversation.
- * Uses Mastra agent for intelligent extraction (with Groq fallback).
+ * Uses any OpenAI-compatible LLM provider (Groq, Mistral, OpenAI, etc.)
  * Traces everything to Opik for observability.
  *
  * Refactored to use lib/chat modules for:
@@ -15,7 +15,14 @@
  */
 
 import type { APIEvent } from '@solidjs/start/server';
-import Groq from 'groq-sdk';
+import {
+  getLLMClient,
+  getModel,
+  getProvider,
+  calculateCost,
+  type ChatMessage,
+  OpenAI,
+} from '../../lib/llm';
 import {
   trace,
   logFeedbackScores,
@@ -158,6 +165,46 @@ async function fetchBudgetContext(profileId?: string): Promise<BudgetContext | n
 }
 
 /**
+ * Fetch active goal data for a profile as fallback
+ * Returns null if no active goal or on failure
+ */
+interface GoalData {
+  name: string;
+  amount: number;
+  deadline?: string;
+  currentSaved?: number;
+}
+
+async function fetchActiveGoal(profileId?: string): Promise<GoalData | null> {
+  if (!profileId) return null;
+
+  try {
+    const url = `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/goals?profileId=${profileId}&status=active`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const goals = await response.json();
+    if (!Array.isArray(goals) || goals.length === 0) {
+      return null;
+    }
+
+    // Return the first active goal
+    const goal = goals[0];
+    return {
+      name: goal.name,
+      amount: goal.amount,
+      deadline: goal.deadline,
+      currentSaved: goal.currentSaved || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Format budget context for LLM prompt
  * Uses correct semantic separation: monthly recurring vs one-time gains
  */
@@ -249,12 +296,8 @@ async function fetchRAGContext(queryText: string, profileId?: string): Promise<s
   }
 }
 
-// Feature flag for Groq extractor (set to false to use legacy Groq-only approach without JSON mode)
+// Feature flag for LLM extractor (set to false to use legacy approach without JSON mode)
 const USE_GROQ_EXTRACTOR = process.env.USE_GROQ_EXTRACTOR !== 'false';
-
-// Groq configuration
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
 
 // Opik initialization state (run once per server instance)
 let opikInitialized = false;
@@ -279,16 +322,6 @@ async function ensureOpikSetup(): Promise<void> {
     logger.info('Opik setup skipped (non-fatal)', { error });
     opikInitialized = true; // Mark as done to avoid retrying every request
   }
-}
-
-// Initialize Groq client
-let groqClient: Groq | null = null;
-
-function getGroqClient(): Groq | null {
-  if (!groqClient && GROQ_API_KEY) {
-    groqClient = new Groq({ apiKey: GROQ_API_KEY });
-  }
-  return groqClient;
 }
 
 interface ChatRequest {
@@ -322,8 +355,8 @@ interface ChatResponse {
   traceId?: string;
   /** Opik trace URL for "Explain This" feature */
   traceUrl?: string;
-  /** Source of the response: 'groq' (JSON mode), 'groq_legacy' (text mode), or 'fallback' (regex) */
-  source?: 'groq' | 'groq_legacy' | 'fallback';
+  /** Source of the response: 'llm' (JSON mode), 'llm_legacy' (text mode), or 'fallback' (regex) */
+  source?: 'llm' | 'llm_legacy' | 'fallback';
   /** MCP-UI interactive component to render in chat */
   uiResource?: UIResource;
 }
@@ -538,7 +571,7 @@ export async function POST(event: APIEvent) {
     // Phase 2: Now uses async detectIntent with LLM fallback
     // =========================================================================
     const chartIntent = await detectIntent(message, context, {
-      groqClient: getGroqClient() || undefined,
+      llmClient: getLLMClient() || undefined,
       mode: mode || 'conversation',
       currentStep: step,
     });
@@ -658,7 +691,7 @@ export async function POST(event: APIEvent) {
           extractedData,
           nextStep,
           traceId: traceId || undefined,
-          source: groqResult.source === 'groq' ? 'groq' : 'fallback',
+          source: groqResult.source === 'llm' ? 'llm' : 'fallback',
           uiResource,
         };
 
@@ -674,7 +707,7 @@ export async function POST(event: APIEvent) {
     }
 
     // Legacy Groq-only approach (fallback)
-    const client = getGroqClient();
+    const client = getLLMClient();
     if (!client) {
       // Fallback: return simple response without LLM
       logger.debug('Response from fallback (no LLM)');
@@ -785,7 +818,7 @@ export async function POST(event: APIEvent) {
           extractedData,
           nextStep,
           traceId: currentTraceId || undefined,
-          source: 'groq_legacy',
+          source: 'llm_legacy',
           uiResource: legacyUiResource,
         } as ChatResponse;
       },
@@ -811,14 +844,14 @@ export async function POST(event: APIEvent) {
 
 // Extract structured data from user message using LLM
 async function extractDataFromMessage(
-  client: Groq,
+  client: OpenAI,
   message: string,
   context: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
   return trace('chat.extraction', async (span) => {
     span.setAttributes({
       'extraction.message_length': message.length,
-      'extraction.model': GROQ_MODEL,
+      'extraction.model': getModel(),
     });
 
     // First try regex extraction for common patterns (faster and more reliable)
@@ -830,7 +863,7 @@ async function extractDataFromMessage(
       const prompt = EXTRACTION_PROMPT.replace('{message}', message);
 
       const completion = await client.chat.completions.create({
-        model: GROQ_MODEL,
+        model: getModel(),
         messages: [
           { role: 'system', content: SYSTEM_PROMPTS.extraction },
           { role: 'user', content: prompt },
@@ -897,14 +930,14 @@ async function extractDataFromMessage(
 
 // Generate response for a specific step
 async function generateStepResponse(
-  client: Groq,
+  client: OpenAI,
   step: OnboardingStep,
   context: Record<string, unknown>
 ): Promise<string> {
   return trace('chat.generation', async (span) => {
     span.setAttributes({
       'generation.step': step,
-      'generation.model': GROQ_MODEL,
+      'generation.model': getModel(),
     });
 
     const promptTemplate = STEP_PROMPTS[step];
@@ -918,13 +951,13 @@ async function generateStepResponse(
 
     try {
       const completion = await client.chat.completions.create({
-        model: GROQ_MODEL,
+        model: getModel(),
         messages: [
           { role: 'system', content: SYSTEM_PROMPTS.onboarding },
           { role: 'user', content: prompt },
         ],
         temperature: 0.7,
-        max_tokens: 400, // Increased for fuller responses
+        max_tokens: 600, // B.4: Increased for fuller responses
       });
 
       const response = completion.choices[0]?.message?.content || "Let's continue!";
@@ -954,7 +987,7 @@ async function generateStepResponse(
 
 // Generate clarification message when user input wasn't understood
 async function generateClarificationResponse(
-  client: Groq,
+  client: OpenAI,
   step: OnboardingStep,
   _context: Record<string, unknown>
 ): Promise<string> {
@@ -963,7 +996,7 @@ async function generateClarificationResponse(
   // Try LLM for a more natural response, fall back to static
   try {
     const completion = await client.chat.completions.create({
-      model: GROQ_MODEL,
+      model: getModel(),
       messages: [
         { role: 'system', content: SYSTEM_PROMPTS.onboarding },
         {
@@ -973,7 +1006,7 @@ Keep it short and friendly (1-2 sentences).`,
         },
       ],
       temperature: 0.7,
-      max_tokens: 150,
+      max_tokens: 250, // B.4: Increased to avoid cut-off
     });
 
     return completion.choices[0]?.message?.content || clarificationText;
@@ -1027,7 +1060,7 @@ async function handleConversationMode(
   const preIntent =
     providedIntent ||
     (await detectIntent(message, context, {
-      groqClient: getGroqClient() || undefined,
+      llmClient: getLLMClient() || undefined,
       mode: currentMode,
       currentStep: 'conversation', // In conversation mode, step is generic
     }));
@@ -1115,6 +1148,40 @@ async function handleConversationMode(
         { type: 'tool', input: { profileId } }
       );
 
+      // Span 2.6: Fetch goal data as fallback if not in context
+      const goalFallback = await ctx.createChildSpan(
+        'chat.goal_fallback',
+        async (span) => {
+          // Only fetch if context doesn't have goal data
+          if (context.goalDeadline && context.goalName && context.goalAmount) {
+            span.setAttributes({ 'goal.source': 'context', 'goal.fetch_needed': false });
+            return null; // Context already has goal data
+          }
+
+          const goal = await fetchActiveGoal(profileId);
+          span.setAttributes({
+            'goal.source': goal ? 'api_fallback' : 'none',
+            'goal.fetch_needed': true,
+            'goal.found': goal !== null,
+          });
+
+          if (goal) {
+            // Enrich context with goal data from API
+            context.goalName = context.goalName || goal.name;
+            context.goalAmount = context.goalAmount || goal.amount;
+            context.goalDeadline = context.goalDeadline || goal.deadline;
+            context.currentSaved = context.currentSaved || goal.currentSaved;
+            span.setOutput({
+              goal_name: goal.name,
+              goal_amount: goal.amount,
+              goal_deadline: goal.deadline,
+            });
+          }
+          return goal;
+        },
+        { type: 'tool', input: { profileId, has_context_goal: Boolean(context.goalDeadline) } }
+      );
+
       // Log intent detection feedback scores for evaluation and dashboard
       const isFallback = isIntentFallback(intent);
       const traceIdForFeedback = ctx.getTraceId();
@@ -1178,7 +1245,7 @@ async function handleConversationMode(
               intent,
               traceId: actionTraceId || undefined,
               traceUrl: actionTraceId ? getTraceUrl(actionTraceId) : undefined,
-              source: 'groq' as const,
+              source: 'llm' as const,
               uiResource: actionStats.uiResource,
             };
           }
@@ -1208,7 +1275,7 @@ async function handleConversationMode(
               intent,
               traceId: actionTraceId || undefined,
               traceUrl,
-              source: 'groq' as const,
+              source: 'llm' as const,
             };
           }
         } catch (err) {
@@ -1226,7 +1293,7 @@ async function handleConversationMode(
             response,
             extractedData: { _restartNewProfile: true },
             nextStep: 'greeting' as OnboardingStep, // Start at greeting to collect name
-            source: 'groq' as const,
+            source: 'llm' as const,
             intent: { mode: 'onboarding' as ChatMode, action: 'restart_new_profile' },
             traceId: newProfileTraceId || undefined,
             traceUrl: newProfileTraceId ? getTraceUrl(newProfileTraceId) : undefined,
@@ -1243,7 +1310,7 @@ async function handleConversationMode(
             response,
             extractedData: { _restartUpdateProfile: true },
             nextStep: 'greeting' as OnboardingStep, // Start from greeting to ask name first
-            source: 'groq' as const,
+            source: 'llm' as const,
             intent: { mode: 'onboarding' as ChatMode, action: 'restart_update_profile' },
             traceId: updateProfileTraceId || undefined,
             traceUrl: updateProfileTraceId ? getTraceUrl(updateProfileTraceId) : undefined,
@@ -1263,7 +1330,7 @@ async function handleConversationMode(
               response,
               extractedData: {},
               nextStep: 'complete' as OnboardingStep,
-              source: 'groq' as const,
+              source: 'llm' as const,
               intent: { mode: 'conversation' as ChatMode, action: 'continue_onboarding' },
               traceId: continueTraceId || undefined,
               traceUrl: continueTraceUrl,
@@ -1277,7 +1344,7 @@ async function handleConversationMode(
             response,
             extractedData: { _continueOnboarding: true, _resumeAtStep: incompleteStep },
             nextStep: incompleteStep,
-            source: 'groq' as const,
+            source: 'llm' as const,
             intent: { mode: 'onboarding' as ChatMode, action: 'continue_onboarding' },
             traceId: continueTraceId || undefined,
             traceUrl: continueTraceUrl,
@@ -1599,7 +1666,7 @@ async function handleConversationMode(
             intent,
             traceId: traceId || undefined,
             traceUrl: traceId ? getTraceUrl(traceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: chartResource,
           };
         }
@@ -1726,7 +1793,7 @@ async function handleConversationMode(
             intent,
             traceId: swipeTraceId || undefined,
             traceUrl: swipeTraceId ? getTraceUrl(swipeTraceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: swipeResource,
           };
         }
@@ -1747,7 +1814,7 @@ async function handleConversationMode(
             intent,
             traceId: chartGalleryTraceId || undefined,
             traceUrl: chartGalleryTraceId ? getTraceUrl(chartGalleryTraceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: galleryResource,
           };
         }
@@ -1841,7 +1908,7 @@ async function handleConversationMode(
             intent,
             traceId: budgetChartTraceId || undefined,
             traceUrl: budgetChartTraceId ? getTraceUrl(budgetChartTraceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: budgetChartResource,
           };
         }
@@ -1934,7 +2001,7 @@ async function handleConversationMode(
             intent,
             traceId: progressChartTraceId || undefined,
             traceUrl: progressChartTraceId ? getTraceUrl(progressChartTraceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: progressChartResource,
           };
         }
@@ -2004,7 +2071,7 @@ async function handleConversationMode(
             intent,
             traceId: projectionChartTraceId || undefined,
             traceUrl: projectionChartTraceId ? getTraceUrl(projectionChartTraceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: projectionChartResource,
           };
         }
@@ -2071,7 +2138,7 @@ async function handleConversationMode(
             intent,
             traceId: energyChartTraceId || undefined,
             traceUrl: energyChartTraceId ? getTraceUrl(energyChartTraceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: energyChartResource,
           };
         }
@@ -2088,16 +2155,22 @@ async function handleConversationMode(
             intent,
             traceId: comparisonTraceId || undefined,
             traceUrl: comparisonTraceId ? getTraceUrl(comparisonTraceId) : undefined,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: comparisonGalleryResource,
           };
         }
 
         case 'check_progress': {
-          const goalName = context.goalName || 'your goal';
-          const goalAmount = context.goalAmount || 'your target';
+          const goalName = context.goalName as string | undefined;
+          const goalAmount = context.goalAmount as number | undefined;
           const currencySymbol = getCurrencySymbol(context.currency as string);
           const goalDeadline = context.goalDeadline as string;
+
+          // Check if user has a goal set
+          if (!goalName || !goalAmount) {
+            response = `You don't have a savings goal set yet! Head to **Me** to create one, or tell me what you're saving for.`;
+            break;
+          }
 
           // Time-aware progress check
           if (goalDeadline) {
@@ -2151,7 +2224,7 @@ async function handleConversationMode(
             extractedData: {},
             nextStep: 'complete' as OnboardingStep, // Stay in conversation mode
             intent,
-            source: 'groq' as const,
+            source: 'llm' as const,
             uiResource: confirmationResource,
           };
 
@@ -2164,7 +2237,7 @@ async function handleConversationMode(
           response = await ctx.createChildSpan(
             'chat.llm_generation',
             async (span) => {
-              const client = getGroqClient();
+              const client = getLLMClient();
               if (client) {
                 try {
                   // Fetch RAG context for personalized response (non-blocking)
@@ -2207,23 +2280,28 @@ IMPORTANT - TIME SIMULATION ACTIVE:
                     }
                   }
 
+                  // B.4: Use conversation-specific prompt for post-onboarding chat
+                  const conversationPrompt =
+                    SYSTEM_PROMPTS.conversation || SYSTEM_PROMPTS.onboarding;
+
                   const completion = await client.chat.completions.create({
-                    model: GROQ_MODEL,
+                    model: getModel(),
                     messages: [
                       {
                         role: 'system',
-                        content: `${SYSTEM_PROMPTS.onboarding}
+                        content: `${conversationPrompt}
 
-The user has already completed onboarding. Their profile: ${JSON.stringify(context)}.
+📊 PROFILE DATA:
+${JSON.stringify(context)}
 ${budgetSection}${ragSection}${timeSection}
-You have access to their consolidated financial data including income, expenses, savings from paused items, and trade values.
-Use this data to provide personalized, specific financial advice.
-Keep responses concise (2-3 sentences). Suggest going to "Me" for detailed information.`,
+
+You have access to consolidated financial data: income, expenses, savings, trades.
+Use this data for personalized, concrete advice.`,
                       },
                       { role: 'user', content: message },
                     ],
                     temperature: 0.7,
-                    max_tokens: 300,
+                    max_tokens: 500, // B.4: Increased to avoid cut-off
                   });
 
                   const llmResponse =
@@ -2244,7 +2322,7 @@ Keep responses concise (2-3 sentences). Suggest going to "Me" for detailed infor
                       total_tokens: completion.usage.total_tokens || 0,
                     });
                   } else {
-                    logger.warn(`No usage data returned from Groq for model ${GROQ_MODEL}`);
+                    logger.warn(`No usage data returned from LLM for model ${getModel()}`);
                     span.setAttributes({ usage_missing: true });
                   }
 
@@ -2267,8 +2345,8 @@ Keep responses concise (2-3 sentences). Suggest going to "Me" for detailed infor
             },
             {
               type: 'llm',
-              model: GROQ_MODEL,
-              provider: 'groq',
+              model: getModel(),
+              provider: getProvider(),
               input: { message: message.substring(0, 200) },
             }
           );
@@ -2278,42 +2356,9 @@ Keep responses concise (2-3 sentences). Suggest going to "Me" for detailed infor
       const traceId = getCurrentTraceId();
       const traceUrl = traceId ? getTraceUrl(traceId) : undefined;
 
-      // Auto-attach progress chart if the message/response is about savings
-      let autoChartResource: UIResource | undefined;
-      const savingsKeywords = /\b(sav(e|ing|ed|ings)|progress|épargne|économ|goal|objectif)\b/i;
-      const messageMentionsSavings = savingsKeywords.test(message);
-      const responseMentionsSavings = savingsKeywords.test(response);
-
-      if (messageMentionsSavings || responseMentionsSavings) {
-        const goalAmount = (context.goalAmount as number) || 0;
-        const currentSaved = (context.currentSaved as number) || 0;
-
-        if (goalAmount > 0) {
-          const income = budgetContext?.totalIncome || 0;
-          const expenses = budgetContext?.activeExpenses || 0;
-          const weeklySavings = (income - expenses) / 4.33;
-
-          // Project savings forward if simulating
-          const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx);
-
-          const weeksRemaining =
-            weeklySavings > 0 ? Math.ceil((goalAmount - projectedSaved) / weeklySavings) : 12;
-
-          autoChartResource = buildProgressChart(
-            projectedSaved,
-            goalAmount,
-            weeksRemaining,
-            weeklySavings,
-            getCurrencySymbol(context.currency as string),
-            {
-              isSimulating: timeCtx.isSimulating,
-              offsetDays: timeCtx.offsetDays,
-              simulatedDate: timeCtx.simulatedDate,
-            }
-          );
-          ctx.setAttributes({ 'chart.auto_attached': true, 'chart.type': 'progress' });
-        }
-      }
+      // Charts are now ONLY shown when explicitly requested via intent detection
+      // (e.g., "show my progress", "projection chart", etc.)
+      // Removed: overly aggressive auto-attach that triggered on keywords in ANY response
 
       ctx.setAttributes({
         'chat.response_length': response.length,
@@ -2328,8 +2373,7 @@ Keep responses concise (2-3 sentences). Suggest going to "Me" for detailed infor
         intent,
         traceId: traceId || undefined,
         traceUrl,
-        source: 'groq' as const,
-        uiResource: autoChartResource,
+        source: 'llm' as const,
       };
     },
     traceOptions

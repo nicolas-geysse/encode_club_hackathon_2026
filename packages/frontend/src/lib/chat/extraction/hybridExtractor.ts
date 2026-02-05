@@ -1,8 +1,9 @@
 /**
  * Hybrid Extractor
  *
- * Main orchestrator that combines Groq LLM extraction with regex fallback.
+ * Main orchestrator that combines LLM extraction with regex fallback.
  * Includes Opik tracing for observability.
+ * Supports any OpenAI-compatible provider (Groq, Mistral, OpenAI, etc.)
  *
  * This module replaces the old onboardingExtractor.ts
  */
@@ -13,6 +14,7 @@ import { extractWithGroq, getGroqModel } from './groqExtractor';
 import { extractWithRegex } from './regexExtractor';
 import { getNextStep, getAdvanceMessage, getClarificationMessage } from '../flow';
 import { GROQ_EXTRACTION_SYSTEM_PROMPT } from '../prompts';
+import { getProvider } from '../../llm';
 
 // Register prompt for version tracking in Opik traces
 // This enables regression detection when the extraction prompt changes
@@ -128,7 +130,7 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
               extracted_fields: Object.keys(groqResult.data).length,
               extracted_keys: Object.keys(groqResult.data).join(','),
             });
-            return { data: groqResult.data, usage: groqResult.usage, source: 'groq' as const };
+            return { data: groqResult.data, usage: groqResult.usage, source: 'llm' as const };
           } else if (groqResult) {
             // Groq returned but no data extracted - fall back to regex
             span.setUsage({
@@ -168,7 +170,7 @@ export async function processWithGroqExtractor(input: OnboardingInput): Promise<
         {
           type: 'llm',
           model: getGroqModel(),
-          provider: 'groq',
+          provider: getProvider(),
           input: { message: input.message.substring(0, 200), step: input.currentStep },
         }
       );

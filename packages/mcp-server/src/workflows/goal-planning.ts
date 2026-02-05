@@ -728,7 +728,7 @@ Don't mention precise success figures, stay positive but realistic.`;
           },
           { role: 'user', content: prompt },
         ],
-        { temperature: 0.7, maxTokens: 300 }
+        { temperature: 0.7, maxTokens: 500 }
       );
 
       span.setAttributes({

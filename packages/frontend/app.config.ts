@@ -5,6 +5,9 @@ import { dirname, resolve } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Monorepo root (2 levels up from packages/frontend)
+const rootDir = resolve(__dirname, "../..");
+
 export default defineConfig({
   server: {
     preset: "node-server",
@@ -18,6 +21,8 @@ export default defineConfig({
     ],
   },
   vite: {
+    // Read .env from monorepo root (single source of truth)
+    envDir: rootDir,
     server: {
       port: 3006,
       strictPort: true, // Fail if 3006 is occupied

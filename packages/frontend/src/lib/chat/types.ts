@@ -159,7 +159,7 @@ export interface ChatResponse {
   intent?: DetectedIntent;
   traceId?: string;
   traceUrl?: string;
-  source?: 'groq' | 'groq_legacy' | 'fallback' | 'command';
+  source?: 'llm' | 'llm_legacy' | 'fallback' | 'command';
   uiResource?: unknown;
 }
 
@@ -188,7 +188,7 @@ export interface OnboardingOutput {
   nextStep: string;
   isComplete: boolean;
   profileData: ProfileData;
-  source: 'groq' | 'fallback';
+  source: 'llm' | 'fallback';
   uiResource?: unknown;
 }
 

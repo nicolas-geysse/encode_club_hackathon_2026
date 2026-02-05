@@ -173,7 +173,7 @@ Gamification layer with bronze/silver/gold tiers:
 | Component | Technology |
 |-----------|------------|
 | **Tracing** | Opik Cloud (every recommendation traced) |
-| **LLM** | Groq (openai/gpt-oss-120b) |
+| **LLM** | Any OpenAI-compatible provider (Groq, Mistral, OpenAI, etc.) |
 | **Voice** | Groq Whisper (whisper-large-v3-turbo) |
 | **Embeddings** | [Turbov2](https://github.com/theseedship/deposium_embeddings-turbov2) (optional) |
 | **Agents** | Mastra Framework |
@@ -250,7 +250,7 @@ pnpm install
 # 2. Set environment variables
 cp .env.example .env
 # Edit .env with:
-#   GROQ_API_KEY (required - LLM features)
+#   LLM_API_KEY + LLM_BASE_URL + LLM_MODEL (required - any OpenAI-compatible provider)
 #   OPIK_API_KEY + OPIK_WORKSPACE (recommended - tracing)
 #   GOOGLE_MAPS_API_KEY (optional - Jobs tab search)
 
@@ -260,6 +260,18 @@ pnpm dev              # Frontend → http://localhost:3006
 # 4. Build for production
 pnpm build
 ```
+
+### Supported LLM Providers
+
+| Provider | Base URL | Example Model |
+|----------|----------|---------------|
+| **Groq** | `https://api.groq.com/openai/v1` | `llama-3.1-8b-instant` |
+| **Mistral** | `https://api.mistral.ai/v1` | `ministral-3b-2512` |
+| **OpenAI** | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| **OpenRouter** | `https://openrouter.ai/api/v1` | `anthropic/claude-3-haiku` |
+| **Together** | `https://api.together.xyz/v1` | `meta-llama/Llama-3-8b-chat-hf` |
+
+Just set `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` in your `.env` to switch providers.
 
 ### Full Stack (with RAG/Embeddings)
 

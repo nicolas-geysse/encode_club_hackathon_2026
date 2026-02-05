@@ -150,7 +150,7 @@ export type UIResource =
  *   id: 'msg-123',
  *   role: 'assistant',
  *   content: 'What is your savings goal?',
- *   source: 'groq',
+ *   source: 'llm',
  *   uiResource: { type: 'form', params: { ... } }
  * };
  */
@@ -162,7 +162,7 @@ export interface ChatMessage {
   /** Text content of the message (supports markdown) */
   content: string;
   /** LLM source that generated the response */
-  source?: 'mastra' | 'groq' | 'fallback';
+  source?: 'mastra' | 'llm' | 'fallback';
   /** Optional MCP-UI interactive component (form, table, metric, etc.) */
   uiResource?: UIResource;
   /** When the message was created */
@@ -186,7 +186,7 @@ export interface ChatMessage {
  * {
  *   response: "Great goal! When do you need it by?",
  *   extractedData: { goalName: "laptop", goalAmount: 500 },
- *   source: 'groq',
+ *   source: 'llm',
  *   uiResource: { type: 'form', params: { title: 'Confirm Goal', ... } }
  * }
  */
@@ -196,7 +196,7 @@ export interface ChatResponse {
   /** Data extracted from user message (name, skills, budget, etc.) */
   extractedData?: Record<string, unknown>;
   /** LLM source: 'mastra', 'groq', or 'fallback' (regex-only) */
-  source?: 'mastra' | 'groq' | 'fallback';
+  source?: 'mastra' | 'llm' | 'fallback';
   /** Optional MCP-UI component to render below the message */
   uiResource?: UIResource;
   /** Opik trace URL for "Explain This" feature */

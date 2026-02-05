@@ -1,11 +1,10 @@
 /**
- * Groq LLM Extractor
+ * LLM Extractor
  *
- * Handles LLM-based extraction using Groq with JSON mode.
+ * Handles LLM-based extraction using any OpenAI-compatible provider with JSON mode.
  * Uses prompts from ../prompts and falls back to regex extraction.
  */
 
-import Groq from 'groq-sdk';
 import type { ProfileData, TokenUsage } from '../types';
 import { GROQ_EXTRACTION_SYSTEM_PROMPT, EXTRACTION_STEP_CONTEXT } from '../prompts';
 import { detectCurrencyFromCity } from './patterns';
@@ -16,59 +15,30 @@ import {
 } from '../../timeAwareDate';
 import { createLogger } from '../../logger';
 import { toISODate } from '../../dateUtils';
+import { getLLMClient, getModel, calculateCost, type ChatMessage } from '../../llm';
 
-const logger = createLogger('GroqExtractor');
+const logger = createLogger('LLMExtractor');
 
 // =============================================================================
-// Groq Client Management
+// LLM Client Management (re-export from unified client)
 // =============================================================================
 
-let groqClient: Groq | null = null;
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
-
 /**
- * Groq pricing per 1M tokens (as of 2026)
- * @see https://console.groq.com/docs/models
+ * Get the LLM client (backwards compatibility alias)
  */
-const GROQ_PRICING: Record<string, { input: number; output: number }> = {
-  'openai/gpt-oss-120b': { input: 0.15, output: 0.6 },
-  'llama-3.1-70b-versatile': { input: 0.59, output: 0.79 },
-  'llama-3.1-8b-instant': { input: 0.05, output: 0.08 },
-  'llama-3.2-90b-vision-preview': { input: 0.9, output: 0.9 },
-  'mixtral-8x7b-32768': { input: 0.24, output: 0.24 },
-  default: { input: 0.15, output: 0.6 },
-};
-
-/**
- * Get or create Groq client singleton
- */
-export function getGroqClient(): Groq | null {
-  if (!groqClient && process.env.GROQ_API_KEY) {
-    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  }
-  return groqClient;
+export function getGroqClient() {
+  return getLLMClient();
 }
 
 /**
- * Get the current Groq model being used
+ * Get the current model being used (backwards compatibility alias)
  */
 export function getGroqModel(): string {
-  return GROQ_MODEL;
+  return getModel();
 }
 
-/**
- * Calculate estimated cost based on token usage
- */
-export function calculateCost(
-  model: string,
-  promptTokens: number,
-  completionTokens: number
-): number {
-  const pricing = GROQ_PRICING[model] || GROQ_PRICING['default'];
-  const inputCost = (promptTokens / 1_000_000) * pricing.input;
-  const outputCost = (completionTokens / 1_000_000) * pricing.output;
-  return inputCost + outputCost;
-}
+// Re-export calculateCost for backwards compatibility
+export { calculateCost };
 
 // =============================================================================
 // Date Parsing Utilities
@@ -257,8 +227,8 @@ Extract the relevant information and return as JSON.`;
 }
 
 /**
- * Extract data using Groq JSON mode
- * Returns null if Groq is unavailable or extraction fails
+ * Extract data using LLM JSON mode
+ * Returns null if LLM is unavailable or extraction fails
  */
 export async function extractWithGroq(
   message: string,
@@ -276,16 +246,16 @@ export async function extractWithGroq(
     };
   }
 
-  const client = getGroqClient();
+  const client = getLLMClient();
   if (!client) {
     return null;
   }
 
+  const model = getModel();
+
   try {
     // Build messages array with history for context
-    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-      { role: 'system', content: GROQ_EXTRACTION_SYSTEM_PROMPT },
-    ];
+    const messages: ChatMessage[] = [{ role: 'system', content: GROQ_EXTRACTION_SYSTEM_PROMPT }];
 
     // Inject Working Memory (Agent Scratchpad)
     if (workingMemory && workingMemory.length > 0) {
@@ -310,7 +280,7 @@ export async function extractWithGroq(
     messages.push({ role: 'user', content: getExtractionPrompt(step, message, existing) });
 
     const response = await client.chat.completions.create({
-      model: GROQ_MODEL,
+      model,
       messages,
       temperature: 0.0, // Deterministic for reliable extraction
       max_tokens: 1024,
@@ -324,7 +294,7 @@ export async function extractWithGroq(
     const promptTokens = response.usage?.prompt_tokens || 0;
     const completionTokens = response.usage?.completion_tokens || 0;
     const totalTokens = response.usage?.total_tokens || 0;
-    const estimatedCost = calculateCost(GROQ_MODEL, promptTokens, completionTokens);
+    const estimatedCost = calculateCost(promptTokens, completionTokens);
 
     // Clean extracted data
     const cleaned = cleanExtractedData(extracted);

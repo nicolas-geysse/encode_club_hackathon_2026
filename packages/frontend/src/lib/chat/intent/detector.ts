@@ -9,7 +9,7 @@
  * - Slow path: LLM classification (~500-800ms, ~$0.0001) when regex fails
  */
 
-import type Groq from 'groq-sdk';
+import type OpenAI from 'openai';
 import type { DetectedIntent, ChatMode } from '../types';
 import { SERVICE_NAMES, SUBSCRIPTION_PATTERNS } from '../extraction/patterns';
 import {
@@ -128,8 +128,10 @@ const GENERIC_CHART_PATTERNS = [
  * Options for intent detection with optional LLM fallback
  */
 export interface DetectIntentOptions {
-  /** Groq client for LLM fallback (optional - no LLM if not provided) */
-  groqClient?: Groq;
+  /** LLM client for fallback (optional - no LLM if not provided). Supports any OpenAI-compatible client. */
+  llmClient?: OpenAI;
+  /** @deprecated Use llmClient instead */
+  groqClient?: OpenAI;
   /** Current chat mode for context-aware classification */
   mode?: ChatMode;
   /** Current onboarding step for context-aware classification */
@@ -670,22 +672,19 @@ export async function detectIntent(
   // ==========================================================================
   // LLM FALLBACK (Sprint Graphiques Phase 2)
   // ==========================================================================
-  // If no regex pattern matched and groqClient is provided, use LLM classification
-  if (options?.groqClient) {
+  // If no regex pattern matched and LLM client is provided, use LLM classification
+  const llmClient = options?.llmClient || options?.groqClient;
+  if (llmClient) {
     const classificationContext: ClassificationContext = {
-      mode: options.mode || 'conversation',
-      currentStep: options.currentStep || 'unknown',
+      mode: options?.mode || 'conversation',
+      currentStep: options?.currentStep || 'unknown',
       hasGoal: Boolean(context.goalAmount),
       hasBudget: Boolean(context.income || context.expenses),
       hasEnergy:
         Array.isArray(context.energyHistory) && (context.energyHistory as unknown[]).length > 0,
     };
 
-    const llmResult = await classifyIntentWithLLM(
-      message,
-      options.groqClient,
-      classificationContext
-    );
+    const llmResult = await classifyIntentWithLLM(message, llmClient, classificationContext);
 
     if (llmResult) {
       return {
