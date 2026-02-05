@@ -1,6 +1,6 @@
 # Swipe Agent Redesign
 
-> **Status**: Phases 1-2 complètes, Phase 3 partielle. Prêt pour test utilisateur.
+> **Status**: Phases 1-4 complètes, Phase 5 partielle. Prêt pour test utilisateur.
 
 ---
 
@@ -18,7 +18,7 @@ Skills → Scenarios → Missions
          ↑ Invente "Freelance Python"
 
 APRÈS (correct):
-Trade/Jobs/Lifestyle → Scenarios → Missions
+Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
                        ↑ Agrège des opportunités réelles
 ```
 
@@ -48,159 +48,238 @@ Trade/Jobs/Lifestyle → Scenarios → Missions
 | EmptySwipeView | ✅ | Message + 4 CTAs vers les onglets |
 | Navigation intelligente | ✅ | Boutons vers Trade/Jobs/Budget |
 
-### Phase 3: Urgency Factor (Partiel)
-**Fichiers modifiés**: `SwipeTab.tsx`, `SwipeCard.tsx`
+### Phase 3: Visual Distinction
+**Fichiers modifiés**: `SwipeCard.tsx`, `MissionCard.tsx`
 
 | Feature | Status | Détail |
 |---------|--------|--------|
-| `calculateSellUrgency()` | ✅ | Basé sur goalImpactPercent |
-| `calculateJobUrgency()` | ⚠️ | Base score seulement (pas de deadline) |
-| `calculateLifestyleUrgency()` | ⚠️ | Base score seulement (pas de billingDate) |
-| Badge urgency sur cards | ✅ | Affiché si `score >= 75` |
-| Badge karma sur cards | ✅ | "+50 karma" pour lend, "+30" pour trade |
+| Icônes par catégorie | ✅ | ShoppingBag/Briefcase/Pause/Repeat/HandHeart |
+| Labels sémantiques | ✅ | "Sell", "Job", "Save", "Trade", "Lend" |
+| Badges source | ✅ | "From Jobs", "From Inventory", "Subscription", "Community Action" |
+| Stats conditionnelles | ✅ | weekly/one-time/monthly/karma display modes |
+| Badge urgency | ✅ | Affiché si `score >= 75` |
+| Badge karma | ✅ | "+50 karma" pour lend, "+30" pour trade |
+| Badge goal impact | ⚠️ | Seulement sur sell_item (à étendre) |
+
+### Phase 4: Sync Progress ↔ Source
+**Fichier modifié**: `progress.tsx`
+
+| Feature | Status | Détail |
+|---------|--------|--------|
+| `source` et `sourceId` sur Mission | ✅ | Tracking du lien vers item original |
+| Sync on complete | ✅ | `sell_item` → trade.status='completed' |
+| Sync on undo | ✅ | trade.status='pending' (reproposable) |
+| Sync pause_expense | ⚠️ | Toggle 1 mois seulement (pas de sélection) |
+
+### Phase 5: Bugfixes Pull Architecture
+**Fichiers modifiés**: `SwipeSession.tsx`, `progress.tsx`
+
+| Bug | Fix | Détail |
+|-----|-----|--------|
+| NaN€ dans missions | ✅ | Fallback `oneTimeAmount`/`monthlyAmount` si `weeklyEarnings` undefined |
+| weeklyEarnings non recalculé | ✅ | Recalcul `rate × hours` dans SwipeSession quand adjustments |
+| Missions work à 0€ | ✅ | Validation empêche complete si `weeklyEarnings <= 0` pour job_lead |
 
 ---
 
 ## 🔲 Checkpoints restants
 
-### Checkpoint A: Lifestyle Pause UX (Priorité Haute)
-**Objectif**: Améliorer l'interface de pause des abonnements
-
-**Approche simplifiée**: Pas de `nextBillingDate` - on utilise la règle de trois :
-- L'utilisateur sélectionne combien de mois il veut pauser (déjà dans l'UI)
-- Économies = `coût_mensuel × mois_de_pause`
-- Calcul d'impact sur le goal automatique
+### Checkpoint A: Goal Impact % sur toutes les cartes (Priorité Haute)
+**Objectif**: Afficher "X% of your goal!" sur toutes les cartes, dynamique avec Adjust Assumptions
 
 ```
-□ A.1 Contraindre pausedMonths par la deadline
+□ A.1 Calculer goalImpact pour job_lead
+      - impact = (weeklyEarnings * weeksRemaining) / remainingAmount
+      - Recalculer quand rate/hours changent dans Adjust Assumptions
+
+□ A.2 Calculer goalImpact pour pause_expense
+      - impact = (monthlyAmount * pauseMonths) / remainingAmount
+      - Recalculer quand pauseMonths change
+
+□ A.3 Afficher badge sur toutes les cartes
+      - Si impact >= 5% → afficher "💰 X% of your goal!"
+      - Couleur selon impact: 5-10% normal, 10-20% highlight, 20%+ gold
+```
+
+### Checkpoint B: Adjust Assumptions pour pause_expense (Priorité Haute)
+**Objectif**: Permettre de sélectionner le nombre de mois de pause dans le swipe
+
+```
+□ B.1 Ajouter panel "Pause Duration" dans SwipeSession
+      - Sélecteur 1-6 mois (NumberInput Ark UI pour cohérence)
+      - Même composant que Budget Tab pour consistency
+
+□ B.2 Contraindre par deadline
+      - Max = mois_restants_avant_deadline
+      - Griser les mois non disponibles
+
+□ B.3 Stocker pauseMonths dans scenario/mission
+      - Nouveau champ `pauseMonths?: number`
+      - Utilisé dans syncMissionToSource()
+
+□ B.4 Mettre à jour quand simulation avance
+      - Si pauseMonths > mois_disponibles → réduire automatiquement
+```
+
+### Checkpoint C: Lifestyle Pause UX (Budget Tab)
+**Objectif**: Améliorer l'interface de pause des abonnements
+
+```
+□ C.1 Contraindre pausedMonths par la deadline
       - Si deadline dans 3 mois et déjà avancé de 2 mois → max 1 mois de pause possible
       - Griser les mois non disponibles dans le sélecteur
       - Calcul: mois_disponibles = mois_restants_avant_deadline
 
-□ A.2 Mettre à jour les mois disponibles quand le temps avance
+□ C.2 Mettre à jour les mois disponibles quand le temps avance
       - Quand simulation avance → recalculer mois_disponibles
       - Réduire automatiquement pausedMonths si > mois_disponibles
 
-□ A.3 Afficher impact visuel dans Budget Tab
+□ C.3 Afficher impact visuel dans Budget Tab
       - "Pausing Netflix 2 months = 26€ saved (5% of goal)"
 ```
 
-### Checkpoint A.bis: Job Urgency (Priorité Moyenne)
+### Checkpoint D: Job Urgency (Priorité Moyenne)
 **Objectif**: Prioriser les jobs avec deadlines
 
 ```
-□ A.bis.1 Ajouter `applicationDeadline` et `isHot` aux Leads
+□ D.1 Ajouter `applicationDeadline` et `isHot` aux Leads
       - API: Enrichir la réponse Prospection
       - Optionnel: Détecter "Hot" via Google Places activity
 
-□ A.bis.2 Implémenter calculateJobUrgency() avec deadline/hot
+□ D.2 Implémenter calculateJobUrgency() avec deadline/hot
       - daysToDeadline <= 2 → score 90
       - isHot → score 75
 ```
 
-### Checkpoint B: Feedback Loop (Priorité Moyenne)
+### Checkpoint E: Feedback Loop (Priorité Moyenne)
 **Objectif**: Apprendre des rejets pour améliorer les suggestions
 
 ```
-□ B.1 Créer interface SwipeFeedback
+□ E.1 Créer interface SwipeFeedback
       interface SwipeFeedback {
         categoryStats: Record<string, { accepted: number; rejected: number; ratio: number }>;
         strongDislikes: Array<{ pattern: string; count: number }>;
       }
 
-□ B.2 Logger les décisions dans SwipeSession
+□ E.2 Logger les décisions dans SwipeSession
       - onSwipe → ajouter à swipeFeedback dans profile
 
-□ B.3 Ajouter swipeFeedback au schema Profile (DuckDB)
+□ E.3 Ajouter swipeFeedback au schema Profile (DuckDB)
       - JSON field dans profiles table
 
-□ B.4 Filtrer les scénarios basé sur feedback
+□ E.4 Filtrer les scénarios basé sur feedback
       - Si rejection rate > 80% sur 10+ swipes → exclure catégorie
 
-□ B.5 UI "Reset preferences" dans Settings
+□ E.5 UI "Reset preferences" dans Settings
       - Bouton qui vide swipeFeedback
 ```
 
-### Checkpoint C: Skill Matching (Priorité Moyenne)
+### Checkpoint F: Skill Matching (Priorité Moyenne)
 **Objectif**: Les skills améliorent le ranking des jobs
 
 ```
-□ C.1 Créer fonction rankLeadsBySkillMatch()
+□ F.1 Créer fonction rankLeadsBySkillMatch()
       - Keyword matching: skill name ∩ job title
       - matchScore: 50 + 25 * matchingSkills.length
 
-□ C.2 Intégrer dans ProspectionTab
+□ F.2 Intégrer dans ProspectionTab
       - Trier les résultats par matchScore
 
-□ C.3 Afficher badge "85% match" sur les cartes Prospection
+□ F.3 Afficher badge "85% match" sur les cartes Prospection
 
-□ C.4 (V2) Semantic matching via LLM
+□ F.4 (V2) Semantic matching via LLM
       - Prompt: "Rate skill relevance to job 0-100"
 ```
 
-### Checkpoint D: Karma System Complet (Priorité Basse)
+### Checkpoint G: Karma System Complet (Priorité Basse)
 **Objectif**: Gamifier les actions sociales
 
 ```
-□ D.1 Ajouter karma_points au schema Profile
+□ G.1 Ajouter karma_points au schema Profile
       - INTEGER default 0
 
-□ D.2 Incrémenter karma quand mission karma complétée
+□ G.2 Incrémenter karma quand mission karma complétée
       - onMissionComplete → si category karma_* → add points
 
-□ D.3 Afficher Karma Level dans Progress dashboard
+□ G.3 Afficher Karma Level dans Progress dashboard
       - 0-100: "Newcomer", 100-500: "Helper", 500+: "Community Star"
 
-□ D.4 Badges achievements pour karma milestones
+□ G.4 Badges achievements pour karma milestones
 ```
 
-### Checkpoint E: Agent Architecture (Priorité Basse)
+### Checkpoint H: Agent Architecture (Priorité Basse)
 **Objectif**: Orchestration LLM des sources
 
 ```
-□ E.1 Créer Lifestyle Agent (Mastra)
+□ H.1 Créer Lifestyle Agent (Mastra)
       - Input: lifestyle items, goal context
       - Output: pause/reduce suggestions with urgency
 
-□ E.2 Améliorer Trade Agent
+□ H.2 Améliorer Trade Agent
       - Suggest platforms based on item category
       - Estimate days to sell
 
-□ E.3 Créer Swipe Orchestrator Agent
+□ H.3 Créer Swipe Orchestrator Agent
       - Combine outputs from all sub-agents
       - Apply user preferences
 ```
 
 ---
 
+## 📊 Architecture Pull - Vue d'ensemble
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER JOURNEY                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   1. EXPLORE                    2. DECIDE                3. ACT             │
+│   ┌─────────────────┐          ┌─────────────┐         ┌─────────────┐     │
+│   │ Trade Tab       │────┐     │             │         │             │     │
+│   │ • Add sell item │    │     │   SWIPE     │         │  Progress   │     │
+│   │ • Add lend/trade│    │     │   AGENT     │         │             │     │
+│   └─────────────────┘    │     │             │         │  Missions   │     │
+│   ┌─────────────────┐    ├────▶│ • Aggregate │────────▶│  created    │     │
+│   │ Jobs Tab        │    │     │ • Rank      │         │             │     │
+│   │ • Mark interested│───┤     │ • Present   │         │  Complete/  │     │
+│   └─────────────────┘    │     │             │         │  Undo       │     │
+│   ┌─────────────────┐    │     └─────────────┘         └──────┬──────┘     │
+│   │ Budget Tab      │────┘                                    │             │
+│   │ • Subscriptions │        ⚠️ If no content:               │             │
+│   └─────────────────┘           EmptySwipeView               │             │
+│          ▲                                                    │             │
+│          │                    4. SYNC BACK                    │             │
+│          └────────────────────────────────────────────────────┘             │
+│                                                                              │
+│   When mission completed → Update source item status                        │
+│   When undone → Restore source item to 'pending' (re-proposable)           │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 📁 Fichiers clés
 
-### Modifiés (Phase 1-2)
+### Modifiés (Phase 1-5)
 
 | Fichier | Rôle |
 |---------|------|
-| `components/tabs/SwipeTab.tsx` | Nouvelle interface Scenario, generateScenarios() Pull, helpers display |
-| `components/swipe/SwipeCard.tsx` | Props urgency/karma, badges visuels |
-| `components/swipe/SwipeSession.tsx` | Catégories adaptées, validation non-work |
+| `components/tabs/SwipeTab.tsx` | Interface Scenario, generateScenarios() Pull, display helpers |
+| `components/swipe/SwipeCard.tsx` | Props urgency/karma, badges visuels, stats conditionnelles |
+| `components/swipe/SwipeSession.tsx` | Catégories adaptées, recalcul weeklyEarnings, validation |
 | `routes/swipe.tsx` | canAccessSwipe(), EmptySwipeView, goalContext |
-
-### À créer (Checkpoints futurs)
-
-| Fichier | Rôle |
-|---------|------|
-| `lib/swipe/urgency.ts` | Calculs urgency centralisés |
-| `lib/swipe/feedback.ts` | Gestion feedback loop |
-| `lib/swipe/skillMatch.ts` | Ranking leads par skills |
+| `routes/progress.tsx` | syncMissionToSource(), source/sourceId sur missions |
+| `components/suivi/MissionCard.tsx` | Icônes Pull Architecture, source/sourceId fields |
 
 ### À modifier (Checkpoints futurs)
 
 | Fichier | Changement |
 |---------|------------|
-| `routes/api/lifestyle.ts` | Ajouter next_billing_date |
+| `components/swipe/SwipeSession.tsx` | Panel Adjust pour pause_expense (mois) |
+| `components/tabs/BudgetTab.tsx` | Contrainte pausedMonths par deadline |
 | `routes/api/prospection.ts` | Ajouter applicationDeadline, isHot |
 | `lib/profileService.ts` | Ajouter swipeFeedback, karma_points |
-| `components/tabs/ProspectionTab.tsx` | Skill match badges |
-| `routes/progress.tsx` | Karma level display |
 
 ---
 
@@ -216,122 +295,17 @@ Trade/Jobs/Lifestyle → Scenarios → Missions
 | 4 | User avec Netflix non pausé | Swipe accessible, scénario "Pause Netflix" |
 | 5 | User avec item lend | Scénario karma avec badge "+50 karma" |
 | 6 | Goal deadline < 14j + item 20% du goal | Badge "💰 20% of your goal!" |
+| 7 | Compléter vente iPhone → onglet Trade | iPhone marqué "completed" |
+| 8 | Undo vente iPhone | iPhone revient à "pending", reproposable au swipe |
+| 9 | Ajuster tarif horaire job 15→25€ | weeklyEarnings recalculé correctement |
+| 10 | Compléter job avec 0€ | Toast warning, blocage |
 
-### 🔲 À tester après Checkpoint A
-
-| # | Scénario | Résultat attendu |
-|---|----------|------------------|
-| 7 | Netflix expire dans 2 jours | Badge "⚡ Expires in 2 days!" en premier |
-| 8 | Job avec deadline demain | Badge "🔥 Apply now!" en tête |
-
-### 🔲 À tester après Checkpoint B
+### 🔲 À tester après Checkpoint A-B
 
 | # | Scénario | Résultat attendu |
 |---|----------|------------------|
-| 9 | User rejette 10 jobs freelance | Jobs freelance exclus des suggestions |
-| 10 | User clique "Reset preferences" | Tout réapparaît |
-
-### 🔲 À tester après Checkpoint C
-
-| # | Scénario | Résultat attendu |
-|---|----------|------------------|
-| 11 | Skill Python + lead "Dev Python" | Badge "85% match" sur la carte |
-
----
-
-## 📊 Architecture Pull - Vue d'ensemble
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         USER JOURNEY                                 │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   1. EXPLORE                    2. DECIDE                3. ACT     │
-│   ┌─────────────────┐          ┌─────────────┐         ┌─────────┐ │
-│   │ Trade Tab       │────┐     │             │         │         │ │
-│   │ • Add sell item │    │     │   SWIPE     │         │ Progress│ │
-│   │ • Add lend/trade│    │     │   AGENT     │         │         │ │
-│   └─────────────────┘    │     │             │         │ Missions│ │
-│   ┌─────────────────┐    ├────▶│ • Aggregate │────────▶│ created │ │
-│   │ Jobs Tab        │    │     │ • Rank      │         │         │ │
-│   │ • Mark interested│───┤     │ • Present   │         │         │ │
-│   └─────────────────┘    │     │             │         │         │ │
-│   ┌─────────────────┐    │     └─────────────┘         └─────────┘ │
-│   │ Budget Tab      │────┘                                         │
-│   │ • Subscriptions │        ⚠️ If no content:                     │
-│   └─────────────────┘           EmptySwipeView                     │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🔧 Code de référence
-
-### Interface Scenario (implémentée)
-
-```typescript
-// SwipeTab.tsx
-export type ScenarioCategory =
-  | 'sell_item'      // Trade type='sell'
-  | 'job_lead'       // Prospection lead interested
-  | 'pause_expense'  // Lifestyle pausable
-  | 'karma_trade'    // Trade type='trade'
-  | 'karma_lend';    // Trade type='lend'
-
-export interface Scenario {
-  id: string;
-  title: string;
-  description: string;
-  category: ScenarioCategory;
-
-  // Financial (optionnel selon catégorie)
-  weeklyHours?: number;
-  weeklyEarnings?: number;
-  oneTimeAmount?: number;
-  monthlyAmount?: number;
-  hourlyRate?: number;
-
-  // Metadata
-  effortLevel: number;
-  flexibilityScore: number;
-  source: 'trade' | 'prospection' | 'lifestyle';
-  sourceId: string;
-
-  // Urgency (pour tri)
-  urgency: {
-    score: number;      // 0-100
-    reason?: string;    // "⚡ Expires in 3 days!"
-  };
-
-  // Karma
-  karmaPoints?: number;
-  socialBenefit?: string;
-}
-```
-
-### Access Control (implémenté)
-
-```typescript
-// swipe.tsx
-const swipeAccess = createMemo(() => {
-  const hasSellableItems = trades().some(
-    t => t.type === 'sell' && t.status !== 'completed'
-  );
-  const hasInterestedLeads = leads().some(l => l.status === 'interested');
-  const hasPausableExpenses = lifestyle().some(
-    l => l.currentCost > 0 && !l.pausedMonths
-  );
-  const hasKarmaItems = trades().some(
-    t => (t.type === 'trade' || t.type === 'lend') && t.status !== 'completed'
-  );
-
-  return {
-    canAccess: hasSellableItems || hasInterestedLeads || hasPausableExpenses || hasKarmaItems,
-    // ...
-  };
-});
-```
+| 11 | Job 10h/sem à 20€/h, goal 1000€ en 5 sem | Badge "40% of your goal!" |
+| 12 | Pause Netflix 3 mois dans swipe | Panel sélection mois, impact affiché |
 
 ---
 
@@ -341,4 +315,7 @@ const swipeAccess = createMemo(() => {
 |------|--------|-------|
 | 2026-02-05 | `feat(swipe): Implement Pull Architecture for scenarios` | Phase 1 |
 | 2026-02-05 | `feat(swipe): Add access control for empty swipe state` | Phase 2 |
-| 2026-02-05 | `docs: Add Swipe Agent redesign specification` | Initial spec |
+| 2026-02-05 | `fix(swipe): Improve SwipeCard visual distinction for scenario types` | Phase 3 |
+| 2026-02-05 | `fix(progress): Handle Pull Architecture scenario types to prevent NaN` | Phase 5 |
+| 2026-02-05 | `fix(swipe): Recalculate weeklyEarnings when adjusting job rate/hours` | Phase 5 |
+| 2026-02-05 | `feat(progress): Sync mission completion with source Trade/Lifestyle` | Phase 4 |
