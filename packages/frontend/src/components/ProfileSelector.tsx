@@ -32,11 +32,10 @@ import {
   Plus,
   Trash2,
   Check,
-  Download,
-  Upload,
   UserPlus,
   RotateCcw,
   FlaskConical,
+  Settings,
 } from 'lucide-solid';
 
 interface Props {
@@ -141,42 +140,6 @@ export function ProfileSelector(props: Props) {
 
   const isSimulation = (profile: ProfileSummary | FullProfile | null) => {
     return profile?.profileType === 'simulation';
-  };
-
-  const handleExport = async () => {
-    const current = activeProfile();
-    if (!current) return;
-
-    try {
-      await profileService.exportProfile(current.id);
-      setIsOpen(false);
-    } catch {
-      toast.error('Export failed', 'Could not export profile.');
-    }
-  };
-
-  const handleImport = async (e: Event) => {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    try {
-      const result = await profileService.importProfile(file, { setActive: true });
-      if (result.success && result.profileId) {
-        // Reload profiles
-        await loadProfiles();
-        setIsOpen(false);
-        alert(result.message || 'Profile imported successfully');
-      }
-    } catch (error) {
-      toast.error(
-        'Import failed',
-        error instanceof Error ? error.message : 'Failed to import profile.'
-      );
-    } finally {
-      // Reset file input
-      input.value = '';
-    }
   };
 
   const handleDelete = async (profileId: string, profileName: string, e: Event) => {
@@ -395,17 +358,15 @@ export function ProfileSelector(props: Props) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleExport}
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/settings');
+                }}
                 class="w-full justify-start gap-2 mb-1"
               >
-                <Upload class="h-4 w-4" />
-                Export profile
+                <Settings class="h-4 w-4" />
+                API Settings
               </Button>
-              <label class="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors">
-                <Download class="h-4 w-4" />
-                Import profile
-                <input type="file" accept=".json" class="hidden" onChange={handleImport} />
-              </label>
             </div>
 
             {/* Danger zone */}

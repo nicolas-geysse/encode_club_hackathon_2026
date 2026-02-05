@@ -431,6 +431,17 @@ export function useGoalData(
       });
       const totalEarned = earningsEvents.reduce((sum, e) => sum + e.amount, 0);
 
+      // Extract academic events from goal's planData
+      const goalPlanData = g.planData as Record<string, unknown> | undefined;
+      const academicEvents =
+        (goalPlanData?.academicEvents as Array<{
+          id: string;
+          type: string;
+          name: string;
+          startDate: string;
+          endDate: string;
+        }>) || [];
+
       return {
         goalId: g.id,
         goalAmount: g.amount,
@@ -447,6 +458,7 @@ export function useGoalData(
         goalStartDate: g.createdAt,
         simulatedDate: simDate?.toISOString(),
         totalEarned, // Pass to API for feasibility calculation
+        academicEvents, // Pass to API for protected weeks calculation
       };
     },
     // Fetcher
@@ -471,6 +483,7 @@ export function useGoalData(
           goalStartDate: params.goalStartDate,
           simulatedDate: params.simulatedDate,
           totalEarned: params.totalEarned, // For accurate feasibility
+          academicEvents: params.academicEvents, // For protected weeks calculation
         }),
       });
 

@@ -378,8 +378,14 @@ export function TradeTab(props: TradeTabProps) {
     const currentTrades = untrack(() => trades());
 
     // Find inventory items not yet in trades
+    // Check by inventoryItemId OR by name (to avoid duplicates when user manually adds)
     const newItems = inventoryItems.filter(
-      (item) => !currentTrades.some((t) => t.inventoryItemId === item.id)
+      (item) =>
+        !currentTrades.some(
+          (t) =>
+            t.inventoryItemId === item.id ||
+            (t.type === 'sell' && t.name.toLowerCase() === item.name.toLowerCase())
+        )
     );
 
     if (newItems.length > 0) {

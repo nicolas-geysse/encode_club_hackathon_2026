@@ -1712,67 +1712,76 @@ export function OnboardingChat() {
   const executeRestartOnboarding = async () => {
     setShowRestartConfirm2(false);
 
-    setProfile({
-      name: undefined,
-      diploma: undefined,
-      field: undefined,
-      city: undefined,
-      skills: [],
-      certifications: [],
-      incomes: [],
-      expenses: [],
-      maxWorkHours: 15,
-      minHourlyRate: 12,
-      hasLoan: false,
-      loanAmount: 0,
-      academicEvents: [],
-      inventoryItems: [],
-      subscriptions: [],
-      tradeOpportunities: [],
-      swipePreferences: {
-        effort_sensitivity: 0.5,
-        hourly_rate_priority: 0.5,
-        time_flexibility: 0.5,
-        income_stability: 0.5,
-      },
-    });
-
-    localStorage.removeItem('studentProfile');
-    localStorage.removeItem('planData');
-    localStorage.removeItem('activeProfileId');
-    localStorage.removeItem('followupData');
-    localStorage.removeItem('achievements');
-    localStorage.removeItem(ONBOARDING_TEMP_KEY); // Clear temp chat messages
-
-    const oldProfileId = profileId();
-    if (oldProfileId) {
-      try {
-        await Promise.all([
-          fetch(`/api/goals?profileId=${oldProfileId}`, { method: 'DELETE' }),
-          fetch(`/api/skills?profileId=${oldProfileId}`, { method: 'DELETE' }),
-          fetch(`/api/inventory?profileId=${oldProfileId}`, { method: 'DELETE' }),
-          fetch(`/api/lifestyle?profileId=${oldProfileId}`, { method: 'DELETE' }),
-          fetch(`/api/income?profileId=${oldProfileId}`, { method: 'DELETE' }),
-        ]);
-        await Promise.all([
-          refreshSkills(),
-          refreshInventory(),
-          refreshLifestyle(),
-          refreshIncome(),
-        ]);
-      } catch (e) {
-        logger.warn('Failed to clear old data', { error: e });
+    try {
+      // 1. Call /api/reset to clear ALL data in database
+      // This is the same as "Reset all data" in ProfileSelector
+      const response = await fetch('/api/reset', { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Reset failed');
       }
+
+      // 2. Notify other components (tabs, etc.) that data was reset
+      eventBus.emit('DATA_RESET');
+
+      // 3. Clear ALL localStorage items (same as ProfileSelector.executeReset)
+      localStorage.removeItem('studentProfile');
+      localStorage.removeItem('planData');
+      localStorage.removeItem('activeProfileId');
+      localStorage.removeItem('followupData');
+      localStorage.removeItem('achievements');
+      localStorage.removeItem('onboardingComplete'); // Critical: marks onboarding as incomplete
+      localStorage.removeItem(ONBOARDING_TEMP_KEY); // Clear temp chat messages
+      localStorage.removeItem('stride_last_mood_check'); // Daily mood check timestamp
+      localStorage.removeItem('stride_has_visited'); // First visit flag
+
+      // 4. Set flag to force fresh onboarding (skip API profile loading on refresh)
+      localStorage.setItem('forceNewProfile', 'true');
+
+      // 5. Refresh data accessors to clear cached data
+      await Promise.all([refreshSkills(), refreshInventory(), refreshLifestyle(), refreshIncome()]);
+
+      // 6. Reset local state
+      setProfile({
+        name: undefined,
+        diploma: undefined,
+        field: undefined,
+        city: undefined,
+        skills: [],
+        certifications: [],
+        incomes: [],
+        expenses: [],
+        maxWorkHours: 15,
+        minHourlyRate: 12,
+        hasLoan: false,
+        loanAmount: 0,
+        academicEvents: [],
+        inventoryItems: [],
+        subscriptions: [],
+        tradeOpportunities: [],
+        swipePreferences: {
+          effort_sensitivity: 0.5,
+          hourly_rate_priority: 0.5,
+          time_flexibility: 0.5,
+          income_stability: 0.5,
+        },
+      });
+
+      setThreadId(generateThreadId());
+      setProfileId(undefined);
+      setIsComplete(false);
+      setChatMode('onboarding');
+      setStep('greeting');
+      setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+
+      toast.success('Onboarding restarted', "All your data has been cleared. Let's start fresh!");
+    } catch (error) {
+      logger.error('Failed to restart onboarding', { error });
+      toast.error(
+        'Restart failed',
+        error instanceof Error ? error.message : 'Could not reset data'
+      );
     }
-
-    setThreadId(generateThreadId());
-    setProfileId(undefined);
-    setIsComplete(false);
-    setChatMode('onboarding');
-    setStep('greeting');
-    setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
-
-    toast.success('Onboarding restarted', "All your data has been cleared. Let's start fresh!");
   };
 
   // Update profile from extracted data

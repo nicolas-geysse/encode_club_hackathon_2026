@@ -599,12 +599,6 @@ export function SimulationControls(props: Props) {
   // Get current date for display (simulated or real)
   const currentDate = () => (state().isSimulating ? state().simulatedDate : state().realDate);
 
-  // Helper to get progress percentage (reactive)
-  const progressPct = () => {
-    const info = daysInfo();
-    return Math.round((info.currentDay / info.totalDays) * 100);
-  };
-
   // Compact mode for header - use Show to maintain reactivity
   return (
     <>
@@ -612,21 +606,6 @@ export function SimulationControls(props: Props) {
         when={!props.compact}
         fallback={
           <div class="relative flex items-center gap-2">
-            {/* Day Counter Display */}
-            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-lg">
-              <span class="text-xs text-muted-foreground font-medium">DAY</span>
-              <span class="text-lg font-bold text-primary">{daysInfo().currentDay}</span>
-              <span class="text-muted-foreground">/</span>
-              <span class="text-sm text-muted-foreground">{daysInfo().totalDays}</span>
-              {/* Mini progress bar */}
-              <div class="w-12 h-1.5 bg-secondary rounded-full overflow-hidden ml-1">
-                <div
-                  class="h-full bg-primary transition-all duration-300"
-                  style={{ width: `${progressPct()}%` }}
-                />
-              </div>
-            </div>
-
             {/* Simulation Controls Button */}
             <Button
               variant="ghost"

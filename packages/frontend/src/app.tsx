@@ -4,7 +4,6 @@ import { Show, Suspense, createSignal, onMount } from 'solid-js';
 import './app.css';
 import { ProfileSelector } from '~/components/ProfileSelector';
 import { SimulationControls, type SimulationState } from '~/components/SimulationControls';
-import { NotificationBell } from '~/components/NotificationBell';
 
 import { ThemeProvider } from '~/lib/themeContext';
 import { ProfileProvider } from '~/lib/profileContext';
@@ -12,12 +11,7 @@ import { SimulationProvider } from '~/lib/simulationContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
 import { AppLayout } from '~/components/layout/AppLayout';
 import { ToastContainer } from '~/components/ui/Toast';
-import {
-  notifications,
-  addNotification,
-  markAsRead,
-  clearAllNotifications,
-} from '~/lib/notificationStore';
+import { notifications, addNotification } from '~/lib/notificationStore';
 import { eventBus } from '~/lib/eventBus';
 import { initOnboardingState } from '~/lib/onboardingStateStore';
 import { todayISO } from '~/lib/dateUtils';
@@ -89,14 +83,6 @@ export default function App() {
     }
   };
 
-  const handleMarkNotificationAsRead = (id: string) => {
-    markAsRead(id);
-  };
-
-  const handleClearAllNotifications = () => {
-    clearAllNotifications();
-  };
-
   // Update progress based on profile changes
   const handleProfileChange = () => {
     // Progress will be updated when we have actual goal data
@@ -138,11 +124,6 @@ export default function App() {
                         />
                         <ProfileSelector onProfileChange={handleProfileChange} />
                         <ThemeToggle />
-                        <NotificationBell
-                          notifications={notifications()}
-                          onMarkAsRead={handleMarkNotificationAsRead}
-                          onClearAll={handleClearAllNotifications}
-                        />
                       </>
                     }
                   >
