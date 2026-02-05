@@ -1,6 +1,6 @@
 # Swipe Agent Redesign
 
-> **Status**: Phases 1-5 complètes, Checkpoints A, B & G.partial complets. Karma Loop implémenté.
+> **Status**: Phases 1-7 complètes, Checkpoints A, B, F.partial & G.partial complets. Skill Match + Karma Loop implémentés.
 
 ---
 
@@ -90,6 +90,17 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | Karma dans MissionCard | ✅ | Karma au lieu de €0 pour lend/trade, savings+karma pour borrow |
 | Karma dans TimelineHero | ✅ | Indicateur 🤍 X karma dans progress bar |
 | TradeTab karma fix | ✅ | Utilise contextTrades() au lieu du state local (réactivité) |
+
+### Phase 7: Skill Match & Goal Impact Fixes
+**Fichiers modifiés**: `SwipeTab.tsx`, `SwipeSession.tsx`, `SwipeCard.tsx`, `jobScoring.ts`, `ProspectionCard.tsx`, `ProspectionList.tsx`
+
+| Feature | Status | Détail |
+|---------|--------|--------|
+| Skill match sur job_lead (swipe) | ✅ | Badge `✨ X% skill match` sur cartes swipe |
+| Skill match sur prospection | ✅ | Badge + breakdown dans ProspectionCard/List |
+| Goal impact sur sell_item | ✅ | Badge visible quand urgency < 75 |
+| Export matchSkillsToCategory | ✅ | Réutilisable depuis jobScoring.ts |
+| Karma tiers (levels) | ✅ | Newcomer/Helper/Star avec progress bar |
 
 ---
 
@@ -193,30 +204,36 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
       - Bouton qui vide swipeFeedback
 ```
 
-### Checkpoint F: Skill Matching (Partiellement Implémenté)
+### Checkpoint F: Skill Matching (Majoritairement Implémenté)
 **Objectif**: Les skills améliorent le ranking des jobs
 
 ```
-✅ F.1 matchSkillsToCategory() exists in jobScoring.ts
+✅ F.1 matchSkillsToCategory() dans jobScoring.ts
       - Category-to-skills mapping (hardcoded)
       - Substring matching: skill name ∩ expected skills
       - Contributes to profileMatch (30% weight)
+      - EXPORTÉ pour réutilisation dans SwipeTab
 
 ✅ F.2 Intégré dans ProspectionTab
       - scoreJobsForProfile() applique le skill matching
       - Jobs triés par score total (incluant skills)
 
-✅ F.3 Badge "X% match" visible sur les cartes
+✅ F.3 Badge "X% match" visible sur les cartes Prospection
       - ProspectionCard: Badge dans header + progress bar dans Match Score
       - ProspectionList: Badge après certification + breakdown dans tooltip
-      - Couleurs: vert (80%+), bleu (50%+), gris (<50%)
+      - Couleurs: vert (80%+), bleu (50%+)
 
-□ F.4 Améliorer l'algorithme de matching
+✅ F.4 Badge "X% skill match" visible sur cartes Swipe
+      - SwipeTab: Calcule matchScore pour chaque job_lead
+      - SwipeCard: Badge ✨ X% skill match (30%+ affichage)
+      - Couleurs: vert (80%+), bleu (50%+), gris (30%+)
+
+□ F.5 Améliorer l'algorithme de matching
       - Remplacer substring par fuzzy matching
       - Considérer skill.level (beginner/intermediate/advanced)
       - Pondérations par importance de skill dans catégorie
 
-□ F.5 (V2) Semantic matching via LLM
+□ F.6 (V2) Semantic matching via LLM
       - Prompt: "Rate skill relevance to job 0-100"
 ```
 
@@ -318,19 +335,22 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 
 ## 📁 Fichiers clés
 
-### Modifiés (Phase 1-6)
+### Modifiés (Phase 1-7)
 
 | Fichier | Rôle |
 |---------|------|
-| `components/tabs/SwipeTab.tsx` | Interface Scenario, generateScenarios() Pull, display helpers, karma totals |
-| `components/swipe/SwipeCard.tsx` | Props urgency/karma, badges visuels, stats conditionnelles |
-| `components/swipe/SwipeSession.tsx` | Catégories adaptées, recalcul weeklyEarnings, validation |
-| `routes/swipe.tsx` | canAccessSwipe(), EmptySwipeView, goalContext, **mission deduplication filter** |
-| `routes/progress.tsx` | syncMissionToSource(), source/sourceId, **karmaScore prop to TimelineHero** |
-| `components/suivi/MissionCard.tsx` | Icônes Pull Architecture, **karma display (lend/trade/borrow)** |
-| `components/suivi/TimelineHero.tsx` | **karmaScore indicator in progress bar** |
-| `components/tabs/TradeTab.tsx` | **contextTrades() for karma score (reactivity fix)** |
-| `hooks/useKarma.ts` | **KARMA_POINTS constants** centralisées |
+| `components/tabs/SwipeTab.tsx` | Interface Scenario, generateScenarios() Pull, karma totals, **skill match calc** |
+| `components/swipe/SwipeCard.tsx` | Props urgency/karma, badges visuels, **skillMatchPercent badge** |
+| `components/swipe/SwipeSession.tsx` | Catégories adaptées, recalcul weeklyEarnings, **pass skillMatchPercent** |
+| `routes/swipe.tsx` | canAccessSwipe(), EmptySwipeView, goalContext, mission deduplication filter |
+| `routes/progress.tsx` | syncMissionToSource(), source/sourceId, karmaScore prop to TimelineHero |
+| `components/suivi/MissionCard.tsx` | Icônes Pull Architecture, karma display (lend/trade/borrow) |
+| `components/suivi/TimelineHero.tsx` | karmaScore indicator + tier label in progress bar |
+| `components/tabs/TradeTab.tsx` | contextTrades() for karma score, **karma tier card with progress** |
+| `components/prospection/ProspectionCard.tsx` | **skillMatch badge + progress bar** |
+| `components/prospection/ProspectionList.tsx` | **skillMatch badge + tooltip breakdown** |
+| `hooks/useKarma.ts` | KARMA_POINTS constants, **getKarmaTierInfo()** |
+| `lib/jobScoring.ts` | **export matchSkillsToCategory()** |
 
 ### À modifier (Checkpoints futurs)
 
@@ -385,6 +405,16 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 20 | Job déjà accepté → Swipe | Pas de doublon, filtré par missionSourceIds |
 | 21 | Mission skipped → Swipe | Réapparaît (seuls active/completed filtrés) |
 
+### ✅ Testables après Phase 7 (Skill Match & Fixes)
+
+| # | Scénario | Résultat attendu |
+|---|----------|------------------|
+| 22 | Job sauvé avec skills matchants → Swipe | Badge "✨ X% skill match" visible |
+| 23 | Vendre item 10% du goal → Swipe | Badge "🎯 10% of your goal!" visible |
+| 24 | Trade tab avec karma | Tier affiché (🌱 Newcomer, 🤝 Helper, ⭐ Star) |
+| 25 | Trade tab avec karma | Progress bar vers prochain tier |
+| 26 | Jobs tab → recherche tutoring | Badge skill match si skill "teaching" présent |
+
 ---
 
 ## 📅 Historique des commits
@@ -404,5 +434,7 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 2026-02-05 | `feat(karma): Add karma indicator in TimelineHero progress bar` | Phase 6/G |
 | 2026-02-05 | `fix(trade): Use contextTrades() for karma score (reactivity fix)` | Phase 6/G |
 | 2026-02-05 | `fix(swipe): Filter out items that already have active missions` | Phase 6 |
-| 2026-02-05 | `feat(karma): Add tier levels (Newcomer/Helper/Star) with progress` | G.6-7 |
-| 2026-02-05 | `feat(prospection): Add visible skill match badges and breakdown` | F.3 |
+| 2026-02-05 | `feat(karma): Add tier levels (Newcomer/Helper/Star) with progress` | Phase 7/G |
+| 2026-02-05 | `feat(prospection): Add visible skill match badges and breakdown` | Phase 7/F.3 |
+| 2026-02-05 | `fix(swipe): Show goal impact badge on sell_item when urgency < 75` | Phase 7 |
+| 2026-02-05 | `feat(swipe): Add skill match badge on job_lead swipe cards` | Phase 7/F.4 |
