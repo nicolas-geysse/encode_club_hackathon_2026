@@ -529,8 +529,12 @@ export default function ProgressPage() {
             // If no missions, leave empty - UI will show prompt to choose strategies
             // via /swipe or set up trades via /me?tab=trade
 
+            // FIX: Recalculate currentAmount from missions to prevent zombie data
+            // Previously, stale currentAmount could persist even with empty missions array
+            const recalculatedAmount = missions.reduce((sum, m) => sum + m.earningsCollected, 0);
+
             const newFollowupData = {
-              currentAmount: existingFollowup?.currentAmount ?? 0,
+              currentAmount: recalculatedAmount,
               weeklyTarget,
               // Sprint 13.6 Fix: Use dynamically calculated week, not stored value
               currentWeek: calculatedCurrentWeek,
