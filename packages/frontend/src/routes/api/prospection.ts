@@ -210,8 +210,13 @@ function getRadiusFallbacks(userRadius: number): number[] {
   return [userRadius, Math.min(userRadius + 5000, MAX_RADIUS)];
 }
 
-// Text Search queries by category (more natural language, better results)
+// Text Search queries by category
+// NOTE: Disabled - was returning business LOCATIONS (restaurants, pizzerias)
+// instead of JOB opportunities. The Nearby Search with proper placeTypes
+// is more accurate. If it fails, we show platform suggestions instead.
+
 const TEXT_SEARCH_QUERIES: Record<string, string[]> = {
+  // Keeping for reference but not used anymore
   service: ['restaurant', 'café bar', 'boulangerie', 'pizzeria'],
   retail: ['supermarché', 'magasin vêtements', 'centre commercial', 'pharmacie'],
   cleaning: ['hôtel', 'salle de sport', 'cinéma'],
@@ -402,25 +407,17 @@ async function searchRealPlaces(
     });
   }
 
-  // Strategy 2: Fallback to Text Search (more flexible) if Nearby failed
+  // Strategy 2: Text Search fallback DISABLED
+  // Was returning business LOCATIONS (restaurants, pizzerias) instead of job opportunities.
+  // The Nearby Search with proper placeTypes is more accurate.
+  // If no results, the UI will show platform suggestions (Indeed, LinkedIn, etc.)
   if (finalResults.length === 0) {
-    logger.info('Nearby Search exhausted, trying Text Search', { categoryId: category.id, city });
-
-    const textSearchResults = await searchWithTextSearch(
-      maps,
-      category,
-      location,
+    logger.info('Nearby Search exhausted, no Text Search fallback (disabled)', {
+      categoryId: category.id,
       city,
-      currencySymbol
-    );
-    if (textSearchResults.length > 0) {
-      logger.info('Places found via Text Search', {
-        categoryId: category.id,
-        count: textSearchResults.length,
-        method: 'text_search',
-      });
-      finalResults = textSearchResults;
-    }
+      reason: 'Text Search returns business locations, not job opportunities',
+    });
+    // Don't use Text Search - it pollutes cache with wrong data
   }
 
   // Handle results (Cache save or Return empty)
