@@ -568,6 +568,18 @@ function JobListItem(props: JobListItemProps) {
                       {Math.round(props.job.scoreBreakdown.rate * 100)}%
                     </span>
                   </div>
+                  {/* F.3: Skill match in breakdown */}
+                  <Show when={props.job.scoreBreakdown.profileDetails?.skillMatch}>
+                    <div class="flex justify-between gap-4 text-blue-600 dark:text-blue-400">
+                      <span>Skill match</span>
+                      <span class="font-mono">
+                        {Math.round(
+                          (props.job.scoreBreakdown.profileDetails?.skillMatch || 0) * 100
+                        )}
+                        %
+                      </span>
+                    </div>
+                  </Show>
                   <Show when={props.job.scoreBreakdown.profileDetails?.certificationBonus}>
                     <div class="flex justify-between gap-4 text-green-600 dark:text-green-400">
                       <span>Certification boost</span>
@@ -610,6 +622,31 @@ function JobListItem(props: JobListItemProps) {
                   <TooltipContent>
                     Your {props.job.matchedCertifications![0].name} certification boosts this job!
                   </TooltipContent>
+                </Tooltip>
+              </Show>
+              {/* F.3: Skill match badge */}
+              <Show
+                when={
+                  props.job.scoreBreakdown?.profileDetails?.skillMatch &&
+                  props.job.scoreBreakdown.profileDetails.skillMatch >= 0.5
+                }
+              >
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span
+                      class={cn(
+                        'shrink-0 px-2 py-0.5 text-xs font-bold rounded-full flex items-center gap-1',
+                        props.job.scoreBreakdown!.profileDetails!.skillMatch >= 0.8
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-blue-400 text-white'
+                      )}
+                    >
+                      <Sparkles class="h-3 w-3" />
+                      {Math.round(props.job.scoreBreakdown!.profileDetails!.skillMatch * 100)}%
+                      match
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Your skills match well with this job!</TooltipContent>
                 </Tooltip>
               </Show>
             </div>

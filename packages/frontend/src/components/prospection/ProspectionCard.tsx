@@ -26,6 +26,7 @@ import {
 import { Card, CardContent } from '~/components/ui/Card';
 import { cn } from '~/lib/cn';
 import type { ProspectionCard as CardType } from '~/lib/prospectionTypes';
+import type { JobScoreBreakdown } from '~/lib/jobScoring';
 import { getEffortLabel, getCategoryById } from '~/config/prospectionCategories';
 import { formatStarRating, isTopPick } from '~/lib/jobScoring';
 
@@ -44,7 +45,7 @@ const ICON_MAP = {
 };
 
 interface ProspectionCardProps {
-  card: CardType & { score?: number };
+  card: CardType & { score?: number; scoreBreakdown?: JobScoreBreakdown };
   isActive?: boolean;
   style?: string;
   class?: string;
@@ -58,6 +59,22 @@ export function ProspectionCard(props: ProspectionCardProps) {
       return ICON_MAP[cat.icon as keyof typeof ICON_MAP] || Building;
     }
     return Building;
+  };
+
+  // Skill match percentage (F.3: visible skill match indicator)
+  const skillMatchPercent = () => {
+    const match = props.card.scoreBreakdown?.profileDetails?.skillMatch;
+    if (match === undefined || match === 0) return null;
+    return Math.round(match * 100);
+  };
+
+  // Skill match color based on percentage
+  const skillMatchColor = () => {
+    const percent = skillMatchPercent();
+    if (!percent) return '';
+    if (percent >= 80) return 'bg-green-500 text-white';
+    if (percent >= 50) return 'bg-blue-500 text-white';
+    return 'bg-gray-500 text-white';
   };
 
   // Effort level color
@@ -101,6 +118,19 @@ export function ProspectionCard(props: ProspectionCardProps) {
               Top Pick
             </span>
           </Show>
+          {/* F.3: Skill match badge */}
+          <Show when={skillMatchPercent()}>
+            <span
+              class={cn(
+                'px-2 py-0.5 text-xs font-bold rounded-full flex items-center gap-1',
+                skillMatchColor()
+              )}
+              title="How well your skills match this job"
+            >
+              <Sparkles class="h-3 w-3" />
+              {skillMatchPercent()}% match
+            </span>
+          </Show>
         </div>
         <span class="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full">
           {props.card.source}
@@ -134,29 +164,52 @@ export function ProspectionCard(props: ProspectionCardProps) {
 
         {/* Calculated Score (our matching algorithm) */}
         <Show when={props.card.score !== undefined}>
-          <div class="flex items-center justify-between bg-gradient-to-r from-primary/5 to-transparent px-3 py-2 rounded-lg -mx-1">
-            <span class="text-sm text-muted-foreground">Match Score</span>
-            <div class="flex items-center gap-1">
-              <div class="flex">
-                <For each={[1, 2, 3, 4, 5]}>
-                  {(star) => (
-                    <Star
-                      class={cn(
-                        'h-4 w-4',
-                        star <= Math.floor(props.card.score!)
-                          ? 'text-primary fill-primary'
-                          : star <= props.card.score!
-                            ? 'text-primary fill-primary/50'
-                            : 'text-muted-foreground/30'
-                      )}
-                    />
-                  )}
-                </For>
+          <div class="bg-gradient-to-r from-primary/5 to-transparent px-3 py-2 rounded-lg -mx-1 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-muted-foreground">Match Score</span>
+              <div class="flex items-center gap-1">
+                <div class="flex">
+                  <For each={[1, 2, 3, 4, 5]}>
+                    {(star) => (
+                      <Star
+                        class={cn(
+                          'h-4 w-4',
+                          star <= Math.floor(props.card.score!)
+                            ? 'text-primary fill-primary'
+                            : star <= props.card.score!
+                              ? 'text-primary fill-primary/50'
+                              : 'text-muted-foreground/30'
+                        )}
+                      />
+                    )}
+                  </For>
+                </div>
+                <span class="text-sm font-bold text-primary ml-1">
+                  {formatStarRating(props.card.score!)}
+                </span>
               </div>
-              <span class="text-sm font-bold text-primary ml-1">
-                {formatStarRating(props.card.score!)}
-              </span>
             </div>
+            {/* Skill match breakdown (F.3) */}
+            <Show when={skillMatchPercent()}>
+              <div class="flex items-center gap-2 text-xs">
+                <Sparkles class="h-3 w-3 text-blue-500" />
+                <span class="text-muted-foreground">Your skills:</span>
+                <div class="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    class={cn(
+                      'h-full rounded-full transition-all',
+                      skillMatchPercent()! >= 80
+                        ? 'bg-green-500'
+                        : skillMatchPercent()! >= 50
+                          ? 'bg-blue-500'
+                          : 'bg-gray-400'
+                    )}
+                    style={{ width: `${skillMatchPercent()}%` }}
+                  />
+                </div>
+                <span class="font-medium text-foreground">{skillMatchPercent()}%</span>
+              </div>
+            </Show>
           </div>
         </Show>
 

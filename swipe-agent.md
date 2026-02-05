@@ -193,20 +193,30 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
       - Bouton qui vide swipeFeedback
 ```
 
-### Checkpoint F: Skill Matching (Priorité Moyenne)
+### Checkpoint F: Skill Matching (Partiellement Implémenté)
 **Objectif**: Les skills améliorent le ranking des jobs
 
 ```
-□ F.1 Créer fonction rankLeadsBySkillMatch()
-      - Keyword matching: skill name ∩ job title
-      - matchScore: 50 + 25 * matchingSkills.length
+✅ F.1 matchSkillsToCategory() exists in jobScoring.ts
+      - Category-to-skills mapping (hardcoded)
+      - Substring matching: skill name ∩ expected skills
+      - Contributes to profileMatch (30% weight)
 
-□ F.2 Intégrer dans ProspectionTab
-      - Trier les résultats par matchScore
+✅ F.2 Intégré dans ProspectionTab
+      - scoreJobsForProfile() applique le skill matching
+      - Jobs triés par score total (incluant skills)
 
-□ F.3 Afficher badge "85% match" sur les cartes Prospection
+✅ F.3 Badge "X% match" visible sur les cartes
+      - ProspectionCard: Badge dans header + progress bar dans Match Score
+      - ProspectionList: Badge après certification + breakdown dans tooltip
+      - Couleurs: vert (80%+), bleu (50%+), gris (<50%)
 
-□ F.4 (V2) Semantic matching via LLM
+□ F.4 Améliorer l'algorithme de matching
+      - Remplacer substring par fuzzy matching
+      - Considérer skill.level (beginner/intermediate/advanced)
+      - Pondérations par importance de skill dans catégorie
+
+□ F.5 (V2) Semantic matching via LLM
       - Prompt: "Rate skill relevance to job 0-100"
 ```
 
@@ -395,3 +405,4 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 2026-02-05 | `fix(trade): Use contextTrades() for karma score (reactivity fix)` | Phase 6/G |
 | 2026-02-05 | `fix(swipe): Filter out items that already have active missions` | Phase 6 |
 | 2026-02-05 | `feat(karma): Add tier levels (Newcomer/Helper/Star) with progress` | G.6-7 |
+| 2026-02-05 | `feat(prospection): Add visible skill match badges and breakdown` | F.3 |
