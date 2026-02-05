@@ -205,13 +205,15 @@ export function SimulationControls(props: Props) {
     }
   };
 
-  // Save mood to localStorage and optionally to energy logs
+  // Save mood to localStorage and energy_logs table
   const saveMood = async (level: number) => {
-    const today = todayISO();
-    localStorage.setItem(MOOD_STORAGE_KEY, JSON.stringify({ date: today, level }));
+    // Use simulated date if in simulation mode, otherwise real date
+    const currentDateStr = state().isSimulating ? state().simulatedDate : todayISO();
+    localStorage.setItem(MOOD_STORAGE_KEY, JSON.stringify({ date: currentDateStr, level }));
     setCurrentMood(level);
 
-    // Also log energy via API (convert 1-5 scale to percentage for consistency)
+    // Log energy via API with all required fields
+    // The mood emoji maps to: energyLevel, moodScore (same value), stressLevel (inverse)
     try {
       const profileData = localStorage.getItem('studentProfile');
       if (profileData) {
@@ -224,12 +226,16 @@ export function SimulationControls(props: Props) {
             action: 'log_energy',
             userId: profileId,
             energyLevel: level, // 1-5 scale
-            date: today,
+            moodScore: level, // Same as energy for simplicity
+            stressLevel: 6 - level, // Inverse: happy=low stress, exhausted=high stress
+            date: currentDateStr,
           }),
         });
+        logger.info('Energy logged', { level, date: currentDateStr });
       }
-    } catch {
-      // Silently ignore - local storage already saved
+    } catch (err) {
+      logger.error('Failed to log energy', { error: err });
+      // Local storage already saved, so user experience is preserved
     }
   };
 
