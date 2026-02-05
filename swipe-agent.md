@@ -1,6 +1,6 @@
 # Swipe Agent Redesign
 
-> **Status**: Phases 1-5 complètes, Checkpoint A complet. Prêt pour test utilisateur.
+> **Status**: Phases 1-5 complètes, Checkpoints A & B complets. Prêt pour test utilisateur.
 
 ---
 
@@ -59,7 +59,7 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | Stats conditionnelles | ✅ | weekly/one-time/monthly/karma display modes |
 | Badge urgency | ✅ | Affiché si `score >= 75` |
 | Badge karma | ✅ | "+50 karma" pour lend, "+30" pour trade |
-| Badge goal impact | ⚠️ | Seulement sur sell_item (à étendre) |
+| Badge goal impact | ✅ | Sur job_lead et pause_expense (sell_item a déjà urgency badge) |
 
 ### Phase 4: Sync Progress ↔ Source
 **Fichier modifié**: `progress.tsx`
@@ -69,7 +69,7 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | `source` et `sourceId` sur Mission | ✅ | Tracking du lien vers item original |
 | Sync on complete | ✅ | `sell_item` → trade.status='completed' |
 | Sync on undo | ✅ | trade.status='pending' (reproposable) |
-| Sync pause_expense | ⚠️ | Toggle 1 mois seulement (pas de sélection) |
+| Sync pause_expense | ✅ | Sync pauseMonths (1-6) depuis swipe adjustment |
 
 ### Phase 5: Bugfixes Pull Architecture
 **Fichiers modifiés**: `SwipeSession.tsx`, `progress.tsx`
@@ -104,24 +104,29 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
       - Fichiers: SwipeCard.tsx (goalImpactPercent prop + badge)
 ```
 
-### Checkpoint B: Adjust Assumptions pour pause_expense (Priorité Haute)
+### Checkpoint B: Adjust Assumptions pour pause_expense ✅
 **Objectif**: Permettre de sélectionner le nombre de mois de pause dans le swipe
 
 ```
-□ B.1 Ajouter panel "Pause Duration" dans SwipeSession
-      - Sélecteur 1-6 mois (NumberInput Ark UI pour cohérence)
-      - Même composant que Budget Tab pour consistency
+✅ B.1 Ajouter panel "Pause Duration" dans SwipeSession
+      - Sélecteur 1-6 mois avec boutons
+      - UI conditionnelle: job=rate+hours, pause=month selector
+      - Fichier: SwipeSession.tsx
 
-□ B.2 Contraindre par deadline
+✅ B.2 Contraindre par deadline
       - Max = mois_restants_avant_deadline
-      - Griser les mois non disponibles
+      - Boutons désactivés pour mois > monthsRemaining
+      - Fichier: SwipeSession.tsx (isDisabled logic)
 
-□ B.3 Stocker pauseMonths dans scenario/mission
-      - Nouveau champ `pauseMonths?: number`
-      - Utilisé dans syncMissionToSource()
+✅ B.3 Stocker pauseMonths dans scenario/mission
+      - Nouveau champ `pauseMonths?: number` dans CardAdjustments, Scenario, Mission
+      - syncMissionToSource() utilise mission.pauseMonths
+      - Fichiers: SwipeCard.tsx, SwipeSession.tsx, SwipeTab.tsx, MissionCard.tsx, progress.tsx
 
-□ B.4 Mettre à jour quand simulation avance
-      - Si pauseMonths > mois_disponibles → réduire automatiquement
+✅ B.4 Recalcul goal impact
+      - Goal impact multiplié par pauseMonths pour pause_expense
+      - Dynamique: impact recalculé quand user change pauseMonths
+      - Fichier: SwipeSession.tsx (goalImpactPercent())
 ```
 
 ### Checkpoint C: Lifestyle Pause UX (Budget Tab)
@@ -279,10 +284,9 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 
 | Fichier | Changement |
 |---------|------------|
-| `components/swipe/SwipeSession.tsx` | Panel Adjust pour pause_expense (mois) |
-| `components/tabs/BudgetTab.tsx` | Contrainte pausedMonths par deadline |
-| `routes/api/prospection.ts` | Ajouter applicationDeadline, isHot |
-| `lib/profileService.ts` | Ajouter swipeFeedback, karma_points |
+| `components/tabs/BudgetTab.tsx` | Contrainte pausedMonths par deadline (Checkpoint C) |
+| `routes/api/prospection.ts` | Ajouter applicationDeadline, isHot (Checkpoint D) |
+| `lib/profileService.ts` | Ajouter swipeFeedback, karma_points (Checkpoints E, G) |
 
 ---
 
@@ -309,11 +313,13 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 |---|----------|------------------|
 | 11 | Job 10h/sem à 20€/h, goal 1000€ en 5 sem | Badge "🎯 40% of your goal!" (dynamique avec adjustments) |
 
-### 🔲 À tester après Checkpoint B
+### ✅ Testables après Checkpoint B
 
 | # | Scénario | Résultat attendu |
 |---|----------|------------------|
-| 12 | Pause Netflix 3 mois dans swipe | Panel sélection mois, impact affiché |
+| 12 | Pause Netflix 3 mois dans swipe | Boutons 1-6 mois, goal impact = monthlyAmount × pauseMonths |
+| 13 | Deadline dans 2 mois, pause expense | Boutons 3-6 désactivés (grisés) |
+| 14 | Compléter pause 3 mois | Mission stocke pauseMonths=3, sync vers lifestyle API |
 
 ---
 
@@ -328,3 +334,4 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 2026-02-05 | `fix(swipe): Recalculate weeklyEarnings when adjusting job rate/hours` | Phase 5 |
 | 2026-02-05 | `feat(progress): Sync mission completion with source Trade/Lifestyle` | Phase 4 |
 | 2026-02-05 | `feat(swipe): Add goal impact % badge on all cards with dynamic recalc` | Checkpoint A |
+| 2026-02-05 | `feat(swipe): Add Goal Impact badge + pause duration selector` | Checkpoints A+B |
