@@ -83,14 +83,16 @@ export function updatePreferences(
 
   // Use adjusted values if provided, otherwise use scenario defaults
   const effort = adjustments?.perceivedEffort ?? scenario.effortLevel;
-  const rate = adjustments?.customHourlyRate ?? scenario.hourlyRate;
+  const rate = adjustments?.customHourlyRate ?? scenario.hourlyRate ?? 0;
   const flexibility = adjustments?.perceivedFlexibility ?? scenario.flexibilityScore;
 
   // Normalize attributes to 0-1
   const normalizedEffort = effort / 5;
   const normalizedRate = rate > 20 ? 1 : rate / 20;
   const normalizedFlexibility = flexibility / 5;
-  const stabilitySignal = scenario.category === 'freelance' ? 0.3 : 0.7;
+  // Job leads are more stable than karma actions (sell is neutral)
+  const stabilitySignal =
+    scenario.category === 'job_lead' ? 0.7 : scenario.category === 'sell_item' ? 0.5 : 0.3;
 
   // Update preferences with bounded values
   const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -142,31 +144,38 @@ export function SwipeSession(props: SwipeSessionProps) {
 
   const currentScenario = createMemo(() => props.scenarios[currentIndex()]);
 
+  // Categories that don't require rate/hours validation (savings or karma)
+  const isNonWorkCategory = (category: string) =>
+    category === 'pause_expense' ||
+    category === 'sell_item' ||
+    category === 'karma_trade' ||
+    category === 'karma_lend';
+
   const isCardValid = createMemo(() => {
     const scenario = currentScenario();
     if (!scenario) return true;
 
-    // Lifestyle scenarios (savings) can have 0 rate and 0 hours
-    if (scenario.category === 'lifestyle') return true;
+    // Non-work scenarios (savings, sales, karma) can have 0 rate and 0 hours
+    if (isNonWorkCategory(scenario.category)) return true;
 
-    const rate = adjustments().customHourlyRate ?? scenario.hourlyRate;
-    const hours = adjustments().customWeeklyHours ?? scenario.weeklyHours;
+    const rate = adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0;
+    const hours = adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0;
 
-    // For work scenarios, both rate and hours must be > 0
+    // For work scenarios (jobs), both rate and hours must be > 0
     return rate > 0 && hours > 0;
   });
 
   const isRateInvalid = createMemo(() => {
     const scenario = currentScenario();
-    if (!scenario || scenario.category === 'lifestyle') return false;
-    const rate = adjustments().customHourlyRate ?? scenario.hourlyRate;
+    if (!scenario || isNonWorkCategory(scenario.category)) return false;
+    const rate = adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0;
     return rate <= 0;
   });
 
   const isHoursInvalid = createMemo(() => {
     const scenario = currentScenario();
-    if (!scenario || scenario.category === 'lifestyle') return false;
-    const hours = adjustments().customWeeklyHours ?? scenario.weeklyHours;
+    if (!scenario || isNonWorkCategory(scenario.category)) return false;
+    const hours = adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0;
     return hours <= 0;
   });
 
@@ -588,21 +597,24 @@ export function SwipeSession(props: SwipeSessionProps) {
                     description={scenario.description}
                     weeklyHours={
                       index() === currentIndex()
-                        ? (adjustments().customWeeklyHours ?? scenario.weeklyHours)
-                        : scenario.weeklyHours
+                        ? (adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0)
+                        : (scenario.weeklyHours ?? 0)
                     }
                     weeklyEarnings={
                       index() === currentIndex()
-                        ? (adjustments().customWeeklyHours ?? scenario.weeklyHours) *
-                          (adjustments().customHourlyRate ?? scenario.hourlyRate)
-                        : scenario.weeklyEarnings
+                        ? (adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0) *
+                          (adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0)
+                        : (scenario.weeklyEarnings ??
+                          scenario.oneTimeAmount ??
+                          scenario.monthlyAmount ??
+                          0)
                     }
                     effortLevel={scenario.effortLevel}
                     flexibilityScore={scenario.flexibilityScore}
                     hourlyRate={
                       index() === currentIndex()
-                        ? (adjustments().customHourlyRate ?? scenario.hourlyRate)
-                        : scenario.hourlyRate
+                        ? (adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0)
+                        : (scenario.hourlyRate ?? 0)
                     }
                     category={scenario.category}
                     currency={currency()}
@@ -610,6 +622,11 @@ export function SwipeSession(props: SwipeSessionProps) {
                     isActive={index() === currentIndex()}
                     triggerSwipe={triggerSwipe()}
                     returnFrom={index() === currentIndex() ? returnFromDirection() : null}
+                    // New fields for display
+                    oneTimeAmount={scenario.oneTimeAmount}
+                    monthlyAmount={scenario.monthlyAmount}
+                    urgency={scenario.urgency}
+                    karmaPoints={scenario.karmaPoints}
                   />
                 </Show>
               )}

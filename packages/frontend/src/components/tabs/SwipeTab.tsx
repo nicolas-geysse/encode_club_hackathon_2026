@@ -19,20 +19,68 @@ import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot, Plus, X } from 'lu
 import { toastPopup } from '~/components/ui/Toast';
 import type { Lead } from '~/lib/prospectionTypes';
 
+/**
+ * Scenario categories (Pull Architecture)
+ * - sell_item: Sell an object (Trade type='sell')
+ * - job_lead: Apply to a job (Prospection lead)
+ * - pause_expense: Pause a subscription (Lifestyle)
+ * - karma_trade: Trade an object (Trade type='trade')
+ * - karma_lend: Lend an object (Trade type='lend')
+ */
+export type ScenarioCategory =
+  | 'sell_item'
+  | 'job_lead'
+  | 'pause_expense'
+  | 'karma_trade'
+  | 'karma_lend';
+
+export interface ScenarioUrgency {
+  score: number; // 0-100
+  reason?: string; // "⚡ Expires in 3 days!"
+  daysUntilAction?: number;
+}
+
+export interface ScenarioMetadata {
+  nextBillingDate?: string; // ISO date for lifestyle
+  applicationDeadline?: string; // ISO date for jobs
+  isHot?: boolean; // Job is trending
+  goalImpactPercent?: number; // Impact on goal %
+  matchScore?: number; // Skill match for jobs
+  matchingSkills?: string[]; // Skills that matched
+}
+
 export interface Scenario {
   id: string;
   title: string;
   description: string;
-  category: 'freelance' | 'tutoring' | 'selling' | 'lifestyle' | 'trade' | 'job';
-  weeklyHours: number;
-  weeklyEarnings: number;
+  category: ScenarioCategory;
+
+  // Financial data
+  weeklyHours?: number; // Hours required (jobs only)
+  oneTimeAmount?: number; // One-time amount (sales)
+  monthlyAmount?: number; // Monthly amount (pauses)
+  weeklyEarnings?: number; // Weekly earnings (compatibility)
   effortLevel: number; // 1-5
   flexibilityScore: number; // 1-5
-  hourlyRate: number;
-  isDefault?: boolean; // true for suggested/fallback scenarios
-  /** Source of the scenario for badge display */
-  source?: 'skill' | 'item' | 'lifestyle' | 'jobs' | 'default';
-  /** Original lead ID if source is 'jobs' */
+  hourlyRate?: number;
+
+  // Source tracking
+  source: 'trade' | 'prospection' | 'lifestyle';
+  sourceId: string; // ID of the source item
+
+  // Urgency (for intelligent sorting)
+  urgency: ScenarioUrgency;
+
+  // Metadata for contextual calculations
+  metadata?: ScenarioMetadata;
+
+  // Karma
+  karmaPoints?: number;
+  socialBenefit?: string;
+
+  // Legacy compatibility
+  isDefault?: boolean;
+  /** Original lead ID if source is 'prospection' */
   leadId?: string;
 }
 
@@ -43,17 +91,53 @@ export interface UserPreferences {
   incomeStability: number;
 }
 
+/** Trade item with type for filtering (Pull Architecture) */
+export interface SwipeTradeItem {
+  id: string;
+  type: 'borrow' | 'lend' | 'trade' | 'sell';
+  name: string;
+  value: number;
+  status: 'pending' | 'active' | 'completed';
+}
+
+/** Lifestyle item for swipe with pause info */
+export interface SwipeLifestyleItem {
+  id: string;
+  name: string;
+  currentCost: number;
+  pausedMonths?: number;
+  category?: string;
+}
+
+/** Context for urgency calculations */
+export interface SwipeContext {
+  goalAmount?: number;
+  currentAmount?: number;
+  remainingAmount?: number;
+  daysToGoal?: number;
+  today: Date;
+}
+
 interface SwipeTabProps {
+  // NOTE: skills are NOT used for scenario generation anymore
+  // They are kept for skill matching on jobs (Phase 5)
   skills?: { name: string; hourlyRate: number }[];
-  items?: { name: string; estimatedValue: number }[];
-  lifestyle?: { name: string; currentCost: number; pausedMonths?: number }[];
-  trades?: { name: string; value: number }[];
-  /** Leads marked as "interested" from Jobs tab (Phase 4: Leads → Swipe) */
+
+  // Trade items with type/status for filtering (Pull Architecture)
+  trades?: SwipeTradeItem[];
+
+  // Lifestyle items for pause scenarios
+  lifestyle?: SwipeLifestyleItem[];
+
+  /** Leads marked as "interested" from Jobs tab */
   leads?: Lead[];
+
+  /** Goal context for urgency calculations */
+  goalContext?: SwipeContext;
+
   currency?: Currency;
   /** Whether component is rendered in embed mode (iframe context) */
   embedMode?: boolean;
-  // BUG 3 FIX: Add initialPreferences to load saved preferences from profile
   initialPreferences?: UserPreferences;
   /** Profile ID for tracing swipe preferences to Opik */
   profileId?: string;
@@ -61,186 +145,257 @@ interface SwipeTabProps {
   onScenariosSelected?: (scenarios: Scenario[]) => void;
 }
 
-/**
- * Generate scenarios from leads marked as "interested" (Phase 4: Leads → Swipe)
- */
-function generateLeadScenarios(leads: Lead[] | undefined): Scenario[] {
-  if (!leads || leads.length === 0) return [];
+// =============================================================================
+// URGENCY CALCULATIONS (Phase 3)
+// =============================================================================
 
-  return leads
-    .filter((lead) => lead.status === 'interested')
-    .map((lead, index) => {
-      // Calculate hourly rate from salary range (assume monthly, 160h/month)
+/**
+ * Calculate urgency for sell items based on goal impact
+ */
+function calculateSellUrgency(
+  value: number,
+  remainingAmount: number,
+  daysToGoal: number
+): ScenarioUrgency {
+  const goalImpact = remainingAmount > 0 ? (value / remainingAmount) * 100 : 0;
+
+  // High impact + close deadline = high urgency
+  if (daysToGoal < 14 && goalImpact >= 10) {
+    return {
+      score: 85,
+      reason: `💰 ${goalImpact.toFixed(0)}% of your goal!`,
+      daysUntilAction: undefined,
+    };
+  }
+
+  if (goalImpact >= 20) {
+    return {
+      score: 75,
+      reason: `💰 ${goalImpact.toFixed(0)}% of your goal`,
+      daysUntilAction: undefined,
+    };
+  }
+
+  // Base urgency for sell items (always easy)
+  return { score: 60, reason: undefined };
+}
+
+/**
+ * Calculate urgency for job leads
+ */
+function calculateJobUrgency(lead: Lead): ScenarioUrgency {
+  // For now, base urgency - can be enhanced with deadline/hot detection
+  // TODO: Add applicationDeadline and isHot fields to Lead
+  return {
+    score: 55,
+    reason: undefined,
+  };
+}
+
+/**
+ * Calculate urgency for lifestyle pause
+ */
+function calculateLifestyleUrgency(item: SwipeLifestyleItem): ScenarioUrgency {
+  // For now, base urgency - can be enhanced with nextBillingDate
+  // TODO: Add nextBillingDate to lifestyle items
+  return {
+    score: 50,
+    reason: undefined,
+  };
+}
+
+/**
+ * Suggest platform for selling items
+ */
+function suggestPlatform(name: string): string {
+  const nameLower = name.toLowerCase();
+  if (
+    nameLower.includes('phone') ||
+    nameLower.includes('laptop') ||
+    nameLower.includes('console')
+  ) {
+    return 'Back Market or eBay';
+  }
+  if (nameLower.includes('clothes') || nameLower.includes('shoes') || nameLower.includes('bag')) {
+    return 'Vinted or Depop';
+  }
+  if (nameLower.includes('book')) {
+    return 'Momox or Amazon';
+  }
+  return 'LeBonCoin or Facebook Marketplace';
+}
+
+// =============================================================================
+// DISPLAY HELPERS
+// =============================================================================
+
+/**
+ * Get the display value for a scenario (for totals)
+ * - sell_item: one-time amount
+ * - job_lead: weekly earnings
+ * - pause_expense: monthly savings
+ * - karma: 0 (no monetary value)
+ */
+function getScenarioValue(scenario: Scenario): number {
+  if (scenario.category === 'sell_item') {
+    return scenario.oneTimeAmount ?? 0;
+  }
+  if (scenario.category === 'job_lead') {
+    return scenario.weeklyEarnings ?? 0;
+  }
+  if (scenario.category === 'pause_expense') {
+    return scenario.monthlyAmount ?? 0;
+  }
+  // Karma actions have no monetary value
+  return 0;
+}
+
+/**
+ * Get the subtitle text for a scenario (for list items)
+ */
+function getScenarioSubtitle(scenario: Scenario, currency: Currency): string {
+  if (scenario.category === 'sell_item') {
+    return `One-time: ${formatCurrency(scenario.oneTimeAmount ?? 0, currency)}`;
+  }
+  if (scenario.category === 'job_lead') {
+    const hours = scenario.weeklyHours ?? 0;
+    const earnings = scenario.weeklyEarnings ?? 0;
+    return `${hours}h/wk • ${formatCurrency(earnings, currency)}/wk`;
+  }
+  if (scenario.category === 'pause_expense') {
+    return `Save ${formatCurrency(scenario.monthlyAmount ?? 0, currency)}/month`;
+  }
+  if (scenario.category === 'karma_lend' || scenario.category === 'karma_trade') {
+    return `+${scenario.karmaPoints ?? 0} karma points`;
+  }
+  return '';
+}
+
+// =============================================================================
+// SCENARIO GENERATION (Pull Architecture)
+// =============================================================================
+
+/**
+ * Generate scenarios using Pull Architecture
+ *
+ * Sources:
+ * 1. Trade items with type='sell' → sell_item scenarios
+ * 2. Leads with status='interested' → job_lead scenarios
+ * 3. Lifestyle items not paused → pause_expense scenarios
+ * 4. Trade items with type='trade'/'lend' → karma scenarios
+ *
+ * NO more skill-based scenarios! Skills are for job matching, not missions.
+ */
+function generateScenarios(
+  trades: SwipeTabProps['trades'],
+  lifestyle: SwipeTabProps['lifestyle'],
+  leads: SwipeTabProps['leads'],
+  context: SwipeContext
+): Scenario[] {
+  const scenarios: Scenario[] = [];
+  const { remainingAmount = 0, daysToGoal = 30 } = context;
+
+  // 1. Sellable items (Trade type='sell', status not completed)
+  trades
+    ?.filter((t) => t.type === 'sell' && t.status !== 'completed')
+    .forEach((item) => {
+      const urgency = calculateSellUrgency(item.value, remainingAmount, daysToGoal);
+      const platform = suggestPlatform(item.name);
+      const goalImpact = remainingAmount > 0 ? (item.value / remainingAmount) * 100 : 0;
+
+      scenarios.push({
+        id: `sell_${item.id}`,
+        title: `Sell ${item.name}`,
+        description: `List on ${platform} for ${item.value}€`,
+        category: 'sell_item',
+        oneTimeAmount: item.value,
+        effortLevel: 1,
+        flexibilityScore: 5,
+        source: 'trade',
+        sourceId: item.id,
+        urgency,
+        metadata: { goalImpactPercent: goalImpact },
+      });
+    });
+
+  // 2. Job leads (status='interested')
+  leads
+    ?.filter((l) => l.status === 'interested')
+    .forEach((lead) => {
       const avgSalary =
         lead.salaryMin && lead.salaryMax
           ? (lead.salaryMin + lead.salaryMax) / 2
           : lead.salaryMin || lead.salaryMax || 0;
       const hourlyRate = avgSalary > 0 ? Math.round(avgSalary / 160) : 15;
+      const weeklyHours = 10; // Part-time student default
+      const urgency = calculateJobUrgency(lead);
 
-      // Estimate weekly hours based on job type (part-time assumption for students)
-      const weeklyHours = 10; // Default for part-time student job
-
-      return {
-        id: `lead_${lead.id}_${index}`,
+      scenarios.push({
+        id: `job_${lead.id}`,
         title: lead.title,
         description: lead.company
-          ? `${lead.title} at ${lead.company}${lead.locationRaw ? ` - ${lead.locationRaw}` : ''}`
+          ? `Apply at ${lead.company}${lead.locationRaw ? ` - ${lead.locationRaw}` : ''}`
           : `${lead.title}${lead.locationRaw ? ` in ${lead.locationRaw}` : ''}`,
-        category: 'job' as const,
+        category: 'job_lead',
         weeklyHours,
         weeklyEarnings: hourlyRate * weeklyHours,
-        effortLevel: lead.effortLevel || 3,
-        flexibilityScore: 3, // Jobs are less flexible than freelance
         hourlyRate,
-        source: 'jobs' as const,
-        leadId: lead.id,
-      };
-    });
-}
-
-// Generate scenarios based on user data
-function generateScenarios(
-  skills: SwipeTabProps['skills'],
-  items: SwipeTabProps['items'],
-  lifestyle: SwipeTabProps['lifestyle'],
-  leads?: Lead[]
-): Scenario[] {
-  const scenarios: Scenario[] = [];
-
-  // Phase 4: Lead-based scenarios (jobs marked as "interested")
-  // These appear first as they represent concrete opportunities
-  const leadScenarios = generateLeadScenarios(leads);
-  scenarios.push(...leadScenarios);
-
-  // Skill-based scenarios
-  skills?.forEach((skill, index) => {
-    scenarios.push({
-      id: `skill_${index}`,
-      title: `Freelance ${skill.name}`,
-      description: `Offer ${skill.name} services on platforms like Malt or Fiverr`,
-      category: 'freelance',
-      weeklyHours: 5,
-      weeklyEarnings: skill.hourlyRate * 5,
-      effortLevel: 4,
-      flexibilityScore: 5,
-      hourlyRate: skill.hourlyRate,
-      source: 'skill',
-    });
-
-    scenarios.push({
-      id: `tutoring_${index}`,
-      title: `${skill.name} Tutoring`,
-      description: `Give ${skill.name} tutoring sessions to high school or college students`,
-      category: 'tutoring',
-      weeklyHours: 3,
-      weeklyEarnings: (skill.hourlyRate - 3) * 3,
-      effortLevel: 3,
-      flexibilityScore: 4,
-      hourlyRate: skill.hourlyRate - 3,
-      source: 'skill',
-    });
-  });
-
-  // Item-based scenarios
-  items?.forEach((item, index) => {
-    scenarios.push({
-      id: `sell_${index}`,
-      title: `Sell ${item.name}`,
-      description: `List ${item.name} for sale on Craigslist or eBay`,
-      category: 'selling',
-      weeklyHours: 1,
-      weeklyEarnings: Math.round(item.estimatedValue / 2), // Half over 2 weeks
-      effortLevel: 1,
-      flexibilityScore: 5,
-      hourlyRate: Math.round(item.estimatedValue / 2),
-      source: 'item',
-    });
-  });
-
-  // Lifestyle pause savings scenarios
-  const totalPauseSavings =
-    lifestyle?.reduce((sum, item) => {
-      const paused = item.pausedMonths || 0;
-      return sum + paused * item.currentCost;
-    }, 0) || 0;
-
-  if (totalPauseSavings > 0) {
-    scenarios.push({
-      id: 'lifestyle_pause',
-      title: 'Pause my expenses',
-      description: `Pause subscriptions to save ${totalPauseSavings} toward your goal`,
-      category: 'lifestyle',
-      weeklyHours: 0,
-      weeklyEarnings: Math.round(totalPauseSavings / 4),
-      effortLevel: 1,
-      flexibilityScore: 5,
-      hourlyRate: 0,
-      source: 'lifestyle',
-    });
-  }
-
-  // Default scenarios ONLY if user has no custom scenarios
-  // This prevents "babysitting" showing when user has real skills
-  if (scenarios.length === 0) {
-    const defaults: Scenario[] = [
-      {
-        id: 'default_1',
-        title: 'Baby-sitting',
-        description: 'Watch children in the evening or on weekends',
-        category: 'freelance',
-        weeklyHours: 4,
-        weeklyEarnings: 48,
-        effortLevel: 2,
+        effortLevel: lead.effortLevel || 3,
         flexibilityScore: 3,
-        hourlyRate: 12,
-        isDefault: true,
-        source: 'default',
-      },
-      {
-        id: 'default_2',
-        title: 'Uber Eats Delivery',
-        description: 'Deliver meals by bike or scooter',
-        category: 'freelance',
-        weeklyHours: 6,
-        weeklyEarnings: 60,
-        effortLevel: 3,
-        flexibilityScore: 5,
-        hourlyRate: 10,
-        isDefault: true,
-        source: 'default',
-      },
-      {
-        id: 'default_3',
-        title: 'Homework Help',
-        description: 'Help middle schoolers with their homework',
-        category: 'tutoring',
-        weeklyHours: 3,
-        weeklyEarnings: 45,
-        effortLevel: 2,
-        flexibilityScore: 4,
-        hourlyRate: 15,
-        isDefault: true,
-        source: 'default',
-      },
-      {
-        id: 'default_4',
-        title: 'Sell Clothes',
-        description: 'Sort and sell clothes you no longer wear',
-        category: 'selling',
-        weeklyHours: 2,
-        weeklyEarnings: 30,
+        source: 'prospection',
+        sourceId: lead.id,
+        leadId: lead.id,
+        urgency,
+      });
+    });
+
+  // 3. Lifestyle items that can be paused (not already paused)
+  lifestyle
+    ?.filter((l) => l.currentCost > 0 && !l.pausedMonths)
+    .forEach((item) => {
+      const urgency = calculateLifestyleUrgency(item);
+
+      scenarios.push({
+        id: `pause_${item.id}`,
+        title: `Pause ${item.name}`,
+        description: `Save ${item.currentCost}€/month by pausing`,
+        category: 'pause_expense',
+        monthlyAmount: item.currentCost,
         effortLevel: 1,
         flexibilityScore: 5,
-        hourlyRate: 15,
-        isDefault: true,
-        source: 'default',
-      },
-    ];
+        source: 'lifestyle',
+        sourceId: item.id,
+        urgency,
+      });
+    });
 
-    scenarios.push(...defaults);
-  }
+  // 4. Karma actions (Trade type='trade' or 'lend')
+  trades
+    ?.filter((t) => (t.type === 'trade' || t.type === 'lend') && t.status !== 'completed')
+    .forEach((item) => {
+      const isLend = item.type === 'lend';
 
-  return scenarios.slice(0, 8); // Max 8 scenarios
+      scenarios.push({
+        id: `karma_${item.id}`,
+        title: isLend ? `Lend ${item.name}` : `Trade ${item.name}`,
+        description: isLend
+          ? `Help someone by lending your ${item.name}`
+          : `Find someone to trade ${item.name} with`,
+        category: isLend ? 'karma_lend' : 'karma_trade',
+        karmaPoints: isLend ? 50 : 30,
+        socialBenefit: isLend
+          ? 'Build trust in your community'
+          : 'Get something you need without spending',
+        effortLevel: 2,
+        flexibilityScore: 4,
+        source: 'trade',
+        sourceId: item.id,
+        urgency: { score: 30, reason: '✨ Good karma' }, // Lower priority
+      });
+    });
+
+  // Sort by urgency score DESC (highest first)
+  return scenarios.sort((a, b) => b.urgency.score - a.urgency.score).slice(0, 10);
 }
 
 export function SwipeTab(props: SwipeTabProps) {
@@ -271,8 +426,18 @@ export function SwipeTab(props: SwipeTabProps) {
   const handleRoll = () => {
     setPhase('rolling');
 
-    // Generate scenarios based on user data (Phase 4: now includes leads)
-    const generated = generateScenarios(props.skills, props.items, props.lifestyle, props.leads);
+    // Build context for urgency calculations
+    const context: SwipeContext = {
+      goalAmount: props.goalContext?.goalAmount,
+      currentAmount: props.goalContext?.currentAmount,
+      remainingAmount: props.goalContext?.remainingAmount,
+      daysToGoal: props.goalContext?.daysToGoal,
+      today: new Date(),
+    };
+
+    // Generate scenarios using Pull Architecture (trades, lifestyle, leads)
+    // NOTE: skills are NOT used for scenario generation - they inform job matching
+    const generated = generateScenarios(props.trades, props.lifestyle, props.leads, context);
     setScenarios(generated);
 
     // Simulate rolling animation
@@ -368,8 +533,13 @@ export function SwipeTab(props: SwipeTabProps) {
 
   // Handle adding a rejected scenario back to selected
   const handleAddFromRejected = (scenario: Scenario) => {
-    // If scenario has no rate, show popup to configure
-    if (scenario.hourlyRate <= 0 && scenario.weeklyEarnings <= 0) {
+    // If scenario has no rate and is a job, show popup to configure
+    // Sell/pause/karma scenarios don't need hourly rate
+    const needsRateConfig =
+      scenario.category === 'job_lead' &&
+      (scenario.hourlyRate ?? 0) <= 0 &&
+      (scenario.weeklyEarnings ?? 0) <= 0;
+    if (needsRateConfig) {
       setRateConfigPopup({
         scenario,
         weeklyHours: scenario.weeklyHours || 5,
@@ -564,11 +734,7 @@ export function SwipeTab(props: SwipeTabProps) {
                                 {scenario.title}
                               </p>
                               <p class="text-xs text-muted-foreground">
-                                {scenario.weeklyHours}h/wk •{' '}
-                                {scenario.weeklyEarnings > 0
-                                  ? formatCurrency(scenario.weeklyEarnings, currency())
-                                  : 'No rate'}
-                                /wk
+                                {getScenarioSubtitle(scenario, currency())}
                               </p>
                             </div>
                             <button
@@ -589,10 +755,9 @@ export function SwipeTab(props: SwipeTabProps) {
                         <span class="text-muted-foreground">Missed potential</span>
                         <span class="font-bold text-red-600 dark:text-red-400">
                           {formatCurrency(
-                            rejectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
+                            rejectedScenarios().reduce((sum, s) => getScenarioValue(s), 0),
                             currency()
                           )}
-                          /wk
                         </span>
                       </div>
                     </div>
@@ -614,8 +779,7 @@ export function SwipeTab(props: SwipeTabProps) {
                         <div class="flex-1 min-w-0">
                           <p class="font-medium text-foreground">{scenario.title}</p>
                           <p class="text-sm text-muted-foreground">
-                            {scenario.weeklyHours}h/wk •{' '}
-                            {formatCurrency(scenario.weeklyEarnings, currency())}/wk
+                            {getScenarioSubtitle(scenario, currency())}
                           </p>
                         </div>
                         <div class="flex items-center gap-2">
@@ -643,10 +807,9 @@ export function SwipeTab(props: SwipeTabProps) {
                     </span>
                     <span class="text-3xl font-bold text-green-600 dark:text-green-400">
                       {formatCurrency(
-                        selectedScenarios().reduce((sum, s) => sum + s.weeklyEarnings, 0),
+                        selectedScenarios().reduce((sum, s) => sum + getScenarioValue(s), 0),
                         currency()
                       )}
-                      <span class="text-sm font-medium text-muted-foreground ml-1">/wk</span>
                     </span>
                   </div>
                 </div>

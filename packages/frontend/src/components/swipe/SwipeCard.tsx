@@ -20,6 +20,13 @@ import './HoloCard.css';
 
 export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
 
+/** Urgency info for display */
+interface ScenarioUrgency {
+  score: number;
+  reason?: string;
+  daysUntilAction?: number;
+}
+
 export interface SwipeCardProps {
   id: string;
   title: string;
@@ -35,8 +42,16 @@ export interface SwipeCardProps {
   isActive?: boolean;
   triggerSwipe?: SwipeDirection | null;
   returnFrom?: SwipeDirection | null; // For undo animation - card returns from this direction
-  /** Source of the scenario (Phase 4: shows badge for jobs) */
-  source?: 'skill' | 'item' | 'lifestyle' | 'jobs' | 'default';
+  /** Source of the scenario (Pull Architecture) */
+  source?: 'trade' | 'prospection' | 'lifestyle';
+  /** One-time amount for sell items */
+  oneTimeAmount?: number;
+  /** Monthly amount for pause expenses */
+  monthlyAmount?: number;
+  /** Urgency info for prioritization badge */
+  urgency?: ScenarioUrgency;
+  /** Karma points for social actions */
+  karmaPoints?: number;
 }
 
 export interface CardAdjustments {
@@ -352,10 +367,24 @@ export function SwipeCard(props: SwipeCardProps) {
             <h3 class="text-2xl font-bold text-foreground leading-tight mb-2">{props.title}</h3>
 
             {/* Source Badge */}
-            <Show when={props.source === 'jobs'}>
-              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full mb-2">
+            <Show when={props.source === 'prospection'}>
+              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400 px-2 py-1 rounded-full mb-2">
                 <MapPin class="h-3 w-3" />
                 From Jobs
+              </div>
+            </Show>
+
+            {/* Urgency Badge */}
+            <Show when={props.urgency && props.urgency.score >= 75}>
+              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-2 py-1 rounded-full mb-2 animate-pulse">
+                {props.urgency?.reason || '⚡ High priority'}
+              </div>
+            </Show>
+
+            {/* Karma Badge */}
+            <Show when={props.karmaPoints && props.karmaPoints > 0}>
+              <div class="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400 px-2 py-1 rounded-full mb-2">
+                ✨ +{props.karmaPoints} karma
               </div>
             </Show>
 

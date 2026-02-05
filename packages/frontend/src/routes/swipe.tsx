@@ -47,31 +47,57 @@ export default function SwipePage() {
   const isLoading = () => loading();
   const hasProfile = () => !!activeProfile()?.id;
 
-  // Build props for SwipeTab from ProfileContext
+  // Build props for SwipeTab from ProfileContext (Pull Architecture)
   const swipeProps = () => {
     const p = activeProfile();
     if (!p) return null;
 
+    // Calculate goal context for urgency calculations
+    const goalAmount = p.goalAmount || 0;
+    const currentAmount =
+      (p.followupData as { currentAmount?: number } | undefined)?.currentAmount || 0;
+    const remainingAmount = Math.max(0, goalAmount - currentAmount);
+    const daysToGoal = p.goalDeadline
+      ? Math.ceil((new Date(p.goalDeadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : 30;
+
     return {
+      // Skills are kept for job matching (Phase 5), not for scenario generation
       skills: skills().map((s) => ({
         name: s.name,
         hourlyRate: s.hourlyRate,
       })),
-      items: inventory().map((i) => ({
-        name: i.name,
-        estimatedValue: i.estimatedValue,
+
+      // Trades with full type/status for filtering (Pull Architecture)
+      trades: trades().map((t) => ({
+        id: t.id,
+        type: t.type,
+        name: t.name,
+        value: t.value,
+        status: t.status,
       })),
+
+      // Lifestyle items with id for tracking
       lifestyle: lifestyle().map((l) => ({
+        id: l.id,
         name: l.name,
         currentCost: l.currentCost,
         pausedMonths: l.pausedMonths,
+        category: l.category,
       })),
-      trades: trades().map((t) => ({
-        name: t.name,
-        value: t.value,
-      })),
-      // Filter leads to only include "interested" ones for Swipe scenarios
+
+      // Filter leads to only include "interested" ones
       leads: leads().filter((l) => l.status === 'interested'),
+
+      // Goal context for urgency calculations
+      goalContext: {
+        goalAmount,
+        currentAmount,
+        remainingAmount,
+        daysToGoal,
+        today: new Date(),
+      },
+
       currency: p.currency,
       profileId: p.id,
       initialPreferences: p.swipePreferences
@@ -135,13 +161,20 @@ export default function SwipePage() {
           title: s.title,
           description: s.description,
           category: s.category,
+          // Financial data (new format)
           weeklyHours: s.weeklyHours,
           weeklyEarnings: s.weeklyEarnings,
+          oneTimeAmount: s.oneTimeAmount,
+          monthlyAmount: s.monthlyAmount,
+          hourlyRate: s.hourlyRate,
+          // Metadata
           effortLevel: s.effortLevel,
           flexibilityScore: s.flexibilityScore,
-          hourlyRate: s.hourlyRate,
           source: s.source,
+          sourceId: s.sourceId,
           leadId: s.leadId,
+          // Karma
+          karmaPoints: s.karmaPoints,
         })),
       };
 
