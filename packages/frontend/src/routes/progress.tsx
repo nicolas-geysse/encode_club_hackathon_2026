@@ -346,6 +346,10 @@ export default function ProgressPage() {
             effortLevel: number;
             flexibilityScore: number;
             hourlyRate?: number;
+            // Source tracking for sync back
+            source?: 'trade' | 'prospection' | 'lifestyle';
+            sourceId?: string;
+            leadId?: string;
           }>;
           trades?: Array<{
             id: string;
@@ -426,6 +430,9 @@ export default function ProgressPage() {
                   startDate: new Date().toISOString(),
                   hoursCompleted: 0,
                   earningsCollected: 0,
+                  // Source tracking for sync back to Trade/Lifestyle tabs
+                  source: scenario.source,
+                  sourceId: scenario.sourceId,
                 });
               }
             });
@@ -495,6 +502,9 @@ export default function ProgressPage() {
                   startDate: startDate.toISOString(),
                   hoursCompleted: 0,
                   earningsCollected: 0,
+                  // Source tracking for sync back to Trade/Lifestyle tabs
+                  source: scenario.source,
+                  sourceId: scenario.sourceId,
                 });
               });
             }
@@ -905,6 +915,9 @@ export default function ProgressPage() {
 
       // Handle Restoration (Undo)
       if (updates.status === 'active' && m.status === 'completed') {
+        // Sync back to source - reset trade/lifestyle to available
+        syncMissionToSource(m, 'active');
+
         // If we have a previous state, restore it
         if (m.previousState) {
           return {
@@ -944,6 +957,41 @@ export default function ProgressPage() {
     }
   };
 
+  // Sync mission status back to source (Trade/Lifestyle)
+  // When a sell_item mission is completed, mark the trade as 'completed'
+  // When undone, mark it back to 'pending' so it can be re-proposed
+  const syncMissionToSource = async (mission: Mission, newStatus: 'completed' | 'active') => {
+    if (!mission.source || !mission.sourceId) return;
+
+    try {
+      if (mission.source === 'trade') {
+        // Sync to trades table
+        const tradeStatus = newStatus === 'completed' ? 'completed' : 'pending';
+        await fetch('/api/trades', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: mission.sourceId, status: tradeStatus }),
+        });
+        logger.info('Synced trade status', { sourceId: mission.sourceId, status: tradeStatus });
+      } else if (mission.source === 'lifestyle' && mission.category === 'pause_expense') {
+        // Sync to lifestyle table
+        // For pause_expense, we need to set pausedMonths when completed, reset when undone
+        // For now, we'll use a simple toggle (1 month pause)
+        // TODO: Support variable pause months from swipe adjustment
+        const pausedMonths = newStatus === 'completed' ? 1 : 0;
+        await fetch('/api/lifestyle', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: mission.sourceId, pausedMonths }),
+        });
+        logger.info('Synced lifestyle pause', { sourceId: mission.sourceId, pausedMonths });
+      }
+      // prospection leads don't need sync - they're external job listings
+    } catch (error) {
+      logger.error('Failed to sync mission to source', { error, mission });
+    }
+  };
+
   const handleMissionComplete = (id: string) => {
     // Fill remaining hours/earnings to match target
     const mission = followup().missions.find((m) => m.id === id);
@@ -963,6 +1011,9 @@ export default function ProgressPage() {
       );
       return;
     }
+
+    // Sync to source (Trade/Lifestyle) when completing
+    syncMissionToSource(mission, 'completed');
 
     handleMissionUpdate(id, {
       status: 'completed',

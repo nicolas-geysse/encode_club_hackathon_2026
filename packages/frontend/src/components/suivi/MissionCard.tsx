@@ -44,6 +44,10 @@ export interface Mission {
     hoursCompleted: number;
     earningsCollected: number;
   };
+  /** Source of the mission for syncing back (Pull Architecture) */
+  source?: 'trade' | 'prospection' | 'lifestyle';
+  /** ID of the source item for syncing (trade_id, lifestyle_id, lead_id) */
+  sourceId?: string;
 }
 
 interface MissionCardProps {
