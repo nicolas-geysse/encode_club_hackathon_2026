@@ -1101,24 +1101,28 @@ export function TradeTab(props: TradeTabProps) {
 
                 {/* Removed "With Whom" and "Date" inputs as per request */}
 
-                <div>
-                  <label class="block text-sm font-medium text-muted-foreground mb-1">
-                    Estimated value ({currencySymbol()})
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={newTrade().value ?? ''}
-                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) => {
-                      const val = e.currentTarget.value;
-                      setNewTrade({
-                        ...newTrade(),
-                        value: val === '' ? undefined : parseInt(val) || 0,
-                      });
-                    }}
-                  />
-                </div>
+                {/* Value field only for sell/borrow - trade/lend don't generate money */}
+                <Show when={newTrade().type === 'sell' || newTrade().type === 'borrow'}>
+                  <div>
+                    <label class="block text-sm font-medium text-muted-foreground mb-1">
+                      {newTrade().type === 'sell' ? 'Sale price' : 'Value saved'} (
+                      {currencySymbol()})
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={newTrade().value ?? ''}
+                      onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) => {
+                        const val = e.currentTarget.value;
+                        setNewTrade({
+                          ...newTrade(),
+                          value: val === '' ? undefined : parseInt(val) || 0,
+                        });
+                      }}
+                    />
+                  </div>
+                </Show>
 
                 <div>
                   <label class="block text-sm font-medium text-muted-foreground mb-1">

@@ -52,6 +52,10 @@ export interface FormField {
   derivedFrom?: string; // Field that auto-fills this one
   /** Configuration for dynamic-list fields */
   config?: DynamicListFieldConfig;
+  /** Hide this field when another field in the same item has certain values.
+   * Format: { field: 'fieldName', values: ['value1', 'value2'] }
+   * Used in dynamic-list items to conditionally show/hide fields. */
+  hideWhen?: { field: string; values: string[] };
 }
 
 export interface StepFormConfig {
@@ -573,6 +577,8 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
               placeholder: '50',
               min: 0,
               suffix: '$',
+              // Hide for trade/lend since they don't generate money
+              hideWhen: { field: 'type', values: ['trade', 'lend'] },
             },
           ],
           addLabel: 'Add opportunity',

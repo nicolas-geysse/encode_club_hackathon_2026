@@ -507,12 +507,22 @@ function DynamicListItem(props: {
     return { startDate, endDate };
   };
 
-  // Non-date fields (or all fields if no date pair)
+  // Check if a field should be hidden based on hideWhen condition
+  const isFieldHidden = (field: FormField): boolean => {
+    if (!field.hideWhen) return false;
+    const { field: conditionField, values } = field.hideWhen;
+    const currentValue = props.item[conditionField] as string;
+    return values.includes(currentValue);
+  };
+
+  // Non-date fields, excluding hidden fields (or all fields if no date pair)
   const nonDateFields = () => {
-    if (!hasDatePair()) {
-      return props.config.itemFields;
+    let fields = props.config.itemFields;
+    if (hasDatePair()) {
+      fields = fields.filter((f) => f.name !== 'startDate' && f.name !== 'endDate');
     }
-    return props.config.itemFields.filter((f) => f.name !== 'startDate' && f.name !== 'endDate');
+    // Filter out fields that should be hidden based on hideWhen
+    return fields.filter((f) => !isFieldHidden(f));
   };
 
   return (
