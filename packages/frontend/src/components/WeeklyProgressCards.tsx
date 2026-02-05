@@ -236,46 +236,8 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
     });
   });
 
-  // Stats summary
+  // Helper to check if we have explicit earnings data
   const hasExplicitEarningsData = () => props.weeklyEarnings && props.weeklyEarnings.length > 0;
-
-  const stats = createMemo(() => {
-    const weekData = weeks();
-    // Only count weeks with actual data (not 'future' status)
-    const pastWeeks = weekData.filter((w) => w.status !== 'future');
-    const aheadWeeks = pastWeeks.filter((w) => w.status === 'ahead').length;
-    const behindWeeks = pastWeeks.filter((w) => w.status === 'behind').length;
-    const criticalWeeks = pastWeeks.filter((w) => w.status === 'critical').length;
-    const totalEarned = pastWeeks.reduce((sum, w) => sum + w.earned, 0);
-    const totalTarget = pastWeeks.reduce((sum, w) => sum + w.target, 0);
-
-    // Determine overall status
-    let overallStatus: WeekData['status'];
-    if (!hasExplicitEarningsData()) {
-      // No earnings data - show neutral status
-      overallStatus = 'on-track';
-    } else if (totalEarned >= totalTarget) {
-      overallStatus = 'ahead';
-    } else if (totalEarned >= totalTarget * 0.9) {
-      overallStatus = 'on-track';
-    } else if (totalEarned >= totalTarget * 0.4) {
-      overallStatus = 'behind';
-    } else {
-      overallStatus = 'critical';
-    }
-
-    return {
-      totalWeeks: weekData.length,
-      pastWeeks: pastWeeks.length,
-      aheadWeeks,
-      behindWeeks,
-      criticalWeeks,
-      totalEarned,
-      totalTarget,
-      overallStatus,
-      hasData: hasExplicitEarningsData(),
-    };
-  });
 
   const statusConfig: Record<
     WeekData['status'],
@@ -323,38 +285,6 @@ export function WeeklyProgressCards(props: WeeklyProgressCardsProps) {
 
   return (
     <div class="space-y-4">
-      {/* Summary Stats */}
-      <div class="flex items-center justify-between text-sm">
-        <div class="flex items-center gap-4">
-          <span class="text-muted-foreground">{stats().totalWeeks} weeks total</span>
-          <Show when={stats().hasData && stats().aheadWeeks > 0}>
-            <span class="text-green-600 dark:text-green-400">🚀 {stats().aheadWeeks} ahead</span>
-          </Show>
-          <Show when={stats().hasData && stats().behindWeeks > 0}>
-            <span class="text-amber-600 dark:text-amber-400">⚠ {stats().behindWeeks} behind</span>
-          </Show>
-          <Show when={stats().hasData && stats().criticalWeeks > 0}>
-            <span class="text-red-600 dark:text-red-400">🔴 {stats().criticalWeeks} critical</span>
-          </Show>
-          <Show when={!stats().hasData}>
-            <span class="text-muted-foreground italic">Log earnings on /progress</span>
-          </Show>
-        </div>
-        <Show
-          when={stats().hasData}
-          fallback={
-            <span class="text-muted-foreground">
-              Target: {formatCurrency(props.goal.amount, currency())}
-            </span>
-          }
-        >
-          <div class={`font-medium ${statusConfig[stats().overallStatus].text}`}>
-            {formatCurrency(stats().totalEarned, currency())} /{' '}
-            {formatCurrency(stats().totalTarget, currency())}
-          </div>
-        </Show>
-      </div>
-
       {/* Horizontal Scrollable Cards - native scroll with wheel support */}
       <div
         ref={scrollContainerRef}
