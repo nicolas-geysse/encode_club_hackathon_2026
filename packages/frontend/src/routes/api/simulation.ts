@@ -210,6 +210,7 @@ export async function POST(event: APIEvent) {
       const realDate = new Date();
       const realDateStr = toISODate(realDate);
 
+      // Reset simulation state
       await execute(`
         UPDATE simulation_state SET
           simulated_date = '${realDateStr}',
@@ -218,6 +219,14 @@ export async function POST(event: APIEvent) {
           updated_at = CURRENT_TIMESTAMP
         WHERE id = 'global'
       `);
+
+      // Clear all energy logs (mood entries) for a fresh start
+      try {
+        await execute(`DELETE FROM energy_logs`);
+        logger.info('Cleared energy_logs on simulation reset');
+      } catch {
+        // Table might not exist
+      }
 
       return new Response(
         JSON.stringify({

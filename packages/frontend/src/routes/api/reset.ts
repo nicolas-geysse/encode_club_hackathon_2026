@@ -67,6 +67,14 @@ export async function DELETE(_event: APIEvent) {
       // Table might not exist
     }
 
+    // 5c. Delete all energy logs (mood entries)
+    try {
+      await execute(`DELETE FROM energy_logs`);
+      logger.info('Deleted all energy logs');
+    } catch {
+      // Table might not exist
+    }
+
     // 6. Reset simulation state to today (UPDATE, not DELETE)
     // Sprint 13.14 Fix: UPDATE instead of DELETE to preserve the 'global' row
     // Deleting causes the simulation to not have a row, which breaks the context

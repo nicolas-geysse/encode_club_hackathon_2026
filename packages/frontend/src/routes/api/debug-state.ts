@@ -109,8 +109,8 @@ export async function GET(event: APIEvent) {
       );
 
       if (energyRows.length > 0) {
-        // Group by week (7-day periods) and calculate weekly averages
-        const weeklyAverages: { week: number; level: number; date: string }[] = [];
+        // Group by CALENDAR WEEK (based on dates, not array indices)
+        // This handles sparse data (e.g., 1 log per week when advancing simulation)
         const sortedRows = [...energyRows].reverse(); // oldest first
 
         // Calculate composite score for each day (energy + mood + inverse stress)
@@ -123,16 +123,31 @@ export async function GET(event: APIEvent) {
           return { date: String(row.log_date), level: composite };
         });
 
-        // Group into weeks (chunks of 7 days or partial week)
-        let weekNum = 1;
-        for (let i = 0; i < dailyScores.length; i += 7) {
-          const weekData = dailyScores.slice(i, Math.min(i + 7, dailyScores.length));
-          const avgLevel = Math.round(
-            weekData.reduce((sum, d) => sum + d.level, 0) / weekData.length
-          );
-          weeklyAverages.push({ week: weekNum, level: avgLevel, date: weekData[0].date });
-          weekNum++;
+        // Group by calendar week number (ISO week)
+        const weekMap = new Map<string, { levels: number[]; firstDate: string }>();
+
+        for (const entry of dailyScores) {
+          const d = new Date(entry.date);
+          // Get ISO week number: week starts on Monday
+          const jan1 = new Date(d.getFullYear(), 0, 1);
+          const dayOfYear = Math.floor((d.getTime() - jan1.getTime()) / 86400000) + 1;
+          const weekNum = Math.ceil((dayOfYear + jan1.getDay()) / 7);
+          const weekKey = `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+
+          if (!weekMap.has(weekKey)) {
+            weekMap.set(weekKey, { levels: [], firstDate: entry.date });
+          }
+          weekMap.get(weekKey)!.levels.push(entry.level);
         }
+
+        // Convert to array sorted by week key
+        const weeklyAverages = Array.from(weekMap.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([_weekKey, data], idx) => ({
+            week: idx + 1,
+            level: Math.round(data.levels.reduce((sum, l) => sum + l, 0) / data.levels.length),
+            date: data.firstDate,
+          }));
 
         // Take last 4 weeks (rolling window)
         const last4Weeks = weeklyAverages.slice(-4);
