@@ -7,6 +7,7 @@
 import { Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { formatCurrency, type Currency } from '~/lib/dateUtils';
+import { KARMA_POINTS } from '~/hooks/useKarma';
 import { Button } from '~/components/ui/Button';
 import {
   Clock,
@@ -21,6 +22,7 @@ import {
   ShoppingBag,
   Pause,
   HandHeart,
+  Heart,
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
@@ -50,6 +52,8 @@ export interface Mission {
   sourceId?: string;
   /** Number of months to pause (for pause_expense missions) */
   pauseMonths?: number;
+  /** Karma points for karma missions */
+  karmaPoints?: number;
 }
 
 interface MissionCardProps {
@@ -155,14 +159,52 @@ export function MissionCard(props: MissionCardProps) {
         {/* Stats & Actions (Col 9-12) */}
         <div class="md:col-span-4 flex items-center justify-end gap-4 text-sm">
           <div class="flex flex-col items-end">
-            <div class="font-medium text-foreground flex items-center gap-1">
-              <span class="text-green-600 dark:text-green-400">
-                {formatCurrency(props.mission.earningsCollected, props.currency)}
-              </span>
-              <span class="text-muted-foreground text-xs font-normal">
-                / {formatCurrency(props.mission.weeklyEarnings, props.currency)}
-              </span>
-            </div>
+            {/* Karma-only missions (lend/trade): show karma instead of €0 */}
+            <Show
+              when={
+                props.mission.category === 'karma_lend' || props.mission.category === 'karma_trade'
+              }
+            >
+              <div class="font-medium text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                <Heart class="h-3.5 w-3.5" />
+                <span>
+                  +
+                  {props.mission.category === 'karma_lend' ? KARMA_POINTS.lend : KARMA_POINTS.trade}{' '}
+                  karma
+                </span>
+              </div>
+            </Show>
+
+            {/* Borrow missions: show savings + karma */}
+            <Show when={props.mission.category === 'karma_borrow'}>
+              <div class="font-medium text-foreground flex items-center gap-2">
+                <span class="text-green-600 dark:text-green-400">
+                  {formatCurrency(props.mission.weeklyEarnings, props.currency)} saved
+                </span>
+                <span class="text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
+                  <Heart class="h-3 w-3" />+{KARMA_POINTS.borrow}
+                </span>
+              </div>
+            </Show>
+
+            {/* Regular missions (sell, job, pause): show money */}
+            <Show
+              when={
+                props.mission.category !== 'karma_lend' &&
+                props.mission.category !== 'karma_trade' &&
+                props.mission.category !== 'karma_borrow'
+              }
+            >
+              <div class="font-medium text-foreground flex items-center gap-1">
+                <span class="text-green-600 dark:text-green-400">
+                  {formatCurrency(props.mission.earningsCollected, props.currency)}
+                </span>
+                <span class="text-muted-foreground text-xs font-normal">
+                  / {formatCurrency(props.mission.weeklyEarnings, props.currency)}
+                </span>
+              </div>
+            </Show>
+
             <Show when={props.mission.hoursCompleted > 0}>
               <span class="text-[10px] text-muted-foreground">
                 {props.mission.hoursCompleted}h worked

@@ -1223,6 +1223,7 @@ export default function ProgressPage() {
               currency={currency()}
               currentSimulatedDate={currentDate().toISOString()}
               oneTimeGains={oneTimeGains()}
+              karmaScore={karmaResult().score}
             />
           </Show>
 

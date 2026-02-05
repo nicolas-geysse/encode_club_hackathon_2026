@@ -16,7 +16,7 @@ import {
 } from '~/lib/progressCalculator';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { Trophy, Rocket, ThumbsUp, Zap } from 'lucide-solid';
+import { Trophy, Rocket, ThumbsUp, Zap, Heart } from 'lucide-solid';
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { cn } from '~/lib/cn';
 
@@ -35,6 +35,8 @@ interface TimelineHeroProps {
   currentSimulatedDate?: string;
   /** One-time gains from trades and paused subscriptions */
   oneTimeGains?: OneTimeGains;
+  /** Total karma score from completed karma actions */
+  karmaScore?: number;
 }
 
 export function TimelineHero(props: TimelineHeroProps) {
@@ -244,9 +246,17 @@ export function TimelineHero(props: TimelineHeroProps) {
             />
           </div>
           <div class="flex justify-between mt-2 text-xs uppercase tracking-wider font-medium text-muted-foreground">
-            <span class={cn(status().color)}>
-              {Math.round(amountProgress())}% - {status().text}
-            </span>
+            <div class="flex items-center gap-3">
+              <span class={cn(status().color)}>
+                {Math.round(amountProgress())}% - {status().text}
+              </span>
+              <Show when={props.karmaScore && props.karmaScore > 0}>
+                <span class="flex items-center gap-1 text-purple-600 dark:text-purple-400 normal-case">
+                  <Heart class="h-3 w-3" />
+                  {props.karmaScore} karma
+                </span>
+              </Show>
+            </div>
             <span>
               Week {props.currentWeek}/{props.totalWeeks}
             </span>
