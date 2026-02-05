@@ -40,6 +40,8 @@ interface SwipeSessionProps {
   currency?: Currency;
   profileId?: string;
   embedMode?: boolean;
+  /** Months remaining until goal deadline (for pause duration constraint) */
+  monthsRemaining?: number;
   onComplete: (
     accepted: Scenario[],
     rejected: Scenario[],
@@ -135,6 +137,7 @@ export function SwipeSession(props: SwipeSessionProps) {
       perceivedFlexibility: scenario?.flexibilityScore ?? 3,
       customHourlyRate: scenario?.hourlyRate ?? 0,
       customWeeklyHours: scenario?.weeklyHours ?? 0,
+      pauseMonths: 1, // Default: 1 month pause
     };
   };
   const [adjustments, setAdjustments] = createSignal<CardAdjustments>(getDefaultAdjustments());
@@ -273,6 +276,9 @@ export function SwipeSession(props: SwipeSessionProps) {
         ...scenario,
         hourlyRate: adjustedHourlyRate,
         weeklyHours: adjustedWeeklyHours,
+        // Include pauseMonths for pause_expense scenarios
+        pauseMonths:
+          scenario.category === 'pause_expense' ? (adjustments().pauseMonths ?? 1) : undefined,
         // Recalculate weeklyEarnings for job_lead scenarios
         // For sell_item/pause_expense/karma, keep original values
         weeklyEarnings:
@@ -377,7 +383,8 @@ export function SwipeSession(props: SwipeSessionProps) {
           perceivedEffort: nextScenario.effortLevel,
           perceivedFlexibility: nextScenario.flexibilityScore,
           customHourlyRate: nextScenario.hourlyRate,
-          customWeeklyHours: nextScenario.weeklyHours, // Fix: use weeklyHours, not effort
+          customWeeklyHours: nextScenario.weeklyHours,
+          pauseMonths: 1, // Reset to 1 month default
         });
       }
     }
@@ -389,7 +396,7 @@ export function SwipeSession(props: SwipeSessionProps) {
 
       {/* Left Column: Adjustments & AI Context */}
       <div class="w-full md:w-72 space-y-4 flex flex-col shrink-0 order-2 md:order-1">
-        {/* Adjustments Card - More important, now first */}
+        {/* Adjustments Card - Content varies by scenario type */}
         <Show when={currentIndex() < props.scenarios.length}>
           <Card class="bg-muted/30 border-none shadow-none w-full">
             <div class="p-3 space-y-3">
@@ -397,76 +404,144 @@ export function SwipeSession(props: SwipeSessionProps) {
                 <span>Adjust Assumptions</span>
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                  <label
-                    class={cn(
-                      'text-[10px]',
-                      isRateInvalid() && showValidationError()
-                        ? 'text-red-500 font-medium'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    Rate ({currencySymbol()}/h)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    class={cn(
-                      'h-8 bg-background text-xs transition-colors',
-                      isRateInvalid() && showValidationError()
-                        ? 'border-red-500 border-2 ring-2 ring-red-500/20'
-                        : 'border-border'
-                    )}
-                    value={adjustments().customHourlyRate}
-                    onInput={(e) => {
-                      setShowValidationError(false);
-                      const value = Math.max(0, Number(e.currentTarget.value));
-                      setAdjustments({
-                        ...adjustments(),
-                        customHourlyRate: value,
-                      });
-                    }}
-                  />
+              {/* Job Lead: Rate + Hours */}
+              <Show when={currentScenario()?.category === 'job_lead'}>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1">
+                    <label
+                      class={cn(
+                        'text-[10px]',
+                        isRateInvalid() && showValidationError()
+                          ? 'text-red-500 font-medium'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      Rate ({currencySymbol()}/h)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      class={cn(
+                        'h-8 bg-background text-xs transition-colors',
+                        isRateInvalid() && showValidationError()
+                          ? 'border-red-500 border-2 ring-2 ring-red-500/20'
+                          : 'border-border'
+                      )}
+                      value={adjustments().customHourlyRate}
+                      onInput={(e) => {
+                        setShowValidationError(false);
+                        const value = Math.max(0, Number(e.currentTarget.value));
+                        setAdjustments({
+                          ...adjustments(),
+                          customHourlyRate: value,
+                        });
+                      }}
+                    />
+                  </div>
+                  <div class="space-y-1">
+                    <label
+                      class={cn(
+                        'text-[10px]',
+                        isHoursInvalid() && showValidationError()
+                          ? 'text-red-500 font-medium'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      Hours/week
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      class={cn(
+                        'h-8 bg-background text-xs transition-colors',
+                        isHoursInvalid() && showValidationError()
+                          ? 'border-red-500 border-2 ring-2 ring-red-500/20'
+                          : 'border-border'
+                      )}
+                      value={adjustments().customWeeklyHours}
+                      onInput={(e) => {
+                        setShowValidationError(false);
+                        const value = Math.max(0, Number(e.currentTarget.value));
+                        setAdjustments({
+                          ...adjustments(),
+                          customWeeklyHours: value,
+                        });
+                      }}
+                    />
+                  </div>
                 </div>
-                <div class="space-y-1">
-                  <label
-                    class={cn(
-                      'text-[10px]',
-                      isHoursInvalid() && showValidationError()
-                        ? 'text-red-500 font-medium'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    Hours/week
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    class={cn(
-                      'h-8 bg-background text-xs transition-colors',
-                      isHoursInvalid() && showValidationError()
-                        ? 'border-red-500 border-2 ring-2 ring-red-500/20'
-                        : 'border-border'
-                    )}
-                    value={adjustments().customWeeklyHours}
-                    onInput={(e) => {
-                      setShowValidationError(false);
-                      const value = Math.max(0, Number(e.currentTarget.value));
-                      setAdjustments({
-                        ...adjustments(),
-                        customWeeklyHours: value,
-                      });
-                    }}
-                  />
-                </div>
-              </div>
 
-              {/* Validation error message */}
-              <Show when={showValidationError() && !isCardValid()}>
-                <div class="flex items-center gap-1.5 text-red-500 text-[10px] mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                  <AlertCircle class="h-3 w-3 shrink-0" />
-                  <span>Set rate and hours before accepting</span>
+                {/* Validation error message */}
+                <Show when={showValidationError() && !isCardValid()}>
+                  <div class="flex items-center gap-1.5 text-red-500 text-[10px] mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <AlertCircle class="h-3 w-3 shrink-0" />
+                    <span>Set rate and hours before accepting</span>
+                  </div>
+                </Show>
+              </Show>
+
+              {/* Pause Expense: Duration selector */}
+              <Show when={currentScenario()?.category === 'pause_expense'}>
+                <div class="space-y-2">
+                  <label class="text-[10px] text-muted-foreground">Pause Duration</label>
+                  <div class="flex gap-1.5">
+                    <For each={[1, 2, 3, 4, 5, 6]}>
+                      {(months) => {
+                        const maxMonths = props.monthsRemaining ?? 6;
+                        const isDisabled = months > maxMonths;
+                        const isSelected = adjustments().pauseMonths === months;
+                        return (
+                          <button
+                            type="button"
+                            disabled={isDisabled}
+                            class={cn(
+                              'flex-1 h-9 rounded-lg text-xs font-medium transition-all',
+                              isSelected
+                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                : isDisabled
+                                  ? 'bg-muted/30 text-muted-foreground/40 cursor-not-allowed'
+                                  : 'bg-background border border-border hover:border-primary/50 hover:bg-primary/5'
+                            )}
+                            onClick={() => {
+                              if (!isDisabled) {
+                                setAdjustments({
+                                  ...adjustments(),
+                                  pauseMonths: months,
+                                });
+                              }
+                            }}
+                          >
+                            {months}
+                          </button>
+                        );
+                      }}
+                    </For>
+                  </div>
+                  <div class="text-[10px] text-muted-foreground text-center">
+                    {adjustments().pauseMonths === 1
+                      ? '1 month'
+                      : `${adjustments().pauseMonths} months`}
+                    {' = '}
+                    <span class="font-medium text-foreground">
+                      {(
+                        (currentScenario()?.monthlyAmount ?? 0) * (adjustments().pauseMonths ?? 1)
+                      ).toFixed(0)}
+                      {currencySymbol()} saved
+                    </span>
+                  </div>
+                </div>
+              </Show>
+
+              {/* Sell Item / Karma: No adjustments needed */}
+              <Show
+                when={
+                  currentScenario()?.category === 'sell_item' ||
+                  currentScenario()?.category === 'karma_trade' ||
+                  currentScenario()?.category === 'karma_lend'
+                }
+              >
+                <div class="text-[10px] text-muted-foreground text-center py-2">
+                  No adjustments needed for this action
                 </div>
               </Show>
             </div>
@@ -640,16 +715,25 @@ export function SwipeSession(props: SwipeSessionProps) {
                     // Goal Impact - dynamic recalculation for job_lead
                     goalImpactPercent={(() => {
                       const originalImpact = scenario.metadata?.goalImpactPercent ?? 0;
-                      if (index() !== currentIndex() || scenario.category !== 'job_lead') {
+                      if (index() !== currentIndex()) {
                         return originalImpact;
                       }
-                      // Recalculate based on adjusted earnings ratio
-                      const originalEarnings = scenario.weeklyEarnings ?? 0;
-                      if (originalEarnings <= 0) return originalImpact;
-                      const adjustedEarnings =
-                        (adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0) *
-                        (adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0);
-                      return originalImpact * (adjustedEarnings / originalEarnings);
+                      // Recalculate for job_lead based on adjusted earnings ratio
+                      if (scenario.category === 'job_lead') {
+                        const originalEarnings = scenario.weeklyEarnings ?? 0;
+                        if (originalEarnings <= 0) return originalImpact;
+                        const adjustedEarnings =
+                          (adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0) *
+                          (adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0);
+                        return originalImpact * (adjustedEarnings / originalEarnings);
+                      }
+                      // Recalculate for pause_expense based on pauseMonths
+                      if (scenario.category === 'pause_expense') {
+                        // Original was calculated with 1 month default
+                        const pauseMonths = adjustments().pauseMonths ?? 1;
+                        return originalImpact * pauseMonths;
+                      }
+                      return originalImpact;
                     })()}
                   />
                 </Show>

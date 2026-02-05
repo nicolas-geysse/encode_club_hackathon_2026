@@ -59,6 +59,7 @@ export interface Scenario {
   weeklyHours?: number; // Hours required (jobs only)
   oneTimeAmount?: number; // One-time amount (sales)
   monthlyAmount?: number; // Monthly amount (pauses)
+  pauseMonths?: number; // Number of months to pause (lifestyle)
   weeklyEarnings?: number; // Weekly earnings (compatibility)
   effortLevel: number; // 1-5
   flexibilityScore: number; // 1-5
@@ -626,6 +627,7 @@ export function SwipeTab(props: SwipeTabProps) {
           currency={currency()}
           profileId={props.profileId}
           embedMode={props.embedMode}
+          monthsRemaining={Math.ceil((props.goalContext?.daysToGoal ?? 30) / 30)}
           onComplete={handleSwipeComplete}
         />
       </Show>

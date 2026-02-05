@@ -65,6 +65,8 @@ export interface CardAdjustments {
   perceivedFlexibility?: number;
   customHourlyRate?: number;
   customWeeklyHours?: number;
+  /** Number of months to pause (for pause_expense scenarios) */
+  pauseMonths?: number;
 }
 
 export function SwipeCard(props: SwipeCardProps) {

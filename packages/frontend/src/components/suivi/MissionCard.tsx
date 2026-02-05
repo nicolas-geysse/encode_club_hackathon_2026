@@ -48,6 +48,8 @@ export interface Mission {
   source?: 'trade' | 'prospection' | 'lifestyle';
   /** ID of the source item for syncing (trade_id, lifestyle_id, lead_id) */
   sourceId?: string;
+  /** Number of months to pause (for pause_expense missions) */
+  pauseMonths?: number;
 }
 
 interface MissionCardProps {

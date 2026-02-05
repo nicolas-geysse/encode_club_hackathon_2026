@@ -433,6 +433,8 @@ export default function ProgressPage() {
                   // Source tracking for sync back to Trade/Lifestyle tabs
                   source: scenario.source,
                   sourceId: scenario.sourceId,
+                  // Pause duration for lifestyle sync (Checkpoint B)
+                  pauseMonths: (scenario as { pauseMonths?: number }).pauseMonths,
                 });
               }
             });
@@ -976,9 +978,8 @@ export default function ProgressPage() {
       } else if (mission.source === 'lifestyle' && mission.category === 'pause_expense') {
         // Sync to lifestyle table
         // For pause_expense, we need to set pausedMonths when completed, reset when undone
-        // For now, we'll use a simple toggle (1 month pause)
-        // TODO: Support variable pause months from swipe adjustment
-        const pausedMonths = newStatus === 'completed' ? 1 : 0;
+        // Uses pauseMonths from swipe adjustment (Checkpoint B)
+        const pausedMonths = newStatus === 'completed' ? (mission.pauseMonths ?? 1) : 0;
         await fetch('/api/lifestyle', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
