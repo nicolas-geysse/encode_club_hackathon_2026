@@ -218,31 +218,65 @@ export function buildProgressChart(
 }
 
 /**
+ * Trade potential data for budget chart
+ */
+export interface TradePotential {
+  /** Potential from items available for sale (pending sell trades) */
+  sellPotential: number;
+  /** Potential savings from borrowing items (pending borrow trades) */
+  borrowPotential: number;
+}
+
+/**
  * Build a budget breakdown chart
+ * Optionally includes trade potential (sell items + borrow savings)
  */
 export function buildBudgetBreakdownChart(
   income: number,
   expenses: number,
   savings: number,
-  _currencySymbol: string = '$'
+  _currencySymbol: string = '$',
+  tradePotential?: TradePotential
 ): UIResource {
+  // Base labels and data
+  const labels = ['Income', 'Expenses', 'Savings'];
+  const data = [income, expenses, savings];
+  const backgroundColors = [
+    'rgba(34, 197, 94, 0.5)', // green - income
+    'rgba(239, 68, 68, 0.5)', // red - expenses
+    'rgba(59, 130, 246, 0.5)', // blue - savings
+  ];
+  const borderColors = ['rgb(34, 197, 94)', 'rgb(239, 68, 68)', 'rgb(59, 130, 246)'];
+
+  // Add trade potential if available
+  if (tradePotential && (tradePotential.sellPotential > 0 || tradePotential.borrowPotential > 0)) {
+    if (tradePotential.sellPotential > 0) {
+      labels.push('Sell Potential');
+      data.push(tradePotential.sellPotential);
+      backgroundColors.push('rgba(251, 191, 36, 0.5)'); // amber
+      borderColors.push('rgb(251, 191, 36)');
+    }
+    if (tradePotential.borrowPotential > 0) {
+      labels.push('Borrow Savings');
+      data.push(tradePotential.borrowPotential);
+      backgroundColors.push('rgba(168, 85, 247, 0.5)'); // purple
+      borderColors.push('rgb(168, 85, 247)');
+    }
+  }
+
   return {
     type: 'chart',
     params: {
       type: 'bar',
       title: 'Monthly Budget Breakdown',
       data: {
-        labels: ['Income', 'Expenses', 'Savings'],
+        labels,
         datasets: [
           {
             label: 'Amount',
-            data: [income, expenses, savings],
-            backgroundColor: [
-              'rgba(34, 197, 94, 0.5)',
-              'rgba(239, 68, 68, 0.5)',
-              'rgba(59, 130, 246, 0.5)',
-            ],
-            borderColor: ['rgb(34, 197, 94)', 'rgb(239, 68, 68)', 'rgb(59, 130, 246)'],
+            data,
+            backgroundColor: backgroundColors,
+            borderColor: borderColors,
           },
         ],
       },

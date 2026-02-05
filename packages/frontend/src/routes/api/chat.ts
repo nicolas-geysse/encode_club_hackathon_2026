@@ -72,6 +72,7 @@ import {
   buildProjectionChart,
   buildEnergyChart,
   type EnergyLogEntry,
+  type TradePotential,
 } from '../../lib/chatChartBuilder';
 import { toISODate } from '../../lib/dateUtils';
 
@@ -88,6 +89,8 @@ interface BudgetContext {
   tradeSalesCompleted: number;
   tradeBorrowSavings: number;
   tradePotential: number;
+  tradeSalesPotential: number;
+  tradeBorrowPotential: number;
   adjustedMargin: number;
   goalProgress: number;
   monthsUntilDeadline: number;
@@ -143,6 +146,8 @@ async function fetchBudgetContext(profileId?: string): Promise<BudgetContext | n
       tradeSalesCompleted: b.tradeSalesCompleted || 0,
       tradeBorrowSavings: b.tradeBorrowSavings || 0,
       tradePotential: b.totalTradePotential || 0,
+      tradeSalesPotential: b.tradeSalesPotential || 0,
+      tradeBorrowPotential: b.tradeBorrowPotential || 0,
       adjustedMargin: b.adjustedMargin || 0,
       goalProgress: b.goalProgress || 0,
       monthsUntilDeadline: b.monthsUntilDeadline || 0,
@@ -1785,20 +1790,50 @@ async function handleConversationMode(
 
           const savings = income - expenses;
 
+          // Extract trade potential from budget context
+          const sellPotential = budgetContext?.tradeSalesPotential || 0;
+          const borrowPotential = budgetContext?.tradeBorrowPotential || 0;
+          const tradePotential: TradePotential | undefined =
+            sellPotential > 0 || borrowPotential > 0
+              ? { sellPotential, borrowPotential }
+              : undefined;
+
           if (income === 0 && expenses === 0) {
             response = `I don't have enough budget information yet. Tell me your income and expenses first!`;
             break;
           }
 
-          response = `📊 **Your Monthly Budget**\n\nIncome: **${currSymbol}${income}** | Expenses: **${currSymbol}${expenses}** | Savings: **${currSymbol}${savings}**`;
+          // Build response text with trade potential if available
+          let responseText = `📊 **Your Monthly Budget**\n\nIncome: **${currSymbol}${income}** | Expenses: **${currSymbol}${expenses}** | Savings: **${currSymbol}${savings}**`;
+
+          if (tradePotential) {
+            const tradeParts: string[] = [];
+            if (sellPotential > 0) {
+              tradeParts.push(`Sell items: **${currSymbol}${sellPotential}**`);
+            }
+            if (borrowPotential > 0) {
+              tradeParts.push(`Borrow savings: **${currSymbol}${borrowPotential}**`);
+            }
+            responseText += `\n\n💰 **Trade Potential**: ${tradeParts.join(' | ')}`;
+          }
+
+          response = responseText;
           const budgetChartResource = buildBudgetBreakdownChart(
             income,
             expenses,
             savings,
-            currSymbol
+            currSymbol,
+            tradePotential
           );
           const budgetChartTraceId = ctx.getTraceId();
-          ctx.setOutput({ action: 'show_budget_chart', income, expenses, savings });
+          ctx.setOutput({
+            action: 'show_budget_chart',
+            income,
+            expenses,
+            savings,
+            sellPotential,
+            borrowPotential,
+          });
           return {
             response,
             extractedData: {},
