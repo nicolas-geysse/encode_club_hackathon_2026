@@ -163,6 +163,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
               longitude: props.userLocation?.lng,
               city: props.city,
               radius: searchRadius(), // v4.1: User-selected radius (default 50km for initial Top 10)
+              currency: props.currency || 'EUR',
             }),
           });
 
@@ -313,6 +314,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
           longitude: props.userLocation?.lng,
           city: props.city,
           radius: searchRadius(), // v4.1: User-selected radius
+          currency: props.currency || 'EUR',
         }),
       });
 

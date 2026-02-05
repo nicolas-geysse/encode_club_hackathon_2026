@@ -16,6 +16,7 @@ import { createLogger } from '~/lib/logger';
 import { PROSPECTION_CATEGORIES } from '~/config/prospectionCategories';
 import type { ProspectionCategory, ProspectionCard } from '~/lib/prospectionTypes';
 import { trace, getTraceUrl, type TraceOptions } from '~/lib/opik';
+import { getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 
 // Google Maps service (lazy loaded to avoid bundling issues)
 let googleMapsService: typeof import('@stride/mcp-server/services') | null = null;
@@ -65,7 +66,8 @@ export async function GET(event: APIEvent): Promise<Response> {
 export async function POST(event: APIEvent): Promise<Response> {
   try {
     const body = await event.request.json();
-    const { action, categoryId, latitude, longitude, city, radius = 5000 } = body;
+    const { action, categoryId, latitude, longitude, city, radius = 5000, currency = 'EUR' } = body;
+    const currencySymbol = getCurrencySymbol(currency as Currency);
 
     if (action === 'search') {
       if (!categoryId) {
@@ -105,7 +107,14 @@ export async function POST(event: APIEvent): Promise<Response> {
           const hasCoordinates = !!(latitude && longitude);
           const isPlatformOnly = category.googlePlaceTypes.length === 0;
 
-          const cards = await searchRealPlaces(category, latitude, longitude, city, radius);
+          const cards = await searchRealPlaces(
+            category,
+            latitude,
+            longitude,
+            city,
+            radius,
+            currencySymbol
+          );
 
           // Diagnostic logging for Places API debugging
           logger.info('Places API result', {
@@ -220,17 +229,18 @@ async function searchRealPlaces(
   latitude?: number,
   longitude?: number,
   city?: string,
-  initialRadius: number = 5000
+  initialRadius: number = 5000,
+  currencySymbol: string = '€'
 ): Promise<ProspectionCard[]> {
   // If category has no googlePlaceTypes, return platform-based suggestions
   if (category.googlePlaceTypes.length === 0) {
-    return generatePlatformCards(category, city);
+    return generatePlatformCards(category, city, currencySymbol);
   }
 
   // If no coordinates, return empty (location required for Places API)
   if (!latitude || !longitude) {
     logger.warn('No coordinates provided for Places search', { city });
-    return generatePlatformCards(category, city);
+    return generatePlatformCards(category, city, currencySymbol);
   }
 
   const maps = await getGoogleMaps();
@@ -241,7 +251,7 @@ async function searchRealPlaces(
 
   // Strategy 1: Try Nearby Search with progressive radius
   for (const radius of radiusFallbacks) {
-    const allPlaces = await searchWithRadius(maps, category, location, radius);
+    const allPlaces = await searchWithRadius(maps, category, location, radius, currencySymbol);
 
     if (allPlaces.length > 0) {
       logger.info('Places found via Nearby Search', {
@@ -263,7 +273,13 @@ async function searchRealPlaces(
   // Strategy 2: Fallback to Text Search (more flexible)
   logger.info('Nearby Search exhausted, trying Text Search', { categoryId: category.id, city });
 
-  const textSearchResults = await searchWithTextSearch(maps, category, location, city);
+  const textSearchResults = await searchWithTextSearch(
+    maps,
+    category,
+    location,
+    city,
+    currencySymbol
+  );
   if (textSearchResults.length > 0) {
     logger.info('Places found via Text Search', {
       categoryId: category.id,
@@ -290,7 +306,8 @@ async function searchWithTextSearch(
   maps: Awaited<ReturnType<typeof getGoogleMaps>>,
   category: ProspectionCategory,
   location: { lat: number; lng: number },
-  city?: string
+  city?: string,
+  currencySymbol: string = '€'
 ): Promise<ProspectionCard[]> {
   const queries = TEXT_SEARCH_QUERIES[category.id] || [category.label];
   const cityName = city || '';
@@ -325,7 +342,7 @@ async function searchWithTextSearch(
           lng: place.location.lng,
           commuteMinutes,
           commuteText: `${commuteMinutes} min`,
-          salaryText: `${hourlyRate.toFixed(2)}€/h`,
+          salaryText: `${hourlyRate.toFixed(0)}${currencySymbol}/h`,
           avgHourlyRate: Math.round(hourlyRate * 100) / 100,
           effortLevel: category.effortLevel,
           source: 'Google Maps',
@@ -360,7 +377,8 @@ async function searchWithRadius(
   maps: Awaited<ReturnType<typeof getGoogleMaps>>,
   category: ProspectionCategory,
   location: { lat: number; lng: number },
-  radius: number
+  radius: number,
+  currencySymbol: string = '€'
 ): Promise<ProspectionCard[]> {
   // Search ALL place types in parallel for better performance
   const searchPromises = category.googlePlaceTypes.map(async (placeType) => {
@@ -396,7 +414,7 @@ async function searchWithRadius(
           lng: place.location.lng,
           commuteMinutes,
           commuteText: `${commuteMinutes} min`,
-          salaryText: `${hourlyRate.toFixed(2)}€/h`,
+          salaryText: `${hourlyRate.toFixed(0)}${currencySymbol}/h`,
           avgHourlyRate: Math.round(hourlyRate * 100) / 100,
           effortLevel: category.effortLevel,
           source: 'Google Maps',
@@ -429,7 +447,11 @@ async function searchWithRadius(
  * Generate platform-based cards for categories without Google Place types
  * (e.g., handyman, events, interim - these are platform-based, not location-based)
  */
-function generatePlatformCards(category: ProspectionCategory, city?: string): ProspectionCard[] {
+function generatePlatformCards(
+  category: ProspectionCategory,
+  city?: string,
+  currencySymbol: string = '€'
+): ProspectionCard[] {
   const cityName = city || 'your city';
   return category.platforms.slice(0, 5).map((platform, i) => ({
     id: `${category.id}_platform_${i}_${Date.now()}`,
@@ -437,7 +459,7 @@ function generatePlatformCards(category: ProspectionCategory, city?: string): Pr
     title: category.examples[i % category.examples.length],
     company: platform,
     location: cityName,
-    salaryText: `${category.avgHourlyRate.min}-${category.avgHourlyRate.max}€/h`,
+    salaryText: `${category.avgHourlyRate.min}-${category.avgHourlyRate.max}${currencySymbol}/h`,
     avgHourlyRate: (category.avgHourlyRate.min + category.avgHourlyRate.max) / 2,
     effortLevel: category.effortLevel,
     source: platform,
