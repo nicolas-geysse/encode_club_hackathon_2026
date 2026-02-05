@@ -8,7 +8,16 @@
  * are reflected in ProfileSelector and other components.
  */
 
-import { createSignal, Show, For, createEffect, onCleanup, on, createResource } from 'solid-js';
+import {
+  createSignal,
+  Show,
+  For,
+  createEffect,
+  onCleanup,
+  on,
+  createResource,
+  onMount,
+} from 'solid-js';
 import { createDirtyState } from '~/hooks/createDirtyState';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
@@ -42,6 +51,7 @@ import {
   PreferencesWidget,
 } from '~/components/debug/DebugPanel';
 import { SkillsTab } from './SkillsTab';
+import { eventBus } from '~/lib/eventBus';
 
 // Alias for cleaner code
 type Profile = FullProfile;
@@ -151,7 +161,24 @@ export function ProfileTab(props: ProfileTabProps) {
   const [isGeolocating, setIsGeolocating] = createSignal(false);
   let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   // Resource for debug state (Energy, etc.)
-  const [debugState] = createResource(() => contextProfile()?.id, fetchDebugState);
+  const [debugState, { refetch: refetchDebugState }] = createResource(
+    () => contextProfile()?.id,
+    fetchDebugState
+  );
+
+  // Refetch debug state when mood is updated (e.g., from SimulationControls)
+  onMount(() => {
+    const unsubMood = eventBus.on('MOOD_UPDATED', () => {
+      refetchDebugState();
+    });
+    const unsubSim = eventBus.on('SIMULATION_UPDATED', () => {
+      refetchDebugState();
+    });
+    onCleanup(() => {
+      unsubMood();
+      unsubSim();
+    });
+  });
 
   // Dirty state tracking for unsaved changes warning
   const {

@@ -15,6 +15,7 @@ export type AppEvent =
   | 'DATA_RESET' // Full data reset (user clicked "Reset all data")
   | 'PROFILE_SWITCHED'
   | 'SIMULATION_UPDATED'
+  | 'MOOD_UPDATED' // Mood logged via daily check-in
   | 'PROACTIVE_ALERT'; // v4.2: Agent-triggered proactive notification
 
 // v4.2: Proactive alert payload

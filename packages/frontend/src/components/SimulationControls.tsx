@@ -32,6 +32,7 @@ import {
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { createLogger } from '~/lib/logger';
 import { todayISO } from '~/lib/dateUtils';
+import { eventBus } from '~/lib/eventBus';
 
 const logger = createLogger('SimulationControls');
 
@@ -232,6 +233,9 @@ export function SimulationControls(props: Props) {
           }),
         });
         logger.info('Energy logged', { level, date: currentDateStr });
+
+        // Emit event so other components (e.g., ProfileTab) can refresh
+        eventBus.emit('MOOD_UPDATED');
       }
     } catch (err) {
       logger.error('Failed to log energy', { error: err });
