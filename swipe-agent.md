@@ -1,6 +1,6 @@
 # Swipe Agent Redesign
 
-> **Status**: Phases 1-5 complètes, Checkpoints A & B complets. Prêt pour test utilisateur.
+> **Status**: Phases 1-5 complètes, Checkpoints A, B & G.partial complets. Karma Loop implémenté.
 
 ---
 
@@ -79,6 +79,17 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | NaN€ dans missions | ✅ | Fallback `oneTimeAmount`/`monthlyAmount` si `weeklyEarnings` undefined |
 | weeklyEarnings non recalculé | ✅ | Recalcul `rate × hours` dans SwipeSession quand adjustments |
 | Missions work à 0€ | ✅ | Validation empêche complete si `weeklyEarnings <= 0` pour job_lead |
+
+### Phase 6: Déduplication & Karma Loop
+**Fichiers modifiés**: `swipe.tsx`, `SwipeTab.tsx`, `MissionCard.tsx`, `TimelineHero.tsx`, `TradeTab.tsx`
+
+| Feature | Status | Détail |
+|---------|--------|--------|
+| Déduplication cartes swipe | ✅ | Filtre items avec missions actives/completed (skipped = re-swipable) |
+| Karma total dans summary | ✅ | Affiche karma à côté du total € dans SwipeTab review |
+| Karma dans MissionCard | ✅ | Karma au lieu de €0 pour lend/trade, savings+karma pour borrow |
+| Karma dans TimelineHero | ✅ | Indicateur 🤍 X karma dans progress bar |
+| TradeTab karma fix | ✅ | Utilise contextTrades() au lieu du state local (réactivité) |
 
 ---
 
@@ -199,20 +210,48 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
       - Prompt: "Rate skill relevance to job 0-100"
 ```
 
-### Checkpoint G: Karma System Complet (Priorité Basse)
+### Checkpoint G: Karma System (Partiellement Implémenté)
 **Objectif**: Gamifier les actions sociales
 
 ```
-□ G.1 Ajouter karma_points au schema Profile
-      - INTEGER default 0
+✅ G.1 Constantes KARMA_POINTS centralisées
+      - useKarma.ts: { lend: 50, trade: 30, borrow: 20 }
+      - Utilisées partout: SwipeCard, SwipeTab, MissionCard, TradeTab
 
-□ G.2 Incrémenter karma quand mission karma complétée
-      - onMissionComplete → si category karma_* → add points
+✅ G.2 Affichage karma dans le Swipe summary
+      - SwipeTab.tsx: Total karma à côté du total €
+      - Fichiers: SwipeTab.tsx (getScenarioKarma helper)
 
-□ G.3 Afficher Karma Level dans Progress dashboard
-      - 0-100: "Newcomer", 100-500: "Helper", 500+: "Community Star"
+✅ G.3 Affichage karma dans MissionCard
+      - Lend/Trade: "+50 karma" / "+30 karma" au lieu de €0
+      - Borrow: "X€ saved + 🤍+20 karma"
+      - Fichiers: MissionCard.tsx
 
-□ G.4 Badges achievements pour karma milestones
+✅ G.4 Affichage karma dans TimelineHero
+      - Indicateur "🤍 X karma" dans la barre de progression
+      - Props: karmaScore passé depuis progress.tsx
+      - Fichiers: TimelineHero.tsx, progress.tsx
+
+✅ G.5 Karma score calculé depuis trades complétés
+      - TradeTab.tsx utilise contextTrades() (source of truth)
+      - Calcul: lend*50 + trade*30 + borrow*20
+
+✅ G.6 Karma Levels avec labels
+      - useKarma.ts: getKarmaTierInfo() retourne tier/label/emoji/color/progress
+      - 0-99: "Newcomer" 🌱, 100-499: "Helper" 🤝, 500+: "Community Star" ⭐
+      - Fichiers: useKarma.ts, TimelineHero.tsx, TradeTab.tsx
+
+✅ G.7 Affichage tier dans UI
+      - TimelineHero: emoji + label à côté du score karma
+      - TradeTab: carte Karma avec tier, progress bar vers next tier
+      - Progress bar: "X pts to go" pour atteindre le prochain niveau
+
+□ G.8 Persister karma_points dans Profile (DuckDB) - OPTIONNEL
+      - Actuellement calculé dynamiquement (source of truth = trades)
+      - Persistance utile uniquement si on veut garder karma même si trades supprimés
+
+□ G.9 Badges achievements pour karma milestones
+      - Premier karma, 100 karma, etc.
 ```
 
 ### Checkpoint H: Agent Architecture (Priorité Basse)
@@ -269,16 +308,19 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 
 ## 📁 Fichiers clés
 
-### Modifiés (Phase 1-5)
+### Modifiés (Phase 1-6)
 
 | Fichier | Rôle |
 |---------|------|
-| `components/tabs/SwipeTab.tsx` | Interface Scenario, generateScenarios() Pull, display helpers |
+| `components/tabs/SwipeTab.tsx` | Interface Scenario, generateScenarios() Pull, display helpers, karma totals |
 | `components/swipe/SwipeCard.tsx` | Props urgency/karma, badges visuels, stats conditionnelles |
 | `components/swipe/SwipeSession.tsx` | Catégories adaptées, recalcul weeklyEarnings, validation |
-| `routes/swipe.tsx` | canAccessSwipe(), EmptySwipeView, goalContext |
-| `routes/progress.tsx` | syncMissionToSource(), source/sourceId sur missions |
-| `components/suivi/MissionCard.tsx` | Icônes Pull Architecture, source/sourceId fields |
+| `routes/swipe.tsx` | canAccessSwipe(), EmptySwipeView, goalContext, **mission deduplication filter** |
+| `routes/progress.tsx` | syncMissionToSource(), source/sourceId, **karmaScore prop to TimelineHero** |
+| `components/suivi/MissionCard.tsx` | Icônes Pull Architecture, **karma display (lend/trade/borrow)** |
+| `components/suivi/TimelineHero.tsx` | **karmaScore indicator in progress bar** |
+| `components/tabs/TradeTab.tsx` | **contextTrades() for karma score (reactivity fix)** |
+| `hooks/useKarma.ts` | **KARMA_POINTS constants** centralisées |
 
 ### À modifier (Checkpoints futurs)
 
@@ -321,6 +363,18 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 13 | Deadline dans 2 mois, pause expense | Boutons 3-6 désactivés (grisés) |
 | 14 | Compléter pause 3 mois | Mission stocke pauseMonths=3, sync vers lifestyle API |
 
+### ✅ Testables après Phase 6 (Karma Loop)
+
+| # | Scénario | Résultat attendu |
+|---|----------|------------------|
+| 15 | Swipe lend + trade items | Summary: "Total: X€ + Y karma" |
+| 16 | Mission karma_lend affichée | "+50 karma" au lieu de €0 |
+| 17 | Mission karma_borrow affichée | "X€ saved + 🤍+20" |
+| 18 | Compléter mission lend | Karma score augmente dans Trade tab |
+| 19 | TimelineHero avec karma | "🤍 X karma" visible à côté du status |
+| 20 | Job déjà accepté → Swipe | Pas de doublon, filtré par missionSourceIds |
+| 21 | Mission skipped → Swipe | Réapparaît (seuls active/completed filtrés) |
+
 ---
 
 ## 📅 Historique des commits
@@ -335,3 +389,9 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 2026-02-05 | `feat(progress): Sync mission completion with source Trade/Lifestyle` | Phase 4 |
 | 2026-02-05 | `feat(swipe): Add goal impact % badge on all cards with dynamic recalc` | Checkpoint A |
 | 2026-02-05 | `feat(swipe): Add Goal Impact badge + pause duration selector` | Checkpoints A+B |
+| 2026-02-05 | `feat(karma): Add karma totals to swipe summary + unified KARMA_POINTS` | Phase 6/G |
+| 2026-02-05 | `feat(karma): Display karma in MissionCard (lend/trade/borrow)` | Phase 6/G |
+| 2026-02-05 | `feat(karma): Add karma indicator in TimelineHero progress bar` | Phase 6/G |
+| 2026-02-05 | `fix(trade): Use contextTrades() for karma score (reactivity fix)` | Phase 6/G |
+| 2026-02-05 | `fix(swipe): Filter out items that already have active missions` | Phase 6 |
+| 2026-02-05 | `feat(karma): Add tier levels (Newcomer/Helper/Star) with progress` | G.6-7 |

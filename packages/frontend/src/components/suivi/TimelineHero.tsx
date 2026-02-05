@@ -14,9 +14,10 @@ import {
   calculateTotalProgress,
   getEmptyOneTimeGains,
 } from '~/lib/progressCalculator';
+import { getKarmaTierInfo } from '~/hooks/useKarma';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { Trophy, Rocket, ThumbsUp, Zap, Heart } from 'lucide-solid';
+import { Trophy, Rocket, ThumbsUp, Zap } from 'lucide-solid';
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { cn } from '~/lib/cn';
 
@@ -251,10 +252,17 @@ export function TimelineHero(props: TimelineHeroProps) {
                 {Math.round(amountProgress())}% - {status().text}
               </span>
               <Show when={props.karmaScore && props.karmaScore > 0}>
-                <span class="flex items-center gap-1 text-purple-600 dark:text-purple-400 normal-case">
-                  <Heart class="h-3 w-3" />
-                  {props.karmaScore} karma
-                </span>
+                {(() => {
+                  const tierInfo = getKarmaTierInfo(props.karmaScore!);
+                  return (
+                    <span class={cn('flex items-center gap-1 normal-case', tierInfo.colorClass)}>
+                      <span>{tierInfo.emoji}</span>
+                      <span>
+                        {props.karmaScore} karma · {tierInfo.label}
+                      </span>
+                    </span>
+                  );
+                })()}
               </Show>
             </div>
             <span>

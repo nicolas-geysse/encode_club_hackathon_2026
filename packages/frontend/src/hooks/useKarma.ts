@@ -10,6 +10,11 @@
  * - +20 for each completed borrow (community trust)
  * - Does NOT count pending or cancelled items
  *
+ * Karma Levels (G.7):
+ * - 0-99: "Newcomer" (just starting out)
+ * - 100-499: "Helper" (active contributor)
+ * - 500+: "Community Star" (community champion)
+ *
  * Karma Benefits (integrated into Stride):
  * - Unlocks achievements at thresholds
  * - Provides positive feedback in Bruno tips
@@ -32,6 +37,22 @@ export interface Trade {
   // ... other fields
 }
 
+/** Karma tier identifiers */
+export type KarmaTier = 'newcomer' | 'helper' | 'star';
+
+/** Display info for karma tiers */
+export interface KarmaTierInfo {
+  tier: KarmaTier;
+  label: string;
+  emoji: string;
+  color: string;
+  colorClass: string;
+  /** Points needed for next tier (null if max tier) */
+  nextTierAt: number | null;
+  /** Progress to next tier (0-100) */
+  progress: number;
+}
+
 export interface KarmaResult {
   /** Total karma score */
   score: number;
@@ -41,20 +62,80 @@ export interface KarmaResult {
   tradeCount: number;
   /** Number of borrow actions */
   borrowCount: number;
-  /** Karma tier: 'none' | 'helper' | 'champion' | 'legend' */
-  tier: 'none' | 'helper' | 'champion' | 'legend';
+  /** Karma tier identifier */
+  tier: KarmaTier;
+  /** Full tier display info */
+  tierInfo: KarmaTierInfo;
   /** Energy bonus from karma (0-10%) */
   energyBonus: number;
 }
 
+/** Tier thresholds */
+const TIER_THRESHOLDS = {
+  helper: 100,
+  star: 500,
+} as const;
+
 /**
- * Get karma tier from score (adjusted for higher point values)
+ * Get karma tier from score
+ * - 0-99: newcomer
+ * - 100-499: helper
+ * - 500+: star
  */
-function getKarmaTier(score: number): KarmaResult['tier'] {
-  if (score >= 200) return 'legend'; // 4+ lends or equivalent
-  if (score >= 100) return 'champion'; // 2 lends or equivalent
-  if (score >= 50) return 'helper'; // 1 lend or equivalent
-  return 'none';
+function getKarmaTier(score: number): KarmaTier {
+  if (score >= TIER_THRESHOLDS.star) return 'star';
+  if (score >= TIER_THRESHOLDS.helper) return 'helper';
+  return 'newcomer';
+}
+
+/**
+ * Get full tier display info including progress to next tier
+ */
+export function getKarmaTierInfo(score: number): KarmaTierInfo {
+  const tier = getKarmaTier(score);
+
+  const tierData: Record<KarmaTier, Omit<KarmaTierInfo, 'tier' | 'nextTierAt' | 'progress'>> = {
+    newcomer: {
+      label: 'Newcomer',
+      emoji: '🌱',
+      color: '#6b7280', // gray
+      colorClass: 'text-gray-500 dark:text-gray-400',
+    },
+    helper: {
+      label: 'Helper',
+      emoji: '🤝',
+      color: '#8b5cf6', // purple
+      colorClass: 'text-purple-500 dark:text-purple-400',
+    },
+    star: {
+      label: 'Community Star',
+      emoji: '⭐',
+      color: '#f59e0b', // amber
+      colorClass: 'text-amber-500 dark:text-amber-400',
+    },
+  };
+
+  // Calculate progress to next tier
+  let nextTierAt: number | null = null;
+  let progress = 100;
+
+  if (tier === 'newcomer') {
+    nextTierAt = TIER_THRESHOLDS.helper;
+    progress = Math.min(100, Math.round((score / TIER_THRESHOLDS.helper) * 100));
+  } else if (tier === 'helper') {
+    nextTierAt = TIER_THRESHOLDS.star;
+    const rangeStart = TIER_THRESHOLDS.helper;
+    const rangeSize = TIER_THRESHOLDS.star - TIER_THRESHOLDS.helper;
+    progress = Math.min(100, Math.round(((score - rangeStart) / rangeSize) * 100));
+  }
+  // star tier: progress stays at 100, nextTierAt stays null
+
+  return {
+    tier,
+    ...tierData[tier],
+    nextTierAt,
+    progress,
+  };
 }
 
 /**
@@ -88,6 +169,7 @@ export function useKarma(trades: Accessor<Trade[]>): Accessor<KarmaResult> {
       tradeCount,
       borrowCount,
       tier: getKarmaTier(score),
+      tierInfo: getKarmaTierInfo(score),
       energyBonus: getEnergyBonus(score),
     };
   });
@@ -112,6 +194,7 @@ export function calculateKarma(trades: Trade[]): KarmaResult {
     tradeCount,
     borrowCount,
     tier: getKarmaTier(score),
+    tierInfo: getKarmaTierInfo(score),
     energyBonus: getEnergyBonus(score),
   };
 }

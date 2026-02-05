@@ -5,11 +5,12 @@
  * Uses createCrudTab hook for common CRUD state management.
  */
 
-import { createSignal, createEffect, For, Show, untrack } from 'solid-js';
+import { createSignal, createEffect, For, Show, untrack, createMemo } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { useProfile } from '~/lib/profileContext';
 import { createCrudTab } from '~/hooks/createCrudTab';
 import { createDirtyState } from '~/hooks/createDirtyState';
+import { getKarmaTierInfo, KARMA_POINTS } from '~/hooks/useKarma';
 import { UnsavedChangesDialog } from '~/components/ui/UnsavedChangesDialog';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { formatCurrency, getCurrencySymbol, type Currency } from '~/lib/dateUtils';
@@ -441,19 +442,24 @@ export function TradeTab(props: TradeTabProps) {
   // Feature N: Total potential savings from borrowing (active + pending)
   const totalBorrowPotential = () => borrowedValue() + pendingBorrowValue();
 
-  // Feature I: Karma score for lend/trade/borrow actions (circular economy contribution)
+  /// Feature I: Karma score for lend/trade/borrow actions (circular economy contribution)
   // Uses contextTrades from profileContext (source of truth from DB)
   // This ensures karma updates when missions are completed in /progress
   const karmaScore = () => {
     const items = contextTrades();
     const lendKarma =
-      items.filter((t) => t.type === 'lend' && t.status === 'completed').length * 50;
+      items.filter((t) => t.type === 'lend' && t.status === 'completed').length * KARMA_POINTS.lend;
     const tradeKarma =
-      items.filter((t) => t.type === 'trade' && t.status === 'completed').length * 30;
+      items.filter((t) => t.type === 'trade' && t.status === 'completed').length *
+      KARMA_POINTS.trade;
     const borrowKarma =
-      items.filter((t) => t.type === 'borrow' && t.status === 'completed').length * 20;
+      items.filter((t) => t.type === 'borrow' && t.status === 'completed').length *
+      KARMA_POINTS.borrow;
     return lendKarma + tradeKarma + borrowKarma;
   };
+
+  // Karma tier info (G.7: levels with labels)
+  const karmaTierInfo = createMemo(() => getKarmaTierInfo(karmaScore()));
 
   // Total from completed sales
   const soldValue = () =>
@@ -631,23 +637,48 @@ export function TradeTab(props: TradeTabProps) {
             </CardContent>
           </Card>
 
-          {/* Karma */}
+          {/* Karma with Tier */}
           <Card class="border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 shadow-sm transition-all hover:shadow-md">
             <CardContent class="p-6">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-purple-600 dark:text-purple-400">
                   Karma Score
                 </span>
-                <div class="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
-                  <Heart class="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <div class="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-lg">
+                  {karmaTierInfo().emoji}
                 </div>
               </div>
               <div class="text-2xl font-bold text-purple-900 dark:text-purple-100">
                 {karmaScore()}
               </div>
-              <div class="mt-1 text-xs text-purple-600/80 dark:text-purple-400/80 font-medium">
-                Community contributions
+              <div class={cn('mt-1 text-sm font-semibold', karmaTierInfo().colorClass)}>
+                {karmaTierInfo().label}
               </div>
+              {/* Progress to next tier */}
+              <Show when={karmaTierInfo().nextTierAt}>
+                <div class="mt-3">
+                  <div class="flex justify-between text-[10px] text-muted-foreground mb-1">
+                    <span>
+                      Progress to {karmaTierInfo().tier === 'newcomer' ? 'Helper' : 'Star'}
+                    </span>
+                    <span>{karmaTierInfo().progress}%</span>
+                  </div>
+                  <div class="h-1.5 bg-purple-200 dark:bg-purple-900/50 rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-purple-500 transition-all duration-500"
+                      style={{ width: `${karmaTierInfo().progress}%` }}
+                    />
+                  </div>
+                  <div class="text-[10px] text-muted-foreground mt-1">
+                    {karmaTierInfo().nextTierAt! - karmaScore()} pts to go
+                  </div>
+                </div>
+              </Show>
+              <Show when={!karmaTierInfo().nextTierAt}>
+                <div class="mt-2 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                  ⭐ Max tier reached!
+                </div>
+              </Show>
             </CardContent>
           </Card>
         </div>
