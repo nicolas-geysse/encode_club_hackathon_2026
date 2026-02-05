@@ -104,22 +104,66 @@ export const DEFAULT_PROFILE = {
  * Persist goal data to the goals table.
  * Sprint 9.5: Archives (status='paused') existing active goals instead of deleting.
  * This preserves goal history while enforcing single active goal policy.
+ *
+ * BUG FIX: Now checks for existing goals with same name+amount to avoid duplicates.
+ * If found, reactivates the existing goal instead of creating a new one.
  */
 export async function persistGoal(profileId: string, goalData: GoalData): Promise<boolean> {
   try {
-    // Sprint 9.5: Archive existing active goals instead of deleting all
-    // This preserves history and allows users to reactivate old goals
-    const existingGoalsResponse = await fetch(`/api/goals?profileId=${profileId}&status=active`);
-    if (existingGoalsResponse.ok) {
-      const existingGoals = await existingGoalsResponse.json();
-      // Archive each active goal
-      for (const goal of existingGoals) {
+    // Fetch ALL goals (any status) to check for duplicates
+    const allGoalsResponse = await fetch(`/api/goals?profileId=${profileId}`);
+    let allGoals: Array<{ id: string; name: string; amount: number; status: string }> = [];
+    if (allGoalsResponse.ok) {
+      allGoals = await allGoalsResponse.json();
+    }
+
+    // Check if an identical goal already exists (same name and amount)
+    const identicalGoal = allGoals.find(
+      (g) => g.name === goalData.name && g.amount === goalData.amount
+    );
+
+    if (identicalGoal) {
+      // Reactivate the existing goal instead of creating a duplicate
+      logger.info('Found identical goal, reactivating instead of creating duplicate', {
+        goalId: identicalGoal.id,
+        name: goalData.name,
+        amount: goalData.amount,
+      });
+
+      // First, pause any OTHER active goals (not the identical one)
+      const otherActiveGoals = allGoals.filter(
+        (g) => g.status === 'active' && g.id !== identicalGoal.id
+      );
+      for (const goal of otherActiveGoals) {
         await fetch('/api/goals', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: goal.id, status: 'paused' }),
         });
       }
+
+      // Reactivate the identical goal (update deadline if different)
+      await fetch('/api/goals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: identicalGoal.id,
+          status: 'active',
+          deadline: goalData.deadline || null,
+        }),
+      });
+
+      return true; // Exit early - no new goal needed
+    }
+
+    // No identical goal found - archive existing active goals and create new one
+    const activeGoals = allGoals.filter((g) => g.status === 'active');
+    for (const goal of activeGoals) {
+      await fetch('/api/goals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: goal.id, status: 'paused' }),
+      });
     }
 
     // Build planData with academicEvents if available
