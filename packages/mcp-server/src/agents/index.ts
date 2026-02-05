@@ -47,16 +47,19 @@ export {
   createGuardianAgent,
 } from './guardian.js';
 
-// Money Maker Agent
+// Money Maker Agent (+ H.2 Trade improvements)
 export {
   analyzeImageTool,
   estimatePriceTool,
   budgetImpactTool,
   suggestHustlesTool,
   moneyMakerAnalysisTool,
+  suggestSellingPlatformTool,
+  estimateDaysToSellTool,
   createMoneyMakerAgent,
   ITEM_CATEGORIES,
   SIDE_HUSTLES,
+  SELLING_PLATFORMS,
 } from './money-maker.js';
 
 // Strategy Comparator Agent
@@ -108,6 +111,43 @@ export {
 export { generateDailyBriefing } from './daily-briefing.js';
 export type { DailyBriefingInput, DailyBriefingOutput } from './daily-briefing.js';
 
+// Lifestyle Agent (Checkpoint H.1)
+export {
+  analyzeSubscriptionsTool,
+  suggestPauseStrategyTool,
+  calculateSavingsImpactTool,
+  lifestyleOptimizationTool,
+  createLifestyleAgent,
+  FREE_ALTERNATIVES,
+  CATEGORY_OVERLAPS,
+} from './lifestyle-agent.js';
+export type {
+  LifestyleItem,
+  GoalContext,
+  PauseSuggestion,
+  LifestyleAgentInput,
+  LifestyleAgentOutput,
+  SubscriptionAnalysis,
+} from './lifestyle-agent.js';
+
+// Swipe Orchestrator Agent (Checkpoint H.3)
+export {
+  gatherSourcesTool,
+  rankScenariosTool,
+  generateDailySwipeTool,
+  processSwipeDecisionTool,
+  createSwipeOrchestratorAgent,
+} from './swipe-orchestrator.js';
+export type {
+  SwipePreferences,
+  UserContext,
+  ScenarioCategory,
+  SwipeScenario,
+  RankedScenario,
+  SwipeSource,
+  DailySwipeConfig,
+} from './swipe-orchestrator.js';
+
 // Tab Agent Strategies
 export {
   createTabStrategy,
@@ -133,3 +173,5 @@ import './onboarding-agent.js';
 import './tips-orchestrator.js';
 import './tab-tips-orchestrator.js';
 import './daily-briefing.js';
+import './lifestyle-agent.js';
+import './swipe-orchestrator.js';

@@ -656,12 +656,399 @@ export const moneyMakerAnalysisTool = createTool({
   },
 });
 
+// ============================================================
+// H.2: SELLING PLATFORM DATABASE AND TOOLS
+// ============================================================
+
+/**
+ * Platform information for selling items
+ */
+interface PlatformInfo {
+  name: string;
+  fees: string;
+  speed: 'fast' | 'medium' | 'slow';
+  bestFor: string;
+  url: string;
+  tips: string[];
+}
+
+/**
+ * Selling platforms organized by item category (French market focus)
+ */
+export const SELLING_PLATFORMS: Record<string, PlatformInfo[]> = {
+  electronics: [
+    {
+      name: 'Back Market',
+      fees: '10-15%',
+      speed: 'fast',
+      bestFor: 'Smartphones, laptops, tablets',
+      url: 'https://www.backmarket.fr',
+      tips: ['Reconditionnement pro', 'Prix fixe garanti', 'Paiement rapide'],
+    },
+    {
+      name: 'Leboncoin',
+      fees: '0-8%',
+      speed: 'medium',
+      bestFor: 'Tout électronique',
+      url: 'https://www.leboncoin.fr',
+      tips: ['Photos de qualité', 'Description détaillée', 'Négociation possible'],
+    },
+    {
+      name: 'Facebook Marketplace',
+      fees: '0%',
+      speed: 'fast',
+      bestFor: 'Vente locale rapide',
+      url: 'https://www.facebook.com/marketplace',
+      tips: ['Remise en main propre', 'Pas de frais', 'Large audience'],
+    },
+    {
+      name: 'eBay',
+      fees: '10-13%',
+      speed: 'medium',
+      bestFor: 'Pièces rares, collectibles tech',
+      url: 'https://www.ebay.fr',
+      tips: ['Enchères pour objets rares', 'Expédition internationale'],
+    },
+  ],
+  clothing: [
+    {
+      name: 'Vinted',
+      fees: '0% vendeur',
+      speed: 'medium',
+      bestFor: 'Mode, chaussures, accessoires',
+      url: 'https://www.vinted.fr',
+      tips: ['Photos portées = +30% vues', 'Boost les weekends', 'Répondre vite aux messages'],
+    },
+    {
+      name: 'Vestiaire Collective',
+      fees: '15-25%',
+      speed: 'slow',
+      bestFor: 'Luxe et marques premium',
+      url: 'https://www.vestiairecollective.com',
+      tips: ['Authentification garantie', 'Prix plus élevés', 'Clientèle internationale'],
+    },
+    {
+      name: 'Depop',
+      fees: '10%',
+      speed: 'medium',
+      bestFor: 'Vintage, streetwear, Y2K',
+      url: 'https://www.depop.com',
+      tips: ['Style photos Instagram', 'Hashtags tendance', 'Communauté jeune'],
+    },
+  ],
+  furniture: [
+    {
+      name: 'Facebook Marketplace',
+      fees: '0%',
+      speed: 'fast',
+      bestFor: 'Meubles volumineux',
+      url: 'https://www.facebook.com/marketplace',
+      tips: ['Vente locale obligatoire', 'Photos en situation', 'Dimensions précises'],
+    },
+    {
+      name: 'Leboncoin',
+      fees: '0-8%',
+      speed: 'medium',
+      bestFor: 'Tout ameublement',
+      url: 'https://www.leboncoin.fr',
+      tips: ['Livraison Mondial Relay possible', 'Négociation attendue'],
+    },
+    {
+      name: 'Selency',
+      fees: '20%',
+      speed: 'slow',
+      bestFor: 'Vintage, design, mid-century',
+      url: 'https://www.selency.com',
+      tips: ['Curé par des experts', 'Prix premium', 'Photos pro recommandées'],
+    },
+  ],
+  books: [
+    {
+      name: 'Momox',
+      fees: 'Prix fixe',
+      speed: 'fast',
+      bestFor: 'Lot de livres, vidage rapide',
+      url: 'https://www.momox.fr',
+      tips: ['Scan ISBN rapide', 'Envoi gratuit', 'Paiement immédiat'],
+    },
+    {
+      name: 'RecycLivre',
+      fees: '0%',
+      speed: 'fast',
+      bestFor: 'Don avec réduction impôts',
+      url: 'https://www.recyclivre.com',
+      tips: ['Attestation fiscale', 'Impact écologique', 'Enlèvement gratuit'],
+    },
+    {
+      name: 'Leboncoin',
+      fees: '0%',
+      speed: 'slow',
+      bestFor: 'Livres rares, manuels scolaires',
+      url: 'https://www.leboncoin.fr',
+      tips: ['Photos de la couverture', 'État précis', 'Lot possible'],
+    },
+  ],
+  games: [
+    {
+      name: 'Leboncoin',
+      fees: '0-8%',
+      speed: 'medium',
+      bestFor: 'Jeux vidéo, consoles',
+      url: 'https://www.leboncoin.fr',
+      tips: ['Photo de la boîte', 'Mention de létat des CD'],
+    },
+    {
+      name: 'Micromania',
+      fees: 'Reprise magasin',
+      speed: 'fast',
+      bestFor: 'Reprise immédiate en magasin',
+      url: 'https://www.micromania.fr',
+      tips: ['Estimation en ligne', 'Crédit ou espèces', 'Pas de négociation'],
+    },
+    {
+      name: 'eBay',
+      fees: '10-13%',
+      speed: 'medium',
+      bestFor: 'Jeux collectors, rétro',
+      url: 'https://www.ebay.fr',
+      tips: ['Enchères pour jeux rares', 'Marché international'],
+    },
+  ],
+  sports: [
+    {
+      name: 'Leboncoin',
+      fees: '0-8%',
+      speed: 'medium',
+      bestFor: 'Équipement sport général',
+      url: 'https://www.leboncoin.fr',
+      tips: ['Taille et marque en titre', 'Photos de lusure'],
+    },
+    {
+      name: 'Troc Vélo',
+      fees: '8%',
+      speed: 'medium',
+      bestFor: 'Vélos et accessoires cyclisme',
+      url: 'https://www.troc-velo.com',
+      tips: ['Spécialisé vélo', 'Communauté active', 'Estimation automatique'],
+    },
+    {
+      name: 'Decathlon Seconde Vie',
+      fees: 'Reprise magasin',
+      speed: 'fast',
+      bestFor: 'Matériel Decathlon',
+      url: 'https://www.decathlon.fr/services/seconde-vie',
+      tips: ['Reprise en magasin', 'Bon achat en échange'],
+    },
+  ],
+};
+
+/**
+ * Base selling times by category (in days)
+ */
+const BASE_SELLING_DAYS: Record<string, number> = {
+  electronics: 7,
+  clothing: 14,
+  furniture: 21,
+  books: 10,
+  games: 10,
+  sports: 14,
+  instruments: 21,
+  collectibles: 30,
+};
+
+/**
+ * Suggest best selling platform for an item
+ */
+export const suggestSellingPlatformTool = createTool({
+  id: 'suggest_selling_platform',
+  description: 'Recommend the best platform to sell an item based on category and urgency',
+  inputSchema: z.object({
+    itemName: z.string().describe('Name of the item'),
+    category: z.enum([
+      'electronics',
+      'clothing',
+      'furniture',
+      'books',
+      'games',
+      'sports',
+      'instruments',
+      'collectibles',
+    ]),
+    estimatedValue: z.number().describe('Estimated value in euros'),
+    condition: z.enum(['new', 'like_new', 'good', 'fair']),
+    urgency: z.enum(['asap', 'normal', 'flexible']).describe('How quickly you need to sell'),
+  }),
+  execute: async (input) => {
+    return trace('tool.suggest_selling_platform', async (ctx) => {
+      setPromptAttributes(ctx, 'money-maker');
+      ctx.setAttributes({
+        'input.item_name': input.itemName,
+        'input.category': input.category,
+        'input.estimated_value': input.estimatedValue,
+        'input.urgency': input.urgency,
+      });
+
+      const platforms = SELLING_PLATFORMS[input.category] || SELLING_PLATFORMS.electronics;
+
+      // Sort by speed if urgent
+      const sortedPlatforms = [...platforms];
+      if (input.urgency === 'asap') {
+        sortedPlatforms.sort((a, b) => {
+          const speedOrder = { fast: 0, medium: 1, slow: 2 };
+          return speedOrder[a.speed] - speedOrder[b.speed];
+        });
+      } else if (input.urgency === 'flexible') {
+        // Prefer platforms with higher fees but better prices (luxury platforms)
+        sortedPlatforms.sort((a, b) => {
+          const luxuryScore = (p: PlatformInfo) =>
+            p.bestFor.toLowerCase().includes('luxe') || p.bestFor.toLowerCase().includes('premium')
+              ? 1
+              : 0;
+          return luxuryScore(b) - luxuryScore(a);
+        });
+      }
+
+      const primary = sortedPlatforms[0];
+      const alternatives = sortedPlatforms.slice(1, 3);
+
+      ctx.setAttributes({
+        'output.primary_platform': primary.name,
+        'output.alternatives_count': alternatives.length,
+      });
+
+      return {
+        primaryPlatform: {
+          ...primary,
+          estimatedDaysToSell: BASE_SELLING_DAYS[input.category] || 14,
+        },
+        alternatives: alternatives.map((p) => ({
+          name: p.name,
+          bestFor: p.bestFor,
+          fees: p.fees,
+        })),
+        tips: [
+          'Prends 5+ photos sous différents angles',
+          'Prix 10% en-dessous du marché pour vente rapide',
+          'Publie le weekend (2x plus de vues)',
+          ...primary.tips.slice(0, 2),
+        ],
+      };
+    });
+  },
+});
+
+/**
+ * Estimate days to sell an item
+ */
+export const estimateDaysToSellTool = createTool({
+  id: 'estimate_days_to_sell',
+  description: 'Estimate how many days it will take to sell an item',
+  inputSchema: z.object({
+    category: z.enum([
+      'electronics',
+      'clothing',
+      'furniture',
+      'books',
+      'games',
+      'sports',
+      'instruments',
+      'collectibles',
+    ]),
+    pricePoint: z.enum(['low', 'medium', 'high']).describe('Price relative to market average'),
+    condition: z.enum(['new', 'like_new', 'good', 'fair']),
+    platform: z.string().describe('Platform name'),
+    seasonality: z.boolean().optional().describe('Consider seasonal factors'),
+  }),
+  execute: async (input) => {
+    return trace('tool.estimate_days_to_sell', async (ctx) => {
+      setPromptAttributes(ctx, 'money-maker');
+
+      const baseDays = BASE_SELLING_DAYS[input.category] || 14;
+
+      // Price point modifier
+      const priceModifier = {
+        low: 0.5, // 50% faster if priced low
+        medium: 1.0,
+        high: 1.5, // 50% slower if priced high
+      }[input.pricePoint];
+
+      // Condition modifier
+      const conditionModifier = {
+        new: 0.8,
+        like_new: 0.9,
+        good: 1.0,
+        fair: 1.3,
+      }[input.condition];
+
+      // Platform speed
+      const allPlatforms = Object.values(SELLING_PLATFORMS).flat();
+      const platform = allPlatforms.find(
+        (p) => p.name.toLowerCase() === input.platform.toLowerCase()
+      );
+      const platformModifier = platform
+        ? { fast: 0.7, medium: 1.0, slow: 1.4 }[platform.speed]
+        : 1.0;
+
+      // Seasonality (simplified)
+      let seasonalModifier = 1.0;
+      if (input.seasonality) {
+        const month = new Date().getMonth();
+        // Electronics sell faster before holidays (Nov-Dec)
+        if (input.category === 'electronics' && (month === 10 || month === 11)) {
+          seasonalModifier = 0.7;
+        }
+        // Clothing depends on season
+        if (input.category === 'clothing' && month >= 2 && month <= 4) {
+          seasonalModifier = 0.8; // Spring cleaning
+        }
+      }
+
+      const estimatedDays = Math.round(
+        baseDays * priceModifier * conditionModifier * platformModifier * seasonalModifier
+      );
+      const minDays = Math.max(1, Math.round(estimatedDays * 0.5));
+      const maxDays = Math.round(estimatedDays * 1.5);
+
+      const factors: string[] = [];
+      if (priceModifier < 1) factors.push('Prix attractif');
+      if (priceModifier > 1) factors.push('Prix premium');
+      if (conditionModifier < 1) factors.push('Excellent état');
+      if (conditionModifier > 1) factors.push('État moyen');
+      if (platformModifier < 1) factors.push('Plateforme rapide');
+      if (seasonalModifier < 1) factors.push('Haute saison');
+
+      ctx.setAttributes({
+        'input.category': input.category,
+        'input.price_point': input.pricePoint,
+        'output.estimated_days': estimatedDays,
+        'output.factors_count': factors.length,
+      });
+
+      return {
+        estimatedDays: {
+          min: minDays,
+          max: maxDays,
+          average: estimatedDays,
+        },
+        confidence: factors.length > 2 ? 0.8 : 0.6,
+        factors,
+        tip:
+          priceModifier > 1
+            ? 'Baisse le prix de 10% pour accélérer la vente'
+            : 'Prix bien positionné, la vente devrait être rapide',
+      };
+    });
+  },
+});
+
 // Register tools
 registerTool('analyze_sellable_objects', analyzeImageTool);
 registerTool('estimate_item_price', estimatePriceTool);
 registerTool('calculate_sale_impact', budgetImpactTool);
 registerTool('suggest_side_hustles', suggestHustlesTool);
 registerTool('money_maker_analysis', moneyMakerAnalysisTool);
+registerTool('suggest_selling_platform', suggestSellingPlatformTool);
+registerTool('estimate_days_to_sell', estimateDaysToSellTool);
 
 /**
  * Create Money Maker agent instance
@@ -696,6 +1083,8 @@ TONE:
       'calculate_sale_impact',
       'suggest_side_hustles',
       'money_maker_analysis',
+      'suggest_selling_platform',
+      'estimate_days_to_sell',
     ],
   };
 
@@ -708,7 +1097,10 @@ export default {
   budgetImpactTool,
   suggestHustlesTool,
   moneyMakerAnalysisTool,
+  suggestSellingPlatformTool,
+  estimateDaysToSellTool,
   createMoneyMakerAgent,
   ITEM_CATEGORIES,
   SIDE_HUSTLES,
+  SELLING_PLATFORMS,
 };
