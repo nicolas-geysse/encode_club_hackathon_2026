@@ -440,6 +440,8 @@ function generateScenarios(
         category,
         karmaPoints,
         socialBenefit,
+        // Borrow has monetary value (savings), others don't
+        oneTimeAmount: isBorrow ? item.value : undefined,
         effortLevel: 2,
         flexibilityScore: 4,
         source: 'trade',

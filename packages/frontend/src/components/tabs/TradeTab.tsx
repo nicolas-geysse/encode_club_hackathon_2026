@@ -763,17 +763,25 @@ export function TradeTab(props: TradeTabProps) {
 
                   {/* Value/Karma & Actions */}
                   <div class="flex items-center gap-4">
-                    <div class="font-bold text-lg text-right min-w-[50px]">
-                      <Show
-                        when={trade.type === 'sell'}
-                        fallback={
-                          <span class="text-purple-600 dark:text-purple-400">
-                            +{trade.type === 'lend' ? '50' : trade.type === 'trade' ? '30' : '20'}{' '}
-                            karma
-                          </span>
-                        }
-                      >
-                        {formatCurrency(trade.value, currency())}
+                    <div class="text-right min-w-[60px]">
+                      {/* Sell: just money */}
+                      <Show when={trade.type === 'sell'}>
+                        <div class="font-bold text-lg">
+                          {formatCurrency(trade.value, currency())}
+                        </div>
+                      </Show>
+                      {/* Borrow: money saved + karma */}
+                      <Show when={trade.type === 'borrow'}>
+                        <div class="font-bold text-lg text-green-600 dark:text-green-400">
+                          {formatCurrency(trade.value, currency())}
+                        </div>
+                        <div class="text-xs text-purple-600 dark:text-purple-400">+20 karma</div>
+                      </Show>
+                      {/* Lend/Trade: just karma */}
+                      <Show when={trade.type === 'lend' || trade.type === 'trade'}>
+                        <div class="font-bold text-lg text-purple-600 dark:text-purple-400">
+                          +{trade.type === 'lend' ? '50' : '30'} karma
+                        </div>
                       </Show>
                     </div>
 

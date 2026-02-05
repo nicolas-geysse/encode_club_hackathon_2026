@@ -543,8 +543,8 @@ export function SwipeCard(props: SwipeCardProps) {
                 </div>
               </Show>
 
-              {/* Karma points (social actions) */}
-              <Show when={getDisplayMode() === 'karma'}>
+              {/* Karma points (social actions) - but NOT borrow which has savings */}
+              <Show when={getDisplayMode() === 'karma' && props.category !== 'karma_borrow'}>
                 <div class="flex items-center gap-3">
                   <div class="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600">
                     <Sparkles class="h-6 w-6" />
@@ -555,6 +555,40 @@ export function SwipeCard(props: SwipeCardProps) {
                     </div>
                     <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Karma points
+                    </div>
+                  </div>
+                </div>
+              </Show>
+
+              {/* Borrow: Shows BOTH savings AND karma */}
+              <Show when={props.category === 'karma_borrow'}>
+                <div class="flex items-center gap-6">
+                  {/* Savings amount */}
+                  <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-2xl bg-green-500/10 text-green-600">
+                      <DollarSign class="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div class="text-2xl font-extrabold text-green-600 dark:text-green-400 tracking-tight">
+                        {formatCurrency(props.oneTimeAmount || 0, props.currency)}
+                      </div>
+                      <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Saved
+                      </div>
+                    </div>
+                  </div>
+                  {/* Karma points */}
+                  <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600">
+                      <Sparkles class="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div class="text-2xl font-extrabold text-purple-600 dark:text-purple-400 tracking-tight">
+                        +{props.karmaPoints || 0}
+                      </div>
+                      <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Karma
+                      </div>
                     </div>
                   </div>
                 </div>
