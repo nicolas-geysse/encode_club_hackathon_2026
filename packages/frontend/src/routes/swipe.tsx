@@ -101,6 +101,16 @@ export default function SwipePage() {
       ? Math.ceil((new Date(p.goalDeadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       : 30;
 
+    // Get existing missions to filter out items that already have active missions
+    const followupData = p.followupData as
+      | { missions?: Array<{ source?: string; sourceId?: string; status?: string }> }
+      | undefined;
+    const existingMissions = followupData?.missions || [];
+    // Only exclude items with active or completed missions (not skipped)
+    const missionSourceIds = new Set(
+      existingMissions.filter((m) => m.status !== 'skipped').map((m) => `${m.source}_${m.sourceId}`)
+    );
+
     return {
       // Skills are kept for job matching (Phase 5), not for scenario generation
       skills: skills().map((s) => ({
@@ -109,25 +119,33 @@ export default function SwipePage() {
       })),
 
       // Trades with full type/status for filtering (Pull Architecture)
-      trades: trades().map((t) => ({
-        id: t.id,
-        type: t.type,
-        name: t.name,
-        value: t.value,
-        status: t.status,
-      })),
+      // Filter out trades that already have missions
+      trades: trades()
+        .filter((t) => !missionSourceIds.has(`trade_${t.id}`))
+        .map((t) => ({
+          id: t.id,
+          type: t.type,
+          name: t.name,
+          value: t.value,
+          status: t.status,
+        })),
 
       // Lifestyle items with id for tracking
-      lifestyle: lifestyle().map((l) => ({
-        id: l.id,
-        name: l.name,
-        currentCost: l.currentCost,
-        pausedMonths: l.pausedMonths,
-        category: l.category,
-      })),
+      // Filter out lifestyle items that already have missions
+      lifestyle: lifestyle()
+        .filter((l) => !missionSourceIds.has(`lifestyle_${l.id}`))
+        .map((l) => ({
+          id: l.id,
+          name: l.name,
+          currentCost: l.currentCost,
+          pausedMonths: l.pausedMonths,
+          category: l.category,
+        })),
 
-      // Filter leads to only include "interested" ones
-      leads: leads().filter((l) => l.status === 'interested'),
+      // Filter leads to only include "interested" ones that don't have missions
+      leads: leads().filter(
+        (l) => l.status === 'interested' && !missionSourceIds.has(`prospection_${l.id}`)
+      ),
 
       // Goal context for urgency calculations
       goalContext: {
