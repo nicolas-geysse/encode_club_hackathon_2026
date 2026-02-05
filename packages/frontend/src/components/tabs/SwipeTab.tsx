@@ -239,7 +239,8 @@ function suggestPlatform(name: string): string {
  * - sell_item: one-time amount
  * - job_lead: weekly earnings
  * - pause_expense: monthly savings
- * - karma: 0 (no monetary value)
+ * - karma_borrow: one-time savings (borrow = not buying)
+ * - karma_trade/karma_lend: 0 (no monetary value)
  */
 function getScenarioValue(scenario: Scenario): number {
   if (scenario.category === 'sell_item') {
@@ -251,7 +252,24 @@ function getScenarioValue(scenario: Scenario): number {
   if (scenario.category === 'pause_expense') {
     return scenario.monthlyAmount ?? 0;
   }
-  // Karma actions have no monetary value
+  if (scenario.category === 'karma_borrow') {
+    return scenario.oneTimeAmount ?? 0; // Borrow saves money
+  }
+  // Trade/lend karma actions have no monetary value
+  return 0;
+}
+
+/**
+ * Get the karma value for a scenario (for totals)
+ */
+function getScenarioKarma(scenario: Scenario): number {
+  if (
+    scenario.category === 'karma_lend' ||
+    scenario.category === 'karma_trade' ||
+    scenario.category === 'karma_borrow'
+  ) {
+    return scenario.karmaPoints ?? 0;
+  }
   return 0;
 }
 
@@ -810,12 +828,26 @@ export function SwipeTab(props: SwipeTabProps) {
                     <div class="mt-3 pt-3 border-t border-red-100 dark:border-red-900/30">
                       <div class="flex items-center justify-between text-sm">
                         <span class="text-muted-foreground">Missed potential</span>
-                        <span class="font-bold text-red-600 dark:text-red-400">
-                          {formatCurrency(
-                            rejectedScenarios().reduce((sum, s) => getScenarioValue(s), 0),
-                            currency()
-                          )}
-                        </span>
+                        <div class="flex items-center gap-2">
+                          <span class="font-bold text-red-600 dark:text-red-400">
+                            {formatCurrency(
+                              rejectedScenarios().reduce((sum, s) => sum + getScenarioValue(s), 0),
+                              currency()
+                            )}
+                          </span>
+                          <Show
+                            when={
+                              rejectedScenarios().reduce((sum, s) => sum + getScenarioKarma(s), 0) >
+                              0
+                            }
+                          >
+                            <span class="font-bold text-purple-600 dark:text-purple-400">
+                              +
+                              {rejectedScenarios().reduce((sum, s) => sum + getScenarioKarma(s), 0)}{' '}
+                              karma
+                            </span>
+                          </Show>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -862,12 +894,24 @@ export function SwipeTab(props: SwipeTabProps) {
                     <span class="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">
                       Total potential
                     </span>
-                    <span class="text-3xl font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(
-                        selectedScenarios().reduce((sum, s) => sum + getScenarioValue(s), 0),
-                        currency()
-                      )}
-                    </span>
+                    <div class="flex items-center gap-4">
+                      <span class="text-3xl font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(
+                          selectedScenarios().reduce((sum, s) => sum + getScenarioValue(s), 0),
+                          currency()
+                        )}
+                      </span>
+                      <Show
+                        when={
+                          selectedScenarios().reduce((sum, s) => sum + getScenarioKarma(s), 0) > 0
+                        }
+                      >
+                        <span class="text-2xl font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                          +{selectedScenarios().reduce((sum, s) => sum + getScenarioKarma(s), 0)}
+                          <span class="text-base">karma</span>
+                        </span>
+                      </Show>
+                    </div>
                   </div>
                 </div>
               </CardContent>
