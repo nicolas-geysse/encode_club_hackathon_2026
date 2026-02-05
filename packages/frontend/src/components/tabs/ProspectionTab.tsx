@@ -52,8 +52,8 @@ const logger = createLogger('ProspectionTab');
 type Phase = 'idle' | 'loading' | 'results' | 'complete';
 type ViewMode = 'list' | 'map';
 
-// Constant for Wide Search (Top 10 Highlights) - 30km (User requested max)
-const DEEP_SEARCH_RADIUS_METERS = 30000;
+// Constant for Wide Search (Top 10 Highlights) - 10km (User requested max limit)
+const DEEP_SEARCH_RADIUS_METERS = 10000;
 
 export function ProspectionTab(props: ProspectionTabProps) {
   const [phase, setPhase] = createSignal<Phase>('idle');
@@ -721,8 +721,14 @@ export function ProspectionTab(props: ProspectionTabProps) {
             </div>
           </div>
 
-          {/* Map at top - visible on all devices */}
-          <Show when={props.userLocation && currentCards().length > 0}>
+          {/* Map at top - visible on all devices (except for Remote Jobs) */}
+          <Show
+            when={
+              props.userLocation &&
+              currentCards().length > 0 &&
+              currentCategory() !== REAL_JOBS_CATEGORY_ID
+            }
+          >
             <Card>
               <CardContent class="p-4">
                 <h3 class="font-semibold text-foreground mb-3 flex items-center gap-2">
@@ -752,7 +758,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
                         <Slider
                           label=""
                           min={1}
-                          max={30}
+                          max={10}
                           step={1}
                           value={[searchRadius() / 1000]}
                           onChange={(v) => setSearchRadius(v[0] * 1000)}

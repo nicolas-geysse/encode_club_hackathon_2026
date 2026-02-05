@@ -199,7 +199,15 @@ export async function POST(event: APIEvent): Promise<Response> {
 // If user sets 5km, try 5km → 10km → 15km
 // If user sets 10km, try 10km → 15km → 20km
 function getRadiusFallbacks(userRadius: number): number[] {
-  return [userRadius, userRadius + 5000, userRadius + 10000];
+  // Optimization: Strictly respect 10km limit requested by user to save quota
+  const MAX_RADIUS = 10000;
+
+  if (userRadius >= MAX_RADIUS) {
+    return [MAX_RADIUS];
+  }
+
+  // If starting at 5km, allow one fallback to 10km
+  return [userRadius, Math.min(userRadius + 5000, MAX_RADIUS)];
 }
 
 // Text Search queries by category (more natural language, better results)
@@ -389,7 +397,8 @@ async function searchWithRadius(
         {
           radius,
           // Don't use keyword - it's too restrictive and causes 0 results
-          maxResults: 15,
+          // Optimization: Reduce maxResults for wide searches to avoid overwhelming result sets
+          maxResults: radius >= 20000 ? 10 : 15,
           includePhotos: false, // Cost control
         }
       );
@@ -436,11 +445,18 @@ async function searchWithRadius(
   // Flatten and deduplicate by placeId
   const allPlaces = results.flat();
   const seen = new Set<string>();
-  return allPlaces.filter((place) => {
+  const uniquePlaces = allPlaces.filter((place) => {
     if (seen.has(place.id)) return false;
     seen.add(place.id);
     return true;
   });
+
+  // Optimization: Sort by distance (nearest first) and CAP at 50 results
+  // This ensures we respect the user's request to "not go beyond 50 places"
+  // and prioritize the most relevant (closest) ones.
+  return uniquePlaces
+    .sort((a, b) => (a.commuteMinutes || 999) - (b.commuteMinutes || 999))
+    .slice(0, 50);
 }
 
 /**
