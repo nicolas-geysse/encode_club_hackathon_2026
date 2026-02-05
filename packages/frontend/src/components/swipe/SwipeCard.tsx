@@ -273,6 +273,7 @@ export function SwipeCard(props: SwipeCardProps) {
       pause_expense: Pause,
       karma_trade: Repeat,
       karma_lend: HandHeart,
+      karma_borrow: HandHeart, // Same icon as lend (community action)
       // Legacy fallbacks
       freelance: Briefcase,
       selling: ShoppingBag,
@@ -290,12 +291,16 @@ export function SwipeCard(props: SwipeCardProps) {
       pause_expense: 'Save',
       karma_trade: 'Trade',
       karma_lend: 'Lend',
+      karma_borrow: 'Borrow',
     };
     return labels[category] || category.charAt(0).toUpperCase() + category.slice(1);
   };
 
   // Determine if this is a karma (non-monetary) scenario
-  const isKarmaScenario = () => props.category === 'karma_trade' || props.category === 'karma_lend';
+  const isKarmaScenario = () =>
+    props.category === 'karma_trade' ||
+    props.category === 'karma_lend' ||
+    props.category === 'karma_borrow';
 
   // Determine display mode based on category
   const getDisplayMode = () => {
@@ -420,7 +425,9 @@ export function SwipeCard(props: SwipeCardProps) {
             <Show
               when={
                 props.source === 'trade' &&
-                (props.category === 'karma_trade' || props.category === 'karma_lend')
+                (props.category === 'karma_trade' ||
+                  props.category === 'karma_lend' ||
+                  props.category === 'karma_borrow')
               }
             >
               <div class="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400 px-2 py-1 rounded-full mb-2">

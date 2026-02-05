@@ -76,6 +76,8 @@ export function MissionCard(props: MissionCardProps) {
         return Repeat;
       case 'karma_lend':
         return HandHeart;
+      case 'karma_borrow':
+        return HandHeart;
       // Legacy categories
       case 'freelance':
         return Briefcase;

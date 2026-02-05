@@ -26,13 +26,15 @@ import type { Lead } from '~/lib/prospectionTypes';
  * - pause_expense: Pause a subscription (Lifestyle)
  * - karma_trade: Trade an object (Trade type='trade')
  * - karma_lend: Lend an object (Trade type='lend')
+ * - karma_borrow: Borrow an object (Trade type='borrow')
  */
 export type ScenarioCategory =
   | 'sell_item'
   | 'job_lead'
   | 'pause_expense'
   | 'karma_trade'
-  | 'karma_lend';
+  | 'karma_lend'
+  | 'karma_borrow';
 
 export interface ScenarioUrgency {
   score: number; // 0-100
@@ -267,7 +269,11 @@ function getScenarioSubtitle(scenario: Scenario, currency: Currency): string {
   if (scenario.category === 'pause_expense') {
     return `Save ${formatCurrency(scenario.monthlyAmount ?? 0, currency)}/month`;
   }
-  if (scenario.category === 'karma_lend' || scenario.category === 'karma_trade') {
+  if (
+    scenario.category === 'karma_lend' ||
+    scenario.category === 'karma_trade' ||
+    scenario.category === 'karma_borrow'
+  ) {
     return `+${scenario.karmaPoints ?? 0} karma points`;
   }
   return '';
@@ -388,23 +394,51 @@ function generateScenarios(
       });
     });
 
-  // 4. Karma actions (Trade type='trade' or 'lend')
+  // 4. Karma actions (Trade type='trade', 'lend', or 'borrow')
   trades
-    ?.filter((t) => (t.type === 'trade' || t.type === 'lend') && t.status !== 'completed')
+    ?.filter(
+      (t) =>
+        (t.type === 'trade' || t.type === 'lend' || t.type === 'borrow') && t.status !== 'completed'
+    )
     .forEach((item) => {
       const isLend = item.type === 'lend';
+      const isBorrow = item.type === 'borrow';
+
+      // Determine title, description, category based on type
+      let title: string;
+      let description: string;
+      let category: ScenarioCategory;
+      let karmaPoints: number;
+      let socialBenefit: string;
+
+      if (isLend) {
+        title = `Lend ${item.name}`;
+        description = `Help someone by lending your ${item.name}`;
+        category = 'karma_lend';
+        karmaPoints = 50;
+        socialBenefit = 'Build trust in your community';
+      } else if (isBorrow) {
+        title = `Borrow ${item.name}`;
+        description = `Ask to borrow ${item.name} from someone`;
+        category = 'karma_borrow';
+        karmaPoints = 20; // Lower karma for borrowing (you're asking for help)
+        socialBenefit = 'Save money by borrowing instead of buying';
+      } else {
+        // trade
+        title = `Trade ${item.name}`;
+        description = `Find someone to trade ${item.name} with`;
+        category = 'karma_trade';
+        karmaPoints = 30;
+        socialBenefit = 'Get something you need without spending';
+      }
 
       scenarios.push({
         id: `karma_${item.id}`,
-        title: isLend ? `Lend ${item.name}` : `Trade ${item.name}`,
-        description: isLend
-          ? `Help someone by lending your ${item.name}`
-          : `Find someone to trade ${item.name} with`,
-        category: isLend ? 'karma_lend' : 'karma_trade',
-        karmaPoints: isLend ? 50 : 30,
-        socialBenefit: isLend
-          ? 'Build trust in your community'
-          : 'Get something you need without spending',
+        title,
+        description,
+        category,
+        karmaPoints,
+        socialBenefit,
         effortLevel: 2,
         flexibilityScore: 4,
         source: 'trade',

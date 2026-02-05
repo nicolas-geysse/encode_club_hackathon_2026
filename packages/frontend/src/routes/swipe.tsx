@@ -59,7 +59,9 @@ export default function SwipePage() {
     const hasInterestedLeads = l.some((lead) => lead.status === 'interested');
     const hasPausableExpenses = ls.some((item) => item.currentCost > 0 && !item.pausedMonths);
     const hasKarmaItems = t.some(
-      (item) => (item.type === 'trade' || item.type === 'lend') && item.status !== 'completed'
+      (item) =>
+        (item.type === 'trade' || item.type === 'lend' || item.type === 'borrow') &&
+        item.status !== 'completed'
     );
 
     const canAccess =
@@ -70,7 +72,7 @@ export default function SwipePage() {
     if (hasSellableItems) sources.push('sellable items');
     if (hasInterestedLeads) sources.push('saved jobs');
     if (hasPausableExpenses) sources.push('pausable subscriptions');
-    if (hasKarmaItems) sources.push('trade/lend items');
+    if (hasKarmaItems) sources.push('trade/lend/borrow items');
 
     return {
       canAccess,
