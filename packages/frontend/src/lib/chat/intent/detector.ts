@@ -127,7 +127,7 @@ const EARNINGS_CHART_PATTERNS = [
   // "show my earnings", "montre mes revenus"
   /\b(?:montre|show|affiche)(?:-moi)?\s+(?:my\s+|mes\s+)?(?:earnings|revenus|gains)\b/i,
   // "goal progress chart", "progression objectif"
-  /\b(?:goal|objectif)\s+(?:progress|progression)\s+(?:chart|graph|graphique)\b/i,
+  /\b(?:goal|objectif)\s+(?:progress|progression)\b/i,
   /\b(?:progression|progress)\s+(?:vers\s+|toward\s+)?(?:mon\s+|my\s+)?(?:goal|objectif)\b/i,
   // "how am I doing", "comment ça avance" (progress check that triggers chart)
   /\b(?:earnings|revenus)\s+(?:vs|versus|contre)\s+(?:goal|objectif)\b/i,
@@ -562,38 +562,9 @@ export async function detectIntent(
     };
   }
 
-  // Generic scenario/projection request: "show projection", "compare scenarios"
-  if (lower.match(/\b(show|compare|projection|simulate|scenario|visualize|chart)\b/i)) {
-    return {
-      mode: 'conversation',
-      action: 'show_projection',
-      _matchedPattern: 'show_projection',
-    };
-  }
-
-  // ==========================================================================
-  // PROGRESS CHECK
-  // ==========================================================================
-  if (lower.match(/\b(progress|how.*(doing|going)|status|where.*am)\b/i)) {
-    return { mode: 'conversation', action: 'check_progress', _matchedPattern: 'check_progress' };
-  }
-
-  // ==========================================================================
-  // ADVICE REQUEST
-  // ==========================================================================
-  if (lower.match(/\b(advice|help|suggest|recommend|how can i|tips?)\b/i)) {
-    return { mode: 'conversation', action: 'get_advice', _matchedPattern: 'get_advice' };
-  }
-
-  // ==========================================================================
-  // PLAN/GOAL VIEW
-  // ==========================================================================
-  if (lower.match(/\b(my plan|my goal|current goal)\b/i)) {
-    return { mode: 'conversation', action: 'view_plan', _matchedPattern: 'view_plan' };
-  }
-
   // ==========================================================================
   // SUIVI-SPECIFIC INTENTS (for voice commands on tracking page)
+  // Must be BEFORE generic progress/advice checks
   // ==========================================================================
 
   // Mission completion: "J'ai termine/fini la mission X", "Mission X completed"
@@ -795,6 +766,35 @@ export async function detectIntent(
         _matchedPattern: 'chart_generic',
       };
     }
+  }
+
+  // ==========================================================================
+  // GENERIC CATCH-ALLS (must be AFTER specific chart/feature patterns)
+  // ==========================================================================
+
+  // Generic scenario/projection request: "compare scenarios", "simulate"
+  // Note: removed "chart" and "show" from this pattern - too broad, catches chart requests
+  if (lower.match(/\b(compare|projection|simulate|scenario|visualize)\b/i)) {
+    return {
+      mode: 'conversation',
+      action: 'show_projection',
+      _matchedPattern: 'show_projection',
+    };
+  }
+
+  // Progress check (generic)
+  if (lower.match(/\b(how.*(doing|going)|status|where.*am)\b/i)) {
+    return { mode: 'conversation', action: 'check_progress', _matchedPattern: 'check_progress' };
+  }
+
+  // Advice request
+  if (lower.match(/\b(advice|suggest|recommend|how can i|tips?)\b/i)) {
+    return { mode: 'conversation', action: 'get_advice', _matchedPattern: 'get_advice' };
+  }
+
+  // Plan/goal view
+  if (lower.match(/\b(my plan|my goal|current goal)\b/i)) {
+    return { mode: 'conversation', action: 'view_plan', _matchedPattern: 'view_plan' };
   }
 
   // ==========================================================================

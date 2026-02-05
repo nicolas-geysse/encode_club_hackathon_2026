@@ -2265,90 +2265,54 @@ async function handleConversationMode(
         case 'search_jobs':
         case 'search_remote_jobs': {
           const isRemote = intent.action === 'search_remote_jobs';
-          const city = context.city as string;
-          const skills = context.skills as string[] | undefined;
+          const currSymbol = getCurrencySymbol(context.currency as string);
 
-          // For remote jobs, we use the "freelance" category which includes remote platforms
-          const categoryId = isRemote ? 'freelance' : 'tutoring'; // Default to tutoring if no specific category
+          // Use category data directly (no Google Maps API required)
+          const { PROSPECTION_CATEGORIES } = await import('../../config/prospectionCategories');
 
-          try {
-            // Fetch jobs from prospection API
-            const prospectionResponse = await fetch(
-              `${process.env.INTERNAL_API_URL || `http://localhost:${process.env.PORT || 3006}`}/api/prospection`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'search',
-                  categoryId,
-                  city: city || 'Paris',
-                }),
-              }
-            );
+          // Filter categories based on remote vs general
+          const relevantCategories = isRemote
+            ? PROSPECTION_CATEGORIES.filter(
+                (c) => c.id === 'digital' || c.id === 'tutoring' || c.id === 'interim'
+              )
+            : PROSPECTION_CATEGORIES.slice(0, 6); // Top 6 categories
 
-            if (!prospectionResponse.ok) {
-              response = `I couldn't find jobs right now. Try the Jobs tab for more options!`;
-              break;
-            }
+          const jobRows = relevantCategories.map((cat) => [
+            cat.label,
+            `${currSymbol}${cat.avgHourlyRate.min}-${cat.avgHourlyRate.max}/hr`,
+            cat.platforms.slice(0, 2).join(', '),
+            `${'★'.repeat(5 - cat.effortLevel)}${'☆'.repeat(cat.effortLevel)}`,
+          ]);
 
-            const prospectionData = await prospectionResponse.json();
-            const jobs = prospectionData.cards || [];
+          response = isRemote
+            ? `💼 **Remote & Digital Jobs**\n\nHere are job categories you can do from home:`
+            : `💼 **Job Categories for Students**\n\nExplore these opportunities:`;
 
-            if (jobs.length === 0) {
-              response = isRemote
-                ? `No remote jobs found at the moment. Check out platforms like Upwork, Fiverr, or Malt for freelance opportunities!`
-                : `No jobs found in your area. Try the Jobs tab to search different categories!`;
-              break;
-            }
+          const jobsTableResource: UIResource = {
+            type: 'table',
+            params: {
+              title: isRemote ? 'Remote Job Categories' : 'Job Categories',
+              columns: ['Category', 'Rate Range', 'Platforms', 'Flexibility'],
+              rows: jobRows,
+            },
+          };
 
-            const currSymbol = getCurrencySymbol(context.currency as string);
-            const jobRows = jobs
-              .slice(0, 5)
-              .map((job: Record<string, unknown>) => [
-                job.company || job.title || 'Unknown',
-                `${currSymbol}${job.avgHourlyRate || '?'}/hr`,
-                `${Math.round(((job.score as number) || 0.7) * 100)}%`,
-                (job.commuteMinutes as number)
-                  ? `${job.commuteMinutes}min`
-                  : isRemote
-                    ? 'Remote'
-                    : 'N/A',
-              ]);
-
-            response = isRemote
-              ? `💼 **Remote Jobs Available**\n\nHere are some remote opportunities matching your profile:`
-              : `💼 **Jobs Near You**\n\nHere are jobs in ${city || 'your area'}:`;
-
-            const jobsTableResource: UIResource = {
-              type: 'table',
-              params: {
-                title: isRemote ? 'Remote Jobs' : `Jobs in ${city || 'your area'}`,
-                columns: ['Company', 'Rate', 'Match', 'Distance'],
-                rows: jobRows,
-              },
-            };
-
-            const jobsTraceId = ctx.getTraceId();
-            ctx.setOutput({
-              action: intent.action,
-              jobCount: jobs.length,
-              isRemote,
-            });
-            return {
-              response,
-              extractedData: {},
-              nextStep: 'complete' as OnboardingStep,
-              intent,
-              traceId: jobsTraceId || undefined,
-              traceUrl: jobsTraceId ? getTraceUrl(jobsTraceId) : undefined,
-              source: 'llm' as const,
-              uiResource: jobsTableResource,
-            };
-          } catch (err) {
-            logger.error('[search_jobs] Failed to fetch jobs', { error: String(err) });
-            response = `I couldn't fetch jobs right now. Try the **Jobs** tab directly!`;
-            break;
-          }
+          const jobsTraceId = ctx.getTraceId();
+          ctx.setOutput({
+            action: intent.action,
+            categoryCount: relevantCategories.length,
+            isRemote,
+          });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: jobsTraceId || undefined,
+            traceUrl: jobsTraceId ? getTraceUrl(jobsTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: jobsTableResource,
+          };
         }
 
         // =====================================================================
