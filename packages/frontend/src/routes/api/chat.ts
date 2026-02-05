@@ -1975,54 +1975,13 @@ async function handleConversationMode(
         }
 
         case 'show_energy_chart': {
-          // Try three sources for energy data:
-          // 1. context.energyHistory (from Suivi page, stored in profile.followupData)
-          // 2. Direct profile API call to get followupData (in case context is stale)
-          // 3. energy_logs table via API (detailed logs with mood/stress/sleep)
+          // Priority order for energy data (most accurate first):
+          // 1. energy_logs table via API (real mood data from daily logging)
+          // 2. context.energyHistory as fallback (might be stale)
           let energyLogs: EnergyLogEntry[] = [];
 
-          // Source 1: Check context.energyHistory (from Suivi page)
-          const contextEnergyHistory = context.energyHistory as
-            | Array<{ week: number; level: number; date: string }>
-            | undefined;
-          if (contextEnergyHistory && contextEnergyHistory.length > 0) {
-            logger.debug('[show_energy_chart] Using context.energyHistory', {
-              count: contextEnergyHistory.length,
-            });
-            // Convert Suivi format to chart format (already 0-100 scale)
-            energyLogs = contextEnergyHistory.map((entry) => ({
-              date: entry.date || `Week ${entry.week}`,
-              level: entry.level,
-            }));
-          }
-
-          // Source 2: If no context data, try direct profile API (context might be stale)
-          if (energyLogs.length === 0 && profileId) {
-            try {
-              const profileUrl = `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/profiles?id=${profileId}`;
-              const profileResponse = await fetch(profileUrl);
-              if (profileResponse.ok) {
-                const profileData = await profileResponse.json();
-                const followupEnergy = profileData?.followupData?.energyHistory;
-                if (Array.isArray(followupEnergy) && followupEnergy.length > 0) {
-                  logger.debug('[show_energy_chart] Using profile API followupData', {
-                    count: followupEnergy.length,
-                  });
-                  energyLogs = followupEnergy.map(
-                    (entry: { week: number; level: number; date?: string }) => ({
-                      date: entry.date || `Week ${entry.week}`,
-                      level: entry.level,
-                    })
-                  );
-                }
-              }
-            } catch (err) {
-              logger.error('[show_energy_chart] Failed to fetch profile', { error: String(err) });
-            }
-          }
-
-          // Source 3: If still no data, try energy_logs API
-          if (energyLogs.length === 0) {
+          // Source 1 (PRIMARY): energy_logs API - real data from daily mood logging
+          if (profileId) {
             try {
               const energyUrl = `${process.env.INTERNAL_API_URL || 'http://localhost:3006'}/api/energy-logs?profileId=${profileId}`;
               const energyResponse = await fetch(energyUrl);
@@ -2030,7 +1989,7 @@ async function handleConversationMode(
                 const energyData = await energyResponse.json();
                 energyLogs = energyData.logs || [];
                 if (energyLogs.length > 0) {
-                  logger.debug('[show_energy_chart] Using energy_logs API', {
+                  logger.debug('[show_energy_chart] Using energy_logs API (real data)', {
                     count: energyLogs.length,
                   });
                 }
@@ -2039,6 +1998,23 @@ async function handleConversationMode(
               logger.error('[show_energy_chart] Failed to fetch energy logs', {
                 error: String(err),
               });
+            }
+          }
+
+          // Source 2 (FALLBACK): context.energyHistory (might be stale followupData)
+          if (energyLogs.length === 0) {
+            const contextEnergyHistory = context.energyHistory as
+              | Array<{ week: number; level: number; date: string }>
+              | undefined;
+            if (contextEnergyHistory && contextEnergyHistory.length > 0) {
+              logger.debug('[show_energy_chart] Fallback to context.energyHistory', {
+                count: contextEnergyHistory.length,
+              });
+              // Convert Suivi format to chart format (already 0-100 scale)
+              energyLogs = contextEnergyHistory.map((entry) => ({
+                date: entry.date || `Week ${entry.week}`,
+                level: entry.level,
+              }));
             }
           }
 
