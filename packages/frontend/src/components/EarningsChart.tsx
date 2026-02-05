@@ -116,7 +116,9 @@ export function EarningsChart(props: EarningsChartProps) {
       1,
       Math.ceil((deadline.getTime() - now.getTime()) / (7 * 24 * 60 * 60 * 1000))
     );
-    const weeksCount = Math.min(totalWeeks + 1, 12); // Show max 12 weeks
+    // Show max 12 points (indices 0-11), but never beyond the deadline
+    // This ensures Required Pace ends exactly at goalAmount on deadline week
+    const weeksCount = Math.min(totalWeeks, 11);
 
     // Generate labels (week numbers)
     const labels: string[] = [];
