@@ -690,23 +690,24 @@ function rankLeadsBySkillMatch(
 
 ## Plan d'implémentation
 
-### Phase 1: Refactor generateScenarios (Architecture Pull)
-- [ ] Supprimer la génération de scénarios depuis les skills
-- [ ] Ajouter génération depuis Trade (sell only → `type='sell'`)
-- [ ] Ajouter génération depuis Lifestyle (pause/reduce)
-- [ ] Ajouter génération karma (trade/lend)
-- [ ] Ajouter `metadata` sur chaque source (nextBillingDate, deadline, etc.)
+### Phase 1: Refactor generateScenarios (Architecture Pull) ✅ DONE
+- [x] Supprimer la génération de scénarios depuis les skills
+- [x] Ajouter génération depuis Trade (sell only → `type='sell'`)
+- [x] Ajouter génération depuis Lifestyle (pause/reduce)
+- [x] Ajouter génération karma (trade/lend)
+- [x] Ajouter interface `Scenario` avec urgency et metadata
 
-### Phase 2: Access Control
-- [ ] Implémenter `canAccessSwipe()`
-- [ ] Afficher message + CTA si pas de contenu
-- [ ] Navigation intelligente vers les onglets manquants
+### Phase 2: Access Control ✅ DONE
+- [x] Implémenter `canAccessSwipe()` via createMemo
+- [x] Afficher EmptySwipeView + 4 CTAs si pas de contenu
+- [x] Navigation intelligente vers Trade/Jobs/Budget tabs
 
-### Phase 3: Urgency Factor
-- [ ] Implémenter `calculateUrgency()` pour chaque catégorie
-- [ ] Trier les scénarios par urgency score DESC
-- [ ] Afficher badges "⚡ Expires soon" / "🔥 Hot" sur les cartes
-- [ ] Ajouter `nextBillingDate` aux items Lifestyle
+### Phase 3: Urgency Factor ⚠️ PARTIAL
+- [x] Implémenter `calculateUrgency()` base pour chaque catégorie
+- [x] Trier les scénarios par urgency score DESC
+- [x] Afficher badges urgency/karma sur les cartes SwipeCard
+- [ ] **TODO**: Ajouter `nextBillingDate` au schema LifestyleItem (DB migration)
+- [ ] **TODO**: Ajouter `applicationDeadline` et `isHot` au schema Lead (API)
 
 ### Phase 4: Feedback Loop
 - [ ] Créer structure `SwipeFeedback` dans le profil
@@ -727,9 +728,9 @@ function rankLeadsBySkillMatch(
 - [ ] Créer Swipe Orchestrator Agent (combine all sources)
 
 ### Phase 7: Karma System
-- [ ] Définir karma points par action
-- [ ] Créer UI karma badges
-- [ ] Tracker karma dans le profil
+- [x] Définir karma points par action (50 lend, 30 trade)
+- [x] Créer UI karma badges sur SwipeCard
+- [ ] Tracker karma dans le profil (DB field)
 - [ ] Afficher "Karma Level" dans le dashboard Progress
 
 ---
