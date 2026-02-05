@@ -65,24 +65,21 @@ export function findFirstIncompleteStep(ctx: Record<string, unknown>): Onboardin
  */
 export function getStepQuestion(step: OnboardingStep, ctx: Record<string, unknown>): string {
   const questions: Record<OnboardingStep, string> = {
-    greeting: 'What city do you live in? (e.g., Paris, London, New York)',
+    greeting: '🌍 What city do you live in?',
     currency_confirm:
       "I couldn't detect your region automatically. Are you in the US (USD), UK (GBP), or Europe (EUR)?",
-    name: "What's your name? I'd love to know who I'm helping today!",
-    studies: `Nice to meet you${ctx.name ? `, ${ctx.name}` : ''}! What are you studying? (e.g., "Junior CS", "Senior Law")`,
-    skills: 'What are your skills? (coding, languages, design, sports...)',
-    certifications:
-      "Do you have any professional certifications? (BAFA, lifeguard, CPR, TEFL, etc.) Say 'none' if you don't have any.",
-    budget: 'How much do you earn and spend per month roughly?',
-    income_timing:
-      'When does your income usually arrive each month? (beginning, mid-month, or end)',
-    work_preferences:
-      "How many hours max per week can you work? And what's your minimum hourly rate?",
-    goal: "What's your savings goal? What do you want to save for, how much, and by when?",
-    academic_events: 'Any important academic events coming up? (exams, vacations, busy periods)',
-    inventory: 'Do you have any items you could sell? (old textbooks, electronics, clothes...)',
-    trade: "Any trade opportunities? (Borrow a friend's bike, lend your camera, swap textbooks...)",
-    lifestyle: 'What subscriptions do you have? (streaming, gym, phone plan...)',
+    name: "👋 What's your name?",
+    studies: `📚 Nice to meet you${ctx.name ? `, ${ctx.name}` : ''}! What are you studying?`,
+    skills: '💪 What are your skills?',
+    certifications: '📜 Any professional certifications?',
+    budget: '💰 Monthly budget: how much do you earn and spend?',
+    income_timing: '📅 When does your income arrive each month?',
+    work_preferences: '⏰ Max hours/week you can work? Minimum hourly rate?',
+    goal: "🎯 What's your savings goal?",
+    academic_events: '📆 Any busy periods coming up? (exams, projects, vacations)',
+    inventory: '🏷️ Items you could sell for extra cash?',
+    trade: '🔄 Things you could borrow or trade with friends?',
+    lifestyle: '📱 What subscriptions do you pay for?',
     complete: '',
   };
   return questions[step] || "Let's continue!";
@@ -93,26 +90,23 @@ export function getStepQuestion(step: OnboardingStep, ctx: Record<string, unknow
  */
 export function getClarificationMessage(step: OnboardingStep): string {
   const clarifications: Record<OnboardingStep, string> = {
-    greeting: 'What city do you live in? (e.g., Paris, London, New York)',
+    greeting: '🌍 What city do you live in?',
     currency_confirm:
-      "I couldn't detect your region automatically. Are you in the US (USD), UK (GBP), or Europe (EUR)?",
-    name: "I didn't catch your name. What should I call you?",
-    studies:
-      "I'd love to know about your studies! What's your education level and field?\n\nExamples: Bachelor 2nd year Computer Science, Master 1 Business, PhD Physics",
-    skills: 'What skills do you have? (coding, languages, music, sports...)',
+      "I couldn't detect your region. Are you in the US (USD), UK (GBP), or Europe (EUR)?",
+    name: '👋 What should I call you?',
+    studies: '📚 What are you studying? (e.g., Bachelor 2 Computer Science)',
+    skills: '💪 What skills do you have? (coding, languages, tutoring...)',
     certifications:
-      "Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')",
-    budget: 'How much do you earn and spend per month? (two numbers, like "800 and 600")',
-    income_timing:
-      'When does your income usually arrive each month? (beginning, mid-month, or end)',
-    work_preferences: "How many hours can you work per week? And what's your minimum hourly rate?",
-    goal: "What's your savings goal? What are you saving for, how much, and by when?",
-    academic_events: "Any upcoming exams or busy periods? Or say 'none' to continue.",
-    inventory: "Any items you could sell? (textbooks, electronics...) Or 'none' to skip.",
-    trade:
-      "Are there things you could borrow instead of buying, or skills you could trade with friends? Or say 'none'.",
-    lifestyle: "What subscriptions do you pay for? (Netflix, Spotify, gym...) Or 'none'.",
-    complete: "Your profile is complete! Head to 'Me' to see your strategies.",
+      '📜 Any professional certifications?\n🇫🇷 BAFA, BNSSA, PSC1 · 🇬🇧 DBS, First Aid · 🇺🇸 CPR, Lifeguard · 🌍 PADI, TEFL\n(or "none")',
+    budget: '💰 How much do you earn and spend per month?',
+    income_timing: '📅 When does your income arrive? (beginning, mid-month, or end)',
+    work_preferences: '⏰ Max hours/week? Minimum hourly rate?',
+    goal: '🎯 What are you saving for, how much, and by when?',
+    academic_events: '📆 Any busy periods coming up? (or "none")',
+    inventory: '🏷️ Items you could sell? (or "none")',
+    trade: '🔄 Things you could borrow or trade? (or "none")',
+    lifestyle: '📱 What subscriptions do you pay for? (or "none")',
+    complete: '✅ Your profile is complete! Head to "Me" to see your strategies.',
   };
 
   return clarifications[step] || 'Tell me more about yourself.';
@@ -129,19 +123,19 @@ export function getAdvanceMessage(nextStep: OnboardingStep, profile: ProfileData
   const messages: Record<OnboardingStep, string> = {
     greeting: '', // Not used
     currency_confirm: `I couldn't detect your region from "${city}". Are you in **US** (USD), **UK** (GBP), or **Europe** (EUR)?`,
-    name: `Got it! I'll show amounts in ${currencySymbol}. What's your name?`,
-    studies: `Nice to meet you${name ? `, ${name}` : ''}! What are you studying?\n\nTell me your education level and field (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`,
-    skills: `Great${name ? `, ${name}` : ''}! What skills do you have? (coding, languages, tutoring, music...)`,
-    certifications: `Awesome skills! Do you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`,
-    budget: `Got it! Now about your budget - how much do you earn and spend per month? (in ${currencySymbol})`,
-    income_timing: `Nice! When does your income usually arrive each month? (beginning, mid-month, or end)`,
-    work_preferences: `Thanks! How many hours per week can you work, and what's your minimum hourly rate? (in ${currencySymbol}/h)`,
-    goal: `Perfect! What's your savings goal? (what, how much in ${currencySymbol}, by when)`,
-    academic_events: `Great goal! Any upcoming exams or busy periods to plan around? (or say 'none')`,
-    inventory: `Noted! Any items you could sell for extra cash? (textbooks, electronics... or 'none')`,
-    trade: `Thanks! Are there things you could borrow instead of buying, or skills you could trade with friends?\n\n📥 "borrow camping gear from Alex"\n🔄 "trade tutoring for web design"\n\n(or say 'none')`,
-    lifestyle: `Got it! What subscriptions do you pay for? (Netflix, Spotify, gym... or 'none')`,
-    complete: `Your profile is complete${name ? `, ${name}` : ''}! Head to "Me" to see your personalized strategies.`,
+    name: `✓ Got it! Amounts will be in ${currencySymbol}.\n\n👋 What's your name?`,
+    studies: `📚 Nice to meet you${name ? `, ${name}` : ''}! What are you studying?`,
+    skills: `💪 Great${name ? `, ${name}` : ''}! What are your skills?`,
+    certifications: `📜 Any professional certifications?\n🇫🇷 BAFA, BNSSA, PSC1 · 🇬🇧 DBS, First Aid · 🇺🇸 CPR, Lifeguard · 🌍 PADI, TEFL\n(or "none")`,
+    budget: `💰 Monthly budget: how much do you earn and spend? (in ${currencySymbol})`,
+    income_timing: `📅 When does your income arrive each month?`,
+    work_preferences: `⏰ Max hours/week you can work? Minimum hourly rate? (in ${currencySymbol}/h)`,
+    goal: `🎯 What's your savings goal?`,
+    academic_events: `📆 Any busy periods coming up? (exams, projects, vacations) or "none"`,
+    inventory: `🏷️ Items you could sell for extra cash? (or "none")`,
+    trade: `🔄 Things you could borrow or trade with friends?\n📥 Borrow gear · 🔄 Trade skills\n(or "none")`,
+    lifestyle: `📱 What subscriptions do you pay for? (or "none")`,
+    complete: `✅ All set${name ? `, ${name}` : ''}! Your profile is ready.\n\n👉 Click **"Me"** to see your personalized strategies.`,
   };
 
   return messages[nextStep] || `Great${name ? `, ${name}` : ''}! Let's continue.`;
@@ -151,15 +145,10 @@ export function getAdvanceMessage(nextStep: OnboardingStep, profile: ProfileData
  * Generate completion message
  */
 export function generateCompletionMessage(context: Record<string, unknown>): string {
-  const name = context.name || 'you';
-  return `Perfect ${name}! I have everything I need.
+  const name = context.name || '';
+  return `✅ All set${name ? `, ${name}` : ''}! Your profile is ready.
 
-I've created a personalized profile for you. You can now:
-- Set a savings goal
-- Explore jobs that match your skills
-- Optimize your budget
-
-**Ready to go?** Click on "Me" to get started!`;
+👉 Click **"Me"** to see your personalized strategies.`;
 }
 
 /**
@@ -171,29 +160,29 @@ export function getFallbackStepResponse(
 ): string {
   switch (step) {
     case 'currency_confirm':
-      return `I couldn't detect your region automatically.\n\nAre you in **US** (USD), **UK** (GBP), or **Europe** (EUR)?`;
+      return `I couldn't detect your region. Are you in **US** (USD), **UK** (GBP), or **Europe** (EUR)?`;
     case 'name':
-      return `${context.city || 'Great'}! What's your name?`;
+      return `✓ Got it!\n\n👋 What's your name?`;
     case 'studies':
-      return `Nice to meet you, ${context.name || ''}!\n\nWhat are you studying? (e.g., "Bachelor 2nd year Computer Science", "Master 1 Business")`;
+      return `📚 Nice to meet you${context.name ? `, ${context.name}` : ''}! What are you studying?`;
     case 'skills':
-      return `${context.diploma || ''} ${context.field || ''}, cool!\n\nWhat are your skills? (coding, languages, design, sports...)`;
+      return `💪 Great! What are your skills?`;
     case 'certifications':
-      return `Nice skills!\n\nDo you have any professional certifications?\n\n🇫🇷 France: BAFA, BNSSA, PSC1, SST\n🇬🇧 UK: DBS, First Aid, NPLQ\n🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler\n🌍 International: PADI diving, TEFL teaching\n\n(List any you have, or say 'none')`;
+      return `📜 Any professional certifications?\n🇫🇷 BAFA, BNSSA, PSC1 · 🇬🇧 DBS, First Aid · 🇺🇸 CPR, Lifeguard · 🌍 PADI, TEFL\n(or "none")`;
     case 'budget':
-      return `Got it!\n\nLet's talk budget: how much do you earn and spend per month roughly?`;
+      return `💰 Monthly budget: how much do you earn and spend?`;
     case 'work_preferences':
-      return `Got it for the budget!\n\nHow many hours max per week can you work? And what's your minimum hourly rate?`;
+      return `⏰ Max hours/week you can work? Minimum hourly rate?`;
     case 'goal':
-      return `Perfect, ${context.maxWorkHours || 15}h/week works!\n\nNow, what's your savings goal? What do you want to save for, how much, and by when? (e.g., "emergency fund $1000 by June")`;
+      return `🎯 What's your savings goal?`;
     case 'academic_events':
-      return `Great goal!\n\nAny important academic events coming up? (exams, vacations, busy periods)`;
+      return `📆 Any busy periods coming up? (exams, projects, vacations) or "none"`;
     case 'inventory':
-      return `Thanks for sharing that!\n\nDo you have any items you could sell? (old textbooks, electronics, clothes, etc.)`;
+      return `🏷️ Items you could sell for extra cash? (or "none")`;
     case 'trade':
-      return `Good to know!\n\nAny trade opportunities? (Borrow a friend's bike, lend your camera, swap textbooks with classmates...)`;
+      return `🔄 Things you could borrow or trade with friends? (or "none")`;
     case 'lifestyle':
-      return `Got it!\n\nWhat subscriptions or recurring expenses do you have? (streaming, gym, phone plan, etc.)`;
+      return `📱 What subscriptions do you pay for? (or "none")`;
     case 'complete':
       return generateCompletionMessage(context);
     default:

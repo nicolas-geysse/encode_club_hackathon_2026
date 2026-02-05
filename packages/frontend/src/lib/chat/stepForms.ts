@@ -447,14 +447,14 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
       {
         name: 'goalName',
         type: 'text',
-        label: "What you're saving for",
-        placeholder: 'e.g., Vacation, Laptop, Emergency fund',
+        label: 'What for?',
+        placeholder: 'e.g., New laptop, Emergency fund',
         required: true,
       },
       {
         name: 'goalAmount',
         type: 'number',
-        label: 'Target amount',
+        label: 'Amount',
         placeholder: '500',
         min: 1,
         required: true,
@@ -462,10 +462,11 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
       {
         name: 'goalDeadline',
         type: 'date',
-        label: 'Target date',
+        label: 'Deadline',
         required: true,
       },
     ],
+    helpText: "⚠️ Deadline = last day to reach your goal. We'll plan backwards from here.",
   },
 
   academic_events: {

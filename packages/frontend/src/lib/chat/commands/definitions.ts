@@ -98,14 +98,14 @@ export const SLASH_COMMANDS: Record<string, SlashCommandHandler> = {
             },
             {
               name: 'goalAmount',
-              label: 'Target amount (€)',
+              label: 'Amount',
               type: 'number',
               required: true,
               value: (context.goalAmount as number) || '',
             },
             {
               name: 'goalDeadline',
-              label: 'Target date',
+              label: 'Deadline',
               type: 'date',
               required: true,
               value: (context.goalDeadline as string) || '',

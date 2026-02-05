@@ -160,7 +160,8 @@ export const GOAL_TOOLS = {
         },
         goal_deadline: {
           type: 'string',
-          description: 'Target date (ISO format or natural language like "2 months")',
+          description:
+            'Deadline - last day to reach the goal (ISO format or natural language like "2 months")',
         },
         goal_name: {
           type: 'string',
