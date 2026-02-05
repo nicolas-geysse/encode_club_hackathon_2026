@@ -919,21 +919,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
     <Show when={config()} fallback={null}>
       {(cfg) => (
         <form onSubmit={handleSubmit} class="space-y-4 bg-card rounded-lg p-4 border border-border">
-          <For each={cfg().fields}>
-            {(field) => (
-              <Show when={isFieldVisible(field)}>
-                <div class="space-y-1">
-                  <label class="block text-sm font-medium text-foreground">
-                    {field.label}
-                    {field.required && <span class="text-destructive ml-1">*</span>}
-                  </label>
-                  {renderField(field)}
-                </div>
-              </Show>
-            )}
-          </For>
-
-          {/* Geolocation button for greeting step */}
+          {/* Geolocation button FIRST for greeting step - auto-fills city/address */}
           <Show when={props.step === 'greeting'}>
             <div class="flex flex-col gap-3">
               <GeolocationButton
@@ -957,6 +943,20 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
               </Show>
             </div>
           </Show>
+
+          <For each={cfg().fields}>
+            {(field) => (
+              <Show when={isFieldVisible(field)}>
+                <div class="space-y-1">
+                  <label class="block text-sm font-medium text-foreground">
+                    {field.label}
+                    {field.required && <span class="text-destructive ml-1">*</span>}
+                  </label>
+                  {renderField(field)}
+                </div>
+              </Show>
+            )}
+          </For>
 
           {/* Help text */}
           <Show when={cfg().helpText}>
