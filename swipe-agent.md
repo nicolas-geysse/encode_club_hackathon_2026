@@ -701,44 +701,769 @@ Be concise (2-3 sentences max), warm, and actionable.`;
 
 ---
 
-#### Fichiers à créer/modifier
+### Checkpoint H.5: Guardrail Agents (⏳ TODO)
+**Objectif**: Intelligence financière avancée - filtrer, enrichir et protéger les scénarios
 
-| Fichier | Action | Contenu |
-|---------|--------|---------|
-| `agents/lifestyle-agent.ts` | **Créer** | 3 outils + agent config |
-| `agents/money-maker.ts` | **Modifier** | +2 outils (platform, days) |
-| `agents/swipe-orchestrator.ts` | **Créer** | 4 outils + orchestration |
-| `agents/factory.ts` | **Modifier** | +2 agents dans AGENT_CONFIGS |
-| `agents/index.ts` | **Modifier** | Exports + imports |
-| `agents/strategies/swipe.strategy.ts` | **Modifier** | Nouveau primary agent |
-| `agents/agent-executor.ts` | **Modifier** | +2 executors |
+Ces agents agissent comme des **couches de protection** entre l'agrégation et la présentation des scénarios.
+
+```
+SCENARIO AGGREGATOR
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         GUARDRAIL AGENTS                                │
+│                                                                          │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐      │
+│  │ H.5.1            │  │ H.5.2            │  │ H.5.3            │      │
+│  │ Ghost Observer   │  │ Cash Flow        │  │ Asset-to-Income  │      │
+│  │                  │  │ Smoothing        │  │ Pivot            │      │
+│  │ "Filtre          │  │                  │  │                  │      │
+│  │  comportemental" │  │ "Anti-découvert" │  │ "Louer vs        │      │
+│  │                  │  │                  │  │  Vendre"         │      │
+│  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘      │
+│           │                     │                     │                 │
+│           ▼                     ▼                     ▼                 │
+│  ┌──────────────────────────────────────────────────────────────┐      │
+│  │ H.5.4 Essential Guardian                                     │      │
+│  │ "Protège les vitaux + suggère alternatives structurelles"    │      │
+│  └──────────────────────────────────────────────────────────────┘      │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+  SwipeScenario[] (filtered + enriched + protected)
+```
 
 ---
 
-#### Ordre d'implémentation
+#### H.5.1 Ghost Observer (Le Miroir Psychologique)
+**Fichier**: `packages/mcp-server/src/agents/ghost-observer.ts`
+
+**Mantra**: *"Listen to what users DO, not what they SAY."*
+
+**Problème**: Les utilisateurs se mentent à eux-mêmes. "Je vais faire ce job" alors qu'ils le détestent et le rejettent systématiquement.
+
+**Solution**: Analyser les patterns de swipe pour détecter les rejets répétés et adapter les propositions.
+
+**Interfaces**:
+```typescript
+interface SwipeHistory {
+  scenarioId: string;
+  category: ScenarioCategory;
+  sourceId: string;
+  decision: 'left' | 'right';
+  timestamp: string;
+  metadata: {
+    effort: number;
+    amount: number;
+    tags: string[];
+  };
+}
+
+interface GhostObserverInput {
+  recentSwipes: SwipeHistory[];        // Derniers 50 swipes
+  candidateScenarios: SwipeScenario[]; // Scénarios à filtrer
+  profileId: string;
+}
+
+interface RejectionPattern {
+  type: 'category' | 'effort_level' | 'tag' | 'source';
+  value: string;
+  rejectionCount: number;
+  lastRejected: string;
+  confidence: number;  // 0-1, based on sample size
+}
+
+interface GhostObserverOutput {
+  filteredScenarios: SwipeScenario[];  // Scénarios nettoyés
+  blockedCount: number;
+  patterns: RejectionPattern[];
+  recommendations: string[];           // "User avoids high-effort jobs"
+}
+```
+
+**Outils Mastra**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: detect_rejection_patterns                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: recentSwipes[]                                            │
+│ Output: RejectionPattern[]                                       │
+│                                                                  │
+│ Logic:                                                           │
+│ - Groupe les swipes left par catégorie/effort/tag               │
+│ - Si ≥3 rejets consécutifs sur même critère → pattern détecté   │
+│ - Si ≥5 rejets total sur critère → haute confiance              │
+│ - Calcule confidence = rejectionCount / (rejections + accepts)  │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: filter_by_patterns                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: candidateScenarios[], patterns[]                          │
+│ Output: { filtered: Scenario[], blocked: Scenario[] }            │
+│                                                                  │
+│ Logic:                                                           │
+│ - Pour chaque scénario, vérifie contre les patterns             │
+│ - Si pattern.confidence > 0.7 → bloque le scénario              │
+│ - Si pattern.confidence 0.5-0.7 → réduit le score de 30%        │
+│ - Log les scénarios bloqués pour Opik tracing                   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: generate_behavior_insights                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: patterns[], profileId                                     │
+│ Output: string[] (human-readable insights)                       │
+│                                                                  │
+│ Examples:                                                        │
+│ - "Tu rejettes systématiquement les jobs physiques (5x)"        │
+│ - "Les offres > 100€ sont toujours acceptées"                   │
+│ - "Tu préfères vendre plutôt que travailler"                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Règles métier**:
+```typescript
+const GHOST_RULES = {
+  // Seuils de détection
+  MIN_REJECTIONS_FOR_PATTERN: 3,
+  HIGH_CONFIDENCE_THRESHOLD: 5,
+  PATTERN_DECAY_DAYS: 14,      // Pattern expire après 2 semaines sans nouveau rejet
+
+  // Actions
+  BLOCK_CONFIDENCE: 0.7,       // Bloque si confiance > 70%
+  PENALIZE_CONFIDENCE: 0.5,    // Pénalise score si 50-70%
+  SCORE_PENALTY: 0.3,          // -30% sur le score
+
+  // Catégories trackées
+  TRACKED_DIMENSIONS: ['category', 'effort_level', 'amount_range', 'tag'],
+};
+```
+
+---
+
+#### H.5.2 Cash Flow Smoothing (L'Anti-Découvert)
+**Fichier**: `packages/mcp-server/src/agents/cashflow-smoother.ts`
+
+**Mantra**: *"Don't destroy value for short-term liquidity."*
+
+**Problème**: Décalage temporel entre revenus (bientôt) et dépenses (maintenant). Vendre en urgence détruit de la valeur.
+
+**Solution**: Proposer de décaler une dépense flexible plutôt que de vendre à perte ou s'endetter.
+
+**Interfaces**:
+```typescript
+interface CashFlowContext {
+  currentBalance: number;          // Solde actuel
+  upcomingExpenses: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    dueDate: string;               // ISO date
+    isFlexible: boolean;           // Peut être décalé ?
+    category: 'essential' | 'flexible' | 'discretionary';
+  }>;
+  upcomingIncome: Array<{
+    source: string;
+    amount: number;
+    expectedDate: string;
+    confidence: number;            // 0-1, fiabilité de la date
+  }>;
+  pendingSales: Array<{
+    itemId: string;
+    itemName: string;
+    estimatedValue: number;
+    urgency: 'asap' | 'normal' | 'flexible';
+  }>;
+}
+
+interface TimingMismatch {
+  expenseId: string;
+  expenseName: string;
+  expenseAmount: number;
+  expenseDue: string;
+  shortfallAmount: number;         // Combien il manque
+  incomeArrival: string;           // Quand l'argent arrive
+  gapDays: number;                 // Jours entre dépense et revenu
+}
+
+interface CashFlowSolution {
+  type: 'delay_expense' | 'accelerate_sale' | 'partial_payment' | 'alternative';
+  description: string;
+  targetId: string;
+  originalDate: string;
+  suggestedDate: string;
+  impactAmount: number;            // Économie ou gain
+  risk: 'low' | 'medium' | 'high';
+  reason: string;
+}
+
+interface CashFlowOutput {
+  mismatches: TimingMismatch[];
+  solutions: CashFlowSolution[];
+  worstCaseDate: string;           // Date critique
+  recommendedAction: string;
+}
+```
+
+**Outils Mastra**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: detect_timing_mismatches                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: currentBalance, upcomingExpenses[], upcomingIncome[]      │
+│ Output: TimingMismatch[]                                         │
+│                                                                  │
+│ Logic:                                                           │
+│ - Simule le solde jour par jour sur 30 jours                    │
+│ - Détecte les moments où solde < 0                              │
+│ - Identifie quelle dépense cause le découvert                   │
+│ - Calcule le gap avec le prochain revenu                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: suggest_timing_solutions                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: mismatch, flexibleExpenses[], pendingSales[]              │
+│ Output: CashFlowSolution[]                                       │
+│                                                                  │
+│ Logic:                                                           │
+│ - Si dépense flexible: suggérer report après revenu             │
+│ - Si vente en cours: suggérer baisser prix pour accélérer       │
+│ - Si abonnement: suggérer pause temporaire                      │
+│ - Prioriser solutions par risque (low first)                    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: evaluate_urgency_sale                                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: pendingSale, mismatch, normalSaleValue                    │
+│ Output: { shouldAccelerate: boolean, priceReduction: number }    │
+│                                                                  │
+│ Logic:                                                           │
+│ - Calcule la perte de valeur si vente urgente (-20% environ)    │
+│ - Compare avec coût du découvert (agios, frais)                 │
+│ - Si perte > coût découvert → recommande décaler                │
+│ - Si perte < coût découvert → recommande vente rapide           │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Règles métier**:
+```typescript
+const CASHFLOW_RULES = {
+  // Seuils
+  URGENCY_SALE_DISCOUNT: 0.20,     // -20% pour vente urgente
+  OVERDRAFT_DAILY_FEE: 0.50,       // 0.50€/jour de découvert estimé
+  MAX_DELAY_DAYS: 14,              // Max 2 semaines de report
+
+  // Catégories décalables
+  DELAYABLE_CATEGORIES: ['flexible', 'discretionary'],
+  NEVER_DELAY: ['rent', 'utilities', 'insurance'],
+
+  // Priorité des solutions
+  SOLUTION_PRIORITY: ['delay_expense', 'partial_payment', 'accelerate_sale', 'alternative'],
+};
+```
+
+---
+
+#### H.5.3 Asset-to-Income Pivot (L'Éducation Actif/Passif)
+**Fichier**: `packages/mcp-server/src/agents/asset-pivot.ts`
+
+**Mantra**: *"Don't sell the goose that lays golden eggs."*
+
+**Problème**: Vendre un actif productif (guitare, vélo, appareil photo) pour du cash rapide est une erreur financière.
+
+**Solution**: Détecter ces ventes et proposer de louer/rentabiliser l'actif à la place.
+
+**Interfaces**:
+```typescript
+interface ProductiveAsset {
+  itemId: string;
+  name: string;
+  category: string;
+  estimatedSaleValue: number;
+  isProductive: boolean;           // Peut générer des revenus ?
+  productivityType: 'rental' | 'service' | 'teaching' | 'none';
+  rentalPotential?: {
+    dailyRate: number;
+    monthlyRate: number;
+    demandLevel: 'low' | 'medium' | 'high';
+    platforms: string[];           // "Zilok", "Fat Llama", etc.
+  };
+  servicePotential?: {
+    hourlyRate: number;
+    serviceType: string;           // "cours de guitare", "livraison vélo"
+    marketDemand: 'low' | 'medium' | 'high';
+  };
+}
+
+interface AssetPivotSuggestion {
+  itemId: string;
+  originalAction: 'sell';
+  suggestedAction: 'rent' | 'monetize' | 'keep_and_earn';
+  comparison: {
+    sellOnce: number;              // 150€ une fois
+    earnPerMonth: number;          // 30€/mois en location
+    breakEvenMonths: number;       // 5 mois pour équivalent
+    yearlyEarning: number;         // 360€/an potentiel
+  };
+  platforms: Array<{
+    name: string;
+    url: string;
+    typicalEarnings: string;
+    setup: string;                 // "5 min to list"
+  }>;
+  recommendation: string;
+  confidence: number;
+}
+
+interface AssetPivotOutput {
+  analyzedItems: ProductiveAsset[];
+  pivotSuggestions: AssetPivotSuggestion[];
+  totalPreservedValue: number;     // Valeur non vendue
+  potentialMonthlyIncome: number;  // Revenus mensuels possibles
+}
+```
+
+**Outils Mastra**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: detect_productive_assets                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: sellItems[]                                               │
+│ Output: ProductiveAsset[]                                        │
+│                                                                  │
+│ Logic:                                                           │
+│ - Catégories productives: instruments, vélos, photo, outils     │
+│ - Check si item peut générer des revenus                        │
+│ - Estime potentiel location via database de taux                │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: calculate_pivot_economics                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: asset, saleValue, userGoalContext                         │
+│ Output: AssetPivotSuggestion                                     │
+│                                                                  │
+│ Logic:                                                           │
+│ - Calcule revenu mensuel potentiel (location)                   │
+│ - Calcule break-even vs vente directe                           │
+│ - Si break-even < 6 mois ET goal > 6 mois → suggérer pivot      │
+│ - Si urgence cash immédiat → recommander vente quand même       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: suggest_monetization_platforms                             │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: assetCategory, location (city)                            │
+│ Output: Platform[]                                               │
+│                                                                  │
+│ Platforms database:                                              │
+│ - Instruments: "Zilok", "Rentez-vous", "local music schools"    │
+│ - Vélos: "Velib peer", "Cycling delivery (Uber Eats)"           │
+│ - Photo: "Geev Photo", "Wedding photography", "Stock photos"    │
+│ - Outils: "Bricolib", "AlloVoisins"                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Database des taux de location**:
+```typescript
+const RENTAL_RATES: Record<string, { daily: number; monthly: number; demand: string }> = {
+  // Instruments
+  guitar_acoustic: { daily: 10, monthly: 80, demand: 'medium' },
+  guitar_electric: { daily: 15, monthly: 120, demand: 'medium' },
+  piano_keyboard: { daily: 20, monthly: 150, demand: 'high' },
+  violin: { daily: 12, monthly: 100, demand: 'low' },
+  drums: { daily: 25, monthly: 200, demand: 'low' },
+
+  // Transport
+  bike_city: { daily: 8, monthly: 60, demand: 'high' },
+  bike_electric: { daily: 20, monthly: 150, demand: 'high' },
+  scooter_electric: { daily: 15, monthly: 100, demand: 'medium' },
+
+  // Photo/Video
+  camera_dslr: { daily: 30, monthly: 250, demand: 'medium' },
+  camera_mirrorless: { daily: 40, monthly: 300, demand: 'high' },
+  lens_pro: { daily: 20, monthly: 150, demand: 'medium' },
+  drone: { daily: 50, monthly: 400, demand: 'high' },
+
+  // Tools
+  drill: { daily: 5, monthly: 30, demand: 'high' },
+  pressure_washer: { daily: 15, monthly: 80, demand: 'medium' },
+  lawnmower: { daily: 20, monthly: 100, demand: 'seasonal' },
+
+  // Gaming
+  console_ps5: { daily: 15, monthly: 100, demand: 'high' },
+  vr_headset: { daily: 20, monthly: 150, demand: 'medium' },
+
+  // Camping/Outdoor
+  tent_4person: { daily: 12, monthly: 80, demand: 'seasonal' },
+  camping_gear_set: { daily: 25, monthly: 150, demand: 'seasonal' },
+};
+```
+
+---
+
+#### H.5.4 Essential Guardian (Le Protecteur des Vitaux)
+**Fichier**: `packages/mcp-server/src/agents/essential-guardian.ts`
+
+**Mantra**: *"Don't suggest the impossible. Suggest the structural."*
+
+**Problème**: On ne peut pas "pause" le loyer ou "manger moins". Ces suggestions sont irréalistes et frustrantes.
+
+**Solution**: Bloquer les suggestions naïves ET proposer des alternatives structurelles pour réduire les coûts fixes.
+
+**Interfaces**:
+```typescript
+interface EssentialExpense {
+  id: string;
+  name: string;
+  category: EssentialCategory;
+  monthlyAmount: number;
+  isReducible: boolean;            // Peut être optimisé (pas supprimé)
+  currentOptimizations?: string[]; // Déjà appliqués
+}
+
+type EssentialCategory =
+  | 'housing'      // Loyer, charges
+  | 'food'         // Alimentation
+  | 'transport'    // Déplacements essentiels
+  | 'health'       // Mutuelle, médicaments
+  | 'education'    // Frais scolarité
+  | 'utilities';   // Électricité, eau, internet
+
+interface StructuralAlternative {
+  expenseId: string;
+  type: 'roommate' | 'downgrade' | 'switch_provider' | 'lifestyle_change' | 'subsidy';
+  description: string;
+  savingsPerMonth: number;
+  savingsPercent: number;
+  implementationEffort: 'easy' | 'medium' | 'hard';
+  implementationTime: string;      // "1 week", "1 month"
+  requirements?: string[];         // "Needs landlord approval"
+  resources?: string[];            // Links, apps, contacts
+}
+
+interface EssentialGuardianInput {
+  essentialExpenses: EssentialExpense[];
+  candidateScenarios: SwipeScenario[];
+  userContext: {
+    housingType: 'alone' | 'roommates' | 'family';
+    transportMode: 'car' | 'public' | 'bike' | 'walk';
+    dietType: 'standard' | 'vegetarian' | 'vegan';
+  };
+}
+
+interface EssentialGuardianOutput {
+  blockedScenarios: Array<{
+    scenarioId: string;
+    reason: string;
+    alternative?: StructuralAlternative;
+  }>;
+  structuralSuggestions: StructuralAlternative[];
+  totalPotentialSavings: number;
+  implementationPlan: string[];
+}
+```
+
+**Outils Mastra**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: detect_naive_suggestions                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: candidateScenarios[]                                      │
+│ Output: { blocked: Scenario[], reason: string }[]                │
+│                                                                  │
+│ Blocked patterns:                                                │
+│ - "pause rent" / "pause loyer"                                  │
+│ - "eat less" / "manger moins"                                   │
+│ - "cancel health insurance"                                     │
+│ - Any lifestyle_pause on essential category                     │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: suggest_structural_alternatives                            │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: essentialExpense, userContext                             │
+│ Output: StructuralAlternative[]                                  │
+│                                                                  │
+│ Alternatives by category (see database below)                    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: calculate_structural_impact                                │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: alternatives[], goalContext                               │
+│ Output: { totalSavings, goalImpact, timeline }                   │
+│                                                                  │
+│ Logic:                                                           │
+│ - Somme les économies mensuelles                                │
+│ - Calcule l'impact sur l'objectif                               │
+│ - Ordonne par effort/bénéfice ratio                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Database des alternatives structurelles**:
+```typescript
+const STRUCTURAL_ALTERNATIVES: Record<EssentialCategory, StructuralAlternative[]> = {
+  housing: [
+    {
+      type: 'roommate',
+      description: 'Prendre un colocataire',
+      savingsPercent: 40,
+      implementationEffort: 'hard',
+      implementationTime: '1-2 mois',
+      requirements: ['Accord propriétaire', 'Chambre disponible'],
+      resources: ['lacartedescolocs.fr', 'appartager.com'],
+    },
+    {
+      type: 'downgrade',
+      description: 'Déménager dans plus petit',
+      savingsPercent: 25,
+      implementationEffort: 'hard',
+      implementationTime: '2-3 mois',
+    },
+    {
+      type: 'subsidy',
+      description: 'Demander APL/ALS si pas fait',
+      savingsPercent: 30,
+      implementationEffort: 'easy',
+      implementationTime: '2 semaines',
+      resources: ['caf.fr'],
+    },
+  ],
+
+  food: [
+    {
+      type: 'lifestyle_change',
+      description: 'Cuisiner maison (batch cooking dimanche)',
+      savingsPercent: 40,
+      implementationEffort: 'medium',
+      implementationTime: '1 semaine',
+      resources: ['marmiton.org/batch-cooking'],
+    },
+    {
+      type: 'lifestyle_change',
+      description: 'Réduire viande (2x/semaine max)',
+      savingsPercent: 25,
+      implementationEffort: 'easy',
+      implementationTime: 'immédiat',
+    },
+    {
+      type: 'switch_provider',
+      description: 'Acheter en vrac / marché fin de journée',
+      savingsPercent: 20,
+      implementationEffort: 'easy',
+      implementationTime: 'immédiat',
+      resources: ['Too Good To Go app'],
+    },
+    {
+      type: 'subsidy',
+      description: 'Resto U / épicerie solidaire CROUS',
+      savingsPercent: 50,
+      implementationEffort: 'easy',
+      implementationTime: 'immédiat',
+      resources: ['etudiant.gouv.fr'],
+    },
+  ],
+
+  transport: [
+    {
+      type: 'lifestyle_change',
+      description: 'Passer au vélo (trajets < 5km)',
+      savingsPercent: 80,
+      implementationEffort: 'medium',
+      implementationTime: '1 semaine',
+      resources: ['geovelo.fr'],
+    },
+    {
+      type: 'switch_provider',
+      description: 'Covoiturage domicile-campus',
+      savingsPercent: 50,
+      implementationEffort: 'easy',
+      implementationTime: 'immédiat',
+      resources: ['blablacar daily', 'karos.fr'],
+    },
+    {
+      type: 'subsidy',
+      description: 'Abonnement jeune / étudiant',
+      savingsPercent: 50,
+      implementationEffort: 'easy',
+      implementationTime: '1 semaine',
+    },
+  ],
+
+  utilities: [
+    {
+      type: 'switch_provider',
+      description: 'Changer de fournisseur énergie',
+      savingsPercent: 15,
+      implementationEffort: 'easy',
+      implementationTime: '2 semaines',
+      resources: ['energie-info.fr/comparateur'],
+    },
+    {
+      type: 'switch_provider',
+      description: 'Forfait mobile low-cost (2€ Free, 5€ Red)',
+      savingsPercent: 70,
+      implementationEffort: 'easy',
+      implementationTime: '1 jour',
+    },
+    {
+      type: 'lifestyle_change',
+      description: 'Réduire chauffage 1°C = -7% facture',
+      savingsPercent: 7,
+      implementationEffort: 'easy',
+      implementationTime: 'immédiat',
+    },
+  ],
+
+  health: [
+    {
+      type: 'switch_provider',
+      description: 'Mutuelle étudiante LMDE/SMERRA',
+      savingsPercent: 30,
+      implementationEffort: 'medium',
+      implementationTime: '1 mois',
+    },
+    {
+      type: 'subsidy',
+      description: 'CSS (Complémentaire Santé Solidaire)',
+      savingsPercent: 100,
+      implementationEffort: 'medium',
+      implementationTime: '1 mois',
+      resources: ['ameli.fr/css'],
+    },
+  ],
+
+  education: [
+    {
+      type: 'subsidy',
+      description: 'Bourse CROUS si non demandée',
+      savingsPercent: 100,
+      implementationEffort: 'medium',
+      implementationTime: '2 mois',
+      resources: ['messervices.etudiant.gouv.fr'],
+    },
+    {
+      type: 'subsidy',
+      description: 'Aide au mérite, aide mobilité',
+      savingsPercent: 50,
+      implementationEffort: 'medium',
+      implementationTime: '2 mois',
+    },
+  ],
+};
+```
+
+---
+
+#### Fichiers à créer pour H.5
+
+| Fichier | Rôle | Outils |
+|---------|------|--------|
+| `agents/ghost-observer.ts` | Filtre comportemental | 3 outils |
+| `agents/cashflow-smoother.ts` | Anti-découvert | 3 outils |
+| `agents/asset-pivot.ts` | Louer vs Vendre | 3 outils |
+| `agents/essential-guardian.ts` | Protège vitaux | 3 outils |
+| `agents/guardrails/index.ts` | Exporte les 4 guardrails | - |
+
+---
+
+#### Ordre d'implémentation H.5
 
 ```
-1. H.1 Lifestyle Agent
-   ├── Créer lifestyle-agent.ts
-   ├── Définir 3 outils
-   ├── Ajouter à factory.ts
-   └── Tester isolément
+1. H.5.4 Essential Guardian (priorité: bloque les suggestions dangereuses)
+   ├── detect_naive_suggestions
+   ├── suggest_structural_alternatives
+   └── calculate_structural_impact
 
-2. H.2 Trade Agent Améliorations
-   ├── Ajouter suggest_selling_platform à money-maker.ts
-   ├── Ajouter estimate_days_to_sell
-   └── Tester avec différentes catégories
+2. H.5.1 Ghost Observer (priorité: filtre les rejets répétés)
+   ├── detect_rejection_patterns
+   ├── filter_by_patterns
+   └── generate_behavior_insights
 
-3. H.3 Swipe Orchestrator
-   ├── Créer swipe-orchestrator.ts
-   ├── Définir 4 outils
-   ├── Intégrer appels aux autres agents
-   └── Tester orchestration complète
+3. H.5.3 Asset-to-Income Pivot (enrichit les ventes)
+   ├── detect_productive_assets
+   ├── calculate_pivot_economics
+   └── suggest_monetization_platforms
 
-4. H.4 Intégration Tab Strategy
+4. H.5.2 Cash Flow Smoothing (timing)
+   ├── detect_timing_mismatches
+   ├── suggest_timing_solutions
+   └── evaluate_urgency_sale
+```
+
+---
+
+#### Tests de validation H.5
+
+| # | Scénario | Input | Résultat attendu |
+|---|----------|-------|------------------|
+| H.5.1a | User rejette 5 jobs "service" | swipe history | Pattern détecté, jobs service bloqués |
+| H.5.1b | User accepte tous les sell_item | swipe history | Insight "préfère vendre vs travailler" |
+| H.5.2a | Loyer due J+3, salaire J+10 | cashflow context | Suggère report abonnement flexible |
+| H.5.2b | Vente urgente -20% vs découvert 3€/j | comparison | Recommande décaler si gap < 7 jours |
+| H.5.3a | Guitare à vendre 150€ | sell item | Suggère location 80€/mois, break-even 2 mois |
+| H.5.3b | Vélo électrique 500€ | sell item | Suggère livraison Uber Eats 200€/mois |
+| H.5.4a | Scenario "pause loyer" | candidate | Bloqué + suggère colocation |
+| H.5.4b | Scenario "manger moins" | candidate | Bloqué + suggère batch cooking |
+
+---
+
+#### Fichiers - Status Implémentation
+
+| Fichier | Status | Contenu |
+|---------|--------|---------|
+| `agents/lifestyle-agent.ts` | ✅ Créé | 4 outils (analyze, suggest, calculate, optimize) |
+| `agents/money-maker.ts` | ✅ Modifié | +2 outils (platform, days), SELLING_PLATFORMS db |
+| `agents/swipe-orchestrator.ts` | ✅ Créé | 4 outils (gather, rank, generate, process) |
+| `agents/ghost-observer.ts` | ⏳ TODO | 3 outils (patterns, filter, insights) |
+| `agents/cashflow-smoother.ts` | ⏳ TODO | 3 outils (mismatches, solutions, evaluate) |
+| `agents/asset-pivot.ts` | ⏳ TODO | 3 outils (detect, economics, platforms) |
+| `agents/essential-guardian.ts` | ⏳ TODO | 3 outils (naive, structural, impact) |
+| `agents/guardrails/index.ts` | ⏳ TODO | Exporte les 4 guardrails |
+| `agents/index.ts` | ✅ Modifié | Exports lifestyle + orchestrator |
+| `agents/strategies/swipe.strategy.ts` | ⏳ TODO | Intégrer orchestrator + guardrails |
+
+---
+
+#### Ordre d'implémentation (mis à jour)
+
+```
+✅ FAIT:
+1. H.1 Lifestyle Agent (4 outils)
+2. H.2 Trade Agent (+2 outils)
+3. H.3 Swipe Orchestrator (4 outils)
+
+⏳ EN COURS:
+4. H.5.4 Essential Guardian (PRIORITÉ - bloque suggestions dangereuses)
+   ├── detect_naive_suggestions
+   ├── suggest_structural_alternatives
+   └── calculate_structural_impact
+
+5. H.5.1 Ghost Observer (filtre comportemental)
+   ├── detect_rejection_patterns
+   ├── filter_by_patterns
+   └── generate_behavior_insights
+
+6. H.5.3 Asset-to-Income Pivot (enrichit ventes)
+   ├── detect_productive_assets
+   ├── calculate_pivot_economics
+   └── suggest_monetization_platforms
+
+7. H.5.2 Cash Flow Smoothing (timing)
+   ├── detect_timing_mismatches
+   ├── suggest_timing_solutions
+   └── evaluate_urgency_sale
+
+⏳ APRÈS:
+8. H.4 Intégration Frontend
    ├── Modifier swipe.strategy.ts
-   ├── Mettre à jour agent-executor.ts
-   └── Tester via /api/tips endpoint
+   ├── Wirer orchestrator + guardrails
+   └── Tester via /swipe endpoint
 ```
 
 ---
