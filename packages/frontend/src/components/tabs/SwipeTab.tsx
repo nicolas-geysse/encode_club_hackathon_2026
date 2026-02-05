@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip
 import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot, Plus, X } from 'lucide-solid';
 import { toastPopup } from '~/components/ui/Toast';
 import type { Lead } from '~/lib/prospectionTypes';
+import { matchSkillsToCategory } from '~/lib/jobScoring';
 import { KARMA_POINTS } from '~/hooks/useKarma';
 
 /**
@@ -317,7 +318,8 @@ function generateScenarios(
   trades: SwipeTabProps['trades'],
   lifestyle: SwipeTabProps['lifestyle'],
   leads: SwipeTabProps['leads'],
-  context: SwipeContext
+  context: SwipeContext,
+  skills?: SwipeTabProps['skills']
 ): Scenario[] {
   const scenarios: Scenario[] = [];
   const { remainingAmount = 0, daysToGoal = 30 } = context;
@@ -347,6 +349,9 @@ function generateScenarios(
 
   // 2. Job leads (status='interested')
   const weeksRemaining = context.weeksRemaining ?? Math.ceil(daysToGoal / 7);
+  // Prepare skill names for matching
+  const skillNames = skills?.map((s) => s.name) || [];
+
   leads
     ?.filter((l) => l.status === 'interested')
     .forEach((lead) => {
@@ -364,6 +369,10 @@ function generateScenarios(
       const totalEarnings = weeklyEarnings * weeksRemaining;
       const goalImpact = remainingAmount > 0 ? (totalEarnings / remainingAmount) * 100 : 0;
 
+      // Calculate skill match for this job category
+      const skillMatch =
+        skillNames.length > 0 ? matchSkillsToCategory(skillNames, lead.category) : 0;
+
       scenarios.push({
         id: `job_${lead.id}`,
         title: lead.title,
@@ -380,7 +389,10 @@ function generateScenarios(
         sourceId: lead.id,
         leadId: lead.id,
         urgency,
-        metadata: { goalImpactPercent: goalImpact },
+        metadata: {
+          goalImpactPercent: goalImpact,
+          matchScore: skillMatch,
+        },
       });
     });
 
@@ -510,8 +522,14 @@ export function SwipeTab(props: SwipeTabProps) {
     };
 
     // Generate scenarios using Pull Architecture (trades, lifestyle, leads)
-    // NOTE: skills are NOT used for scenario generation - they inform job matching
-    const generated = generateScenarios(props.trades, props.lifestyle, props.leads, context);
+    // Skills are passed for skill match display on job_lead scenarios
+    const generated = generateScenarios(
+      props.trades,
+      props.lifestyle,
+      props.leads,
+      context,
+      props.skills
+    );
     setScenarios(generated);
 
     // Simulate rolling animation

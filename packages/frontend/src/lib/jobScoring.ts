@@ -321,8 +321,9 @@ function calculateProfileMatch(job: ProspectionCard, profile?: UserProfile): Pro
 /**
  * Match user skills to job category
  * Returns 0-1 based on skill relevance
+ * Exported for use in SwipeTab job_lead scenarios
  */
-function matchSkillsToCategory(skills: string[], categoryId: string): number {
+export function matchSkillsToCategory(skills: string[], categoryId: string): number {
   // Skill-to-category mapping
   const categorySkillMap: Record<string, string[]> = {
     service: ['communication', 'customer service', 'hospitality', 'food service', 'teamwork'],

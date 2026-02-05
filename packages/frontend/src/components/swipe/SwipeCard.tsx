@@ -58,6 +58,8 @@ export interface SwipeCardProps {
   karmaPoints?: number;
   /** Goal impact percentage (dynamic with Adjust Assumptions) */
   goalImpactPercent?: number;
+  /** Skill match percentage for job_lead scenarios (0-1) */
+  skillMatchPercent?: number;
 }
 
 export interface CardAdjustments {
@@ -472,6 +474,29 @@ export function SwipeCard(props: SwipeCardProps) {
               >
                 <Target class="h-3 w-3" />
                 {Math.round(props.goalImpactPercent ?? 0)}% of your goal!
+              </div>
+            </Show>
+
+            {/* Skill Match Badge - for job_lead only */}
+            <Show
+              when={
+                props.category === 'job_lead' &&
+                props.skillMatchPercent &&
+                props.skillMatchPercent >= 0.3
+              }
+            >
+              <div
+                class={cn(
+                  'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full mb-2',
+                  (props.skillMatchPercent ?? 0) >= 0.8
+                    ? 'text-green-600 bg-green-50 dark:bg-green-950/30 dark:text-green-400'
+                    : (props.skillMatchPercent ?? 0) >= 0.5
+                      ? 'text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400'
+                      : 'text-gray-600 bg-gray-50 dark:bg-gray-950/30 dark:text-gray-400'
+                )}
+              >
+                <Sparkles class="h-3 w-3" />
+                {Math.round((props.skillMatchPercent ?? 0) * 100)}% skill match
               </div>
             </Show>
 

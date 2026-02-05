@@ -713,6 +713,8 @@ export function SwipeSession(props: SwipeSessionProps) {
                     monthlyAmount={scenario.monthlyAmount}
                     urgency={scenario.urgency}
                     karmaPoints={scenario.karmaPoints}
+                    // Skill match for job_lead scenarios
+                    skillMatchPercent={scenario.metadata?.matchScore}
                     // Goal Impact - dynamic recalculation for job_lead
                     goalImpactPercent={(() => {
                       const originalImpact = scenario.metadata?.goalImpactPercent ?? 0;
