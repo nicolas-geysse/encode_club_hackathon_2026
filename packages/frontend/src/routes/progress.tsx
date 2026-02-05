@@ -404,14 +404,19 @@ export default function ProgressPage() {
           const currentScenarios = planData?.selectedScenarios || [];
 
           if (currentScenarios.length > 0 && existingFollowup) {
-            const existingMissionTitles = new Set(
-              (existingFollowup.missions || []).map((m: Mission) => m.title)
+            // Bug Fix: Deduplicate by source+sourceId, not just title
+            // This prevents duplicate missions for same trade item
+            const existingSourceKeys = new Set(
+              (existingFollowup.missions || []).map(
+                (m: Mission) => `${m.source ?? 'unknown'}_${m.sourceId ?? m.title}`
+              )
             );
 
             // Create missions for scenarios that don't have a mission yet
             const newMissions: Mission[] = [];
-            currentScenarios.forEach((scenario, index) => {
-              if (!existingMissionTitles.has(scenario.title)) {
+            currentScenarios.forEach((scenario) => {
+              const sourceKey = `${scenario.source ?? 'unknown'}_${scenario.sourceId ?? scenario.title}`;
+              if (!existingSourceKeys.has(sourceKey)) {
                 // Pull Architecture: Handle different scenario types
                 // - sell_item: oneTimeAmount (one-time sale)
                 // - pause_expense: monthlyAmount (monthly savings)
@@ -421,8 +426,10 @@ export default function ProgressPage() {
                 const weeklyEarnings =
                   scenario.weeklyEarnings ?? scenario.oneTimeAmount ?? scenario.monthlyAmount ?? 0;
 
+                // Bug Fix: Use crypto.randomUUID() for truly unique IDs
+                const uniqueId = crypto.randomUUID();
                 newMissions.push({
-                  id: `mission_swipe_${Date.now()}_${index}`,
+                  id: `mission_${uniqueId}`,
                   title: scenario.title,
                   description: scenario.description,
                   category: scenario.category as Mission['category'],
@@ -439,6 +446,8 @@ export default function ProgressPage() {
                   // Pause duration for lifestyle sync (Checkpoint B)
                   pauseMonths: (scenario as { pauseMonths?: number }).pauseMonths,
                 });
+                // Add to set to prevent duplicates within same batch
+                existingSourceKeys.add(sourceKey);
               }
             });
 
@@ -486,17 +495,26 @@ export default function ProgressPage() {
 
             // Create missions from selectedScenarios (swipe results) first
             const missions: Mission[] = [];
+            // Track created missions by source key to prevent duplicates
+            const createdSourceKeys = new Set<string>();
 
             // Priority 1: Use selectedScenarios from swipe if available
             if (planData.selectedScenarios && planData.selectedScenarios.length > 0) {
-              planData.selectedScenarios.forEach((scenario, index) => {
+              planData.selectedScenarios.forEach((scenario) => {
+                // Bug Fix: Deduplicate by source+sourceId
+                const sourceKey = `${scenario.source ?? 'unknown'}_${scenario.sourceId ?? scenario.title}`;
+                if (createdSourceKeys.has(sourceKey)) return;
+                createdSourceKeys.add(sourceKey);
+
                 // Pull Architecture: Handle different scenario types
                 const weeklyHours = scenario.weeklyHours ?? 0;
                 const weeklyEarnings =
                   scenario.weeklyEarnings ?? scenario.oneTimeAmount ?? scenario.monthlyAmount ?? 0;
 
+                // Bug Fix: Use crypto.randomUUID() for truly unique IDs
+                const uniqueId = crypto.randomUUID();
                 missions.push({
-                  id: `mission_swipe_${index}`,
+                  id: `mission_${uniqueId}`,
                   title: scenario.title,
                   description: scenario.description,
                   category: scenario.category as Mission['category'],
@@ -510,21 +528,30 @@ export default function ProgressPage() {
                   // Source tracking for sync back to Trade/Lifestyle tabs
                   source: scenario.source,
                   sourceId: scenario.sourceId,
+                  // Pause duration for lifestyle sync (Checkpoint B)
+                  pauseMonths: (scenario as { pauseMonths?: number }).pauseMonths,
                 });
               });
             }
 
             // Priority 2: Add trade-based missions for active borrows/lends
+            // Note: This is legacy code for trades that weren't swiped
+            // With Pull Architecture, most trades should come through swipe scenarios
             if (planData.trades && planData.trades.length > 0) {
               planData.trades
                 .filter((t) => t.status === 'active' || t.status === 'pending')
-                .forEach((trade, index) => {
+                .forEach((trade) => {
+                  // Bug Fix: Deduplicate by source+sourceId
+                  const sourceKey = `trade_${trade.id}`;
+                  if (createdSourceKeys.has(sourceKey)) return;
+
                   if (trade.type === 'borrow') {
+                    createdSourceKeys.add(sourceKey);
                     missions.push({
-                      id: `mission_trade_borrow_${index}`,
+                      id: `mission_${crypto.randomUUID()}`,
                       title: `Recuperer ${trade.name}`,
                       description: `Recuperer ${trade.name} emprunte a ${trade.partner}`,
-                      category: 'trade',
+                      category: 'karma_borrow',
                       weeklyHours: 1,
                       weeklyEarnings: trade.value, // Savings count as earnings
                       status: 'active',
@@ -533,13 +560,16 @@ export default function ProgressPage() {
                       hoursCompleted: trade.status === 'active' ? 0.5 : 0,
                       earningsCollected:
                         trade.status === 'active' ? Math.round(trade.value / 2) : 0,
+                      source: 'trade',
+                      sourceId: trade.id,
                     });
                   } else if (trade.type === 'lend' && trade.dueDate) {
+                    createdSourceKeys.add(sourceKey);
                     missions.push({
-                      id: `mission_trade_lend_${index}`,
+                      id: `mission_${crypto.randomUUID()}`,
                       title: `Return ${trade.name}`,
                       description: `Return ${trade.name} lent to ${trade.partner} before ${formatDate(trade.dueDate)}`,
-                      category: 'trade',
+                      category: 'karma_lend',
                       weeklyHours: 1,
                       weeklyEarnings: 0,
                       status: 'active',
@@ -547,6 +577,8 @@ export default function ProgressPage() {
                       startDate: startDate.toISOString(),
                       hoursCompleted: 0,
                       earningsCollected: 0,
+                      source: 'trade',
+                      sourceId: trade.id,
                     });
                   }
                 });
