@@ -38,6 +38,10 @@ export interface DailyBriefingInput {
   currentAmount?: number;
   goalDeadline?: string; // ISO date
   goalName?: string;
+  daysRemaining?: number;
+  // Weekly metrics for popup display
+  weeklyEarned?: number;
+  weeklyTarget?: number;
   // Active missions
   activeMissions: {
     id: string;
@@ -47,6 +51,20 @@ export interface DailyBriefingInput {
     weeklyEarnings: number;
     progress?: number;
     deadline?: string;
+  }[];
+  // Sellable items (type='sell', status='available')
+  sellableItems?: {
+    id: string;
+    name: string;
+    value: number;
+    category?: string;
+  }[];
+  // Skills with arbitrage potential
+  skills?: {
+    name: string;
+    hourlyRate: number;
+    effortLevel?: number;
+    demandScore?: number;
   }[];
   // Upcoming events
   upcomingDeadlines?: {
@@ -281,6 +299,17 @@ export async function generateDailyBriefing(
 - Goal progress: ${input.goalProgress}%${daysUntilGoal ? ` (${daysUntilGoal} days left)` : ''}
 - Active missions: ${input.activeMissions.length}`);
 
+          // Weekly progress (for smart recommendations)
+          if (input.weeklyEarned !== undefined || input.weeklyTarget !== undefined) {
+            const weeklyProgress =
+              input.weeklyTarget && input.weeklyTarget > 0
+                ? Math.round(((input.weeklyEarned || 0) / input.weeklyTarget) * 100)
+                : 0;
+            contextParts.push(
+              `📊 This week: ${input.weeklyEarned || 0}€ / ${input.weeklyTarget || 0}€ (${weeklyProgress}%)`
+            );
+          }
+
           // Energy alerts
           if (isEnergyDebt) {
             contextParts.push(
@@ -298,6 +327,26 @@ export async function generateDailyBriefing(
             );
           }
 
+          // Sellable items (easiest money opportunity)
+          if (input.sellableItems && input.sellableItems.length > 0) {
+            const topItems = input.sellableItems
+              .sort((a, b) => b.value - a.value)
+              .slice(0, 3)
+              .map((i) => `- ${i.name}: ${i.value}€`)
+              .join('\n');
+            contextParts.push(`🏷️ Items you can sell:\n${topItems}`);
+          }
+
+          // Skills (for higher energy days)
+          if (input.skills && input.skills.length > 0) {
+            const topSkills = input.skills
+              .sort((a, b) => b.hourlyRate - a.hourlyRate)
+              .slice(0, 3)
+              .map((s) => `- ${s.name}: ${s.hourlyRate}€/h`)
+              .join('\n');
+            contextParts.push(`💼 Your skills:\n${topSkills}`);
+          }
+
           // Missions
           if (input.activeMissions.length > 0) {
             const missionsList = input.activeMissions
@@ -313,28 +362,37 @@ export async function generateDailyBriefing(
           }
 
           const systemPrompt = `You are Bruno, a friendly and motivating financial coach for students.
-Generate a brief, personalized morning briefing (max 2 sentences).
+Generate a brief, personalized morning briefing that suggests THE EASIEST ACTION to earn money today.
 
 PRIORITY FOR TODAY: ${priority}
 
+SMART RECOMMENDATION RULES:
+1. If energy < 40%: ALWAYS suggest selling items (minimal effort required)
+2. If sellable items available AND energy < 60%: Prioritize selling over working
+3. If energy >= 60% AND skills available: Suggest the highest-paying skill
+4. Otherwise: Encourage existing missions progress
+
 STYLE:
 - Be warm and encouraging
-- Focus on ONE key thing for today
-- Be specific and actionable
-- Use simple language
+- Suggest ONE SPECIFIC and IMMEDIATE action
+- Mention the exact item/skill by name with its value
+- Keep it short (2-3 sentences max)
+- Use simple language, no jargon
 
 OUTPUT FORMAT (JSON):
 {
   "title": "Short catchy title (max 5 words)",
-  "message": "Personalized message with today's focus (max 2 sentences)",
-  "todaysFocus": "One specific action for today (optional)",
+  "message": "Personalized message mentioning the specific action and amount (max 2-3 sentences)",
+  "todaysFocus": "One specific action with amount (e.g., 'Sell your PS4 for 150€')",
   "action": { "label": "Button text", "href": "/valid-route" }
 }
 
 VALID ROUTES:
-- /plan?tab=swipe, /plan?tab=skills, /plan?tab=goals, /plan?tab=lifestyle
-- /suivi (dashboard)
-- #missions`;
+- /me?tab=trade (for selling items)
+- /me?tab=skills (for skill-based work)
+- /me?tab=goals (for goal review)
+- /progress (dashboard)
+- /swipe (for new strategies)`;
 
           const userPrompt = `Generate today's briefing based on this context:\n\n${contextParts.join('\n\n')}`;
 

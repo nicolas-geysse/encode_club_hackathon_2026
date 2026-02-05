@@ -15,7 +15,7 @@ import { CompletedGoalsSummary } from '~/components/suivi/CompletedGoalsSummary'
 import { BrunoTips } from '~/components/suivi/BrunoTips';
 import { EnergyHistory } from '~/components/suivi/EnergyHistory';
 import { ComebackAlert } from '~/components/suivi/ComebackAlert';
-import { DailyMoodModal, shouldShowDailyMood } from '~/components/suivi/DailyMoodModal';
+// Note: DailyMoodModal removed - mood selection is now inline in SimulationControls popup
 import { calculateKarma } from '~/hooks/useKarma';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
@@ -232,8 +232,7 @@ export default function ProgressPage() {
   // Sprint 9.5: Track completed goals for "all goals completed" message
   const [completedGoalsCount, setCompletedGoalsCount] = createSignal(0);
 
-  // Daily mood check-in modal
-  const [showDailyMoodModal, setShowDailyMoodModal] = createSignal(false);
+  // Note: Daily mood check-in moved to SimulationControls popup (inline smileys)
 
   // Bugfix: One-time gains from trades and paused subscriptions (fetched from Budget API)
   const [oneTimeGains, setOneTimeGains] = createSignal<OneTimeGains>(getEmptyOneTimeGains());
@@ -520,60 +519,15 @@ export default function ProgressPage() {
                 });
             }
 
-            // Fallback: Use skills/inventory if no swipe scenarios
-            if (missions.length === 0) {
-              if (planData.skills && planData.skills.length > 0) {
-                missions.push({
-                  id: 'mission_skill_1',
-                  title: `Freelance ${planData.skills[0].name}`,
-                  description: 'First freelance mission this week',
-                  category: 'freelance',
-                  weeklyHours: 5,
-                  weeklyEarnings: planData.skills[0].hourlyRate * 5,
-                  status: 'active',
-                  progress: 20,
-                  startDate: startDate.toISOString(),
-                  hoursCompleted: 1,
-                  earningsCollected: planData.skills[0].hourlyRate,
-                });
-              }
+            // Note: Skills are NOT missions - they're just capabilities the user has.
+            // Missions should only come from:
+            // 1. Swipe scenarios (user-selected strategies)
+            // 2. Trades (items to sell/borrow)
+            // 3. Jobs from prospection tab
+            // The old fallback that created missions from skills was incorrect.
 
-              if (planData.inventory && planData.inventory.length > 0) {
-                const unsoldItem = planData.inventory.find((i) => !i.sold);
-                if (unsoldItem) {
-                  missions.push({
-                    id: 'mission_sell_1',
-                    title: `Sell ${unsoldItem.name}`,
-                    description: 'List for sale and find a buyer',
-                    category: 'selling',
-                    weeklyHours: 2,
-                    weeklyEarnings: unsoldItem.estimatedValue,
-                    status: 'active',
-                    progress: 0,
-                    startDate: startDate.toISOString(),
-                    hoursCompleted: 0,
-                    earningsCollected: 0,
-                  });
-                }
-              }
-            }
-
-            // Default missions if still none
-            if (missions.length === 0) {
-              missions.push({
-                id: 'mission_default_1',
-                title: 'Tutoring',
-                description: 'Find a student and give tutoring sessions',
-                category: 'tutoring',
-                weeklyHours: 3,
-                weeklyEarnings: 45,
-                status: 'active',
-                progress: 0,
-                startDate: startDate.toISOString(),
-                hoursCompleted: 0,
-                earningsCollected: 0,
-              });
-            }
+            // If no missions, leave empty - UI will show prompt to choose strategies
+            // via /swipe or set up trades via /me?tab=trade
 
             const newFollowupData = {
               currentAmount: existingFollowup?.currentAmount ?? 0,
@@ -642,12 +596,7 @@ export default function ProgressPage() {
         checkAndApplyAutoCredit();
       }, 100);
 
-      // Check if we should show daily mood modal (after data is loaded)
-      setTimeout(() => {
-        if (shouldShowDailyMood()) {
-          setShowDailyMoodModal(true);
-        }
-      }, 500); // Slight delay to let page settle
+      // Note: Daily mood check-in now handled by SimulationControls popup
     });
   });
 
@@ -1281,18 +1230,7 @@ export default function ProgressPage() {
           />
         </Show>
 
-        {/* Daily Mood Check-in Modal */}
-        <Show when={showDailyMoodModal()}>
-          <DailyMoodModal
-            currentWeek={currentWeekNumber()}
-            onMoodSelect={(level) => {
-              handleEnergyUpdate(currentWeekNumber(), level);
-              setShowDailyMoodModal(false);
-              toastPopup.success('Mood saved!', `Energy level set to ${level}%`);
-            }}
-            onDismiss={() => setShowDailyMoodModal(false)}
-          />
-        </Show>
+        {/* Note: Daily Mood Modal removed - now inline in SimulationControls popup */}
       </Show>
     </Show>
   );

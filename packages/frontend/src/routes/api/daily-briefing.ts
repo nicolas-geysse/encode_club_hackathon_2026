@@ -130,9 +130,19 @@ export async function POST(event: APIEvent): Promise<Response> {
 
     logger.info('Daily briefing generated', {
       traceId: result.traceId,
+      traceIdLength: result.traceId?.length || 0,
+      traceIdValid: result.traceId && result.traceId.length > 10,
       priority: result.briefing.priority,
       durationMs: result.processingInfo.durationMs,
     });
+
+    // Warn if traceId is missing - feedback won't work without it
+    if (!result.traceId || result.traceId.length < 10) {
+      logger.warn('Daily briefing has no valid traceId - user feedback will not be tracked!', {
+        traceId: result.traceId,
+        hint: 'Check OPIK_API_KEY and OPIK_WORKSPACE env vars',
+      });
+    }
 
     return new Response(JSON.stringify(result), {
       status: 200,

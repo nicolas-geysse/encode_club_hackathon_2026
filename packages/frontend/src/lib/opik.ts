@@ -641,24 +641,36 @@ export async function logFeedbackScores(
     // Endpoint: PUT /v1/private/traces/{id}/feedback-scores
     const apiUrl = cfg.baseUrl || 'https://www.comet.com/opik/api';
 
+    logger.info('Sending feedback to Opik', {
+      traceId: id,
+      apiUrl,
+      workspace: cfg.workspace,
+      scoresCount: scores.length,
+    });
+
     // Track if all scores were logged successfully
     let allSucceeded = true;
     let successCount = 0;
 
     for (const score of scores) {
-      const response = await fetch(`${apiUrl}/v1/private/traces/${id}/feedback-scores`, {
+      const url = `${apiUrl}/v1/private/traces/${id}/feedback-scores`;
+      const body = {
+        name: score.name,
+        value: score.value,
+        source: 'sdk',
+        reason: score.reason,
+      };
+
+      logger.info('Calling Opik feedback API', { url, body });
+
+      const response = await fetch(url, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           authorization: cfg.apiKey, // Opik API expects raw API key, not "Bearer" prefix
           ...(cfg.workspace ? { 'Comet-Workspace': cfg.workspace } : {}),
         },
-        body: JSON.stringify({
-          name: score.name,
-          value: score.value,
-          source: 'sdk',
-          reason: score.reason,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -666,14 +678,25 @@ export async function logFeedbackScores(
         const errorText = await response.text();
         logger.error(`Failed to log feedback score "${score.name}"`, {
           status: response.status,
+          statusText: response.statusText,
           error: errorText,
+          url,
+          traceId: id,
         });
       } else {
         successCount++;
+        // Log the response body to verify Opik accepted it
+        const responseText = await response.text();
+        logger.info('Feedback score logged successfully', {
+          scoreName: score.name,
+          traceId: id,
+          responseStatus: response.status,
+          responseBody: responseText || '(empty)',
+        });
       }
     }
 
-    logger.info('Logged feedback scores', {
+    logger.info('Feedback scores logging completed', {
       successCount,
       totalCount: scores.length,
       traceId: id,

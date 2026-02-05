@@ -49,6 +49,26 @@ interface GoalInfo {
   amount: number;
 }
 
+interface PopupMetrics {
+  weeklyEarned: number;
+  weeklyTarget: number;
+  totalEarned: number;
+  totalGoal: number;
+  daysRemaining: number;
+  energyLevel: number;
+}
+
+// Mood emoji options
+const MOOD_OPTIONS = [
+  { emoji: '😫', level: 1, label: 'Exhausted', color: 'text-red-500' },
+  { emoji: '😕', level: 2, label: 'Tired', color: 'text-orange-500' },
+  { emoji: '😐', level: 3, label: 'Okay', color: 'text-yellow-500' },
+  { emoji: '🙂', level: 4, label: 'Good', color: 'text-green-500' },
+  { emoji: '😄', level: 5, label: 'Great', color: 'text-emerald-500' },
+];
+
+const MOOD_STORAGE_KEY = 'stride_daily_mood';
+
 interface Props {
   onSimulationChange?: (state: SimulationState) => void;
   compact?: boolean;
@@ -85,6 +105,8 @@ export function SimulationControls(props: Props) {
   const [loadingTip, setLoadingTip] = createSignal(false);
   const [feedbackGiven, setFeedbackGiven] = createSignal<'up' | 'down' | null>(null);
   const [showAgentDetails, setShowAgentDetails] = createSignal(false);
+  const [popupMetrics, setPopupMetrics] = createSignal<PopupMetrics | null>(null);
+  const [currentMood, setCurrentMood] = createSignal<number | null>(null);
 
   // Calculate days elapsed and remaining based on goal
   const daysInfo = createMemo(() => {
@@ -167,11 +189,58 @@ export function SimulationControls(props: Props) {
     }
   };
 
+  // Load saved mood for today
+  const loadTodaysMood = () => {
+    try {
+      const moodData = localStorage.getItem(MOOD_STORAGE_KEY);
+      if (moodData) {
+        const { date, level } = JSON.parse(moodData);
+        const today = todayISO();
+        if (date === today) {
+          setCurrentMood(level);
+        }
+      }
+    } catch {
+      // Ignore parsing errors
+    }
+  };
+
+  // Save mood to localStorage and optionally to energy logs
+  const saveMood = async (level: number) => {
+    const today = todayISO();
+    localStorage.setItem(MOOD_STORAGE_KEY, JSON.stringify({ date: today, level }));
+    setCurrentMood(level);
+
+    // Also log energy via API (convert 1-5 scale to percentage for consistency)
+    try {
+      const profileData = localStorage.getItem('studentProfile');
+      if (profileData) {
+        const profile = JSON.parse(profileData);
+        const profileId = profile.id || 'default';
+        await fetch('/api/retroplan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'log_energy',
+            userId: profileId,
+            energyLevel: level, // 1-5 scale
+            date: today,
+          }),
+        });
+      }
+    } catch {
+      // Silently ignore - local storage already saved
+    }
+  };
+
   // Check if we need to show daily check-in
   // Only shows once per REAL day, not simulated day
   const checkDailyCheckin = () => {
     const today = todayISO(); // Real date
     const lastCheckin = localStorage.getItem(LAST_CHECKIN_KEY);
+
+    // Load today's mood
+    loadTodaysMood();
 
     if (lastCheckin !== today) {
       // It's a new real day - show check-in prompt (only if not first visit)
@@ -203,18 +272,51 @@ export function SimulationControls(props: Props) {
       }
 
       const profile = JSON.parse(profileData);
+      const profileId = profile.id || 'default';
 
-      // Read followupData separately (contains currentAmount)
+      // Read followupData from localStorage as fallback
       const followupDataStr = localStorage.getItem('followupData');
       const followupData = followupDataStr ? JSON.parse(followupDataStr) : {};
-      const currentAmount = followupData.currentAmount || 0;
+
+      // Fetch the primary goal from API (source of truth for progress)
+      let primaryGoal: {
+        id: string;
+        name: string;
+        amount: number;
+        deadline?: string;
+        progress: number;
+        createdAt?: string;
+      } | null = null;
+      try {
+        const goalsResponse = await fetch(`/api/goals?profileId=${profileId}&status=active`);
+        if (goalsResponse.ok) {
+          const goals = await goalsResponse.json();
+          if (goals && goals.length > 0) {
+            primaryGoal = goals[0]; // First active goal is primary
+          }
+        }
+      } catch {
+        // Continue with goalInfo() fallback
+      }
+
+      // Fetch budget data for one-time gains (trade sales, paused savings)
+      let oneTimeGains = { tradeSales: 0, tradeBorrow: 0, pausedSavings: 0 };
+      try {
+        const budgetResponse = await fetch(`/api/budget?profileId=${profileId}`);
+        if (budgetResponse.ok) {
+          const budgetData = await budgetResponse.json();
+          oneTimeGains = budgetData.budget?.oneTimeGains || oneTimeGains;
+        }
+      } catch {
+        // Continue without one-time gains
+      }
 
       // Fetch energy logs from API to get real energy data
       let energyLevel = 70; // Default
       let energyHistory: number[] = [70];
       try {
         const energyResponse = await fetch(
-          `/api/retroplan?action=get_energy_logs&userId=${profile.id || 'default'}`
+          `/api/retroplan?action=get_energy_logs&userId=${profileId}`
         );
         if (energyResponse.ok) {
           const energyData = await energyResponse.json();
@@ -230,10 +332,90 @@ export function SimulationControls(props: Props) {
         // Use defaults if fetch fails
       }
 
-      // Build rich context for daily briefing
-      const goal = goalInfo();
-      const goalProgress =
-        goal?.amount && currentAmount ? Math.round((currentAmount / goal.amount) * 100) : 0;
+      // Fetch sellable items (trades with type='sell' and status='available' or 'pending')
+      let sellableItems: { id: string; name: string; value: number; category?: string }[] = [];
+      try {
+        const tradesResponse = await fetch(`/api/trades?profileId=${profileId}`);
+        if (tradesResponse.ok) {
+          const trades = await tradesResponse.json();
+          sellableItems = (trades || [])
+            .filter(
+              (t: { type: string; status: string }) =>
+                t.type === 'sell' && (t.status === 'available' || t.status === 'pending')
+            )
+            .map((t: { id: string; name: string; value: number; description?: string }) => ({
+              id: t.id,
+              name: t.name,
+              value: t.value || 0,
+              category: t.description,
+            }))
+            .slice(0, 5);
+        }
+      } catch {
+        // Continue without sellable items
+      }
+
+      // Get skills from profile's planData
+      const planData = profile.planData || {};
+      const skills = (planData.skills || [])
+        .map((s: { name: string; hourlyRate?: number; effortLevel?: number }) => ({
+          name: s.name,
+          hourlyRate: s.hourlyRate || 15,
+          effortLevel: s.effortLevel,
+        }))
+        .slice(0, 5);
+
+      // Use API goal data or fallback to goalInfo()
+      const goal = primaryGoal || goalInfo();
+      const goalAmount = goal?.amount || 0;
+      const goalDeadline = primaryGoal?.deadline || goalInfo()?.deadline;
+
+      // Calculate total earned: followup savings + one-time gains (trade sales)
+      const savedAmount = followupData.currentAmount || 0;
+      const totalOneTimeGains =
+        (oneTimeGains.tradeSales || 0) +
+        (oneTimeGains.tradeBorrow || 0) +
+        (oneTimeGains.pausedSavings || 0);
+      const totalEarned = savedAmount + totalOneTimeGains;
+
+      // Calculate goal progress
+      const goalProgress = goalAmount > 0 ? Math.round((totalEarned / goalAmount) * 100) : 0;
+
+      // Calculate days remaining
+      let daysRemaining = 0;
+      if (goalDeadline) {
+        const now = simulatedDate ? new Date(simulatedDate) : new Date();
+        const deadline = new Date(goalDeadline);
+        daysRemaining = Math.max(
+          0,
+          Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        );
+      }
+
+      // Calculate weeks remaining for weekly target
+      const weeksRemaining = Math.max(1, Math.ceil(daysRemaining / 7));
+      const remainingToSave = Math.max(0, goalAmount - totalEarned);
+      const weeklyTarget = Math.ceil(remainingToSave / weeksRemaining);
+
+      // Weekly earned: missions completed this week + portion of trade sales
+      // For simplicity, show trade sales as "this week" if they're recent
+      const missionEarnings = (followupData.missions || [])
+        .filter((m: { status?: string }) => m.status === 'completed')
+        .reduce(
+          (sum: number, m: { earningsCollected?: number }) => sum + (m.earningsCollected || 0),
+          0
+        );
+      const weeklyEarned = missionEarnings + totalOneTimeGains;
+
+      // Set popup metrics for display
+      setPopupMetrics({
+        weeklyEarned,
+        weeklyTarget,
+        totalEarned,
+        totalGoal: goalAmount,
+        daysRemaining,
+        energyLevel,
+      });
 
       // Get missions from profile if available
       const activeMissions = (profile.missions || [])
@@ -260,15 +442,20 @@ export function SimulationControls(props: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          profileId: profile.id || 'default',
+          profileId,
           currentEnergy: energyLevel,
           energyHistory,
           goalProgress,
-          goalAmount: goal?.amount,
-          currentAmount,
-          goalDeadline: goal?.deadline,
+          goalAmount,
+          currentAmount: totalEarned,
+          goalDeadline,
           goalName: goal?.name,
+          daysRemaining,
+          weeklyEarned,
+          weeklyTarget,
           activeMissions,
+          sellableItems,
+          skills,
           upcomingDeadlines: profile.upcomingDeadlines || [],
           recentAchievements: profile.recentAchievements || [],
           currentDate: simulatedDate,
@@ -309,28 +496,49 @@ export function SimulationControls(props: Props) {
   // Send feedback to Opik via API
   const handleFeedback = async (isHelpful: boolean) => {
     const tip = dailyTip();
-    if (!tip?.traceId) return;
-
     const vote = isHelpful ? 'up' : 'down';
     setFeedbackGiven(vote);
 
+    // Save feedback locally even if no traceId
+    logger.info('User feedback received', {
+      isHelpful,
+      hasTraceId: !!tip?.traceId,
+      traceId: tip?.traceId,
+      traceIdLength: tip?.traceId?.length || 0,
+    });
+
+    // Only send to Opik if we have a valid traceId (UUIDs are 36 chars with dashes)
+    if (!tip?.traceId || tip.traceId.length < 10) {
+      logger.warn('No valid traceId available for feedback - feedback saved locally only', {
+        traceId: tip?.traceId,
+        hint: 'The daily briefing may not have been traced. Check server logs for Opik initialization.',
+      });
+      return;
+    }
+
     try {
-      await fetch('/api/feedback', {
+      const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           traceId: tip.traceId,
           scores: [
             {
-              name: 'User feedback',
+              name: 'user_feedback',
               value: isHelpful ? 1 : 0,
               reason: isHelpful
-                ? 'User found this tip helpful'
-                : 'User did not find this tip helpful',
+                ? 'User found this daily briefing helpful'
+                : 'User did not find this daily briefing helpful',
             },
           ],
         }),
       });
+      const data = await response.json();
+      if (!response.ok) {
+        logger.error('Feedback API error', { status: response.status, data });
+      } else {
+        logger.info('Feedback sent successfully', { traceId: tip.traceId, data });
+      }
     } catch (error) {
       logger.error('Failed to submit tip feedback', { error });
     }
@@ -610,24 +818,29 @@ export function SimulationControls(props: Props) {
         <Show when={showDailyCheckin()}>
           <div class="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <Card class="w-full max-w-md bg-card border shadow-2xl">
-              <CardContent class="p-4">
-                {/* Header with Avatar and Greeting */}
-                <div class="flex items-start gap-3">
-                  <div class="flex-shrink-0">
-                    <PlasmaAvatar size={48} color="green" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <h3 class="font-semibold text-foreground">
-                        {loadingTip() ? 'Loading...' : dailyTip()?.title || 'Daily briefing'}
-                      </h3>
+              <CardContent class="p-0">
+                {/* Header with Day Counter and Date */}
+                <div class="p-4 pb-3 border-b border-border">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <PlasmaAvatar size={40} color="green" />
+                      <div>
+                        <div class="flex items-center gap-2">
+                          <span class="text-sm font-medium text-muted-foreground">Day</span>
+                          <span class="text-xl font-bold text-primary">
+                            {daysInfo().currentDay}
+                          </span>
+                        </div>
+                        <p class="text-xs text-muted-foreground">{formatFullDate(currentDate())}</p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-1">
                       <Show when={dailyTip()?.isAI}>
                         <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400">
                           <Sparkles class="h-3 w-3" />
                           AI
                         </span>
                       </Show>
-                      {/* Agent count badge */}
                       <Show when={dailyTip()?.agentsUsed && dailyTip()!.agentsUsed!.length > 0}>
                         <button
                           onClick={() => setShowAgentDetails(!showAgentDetails())}
@@ -639,55 +852,82 @@ export function SimulationControls(props: Props) {
                         </button>
                       </Show>
                     </div>
-                    <p class="text-sm text-muted-foreground mt-0.5">
-                      {dailyTip()?.greeting || 'Good day'} • {formatFullDate(currentDate())}
-                    </p>
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                <Show
-                  when={
-                    !loadingTip() && dailyTip()?.quickStats && dailyTip()!.quickStats!.length > 0
-                  }
-                >
-                  <div class="flex items-center gap-3 mt-3 p-2 rounded-lg bg-muted/50">
-                    <For each={dailyTip()!.quickStats!}>
-                      {(stat) => (
-                        <div class="flex-1 text-center">
-                          <div class="text-lg font-bold text-foreground">
-                            {stat.value}
-                            <Show when={stat.trend === 'up'}>
-                              <span class="text-green-500 text-xs ml-0.5">↑</span>
-                            </Show>
-                            <Show when={stat.trend === 'down'}>
-                              <span class="text-red-500 text-xs ml-0.5">↓</span>
-                            </Show>
-                          </div>
-                          <div class="text-[10px] text-muted-foreground uppercase tracking-wide">
-                            {stat.label}
-                          </div>
-                        </div>
-                      )}
-                    </For>
+                {/* Progress Metrics Section */}
+                <Show when={popupMetrics()}>
+                  <div class="p-4 space-y-3 bg-muted/30">
+                    {/* Weekly Progress */}
+                    <div>
+                      <div class="flex items-center justify-between text-sm mb-1">
+                        <span class="text-muted-foreground">This week</span>
+                        <span class="font-medium">
+                          {popupMetrics()!.weeklyEarned}€ / {popupMetrics()!.weeklyTarget}€
+                        </span>
+                      </div>
+                      <div class="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          class="h-full bg-primary transition-all duration-300"
+                          style={{
+                            width: `${Math.min(100, popupMetrics()!.weeklyTarget > 0 ? (popupMetrics()!.weeklyEarned / popupMetrics()!.weeklyTarget) * 100 : 0)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Total Progress */}
+                    <div>
+                      <div class="flex items-center justify-between text-sm mb-1">
+                        <span class="text-muted-foreground">Total</span>
+                        <span class="font-medium">
+                          {popupMetrics()!.totalEarned}€ / {popupMetrics()!.totalGoal}€
+                        </span>
+                      </div>
+                      <div class="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          class="h-full bg-green-500 transition-all duration-300"
+                          style={{
+                            width: `${Math.min(100, popupMetrics()!.totalGoal > 0 ? (popupMetrics()!.totalEarned / popupMetrics()!.totalGoal) * 100 : 0)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Days Remaining Badge */}
+                    <div class="flex items-center justify-center pt-1">
+                      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-background text-sm">
+                        <Clock class="h-4 w-4 text-muted-foreground" />
+                        <span class="font-medium">{popupMetrics()!.daysRemaining}</span>
+                        <span class="text-muted-foreground">days remaining</span>
+                      </span>
+                    </div>
                   </div>
                 </Show>
 
                 {/* Briefing Message */}
-                <div class="mt-3 p-3 rounded-lg bg-muted">
+                <div class="p-4 border-t border-border">
                   <Show when={loadingTip()}>
-                    <div class="flex items-center gap-2 text-muted-foreground">
+                    <div class="flex items-center gap-2 text-muted-foreground py-4">
                       <Loader2 class="h-4 w-4 animate-spin" />
                       <span class="text-sm">Bruno is preparing your briefing...</span>
                     </div>
                   </Show>
                   <Show when={!loadingTip() && dailyTip()}>
-                    <p class="text-sm text-foreground">{dailyTip()?.message}</p>
+                    <div class="flex items-start gap-2 mb-2">
+                      <Sparkles class="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 class="font-semibold text-foreground text-sm">
+                          {dailyTip()?.title || 'Daily Tip'}
+                        </h4>
+                        <p class="text-sm text-muted-foreground mt-1">{dailyTip()?.message}</p>
+                      </div>
+                    </div>
                     {/* Today's Focus */}
                     <Show when={dailyTip()?.todaysFocus}>
-                      <div class="mt-2 pt-2 border-t border-border/50">
-                        <span class="text-xs text-muted-foreground">Today's focus: </span>
-                        <span class="text-xs font-medium text-primary">
+                      <div class="mt-3 p-2 rounded-lg bg-primary/10 border border-primary/20">
+                        <span class="text-xs text-muted-foreground">Recommended action: </span>
+                        <span class="text-sm font-medium text-primary">
                           {dailyTip()!.todaysFocus}
                         </span>
                       </div>
@@ -695,9 +935,39 @@ export function SimulationControls(props: Props) {
                   </Show>
                 </div>
 
+                {/* Inline Mood Selection */}
+                <div class="p-4 border-t border-border bg-muted/20">
+                  <div class="text-center mb-3">
+                    <span class="text-sm text-muted-foreground">How are you feeling today?</span>
+                  </div>
+                  <div class="flex justify-center gap-2">
+                    <For each={MOOD_OPTIONS}>
+                      {(option) => (
+                        <button
+                          type="button"
+                          onClick={() => saveMood(option.level)}
+                          class={`text-2xl p-2 rounded-lg transition-all duration-200 ${
+                            currentMood() === option.level
+                              ? 'bg-primary/20 scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background'
+                              : 'hover:bg-muted hover:scale-105 opacity-60 hover:opacity-100'
+                          }`}
+                          title={option.label}
+                        >
+                          {option.emoji}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                  <Show when={currentMood()}>
+                    <p class="text-xs text-center text-muted-foreground mt-2">
+                      Mood saved: {MOOD_OPTIONS.find((o) => o.level === currentMood())?.label}
+                    </p>
+                  </Show>
+                </div>
+
                 {/* Agent Details Panel (expandable) */}
                 <Show when={showAgentDetails() && dailyTip()?.agentsUsed?.length}>
-                  <div class="mt-3 p-2 rounded-lg bg-muted/50 border border-border/50">
+                  <div class="mx-4 mb-3 p-2 rounded-lg bg-muted/50 border border-border/50">
                     <div class="flex items-center gap-2 flex-wrap text-xs">
                       <span class="text-muted-foreground">Agents:</span>
                       <For each={dailyTip()!.agentsUsed!}>
@@ -718,10 +988,10 @@ export function SimulationControls(props: Props) {
                 </Show>
 
                 {/* Feedback + Actions */}
-                <div class="flex items-center justify-between mt-4">
-                  {/* Feedback buttons */}
+                <div class="flex items-center justify-between p-4 border-t border-border">
+                  {/* Feedback buttons - show for AI responses */}
                   <div class="flex items-center gap-1">
-                    <Show when={dailyTip()?.isAI && dailyTip()?.traceId}>
+                    <Show when={dailyTip()?.isAI}>
                       <Show
                         when={feedbackGiven() === null}
                         fallback={

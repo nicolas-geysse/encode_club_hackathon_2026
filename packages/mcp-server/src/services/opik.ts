@@ -338,6 +338,16 @@ export async function trace<T>(
       traceHandle = opikClient.trace(traceConfig);
       currentTraceId = traceHandle.data?.id || traceHandle.id;
       currentTraceHandle = traceHandle;
+
+      // Debug: Log trace handle structure to verify ID extraction
+      if (!currentTraceId) {
+        console.error(`[Opik:${name}] WARNING: No trace ID extracted!`, {
+          hasData: !!traceHandle.data,
+          dataId: traceHandle.data?.id,
+          directId: traceHandle.id,
+          handleKeys: Object.keys(traceHandle || {}),
+        });
+      }
       logDebug(`[Opik:${name}] Created trace with ID: ${currentTraceId}`);
 
       ctx = {
