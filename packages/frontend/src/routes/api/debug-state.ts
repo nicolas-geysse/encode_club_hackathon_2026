@@ -26,7 +26,8 @@ const logger = createLogger('DebugState');
 
 interface DebugState {
   // Energy state
-  energyState: 'Normal' | 'Energy Debt' | 'Comeback Active';
+  // 'Low Energy' = current energy < 40% but not yet 3 consecutive weeks (pre-debt warning)
+  energyState: 'Normal' | 'Low Energy' | 'Energy Debt' | 'Comeback Active';
   energyConfidence: number;
   currentEnergy: number;
   energyHistory: number[];
@@ -176,7 +177,7 @@ export async function GET(event: APIEvent) {
     // Comeback detection (using number[] and deficit)
     const comeback = detectComebackWindow(energyHistory, estimatedDeficit);
 
-    // Determine state (mutually exclusive: Comeback > Debt > Normal)
+    // Determine state (mutually exclusive: Comeback > Debt > Low Energy > Normal)
     let energyState: DebugState['energyState'] = 'Normal';
     let energyConfidence = 70;
     let comebackActive = false;
@@ -194,6 +195,10 @@ export async function GET(event: APIEvent) {
       // P2-Health: Use algorithm severity directly (no conversion)
       debtSeverity = energyDebt.severity;
       energyConfidence = 80;
+    } else if (currentEnergy < 40) {
+      // Current energy is low but not yet 3 consecutive weeks = "Low Energy" warning
+      energyState = 'Low Energy';
+      energyConfidence = 60;
     }
 
     // Get swipe preferences

@@ -578,6 +578,11 @@ export function SimulationControls(props: Props) {
       const newState = await simulationService.resetToRealTime();
       setState(newState);
       props.onSimulationChange?.(newState);
+
+      // Clear mood from localStorage and reset signal
+      localStorage.removeItem(MOOD_STORAGE_KEY);
+      setCurrentMood(null);
+      logger.info('Simulation reset: cleared mood data');
     } finally {
       setLoading(false);
     }
