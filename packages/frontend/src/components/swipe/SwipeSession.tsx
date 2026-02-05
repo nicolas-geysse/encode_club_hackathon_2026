@@ -266,10 +266,19 @@ export function SwipeSession(props: SwipeSessionProps) {
     // Update accepted/rejected
     if (isAccepted) {
       // Merge user's adjustments into the scenario (rate, hours)
+      const adjustedHourlyRate = adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0;
+      const adjustedWeeklyHours = adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0;
+
       const adjustedScenario: Scenario = {
         ...scenario,
-        hourlyRate: adjustments().customHourlyRate ?? scenario.hourlyRate,
-        weeklyHours: adjustments().customWeeklyHours ?? scenario.weeklyHours,
+        hourlyRate: adjustedHourlyRate,
+        weeklyHours: adjustedWeeklyHours,
+        // Recalculate weeklyEarnings for job_lead scenarios
+        // For sell_item/pause_expense/karma, keep original values
+        weeklyEarnings:
+          scenario.category === 'job_lead'
+            ? adjustedHourlyRate * adjustedWeeklyHours
+            : (scenario.weeklyEarnings ?? scenario.oneTimeAmount ?? scenario.monthlyAmount ?? 0),
       };
       setAccepted([...accepted(), adjustedScenario]);
     } else {

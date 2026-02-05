@@ -949,6 +949,21 @@ export default function ProgressPage() {
     const mission = followup().missions.find((m) => m.id === id);
     if (!mission) return;
 
+    // Determine if this is a work mission (job_lead) vs karma/sell/pause mission
+    // Work missions should have earnings > 0 to be completed
+    // Karma missions can complete with 0 earnings (they have karma points instead)
+    const isWorkMission = mission.category === 'job_lead' || mission.category === 'freelance';
+    const hasZeroEarnings = (mission.weeklyEarnings ?? 0) <= 0;
+
+    if (isWorkMission && hasZeroEarnings) {
+      // Prevent completing work missions with 0 earnings
+      toastPopup.warning(
+        'Cannot complete',
+        'This mission has no earnings set. Please log hours first or adjust the rate.'
+      );
+      return;
+    }
+
     handleMissionUpdate(id, {
       status: 'completed',
       progress: 100,
