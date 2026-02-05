@@ -441,10 +441,18 @@ export function TradeTab(props: TradeTabProps) {
   // Feature N: Total potential savings from borrowing (active + pending)
   const totalBorrowPotential = () => borrowedValue() + pendingBorrowValue();
 
-  // Feature I: Karma score for lend/trade actions (circular economy contribution)
-  const karmaScore = () =>
-    trades().filter((t) => (t.type === 'lend' || t.type === 'trade') && t.status !== 'pending')
-      .length;
+  // Feature I: Karma score for lend/trade/borrow actions (circular economy contribution)
+  // Uses KARMA_POINTS constant for consistency with SwipeCard display
+  const karmaScore = () => {
+    const items = trades();
+    const lendKarma =
+      items.filter((t) => t.type === 'lend' && t.status === 'completed').length * 50;
+    const tradeKarma =
+      items.filter((t) => t.type === 'trade' && t.status === 'completed').length * 30;
+    const borrowKarma =
+      items.filter((t) => t.type === 'borrow' && t.status === 'completed').length * 20;
+    return lendKarma + tradeKarma + borrowKarma;
+  };
 
   // Total from completed sales
   const soldValue = () =>
@@ -602,6 +610,20 @@ export function TradeTab(props: TradeTabProps) {
                 <Show when={totalBorrowPotential() > borrowedValue()}>
                   <span class="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50">
                     Saves {formatCurrency(totalBorrowPotential(), currency(), { showSign: false })}
+                  </span>
+                </Show>
+                {/* Karma bonus from completed borrows */}
+                <Show
+                  when={
+                    trades().filter((t) => t.type === 'borrow' && t.status === 'completed').length >
+                    0
+                  }
+                >
+                  <span class="px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 border border-purple-200/50">
+                    +
+                    {trades().filter((t) => t.type === 'borrow' && t.status === 'completed')
+                      .length * 20}{' '}
+                    karma
                   </span>
                 </Show>
               </div>
