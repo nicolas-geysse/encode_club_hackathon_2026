@@ -281,12 +281,18 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
       - Premier karma, 100 karma, etc.
 ```
 
-### Checkpoint H: Agent Architecture (En cours)
+### Checkpoint H: Agent Architecture (✅ Implémenté)
 **Objectif**: Orchestration LLM intelligente des sources de scénarios
+
+**Status**:
+- ✅ H.1 Lifestyle Agent implémenté
+- ✅ H.2 Trade Agent (ajout de 2 outils)
+- ✅ H.3 Swipe Orchestrator implémenté
+- ⏳ H.4 Frontend integration (TODO)
 
 ---
 
-#### H.1 Lifestyle Agent (Nouveau)
+#### H.1 Lifestyle Agent (✅ Implémenté)
 **Fichier**: `packages/mcp-server/src/agents/lifestyle-agent.ts`
 
 **Rôle**: Analyser les abonnements/dépenses récurrentes et suggérer des optimisations intelligentes.
@@ -387,7 +393,7 @@ const FREE_ALTERNATIVES: Record<string, string[]> = {
 
 ---
 
-#### H.2 Trade Agent Amélioré
+#### H.2 Trade Agent Amélioré (✅ Implémenté)
 **Fichier**: `packages/mcp-server/src/agents/money-maker.ts` (existant, à enrichir)
 
 **Nouvelles fonctionnalités**:
@@ -488,7 +494,7 @@ const SEASON_MODIFIER = {
 
 ---
 
-#### H.3 Swipe Orchestrator Agent (Nouveau)
+#### H.3 Swipe Orchestrator Agent (✅ Implémenté)
 **Fichier**: `packages/mcp-server/src/agents/swipe-orchestrator.ts`
 
 **Rôle**: Orchestrer tous les agents pour générer et prioriser les scénarios de swipe.
@@ -645,7 +651,7 @@ interface SwipeOrchestratorOutput {
 
 ---
 
-#### H.4 Swipe Strategy (Tab Strategy)
+#### H.4 Swipe Strategy (Tab Strategy) (⏳ TODO)
 **Fichier**: `packages/mcp-server/src/agents/strategies/swipe.strategy.ts` (à enrichir)
 
 **Intégration avec Tab Tips Orchestrator**:
