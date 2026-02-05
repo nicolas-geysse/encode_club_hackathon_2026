@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip
 import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot, Plus, X } from 'lucide-solid';
 import { toastPopup } from '~/components/ui/Toast';
 import type { Lead } from '~/lib/prospectionTypes';
+import { KARMA_POINTS } from '~/hooks/useKarma';
 
 /**
  * Scenario categories (Pull Architecture)
@@ -415,20 +416,20 @@ function generateScenarios(
         title = `Lend ${item.name}`;
         description = `Help someone by lending your ${item.name}`;
         category = 'karma_lend';
-        karmaPoints = 50;
+        karmaPoints = KARMA_POINTS.lend;
         socialBenefit = 'Build trust in your community';
       } else if (isBorrow) {
         title = `Borrow ${item.name}`;
         description = `Ask to borrow ${item.name} from someone`;
         category = 'karma_borrow';
-        karmaPoints = 20; // Lower karma for borrowing (you're asking for help)
+        karmaPoints = KARMA_POINTS.borrow;
         socialBenefit = 'Save money by borrowing instead of buying';
       } else {
         // trade
         title = `Trade ${item.name}`;
         description = `Find someone to trade ${item.name} with`;
         category = 'karma_trade';
-        karmaPoints = 30;
+        karmaPoints = KARMA_POINTS.trade;
         socialBenefit = 'Get something you need without spending';
       }
 

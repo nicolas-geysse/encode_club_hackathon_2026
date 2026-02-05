@@ -765,10 +765,11 @@ export function TradeTab(props: TradeTabProps) {
                   <div class="flex items-center gap-4">
                     <div class="font-bold text-lg text-right min-w-[50px]">
                       <Show
-                        when={trade.type === 'sell' || trade.type === 'borrow'}
+                        when={trade.type === 'sell'}
                         fallback={
                           <span class="text-purple-600 dark:text-purple-400">
-                            +{trade.type === 'lend' ? '50' : '30'} karma
+                            +{trade.type === 'lend' ? '50' : trade.type === 'trade' ? '30' : '20'}{' '}
+                            karma
                           </span>
                         }
                       >
