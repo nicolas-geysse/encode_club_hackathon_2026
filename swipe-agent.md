@@ -1,6 +1,6 @@
 # Swipe Agent Redesign
 
-> **Status**: Phases 1-7 complètes, Checkpoints A, B, F.partial & G.partial complets. Skill Match + Karma Loop implémentés.
+> **Status**: Phases 1-7 complètes, Checkpoints A, B, F.partial, G.partial & **H complet** (Agent Orchestration). Skill Match + Karma Loop + Guardrails implémentés.
 
 ---
 
@@ -288,7 +288,8 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 - ✅ H.1 Lifestyle Agent implémenté
 - ✅ H.2 Trade Agent (ajout de 2 outils)
 - ✅ H.3 Swipe Orchestrator implémenté
-- ⏳ H.4 Frontend integration (TODO)
+- ✅ H.4 Frontend integration (swipe.strategy.ts wired)
+- ✅ H.5 Guardrail Agents implémentés (4 agents: Essential Guardian, Ghost Observer, Asset Pivot, Cash Flow Smoother)
 
 ---
 
@@ -651,8 +652,8 @@ interface SwipeOrchestratorOutput {
 
 ---
 
-#### H.4 Swipe Strategy (Tab Strategy) (⏳ TODO)
-**Fichier**: `packages/mcp-server/src/agents/strategies/swipe.strategy.ts` (à enrichir)
+#### H.4 Swipe Strategy (Tab Strategy) (✅ Implémenté)
+**Fichier**: `packages/mcp-server/src/agents/strategies/swipe.strategy.ts`
 
 **Intégration avec Tab Tips Orchestrator**:
 ```typescript
@@ -701,7 +702,7 @@ Be concise (2-3 sentences max), warm, and actionable.`;
 
 ---
 
-### Checkpoint H.5: Guardrail Agents (⏳ TODO)
+### Checkpoint H.5: Guardrail Agents (✅ Implémenté)
 **Objectif**: Intelligence financière avancée - filtrer, enrichir et protéger les scénarios
 
 Ces agents agissent comme des **couches de protection** entre l'agrégation et la présentation des scénarios.
@@ -1420,13 +1421,13 @@ const STRUCTURAL_ALTERNATIVES: Record<EssentialCategory, StructuralAlternative[]
 | `agents/lifestyle-agent.ts` | ✅ Créé | 4 outils (analyze, suggest, calculate, optimize) |
 | `agents/money-maker.ts` | ✅ Modifié | +2 outils (platform, days), SELLING_PLATFORMS db |
 | `agents/swipe-orchestrator.ts` | ✅ Créé | 4 outils (gather, rank, generate, process) |
-| `agents/ghost-observer.ts` | ⏳ TODO | 3 outils (patterns, filter, insights) |
-| `agents/cashflow-smoother.ts` | ⏳ TODO | 3 outils (mismatches, solutions, evaluate) |
-| `agents/asset-pivot.ts` | ⏳ TODO | 3 outils (detect, economics, platforms) |
-| `agents/essential-guardian.ts` | ⏳ TODO | 3 outils (naive, structural, impact) |
-| `agents/guardrails/index.ts` | ⏳ TODO | Exporte les 4 guardrails |
+| `agents/ghost-observer.ts` | ✅ Créé | 4 outils (patterns, filter, insights, full analysis) |
+| `agents/cashflow-smoother.ts` | ✅ Créé | 4 outils (mismatches, solutions, evaluate, full analysis) |
+| `agents/asset-pivot.ts` | ✅ Créé | 4 outils (detect, economics, platforms, full analysis) |
+| `agents/essential-guardian.ts` | ✅ Créé | 4 outils (naive, structural, impact, full analysis) |
+| `agents/guardrails/index.ts` | ✅ Créé | Exporte les 4 guardrails + GUARDRAIL_TOOLS/AGENTS |
 | `agents/index.ts` | ✅ Modifié | Exports lifestyle + orchestrator |
-| `agents/strategies/swipe.strategy.ts` | ⏳ TODO | Intégrer orchestrator + guardrails |
+| `agents/strategies/swipe.strategy.ts` | ✅ Modifié | Primary: swipe-orchestrator, +8 secondary agents incl. guardrails |
 
 ---
 
@@ -1437,33 +1438,32 @@ const STRUCTURAL_ALTERNATIVES: Record<EssentialCategory, StructuralAlternative[]
 1. H.1 Lifestyle Agent (4 outils)
 2. H.2 Trade Agent (+2 outils)
 3. H.3 Swipe Orchestrator (4 outils)
-
-⏳ EN COURS:
-4. H.5.4 Essential Guardian (PRIORITÉ - bloque suggestions dangereuses)
+4. H.5.4 Essential Guardian (bloque suggestions dangereuses)
    ├── detect_naive_suggestions
    ├── suggest_structural_alternatives
-   └── calculate_structural_impact
-
+   ├── calculate_structural_impact
+   └── essential_guardian (full analysis)
 5. H.5.1 Ghost Observer (filtre comportemental)
    ├── detect_rejection_patterns
    ├── filter_by_patterns
-   └── generate_behavior_insights
-
+   ├── generate_behavior_insights
+   └── ghost_observer (full analysis)
 6. H.5.3 Asset-to-Income Pivot (enrichit ventes)
    ├── detect_productive_assets
    ├── calculate_pivot_economics
-   └── suggest_monetization_platforms
-
+   ├── suggest_monetization_platforms
+   └── asset_pivot (full analysis)
 7. H.5.2 Cash Flow Smoothing (timing)
    ├── detect_timing_mismatches
    ├── suggest_timing_solutions
-   └── evaluate_urgency_sale
+   ├── evaluate_urgency_sale
+   └── cashflow_smoother (full analysis)
 
-⏳ APRÈS:
-8. H.4 Intégration Frontend
-   ├── Modifier swipe.strategy.ts
-   ├── Wirer orchestrator + guardrails
-   └── Tester via /swipe endpoint
+8. H.4 Intégration Frontend (swipe.strategy.ts)
+   ├── Primary agent: swipe-orchestrator
+   ├── Secondary agents: lifestyle-agent, money-maker, job-matcher
+   ├── Guardrail agents: essential-guardian, ghost-observer, asset-pivot, cashflow-smoother
+   └── Validation: guardian
 ```
 
 ---
