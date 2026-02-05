@@ -766,30 +766,13 @@ export function SkillsTab(props: SkillsTabProps) {
         <div class="space-y-3">
           <For each={skills()}>
             {(skill, index) => (
-              <Card class="group hover:shadow-lg hover:border-primary/50 transition-all duration-300">
+              <Card class="group hover:border-primary/50 transition-all duration-300">
                 <CardContent class="p-4 flex items-center gap-4">
                   {/* Rank */}
                   <div class="flex-shrink-0 w-12 flex justify-center">
-                    <Show
-                      when={index() > 2}
-                      fallback={
-                        <div
-                          class={`w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ${
-                            index() === 0
-                              ? 'bg-yellow-500' // Gold
-                              : index() === 1
-                                ? 'bg-slate-400' // Silver
-                                : 'bg-amber-700' // Bronze
-                          }`}
-                        >
-                          <Medal class="h-5 w-5" />
-                        </div>
-                      }
-                    >
-                      <div class="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-muted-foreground text-sm">
-                        #{index() + 1}
-                      </div>
-                    </Show>
+                    <div class="text-muted-foreground/50 font-mono text-sm font-medium">
+                      #{String(index() + 1).padStart(2, '0')}
+                    </div>
                   </div>
 
                   {/* Skill Info */}
@@ -798,32 +781,34 @@ export function SkillsTab(props: SkillsTabProps) {
                     <div class="md:col-span-4">
                       <div class="flex items-center gap-2">
                         <h4 class="font-bold text-lg text-foreground">{skill.name}</h4>
-                        <Show when={index() === 0}>
-                          <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-full shadow-sm shadow-emerald-500/20 flex items-center gap-1">
-                            Best Match
-                          </span>
-                        </Show>
                       </div>
                       <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <span class="px-2 py-0.5 bg-muted rounded text-foreground font-mono font-medium">
+                        <span class="text-foreground font-medium">
                           {formatCurrencyWithSuffix(skill.hourlyRate, currency(), '/h')}
                         </span>
+                        <span class="text-muted-foreground/60">• Est. Rate</span>
                       </div>
                     </div>
 
-                    {/* Metrics */}
-                    <div class="md:col-span-6 grid grid-cols-3 gap-4">
-                      {/* Demand */}
-                      <div class="flex flex-col gap-1">
-                        <span class="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
-                          <Users class="h-3 w-3" /> Demand
+                    {/* Metrics - Sober Design with Logical Colors */}
+                    <div class="md:col-span-6 grid grid-cols-3 gap-8">
+                      {/* Demand (High is Good) */}
+                      <div class="flex flex-col gap-1.5">
+                        <span class="text-[10px] uppercase text-muted-foreground font-medium tracking-wider">
+                          Demand
                         </span>
                         <div class="flex gap-0.5">
                           <For each={Array.from({ length: 5 })}>
                             {(_, i) => (
                               <div
-                                class={`w-1.5 h-3 rounded-sm ${
-                                  i() < (skill.marketDemand || 0) ? 'bg-blue-500' : 'bg-muted'
+                                class={`w-full h-1.5 rounded-full ${
+                                  i() < (skill.marketDemand || 0)
+                                    ? (skill.marketDemand || 0) >= 4
+                                      ? 'bg-emerald-500/80' // High demand = Green
+                                      : (skill.marketDemand || 0) >= 3
+                                        ? 'bg-blue-500/80' // Mid demand = Blue
+                                        : 'bg-orange-500/80' // Low demand = Orange
+                                    : 'bg-muted'
                                 }`}
                               />
                             )}
@@ -831,19 +816,19 @@ export function SkillsTab(props: SkillsTabProps) {
                         </div>
                       </div>
 
-                      {/* Effort */}
-                      <div class="flex flex-col gap-1">
-                        <span class="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
-                          <BrainCircuit class="h-3 w-3" /> Effort
+                      {/* Effort (Low is Good) */}
+                      <div class="flex flex-col gap-1.5">
+                        <span class="text-[10px] uppercase text-muted-foreground font-medium tracking-wider">
+                          Effort
                         </span>
-                        <div class="h-3 w-full bg-muted rounded-full overflow-hidden relative">
+                        <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                           <div
                             class={`h-full rounded-full ${
                               (skill.cognitiveEffort || 0) <= 2
-                                ? 'bg-green-500'
-                                : (skill.cognitiveEffort || 0) <= 4
-                                  ? 'bg-yellow-500'
-                                  : 'bg-red-500'
+                                ? 'bg-emerald-500/80' // Low effort = Green
+                                : (skill.cognitiveEffort || 0) <= 3
+                                  ? 'bg-yellow-500/80' // Mid effort = Yellow
+                                  : 'bg-red-500/80' // High effort = Red
                             }`}
                             style={{ width: `${((skill.cognitiveEffort || 0) / 5) * 100}%` }}
                           />
@@ -851,11 +836,11 @@ export function SkillsTab(props: SkillsTabProps) {
                       </div>
 
                       {/* Rest */}
-                      <div class="flex flex-col gap-1">
-                        <span class="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1">
-                          <Bed class="h-3 w-3" /> Rest
+                      <div class="flex flex-col gap-1.5">
+                        <span class="text-[10px] uppercase text-muted-foreground font-medium tracking-wider">
+                          Rest
                         </span>
-                        <span class="text-xs font-medium">
+                        <span class="text-xs font-medium text-foreground/80">
                           {REST_STEPS.find((s) => s.hours === (skill.restNeeded || 0))?.label ||
                             (skill.restNeeded || 0) + 'h'}
                         </span>
@@ -864,14 +849,11 @@ export function SkillsTab(props: SkillsTabProps) {
                   </div>
 
                   {/* Score */}
-                  <div class="flex-shrink-0 flex flex-col items-center justify-center pl-4 border-l border-border/50">
-                    <span class="text-[10px] uppercase text-muted-foreground font-bold mb-1">
-                      Score
-                    </span>
+                  <div class="flex-shrink-0 flex flex-col items-center justify-center pl-4 border-l border-border/50 min-w-[3rem]">
                     <div
-                      class={`text-2xl font-black ${
+                      class={`text-xl font-bold ${
                         (skill.score || 0) >= 8
-                          ? 'text-green-500'
+                          ? 'text-emerald-500'
                           : (skill.score || 0) >= 6
                             ? 'text-blue-500'
                             : (skill.score || 0) >= 4
@@ -881,11 +863,13 @@ export function SkillsTab(props: SkillsTabProps) {
                     >
                       {(skill.score || calculateArbitrageScore(skill)).toFixed(1)}
                     </div>
+                    <span class="text-[9px] uppercase text-muted-foreground font-medium">
+                      Score
+                    </span>
                   </div>
 
-                  {/* Phase 6: Feedback + Edit & Remove */}
+                  {/* Actions */}
                   <div class="flex-shrink-0 flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* Feedback buttons */}
                     <Show when={profile()?.id}>
                       <FeedbackButton
                         suggestionType="skill"
