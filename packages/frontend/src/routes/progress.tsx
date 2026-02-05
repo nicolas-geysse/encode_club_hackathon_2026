@@ -337,11 +337,15 @@ export default function ProgressPage() {
             title: string;
             description: string;
             category: string;
-            weeklyHours: number;
-            weeklyEarnings: number;
+            // Pull Architecture: Optional fields based on scenario type
+            weeklyHours?: number; // job_lead
+            weeklyEarnings?: number; // job_lead
+            oneTimeAmount?: number; // sell_item
+            monthlyAmount?: number; // pause_expense
+            karmaPoints?: number; // karma_trade, karma_lend
             effortLevel: number;
             flexibilityScore: number;
-            hourlyRate: number;
+            hourlyRate?: number;
           }>;
           trades?: Array<{
             id: string;
@@ -401,13 +405,22 @@ export default function ProgressPage() {
             const newMissions: Mission[] = [];
             currentScenarios.forEach((scenario, index) => {
               if (!existingMissionTitles.has(scenario.title)) {
+                // Pull Architecture: Handle different scenario types
+                // - sell_item: oneTimeAmount (one-time sale)
+                // - pause_expense: monthlyAmount (monthly savings)
+                // - karma_*: karmaPoints (no monetary value, 0 hours)
+                // - job_lead: weeklyHours/weeklyEarnings (traditional)
+                const weeklyHours = scenario.weeklyHours ?? 0;
+                const weeklyEarnings =
+                  scenario.weeklyEarnings ?? scenario.oneTimeAmount ?? scenario.monthlyAmount ?? 0;
+
                 newMissions.push({
                   id: `mission_swipe_${Date.now()}_${index}`,
                   title: scenario.title,
                   description: scenario.description,
                   category: scenario.category as Mission['category'],
-                  weeklyHours: scenario.weeklyHours,
-                  weeklyEarnings: scenario.weeklyEarnings,
+                  weeklyHours,
+                  weeklyEarnings,
                   status: 'active',
                   progress: 0,
                   startDate: new Date().toISOString(),
@@ -465,13 +478,18 @@ export default function ProgressPage() {
             // Priority 1: Use selectedScenarios from swipe if available
             if (planData.selectedScenarios && planData.selectedScenarios.length > 0) {
               planData.selectedScenarios.forEach((scenario, index) => {
+                // Pull Architecture: Handle different scenario types
+                const weeklyHours = scenario.weeklyHours ?? 0;
+                const weeklyEarnings =
+                  scenario.weeklyEarnings ?? scenario.oneTimeAmount ?? scenario.monthlyAmount ?? 0;
+
                 missions.push({
                   id: `mission_swipe_${index}`,
                   title: scenario.title,
                   description: scenario.description,
                   category: scenario.category as Mission['category'],
-                  weeklyHours: scenario.weeklyHours,
-                  weeklyEarnings: scenario.weeklyEarnings,
+                  weeklyHours,
+                  weeklyEarnings,
                   status: 'active',
                   progress: 0,
                   startDate: startDate.toISOString(),

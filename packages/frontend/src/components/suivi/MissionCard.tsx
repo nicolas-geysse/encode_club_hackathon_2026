@@ -18,6 +18,9 @@ import {
   RotateCcw,
   Trash2,
   CheckCircle2,
+  ShoppingBag,
+  Pause,
+  HandHeart,
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
@@ -56,6 +59,18 @@ interface MissionCardProps {
 export function MissionCard(props: MissionCardProps) {
   const getCategoryIcon = (category: string) => {
     switch (category) {
+      // Pull Architecture categories
+      case 'sell_item':
+        return ShoppingBag;
+      case 'job_lead':
+        return Briefcase;
+      case 'pause_expense':
+        return Pause;
+      case 'karma_trade':
+        return Repeat;
+      case 'karma_lend':
+        return HandHeart;
+      // Legacy categories
       case 'freelance':
         return Briefcase;
       case 'tutoring':
