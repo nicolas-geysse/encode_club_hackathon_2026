@@ -281,22 +281,471 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
       - Premier karma, 100 karma, etc.
 ```
 
-### Checkpoint H: Agent Architecture (Priorité Basse)
-**Objectif**: Orchestration LLM des sources
+### Checkpoint H: Agent Architecture (En cours)
+**Objectif**: Orchestration LLM intelligente des sources de scénarios
+
+---
+
+#### H.1 Lifestyle Agent (Nouveau)
+**Fichier**: `packages/mcp-server/src/agents/lifestyle-agent.ts`
+
+**Rôle**: Analyser les abonnements/dépenses récurrentes et suggérer des optimisations intelligentes.
+
+**Input**:
+```typescript
+interface LifestyleAgentInput {
+  lifestyle: Array<{
+    id: string;
+    name: string;
+    category: string;           // 'streaming', 'fitness', 'food', 'transport', etc.
+    currentCost: number;        // Coût mensuel
+    pausedMonths?: number;      // Déjà pausé ?
+    lastUsed?: string;          // ISO date dernière utilisation
+    usageFrequency?: 'daily' | 'weekly' | 'monthly' | 'rarely';
+  }>;
+  goalContext: {
+    goalAmount: number;
+    currentAmount: number;
+    remainingAmount: number;
+    daysToGoal: number;
+    monthsRemaining: number;
+  };
+  energyLevel?: number;         // 0-100, affects suggestions
+}
+```
+
+**Output**:
+```typescript
+interface LifestyleAgentOutput {
+  suggestions: Array<{
+    itemId: string;
+    action: 'pause' | 'reduce' | 'cancel' | 'keep';
+    recommendedMonths?: number;  // Pour pause
+    savings: number;             // Économies totales sur la période
+    goalImpact: number;          // % de l'objectif
+    urgency: number;             // 0-100
+    reason: string;              // Explication LLM
+    alternativeFree?: string;    // "Use YouTube instead of Spotify"
+  }>;
+  totalPotentialSavings: number;
+  priorityOrder: string[];       // IDs ordonnés par urgence
+}
+```
+
+**Outils Mastra**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: analyze_subscriptions                                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: lifestyle[], goalContext                                  │
+│ Output: usage patterns, waste detection, category breakdown     │
+│                                                                  │
+│ Logic:                                                           │
+│ - Détecte les doublons (Netflix + Disney+ + Prime = overlap)    │
+│ - Identifie les abonnements sous-utilisés (lastUsed > 30j)      │
+│ - Calcule le ratio coût/usage                                   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: suggest_pause_strategy                                     │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: item, goalContext, energyLevel                            │
+│ Output: { action, months, reason, alternative }                  │
+│                                                                  │
+│ Logic:                                                           │
+│ - Si goalImpact >= 10% → priorité haute                         │
+│ - Si category='fitness' && energyLevel < 40 → "pause 1 month"   │
+│ - Si usageFrequency='rarely' → "cancel or pause 3+ months"      │
+│ - Suggère alternatives gratuites par catégorie                  │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: calculate_savings_impact                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: suggestions[], goalContext                                │
+│ Output: { totalSavings, goalImpact, timeline }                   │
+│                                                                  │
+│ Logic:                                                           │
+│ - Somme des économies par mois                                  │
+│ - Impact cumulé sur l'objectif                                  │
+│ - Projection: "En pausant X et Y, tu atteins ton goal 2 sem +tôt"│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Database d'alternatives gratuites**:
+```typescript
+const FREE_ALTERNATIVES: Record<string, string[]> = {
+  streaming: ['YouTube', 'Tubi', 'Pluto TV', 'Library streaming'],
+  music: ['YouTube Music (free)', 'Spotify free tier', 'SoundCloud'],
+  fitness: ['YouTube workouts', 'Nike Training Club (free)', 'Running'],
+  food_delivery: ['Cook at home', 'Meal prep Sundays'],
+  news: ['Google News', 'Library digital access', 'RSS feeds'],
+  cloud_storage: ['Google Drive 15GB', 'Clean up photos'],
+  gaming: ['Free-to-play games', 'Game Pass trials', 'Library game lending'],
+};
+```
+
+---
+
+#### H.2 Trade Agent Amélioré
+**Fichier**: `packages/mcp-server/src/agents/money-maker.ts` (existant, à enrichir)
+
+**Nouvelles fonctionnalités**:
+
+**Tool: suggest_selling_platform**
+```typescript
+interface SuggestPlatformInput {
+  itemName: string;
+  category: string;        // 'electronics', 'clothing', 'furniture', etc.
+  estimatedValue: number;
+  condition: 'new' | 'like_new' | 'good' | 'fair';
+  urgency: 'asap' | 'normal' | 'flexible';
+}
+
+interface SuggestPlatformOutput {
+  primaryPlatform: {
+    name: string;           // 'Vinted', 'eBay', 'Facebook Marketplace'
+    url: string;
+    pros: string[];
+    cons: string[];
+    typicalFees: string;    // "10% + €0.70"
+    estimatedDaysToSell: number;
+  };
+  alternatives: Array<{
+    name: string;
+    bestFor: string;        // "Quick sale", "Best price", "Local pickup"
+  }>;
+  tips: string[];           // "Add 5+ photos", "Price 10% below market"
+}
+```
+
+**Database de plateformes**:
+```typescript
+const SELLING_PLATFORMS: Record<string, PlatformInfo[]> = {
+  electronics: [
+    { name: 'Back Market', fees: '10-15%', speed: 'fast', bestFor: 'phones, laptops' },
+    { name: 'eBay', fees: '10-13%', speed: 'medium', bestFor: 'tech accessories' },
+    { name: 'Facebook Marketplace', fees: '0%', speed: 'fast', bestFor: 'local pickup' },
+    { name: 'Leboncoin', fees: '0-8%', speed: 'medium', bestFor: 'all electronics' },
+  ],
+  clothing: [
+    { name: 'Vinted', fees: '0% seller', speed: 'medium', bestFor: 'fashion, shoes' },
+    { name: 'Vestiaire Collective', fees: '15-25%', speed: 'slow', bestFor: 'luxury' },
+    { name: 'Depop', fees: '10%', speed: 'medium', bestFor: 'vintage, streetwear' },
+  ],
+  furniture: [
+    { name: 'Facebook Marketplace', fees: '0%', speed: 'fast', bestFor: 'bulky items' },
+    { name: 'Leboncoin', fees: '0-8%', speed: 'medium', bestFor: 'all furniture' },
+    { name: 'Geev', fees: '0%', speed: 'fast', bestFor: 'free giveaway (karma)' },
+  ],
+  books: [
+    { name: 'Momox', fees: 'fixed price', speed: 'instant', bestFor: 'bulk books' },
+    { name: 'Leboncoin', fees: '0%', speed: 'slow', bestFor: 'rare/valuable books' },
+    { name: 'RecycLivre', fees: '0%', speed: 'instant', bestFor: 'donation + tax benefit' },
+  ],
+  // ... gaming, sports, collectibles, etc.
+};
+```
+
+**Tool: estimate_days_to_sell**
+```typescript
+interface EstimateDaysInput {
+  category: string;
+  pricePoint: 'low' | 'medium' | 'high';  // vs market average
+  condition: string;
+  platform: string;
+  seasonality?: boolean;   // Consider time of year
+}
+
+interface EstimateDaysOutput {
+  estimatedDays: { min: number; max: number; average: number };
+  confidence: number;      // 0-1
+  factors: string[];       // "High demand season", "Competitive price"
+  tip: string;             // "Post on weekend for 30% more views"
+}
+```
+
+**Estimation logic**:
+```typescript
+const BASE_DAYS: Record<string, number> = {
+  electronics: 7,
+  clothing: 14,
+  furniture: 21,
+  books: 30,
+  gaming: 10,
+  sports: 14,
+};
+
+// Modifiers
+const PRICE_MODIFIER = { low: 0.5, medium: 1.0, high: 2.0 };
+const CONDITION_MODIFIER = { new: 0.7, like_new: 0.9, good: 1.0, fair: 1.5 };
+const SEASON_MODIFIER = {
+  electronics: { 'Nov-Dec': 0.5, 'Jan': 1.5 },  // Holiday demand
+  clothing: { 'Sep': 0.7, 'Mar': 0.7 },         // Season change
+  sports: { 'Jan': 0.6, 'Sep': 0.7 },           // New Year resolutions, rentrée
+};
+```
+
+---
+
+#### H.3 Swipe Orchestrator Agent (Nouveau)
+**Fichier**: `packages/mcp-server/src/agents/swipe-orchestrator.ts`
+
+**Rôle**: Orchestrer tous les agents pour générer et prioriser les scénarios de swipe.
+
+**Architecture**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SWIPE ORCHESTRATOR                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   Trade      │  │   Lifestyle  │  │  Job Matcher │          │
+│  │   Agent      │  │   Agent      │  │    Agent     │          │
+│  │  (sell/trade)│  │ (pause/reduce│  │ (job leads)  │          │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
+│         │                 │                 │                    │
+│         └────────────┬────┴────────────────┘                    │
+│                      ▼                                           │
+│         ┌────────────────────────┐                              │
+│         │  Strategy Comparator   │                              │
+│         │  (rank all scenarios)  │                              │
+│         └────────────┬───────────┘                              │
+│                      ▼                                           │
+│         ┌────────────────────────┐                              │
+│         │  Preference Learner    │                              │
+│         │  (apply user prefs)    │                              │
+│         └────────────┬───────────┘                              │
+│                      ▼                                           │
+│         ┌────────────────────────┐                              │
+│         │       Guardian         │                              │
+│         │  (validate final list) │                              │
+│         └────────────────────────┘                              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Input**:
+```typescript
+interface SwipeOrchestratorInput {
+  // Data sources (Pull Architecture)
+  trades: SwipeTradeItem[];
+  lifestyle: SwipeLifestyleItem[];
+  leads: Lead[];
+
+  // User context
+  skills: Array<{ name: string; hourlyRate: number }>;
+  goalContext: SwipeContext;
+  energyLevel: number;
+
+  // Preferences (learned from swipes)
+  preferences: {
+    effortSensitivity: number;      // 0-1
+    hourlyRatePriority: number;     // 0-1
+    timeFlexibility: number;        // 0-1
+    incomeStability: number;        // 0-1
+  };
+
+  // Swipe history for learning
+  recentSwipes?: Array<{
+    scenarioId: string;
+    category: ScenarioCategory;
+    direction: 'left' | 'right' | 'up' | 'down';
+    timeSpent: number;
+  }>;
+}
+```
+
+**Output**:
+```typescript
+interface SwipeOrchestratorOutput {
+  scenarios: Scenario[];            // Ordonnés par score
+
+  insights: {
+    topOpportunity: {
+      scenario: Scenario;
+      reason: string;               // LLM explanation
+    };
+    quickWins: Scenario[];          // Low effort, high impact
+    bigMoves: Scenario[];           // High effort, high reward
+    categoryBreakdown: Record<ScenarioCategory, number>;
+  };
+
+  recommendations: {
+    focusArea: 'selling' | 'jobs' | 'savings' | 'karma';
+    reason: string;
+    suggestedActions: string[];
+  };
+
+  // Preference adjustments from learning
+  preferenceUpdates?: Partial<UserPreferences>;
+}
+```
+
+**Outils Mastra**:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: orchestrate_scenario_generation                            │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: trades, lifestyle, leads, goalContext                     │
+│ Output: raw scenarios from all sources                           │
+│                                                                  │
+│ Logic:                                                           │
+│ 1. Call Trade Agent → sell_item, karma_trade, karma_lend        │
+│ 2. Call Lifestyle Agent → pause_expense scenarios               │
+│ 3. Call Job Matcher → job_lead scenarios with skill match       │
+│ 4. Merge all scenarios with source tracking                     │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: rank_scenarios_by_preference                               │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: scenarios[], preferences, goalContext                     │
+│ Output: ranked scenarios with scores                             │
+│                                                                  │
+│ Scoring formula:                                                 │
+│ score = (goalImpact × 0.3)                                      │
+│       + (1 - effort × effortSensitivity) × 0.25                 │
+│       + (hourlyRate × hourlyRatePriority) × 0.2                 │
+│       + (flexibility × timeFlexibility) × 0.15                  │
+│       + (skillMatch × 0.1)                                      │
+│                                                                  │
+│ Urgency boost: if daysToGoal < 14 → score × 1.2                 │
+│ Energy penalty: if energyLevel < 40 && effort > 3 → score × 0.7│
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: learn_from_swipes                                          │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: recentSwipes[], currentPreferences                        │
+│ Output: preferenceUpdates                                        │
+│                                                                  │
+│ Logic:                                                           │
+│ - Right swipes on low-effort → increase effortSensitivity      │
+│ - Right swipes on high-paying → increase hourlyRatePriority    │
+│ - Left swipes patterns → detect dislikes (category, effort)    │
+│ - Super likes (up) → strong positive signal                    │
+│ - Down swipes → negative feedback, reduce category weight      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ Tool: generate_swipe_insights                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ Input: rankedScenarios[], goalContext, energyLevel               │
+│ Output: insights + recommendations                               │
+│                                                                  │
+│ LLM prompt:                                                      │
+│ "Given these scenarios and user context, identify:              │
+│  1. The single best opportunity and why                         │
+│  2. Quick wins (< 2h effort, > 5% goal impact)                  │
+│  3. Big moves (high effort but transformative)                  │
+│  4. What area to focus on given energy level"                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### H.4 Swipe Strategy (Tab Strategy)
+**Fichier**: `packages/mcp-server/src/agents/strategies/swipe.strategy.ts` (à enrichir)
+
+**Intégration avec Tab Tips Orchestrator**:
+```typescript
+export class SwipeStrategy extends BaseTabStrategy {
+  readonly tabType: TabType = 'swipe';
+
+  getPrimaryAgentId(): string {
+    return 'swipe-orchestrator';  // Nouveau
+  }
+
+  getSecondaryAgentIds(): string[] {
+    return ['lifestyle-agent', 'money-maker', 'job-matcher', 'guardian'];
+  }
+
+  getValidationRules(): ValidationRules {
+    return {
+      tabType: 'swipe',
+      checkFeasibility: true,    // Vérifier énergie vs effort
+      checkSolvency: false,
+      checkRealism: true,        // Valuations réalistes
+      checkTimeline: true,       // Goal atteignable ?
+      minConfidence: 0.6,
+      maxRiskLevel: 'medium',
+    };
+  }
+
+  getSystemPrompt(): string {
+    return `You are Bruno, a caring financial coach for students.
+
+You are helping with the SWIPE feature - presenting money-making scenarios.
+
+Given the user's context:
+- Goal: {{goalAmount}} in {{daysToGoal}} days ({{remainingAmount}} remaining)
+- Energy level: {{energyLevel}}%
+- Preferences: effort={{effortSensitivity}}, rate={{hourlyRatePriority}}
+
+Analyze the scenarios and provide:
+1. Which scenario to focus on first and why
+2. One encouraging tip about their progress
+3. If energy is low, prioritize passive income (selling, pausing)
+
+Be concise (2-3 sentences max), warm, and actionable.`;
+  }
+}
+```
+
+---
+
+#### Fichiers à créer/modifier
+
+| Fichier | Action | Contenu |
+|---------|--------|---------|
+| `agents/lifestyle-agent.ts` | **Créer** | 3 outils + agent config |
+| `agents/money-maker.ts` | **Modifier** | +2 outils (platform, days) |
+| `agents/swipe-orchestrator.ts` | **Créer** | 4 outils + orchestration |
+| `agents/factory.ts` | **Modifier** | +2 agents dans AGENT_CONFIGS |
+| `agents/index.ts` | **Modifier** | Exports + imports |
+| `agents/strategies/swipe.strategy.ts` | **Modifier** | Nouveau primary agent |
+| `agents/agent-executor.ts` | **Modifier** | +2 executors |
+
+---
+
+#### Ordre d'implémentation
 
 ```
-□ H.1 Créer Lifestyle Agent (Mastra)
-      - Input: lifestyle items, goal context
-      - Output: pause/reduce suggestions with urgency
+1. H.1 Lifestyle Agent
+   ├── Créer lifestyle-agent.ts
+   ├── Définir 3 outils
+   ├── Ajouter à factory.ts
+   └── Tester isolément
 
-□ H.2 Améliorer Trade Agent
-      - Suggest platforms based on item category
-      - Estimate days to sell
+2. H.2 Trade Agent Améliorations
+   ├── Ajouter suggest_selling_platform à money-maker.ts
+   ├── Ajouter estimate_days_to_sell
+   └── Tester avec différentes catégories
 
-□ H.3 Créer Swipe Orchestrator Agent
-      - Combine outputs from all sub-agents
-      - Apply user preferences
+3. H.3 Swipe Orchestrator
+   ├── Créer swipe-orchestrator.ts
+   ├── Définir 4 outils
+   ├── Intégrer appels aux autres agents
+   └── Tester orchestration complète
+
+4. H.4 Intégration Tab Strategy
+   ├── Modifier swipe.strategy.ts
+   ├── Mettre à jour agent-executor.ts
+   └── Tester via /api/tips endpoint
 ```
+
+---
+
+#### Tests de validation
+
+| # | Scénario | Résultat attendu |
+|---|----------|------------------|
+| H.1 | Lifestyle avec Netflix + Spotify + Gym | Suggère pause gym si énergie < 40% |
+| H.2 | Item iPhone category=electronics | Suggère Back Market ou eBay, 7-10 jours |
+| H.3 | Mix trades + leads + lifestyle | Ordonne par score composite |
+| H.4 | User swipe right low-effort items | effortSensitivity augmente |
+| H.5 | energyLevel=30%, high-effort job | Job rétrogradé, selling promu |
 
 ---
 
