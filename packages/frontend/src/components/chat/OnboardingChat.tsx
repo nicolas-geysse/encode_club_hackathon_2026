@@ -2883,6 +2883,15 @@ export function OnboardingChat() {
                       initialValues={profile() as Record<string, unknown>}
                       currencySymbol={getCurrencySymbolForForm()}
                       fieldOfStudy={() => profile().field}
+                      diploma={() =>
+                        profile().diploma as
+                          | 'high_school'
+                          | 'vocational'
+                          | 'bachelor'
+                          | 'master'
+                          | 'phd'
+                          | undefined
+                      }
                       onSubmit={handleFormSubmit}
                       onSkip={() => handleSend('none')}
                     />

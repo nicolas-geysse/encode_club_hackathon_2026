@@ -25,7 +25,9 @@ import {
 import MapPicker, { type MapCoordinates } from './MapPicker';
 import { DatePicker } from '~/components/ui/DatePicker';
 import GridMultiSelect from './GridMultiSelect';
+import SkillMultiSelect from './SkillMultiSelect';
 import { todayISO } from '~/lib/dateUtils';
+import { getEnhancedSkillSuggestions, type DiplomaLevel } from '~/lib/data/skillSuggestionEngine';
 
 // =============================================================================
 // Types
@@ -40,6 +42,9 @@ interface OnboardingFormStepProps {
   /** User's field of study - used for contextual skill suggestions.
    * Pass as a getter function for SolidJS reactivity. */
   fieldOfStudy?: string | (() => string | undefined);
+  /** User's diploma level - used for skill accessibility scoring.
+   * Pass as a getter function for SolidJS reactivity. */
+  diploma?: DiplomaLevel | (() => DiplomaLevel | undefined);
   /** Called when form is submitted */
   onSubmit: (data: Record<string, unknown>) => void;
   /** Called when user starts typing (for text-based input fallback) */
@@ -852,27 +857,38 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
         );
 
       case 'multi-select-pills': {
-        // For skills and certifications, use the new GridMultiSelect component
+        // For skills and certifications, use enhanced components
         const isSkillsField = props.step === 'skills' && field.name === 'skills';
         const isCertificationsField =
           props.step === 'certifications' && field.name === 'certifications';
 
-        // Use GridMultiSelect for skills and certifications steps
-        if (isSkillsField || isCertificationsField) {
-          // Resolve fieldOfStudy - can be a value or getter function
+        // Use SkillMultiSelect for skills (with star ratings and Bruno's picks)
+        if (isSkillsField) {
+          // Resolve fieldOfStudy and diploma - can be values or getter functions
           const getFieldOfStudy = () =>
             typeof props.fieldOfStudy === 'function' ? props.fieldOfStudy() : props.fieldOfStudy;
+          const getDiploma = () =>
+            typeof props.diploma === 'function' ? props.diploma() : props.diploma;
 
-          // Pass getter function for reactive options (fixes skills not showing when field changes)
-          // Always return skills - fallback to all skills if field-specific returns empty
-          const getOptions = () => {
-            if (isSkillsField) {
-              const fieldSkills = getSkillsForField(getFieldOfStudy());
-              // Defensive: if no skills returned, fall back to all skills
-              return fieldSkills.length > 0 ? fieldSkills : getAllSkills();
-            }
-            return POPULAR_CERTIFICATIONS.map((c) => c.label);
+          // Get enhanced skill suggestions with ratings
+          const getSkillOptions = () => {
+            return getEnhancedSkillSuggestions(getFieldOfStudy(), getDiploma());
           };
+
+          return (
+            <SkillMultiSelect
+              options={getSkillOptions}
+              selected={(value() as string[]) || []}
+              onChange={(v) => updateField(field.name, v)}
+              placeholder={field.placeholder}
+              maxHeight="400px"
+            />
+          );
+        }
+
+        // Use GridMultiSelect for certifications
+        if (isCertificationsField) {
+          const getOptions = () => POPULAR_CERTIFICATIONS.map((c) => c.label);
 
           return (
             <GridMultiSelect
@@ -880,7 +896,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
               selected={(value() as string[]) || []}
               onChange={(v) => updateField(field.name, v)}
               placeholder={field.placeholder}
-              variant={isCertificationsField ? 'wide' : 'default'}
+              variant="wide"
               maxHeight="400px"
             />
           );
