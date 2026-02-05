@@ -637,6 +637,20 @@ export function SwipeSession(props: SwipeSessionProps) {
                     monthlyAmount={scenario.monthlyAmount}
                     urgency={scenario.urgency}
                     karmaPoints={scenario.karmaPoints}
+                    // Goal Impact - dynamic recalculation for job_lead
+                    goalImpactPercent={(() => {
+                      const originalImpact = scenario.metadata?.goalImpactPercent ?? 0;
+                      if (index() !== currentIndex() || scenario.category !== 'job_lead') {
+                        return originalImpact;
+                      }
+                      // Recalculate based on adjusted earnings ratio
+                      const originalEarnings = scenario.weeklyEarnings ?? 0;
+                      if (originalEarnings <= 0) return originalImpact;
+                      const adjustedEarnings =
+                        (adjustments().customWeeklyHours ?? scenario.weeklyHours ?? 0) *
+                        (adjustments().customHourlyRate ?? scenario.hourlyRate ?? 0);
+                      return originalImpact * (adjustedEarnings / originalEarnings);
+                    })()}
                   />
                 </Show>
               )}

@@ -17,6 +17,7 @@ import {
   Tag,
   CreditCard,
   Sparkles,
+  Target,
 } from 'lucide-solid';
 import { formatCurrency, formatCurrencyWithSuffix, type Currency } from '~/lib/dateUtils';
 import './HoloCard.css';
@@ -55,6 +56,8 @@ export interface SwipeCardProps {
   urgency?: ScenarioUrgency;
   /** Karma points for social actions */
   karmaPoints?: number;
+  /** Goal impact percentage (dynamic with Adjust Assumptions) */
+  goalImpactPercent?: number;
 }
 
 export interface CardAdjustments {
@@ -435,6 +438,25 @@ export function SwipeCard(props: SwipeCardProps) {
             <Show when={props.karmaPoints && props.karmaPoints > 0}>
               <div class="inline-flex items-center gap-1.5 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:text-purple-400 px-2 py-1 rounded-full mb-2">
                 ✨ +{props.karmaPoints} karma
+              </div>
+            </Show>
+
+            {/* Goal Impact Badge - Display if >= 5% (not for karma scenarios) */}
+            <Show
+              when={props.goalImpactPercent && props.goalImpactPercent >= 5 && !isKarmaScenario()}
+            >
+              <div
+                class={cn(
+                  'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full mb-2',
+                  (props.goalImpactPercent ?? 0) >= 20
+                    ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400' // Gold: 20%+
+                    : (props.goalImpactPercent ?? 0) >= 10
+                      ? 'text-green-600 bg-green-50 dark:bg-green-950/30 dark:text-green-400' // Highlight: 10-20%
+                      : 'text-blue-600 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-400' // Normal: 5-10%
+                )}
+              >
+                <Target class="h-3 w-3" />
+                {Math.round(props.goalImpactPercent ?? 0)}% of your goal!
               </div>
             </Show>
 

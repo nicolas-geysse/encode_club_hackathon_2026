@@ -1,6 +1,6 @@
 # Swipe Agent Redesign
 
-> **Status**: Phases 1-4 complètes, Phase 5 partielle. Prêt pour test utilisateur.
+> **Status**: Phases 1-5 complètes, Checkpoint A complet. Prêt pour test utilisateur.
 
 ---
 
@@ -84,21 +84,24 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 
 ## 🔲 Checkpoints restants
 
-### Checkpoint A: Goal Impact % sur toutes les cartes (Priorité Haute)
+### Checkpoint A: Goal Impact % sur toutes les cartes ✅
 **Objectif**: Afficher "X% of your goal!" sur toutes les cartes, dynamique avec Adjust Assumptions
 
 ```
-□ A.1 Calculer goalImpact pour job_lead
+✅ A.1 Calculer goalImpact pour job_lead
       - impact = (weeklyEarnings * weeksRemaining) / remainingAmount
       - Recalculer quand rate/hours changent dans Adjust Assumptions
+      - Fichier: SwipeTab.tsx (generateScenarios), SwipeSession.tsx (recalc dynamique)
 
-□ A.2 Calculer goalImpact pour pause_expense
+✅ A.2 Calculer goalImpact pour pause_expense
       - impact = (monthlyAmount * pauseMonths) / remainingAmount
-      - Recalculer quand pauseMonths change
+      - Default: 1 mois (à personnaliser avec Checkpoint B)
+      - Fichier: SwipeTab.tsx (generateScenarios)
 
-□ A.3 Afficher badge sur toutes les cartes
-      - Si impact >= 5% → afficher "💰 X% of your goal!"
-      - Couleur selon impact: 5-10% normal, 10-20% highlight, 20%+ gold
+✅ A.3 Afficher badge sur toutes les cartes
+      - Si impact >= 5% → afficher "🎯 X% of your goal!"
+      - Couleur: blue (5-10%), green (10-20%), gold (20%+)
+      - Fichiers: SwipeCard.tsx (goalImpactPercent prop + badge)
 ```
 
 ### Checkpoint B: Adjust Assumptions pour pause_expense (Priorité Haute)
@@ -300,11 +303,16 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 9 | Ajuster tarif horaire job 15→25€ | weeklyEarnings recalculé correctement |
 | 10 | Compléter job avec 0€ | Toast warning, blocage |
 
-### 🔲 À tester après Checkpoint A-B
+### ✅ Testables après Checkpoint A
 
 | # | Scénario | Résultat attendu |
 |---|----------|------------------|
-| 11 | Job 10h/sem à 20€/h, goal 1000€ en 5 sem | Badge "40% of your goal!" |
+| 11 | Job 10h/sem à 20€/h, goal 1000€ en 5 sem | Badge "🎯 40% of your goal!" (dynamique avec adjustments) |
+
+### 🔲 À tester après Checkpoint B
+
+| # | Scénario | Résultat attendu |
+|---|----------|------------------|
 | 12 | Pause Netflix 3 mois dans swipe | Panel sélection mois, impact affiché |
 
 ---
@@ -319,3 +327,4 @@ Trade/Jobs/Lifestyle → Scenarios → Missions ↔ Sync back to source
 | 2026-02-05 | `fix(progress): Handle Pull Architecture scenario types to prevent NaN` | Phase 5 |
 | 2026-02-05 | `fix(swipe): Recalculate weeklyEarnings when adjusting job rate/hours` | Phase 5 |
 | 2026-02-05 | `feat(progress): Sync mission completion with source Trade/Lifestyle` | Phase 4 |
+| 2026-02-05 | `feat(swipe): Add goal impact % badge on all cards with dynamic recalc` | Checkpoint A |

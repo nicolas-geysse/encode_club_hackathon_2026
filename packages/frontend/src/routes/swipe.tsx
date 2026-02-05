@@ -133,6 +133,7 @@ export default function SwipePage() {
         currentAmount,
         remainingAmount,
         daysToGoal,
+        weeksRemaining: Math.ceil(daysToGoal / 7),
         today: new Date(),
       },
 

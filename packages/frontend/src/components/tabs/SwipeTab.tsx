@@ -115,6 +115,7 @@ export interface SwipeContext {
   currentAmount?: number;
   remainingAmount?: number;
   daysToGoal?: number;
+  weeksRemaining?: number; // For goal impact calculations
   today: Date;
 }
 
@@ -319,6 +320,7 @@ function generateScenarios(
     });
 
   // 2. Job leads (status='interested')
+  const weeksRemaining = context.weeksRemaining ?? Math.ceil(daysToGoal / 7);
   leads
     ?.filter((l) => l.status === 'interested')
     .forEach((lead) => {
@@ -328,7 +330,12 @@ function generateScenarios(
           : lead.salaryMin || lead.salaryMax || 0;
       const hourlyRate = avgSalary > 0 ? Math.round(avgSalary / 160) : 15;
       const weeklyHours = 10; // Part-time student default
+      const weeklyEarnings = hourlyRate * weeklyHours;
       const urgency = calculateJobUrgency(lead);
+
+      // Calculate goal impact: total earnings over remaining weeks / remaining amount
+      const totalEarnings = weeklyEarnings * weeksRemaining;
+      const goalImpact = remainingAmount > 0 ? (totalEarnings / remainingAmount) * 100 : 0;
 
       scenarios.push({
         id: `job_${lead.id}`,
@@ -338,7 +345,7 @@ function generateScenarios(
           : `${lead.title}${lead.locationRaw ? ` in ${lead.locationRaw}` : ''}`,
         category: 'job_lead',
         weeklyHours,
-        weeklyEarnings: hourlyRate * weeklyHours,
+        weeklyEarnings,
         hourlyRate,
         effortLevel: lead.effortLevel || 3,
         flexibilityScore: 3,
@@ -346,14 +353,23 @@ function generateScenarios(
         sourceId: lead.id,
         leadId: lead.id,
         urgency,
+        metadata: { goalImpactPercent: goalImpact },
       });
     });
 
   // 3. Lifestyle items that can be paused (not already paused)
+  // Calculate months remaining (for goal impact calculation)
+  const monthsRemaining = Math.ceil(daysToGoal / 30);
   lifestyle
     ?.filter((l) => l.currentCost > 0 && !l.pausedMonths)
     .forEach((item) => {
       const urgency = calculateLifestyleUrgency(item);
+
+      // Default pause: 1 month (can be adjusted in Checkpoint B)
+      const defaultPauseMonths = 1;
+      // Calculate goal impact: savings over pause period / remaining amount
+      const totalSavings = item.currentCost * Math.min(defaultPauseMonths, monthsRemaining);
+      const goalImpact = remainingAmount > 0 ? (totalSavings / remainingAmount) * 100 : 0;
 
       scenarios.push({
         id: `pause_${item.id}`,
@@ -366,6 +382,7 @@ function generateScenarios(
         source: 'lifestyle',
         sourceId: item.id,
         urgency,
+        metadata: { goalImpactPercent: goalImpact },
       });
     });
 
