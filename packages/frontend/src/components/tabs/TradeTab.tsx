@@ -591,6 +591,30 @@ export function TradeTab(props: TradeTabProps) {
   // Get suggestions based on goal
   const suggestions = () => getSuggestions(props.goalName, props.goalAmount);
 
+  // Count pending/active items by type for reminder messages
+  const pendingCountByType = (type: string) =>
+    trades().filter((t) => t.type === type && (t.status === 'pending' || t.status === 'active'))
+      .length;
+
+  // Reminder messages for each type when there are pending items
+  const getReminderMessage = (type: string): string | null => {
+    const count = pendingCountByType(type);
+    if (count === 0) return null;
+
+    switch (type) {
+      case 'sell':
+        return `💡 You have ${count} item${count > 1 ? 's' : ''} waiting to be sold. When you sell one, mark it as "Done" to count toward your earnings!`;
+      case 'borrow':
+        return `💡 You have ${count} item${count > 1 ? 's' : ''} to borrow. Once you actually get ${count > 1 ? 'them' : 'it'}, mark as "Done" to count the savings!`;
+      case 'trade':
+        return `💡 You have ${count} trade${count > 1 ? 's' : ''} in progress. Mark as "Done" when the exchange is complete!`;
+      case 'lend':
+        return `💡 You have ${count} item${count > 1 ? 's' : ''} being lent. Mark as "Done" when returned to track your karma!`;
+      default:
+        return null;
+    }
+  };
+
   // Add a suggestion as a trade
   const addFromSuggestion = (suggestion: TradeSuggestion) => {
     const newTrade: TradeItem = {
@@ -826,6 +850,13 @@ export function TradeTab(props: TradeTabProps) {
             }}
           </For>
         </div>
+
+        {/* Pending Items Reminder */}
+        <Show when={getReminderMessage(activeType())}>
+          <div class="px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200 text-sm">
+            {getReminderMessage(activeType())}
+          </div>
+        </Show>
 
         {/* Trades List */}
         <div class="space-y-3">
