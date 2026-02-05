@@ -112,6 +112,83 @@ const CHART_SPECIFIC_PATTERNS = {
   ],
 };
 
+// =============================================================================
+// EARNINGS/GOAL PROGRESS PATTERNS (C.2)
+// =============================================================================
+
+/**
+ * Patterns for requesting earnings vs goal chart
+ * Matches: "earnings chart", "graphique revenus", "goal progress chart"
+ */
+const EARNINGS_CHART_PATTERNS = [
+  // "earnings chart", "revenus graphique", "gains chart"
+  /\b(?:earnings|revenus|gains|income)\s+(?:en\s+)?(?:chart|graph|graphique)\b/i,
+  /\b(?:chart|graph|graphique)\s+(?:of\s+|de\s+)?(?:my\s+|mes\s+)?(?:earnings|revenus|gains)\b/i,
+  // "show my earnings", "montre mes revenus"
+  /\b(?:montre|show|affiche)(?:-moi)?\s+(?:my\s+|mes\s+)?(?:earnings|revenus|gains)\b/i,
+  // "goal progress chart", "progression objectif"
+  /\b(?:goal|objectif)\s+(?:progress|progression)\s+(?:chart|graph|graphique)\b/i,
+  /\b(?:progression|progress)\s+(?:vers\s+|toward\s+)?(?:mon\s+|my\s+)?(?:goal|objectif)\b/i,
+  // "how am I doing", "comment ça avance" (progress check that triggers chart)
+  /\b(?:earnings|revenus)\s+(?:vs|versus|contre)\s+(?:goal|objectif)\b/i,
+];
+
+// =============================================================================
+// JOB SEARCH PATTERNS (C.3)
+// =============================================================================
+
+/**
+ * Patterns for job search requests
+ * Matches: "cherche jobs", "find jobs", "what jobs"
+ */
+const JOB_SEARCH_PATTERNS = [
+  // "cherche un job", "find a job", "search jobs"
+  /\b(?:cherche|search|find|trouve)[rz]?\s+(?:un\s+|des?\s+|a\s+|some\s+)?(?:job|travail|emploi|boulot)s?\b/i,
+  // "what jobs", "quels jobs"
+  /\b(?:what|quels?|which)\s+(?:kind\s+of\s+)?(?:job|travail|emploi|boulot)s?\b/i,
+  // "jobs near me", "emplois près de moi"
+  /\b(?:job|travail|emploi|boulot)s?\s+(?:near|proche|autour|around)\b/i,
+  // "show me jobs", "montre des jobs"
+  /\b(?:montre|show|affiche|list)(?:-moi)?\s+(?:des\s+|les\s+|some\s+|available\s+)?(?:job|travail|emploi|boulot)s?\b/i,
+  // "jobs available", "postes disponibles"
+  /\b(?:job|travail|emploi|boulot|poste)s?\s+(?:available|disponibles?|ouvertes?)\b/i,
+];
+
+/**
+ * Patterns for remote job search
+ * Matches: "remote jobs", "télétravail", "work from home"
+ */
+const REMOTE_JOB_PATTERNS = [
+  /\b(?:remote|télétravail|teletravail|à\s+distance|from\s+home)\s+(?:job|travail|emploi|boulot)s?\b/i,
+  /\b(?:job|travail|emploi|boulot)s?\s+(?:remote|télétravail|teletravail|à\s+distance|en\s+remote)\b/i,
+  /\bfull[- ]?remote\b/i,
+  /\bwork(?:ing)?\s+from\s+home\b/i,
+  /\btravailler?\s+(?:de\s+)?(?:chez\s+)?(?:moi|la\s+maison)\b/i,
+];
+
+// =============================================================================
+// SELLABLE ITEMS PATTERNS (C.4)
+// =============================================================================
+
+/**
+ * Patterns for sellable items requests
+ * Matches: "what can I sell", "quoi vendre", "mes items à vendre"
+ */
+const SELLABLE_ITEMS_PATTERNS = [
+  // "what can I sell", "que puis-je vendre"
+  /\b(?:what|quoi|que)\s+(?:can\s+i|puis[- ]?je|peux[- ]?je)\s+(?:sell|vendre)\b/i,
+  // "items to sell", "objets à vendre"
+  /\b(?:items?|objets?|trucs?|choses?)\s+(?:to\s+sell|à\s+vendre|vendables?)\b/i,
+  // "show my items", "montre mes objets à vendre"
+  /\b(?:montre|show|affiche|list)(?:-moi)?\s+(?:my\s+|mes\s+)?(?:sellable\s+)?(?:items?|objets?|trucs?)\b/i,
+  // "sellable items", "items vendables"
+  /\b(?:sellable|vendables?)\s+(?:items?|objets?|trucs?)\b/i,
+  // "what do I have to sell", "qu'est-ce que j'ai à vendre"
+  /\bqu['']?(?:est[- ]ce\s+que\s+)?j['']?ai\s+(?:à|a)\s+vendre\b/i,
+  // Simple "vendre quoi", "sell what"
+  /\b(?:vendre|sell)\s+quoi\b/i,
+];
+
 /**
  * Generic chart request patterns (user wants "a chart" without specifying type)
  * Matches: "montre-moi un graphique", "show me a chart", "tu as des graphiques?"
@@ -644,6 +721,57 @@ export async function detectIntent(
           _matchedPattern: `chart_${chartType}`,
         };
       }
+    }
+  }
+
+  // ==========================================================================
+  // EARNINGS CHART (C.2)
+  // ==========================================================================
+  for (const pattern of EARNINGS_CHART_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'show_earnings_chart',
+        _matchedPattern: 'earnings_chart',
+      };
+    }
+  }
+
+  // ==========================================================================
+  // JOB SEARCH (C.3)
+  // ==========================================================================
+  // Check remote jobs first (more specific)
+  for (const pattern of REMOTE_JOB_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'search_remote_jobs',
+        _matchedPattern: 'remote_jobs',
+      };
+    }
+  }
+
+  // Then general job search
+  for (const pattern of JOB_SEARCH_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'search_jobs',
+        _matchedPattern: 'search_jobs',
+      };
+    }
+  }
+
+  // ==========================================================================
+  // SELLABLE ITEMS (C.4)
+  // ==========================================================================
+  for (const pattern of SELLABLE_ITEMS_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'show_sellable_items',
+        _matchedPattern: 'sellable_items',
+      };
     }
   }
 

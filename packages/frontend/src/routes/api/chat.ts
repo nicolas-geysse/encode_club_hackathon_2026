@@ -575,8 +575,8 @@ export async function POST(event: APIEvent) {
       mode: mode || 'conversation',
       currentStep: step,
     });
-    if (chartIntent.action?.startsWith('show_') && chartIntent.action?.includes('chart')) {
-      // Redirect to conversation mode handler for chart intents
+    if (chartIntent.action?.startsWith('show_')) {
+      // Redirect to conversation mode handler for ALL display actions (charts, swipe, etc.)
       const chartResult = await handleConversationMode(
         message,
         'conversation', // Force conversation mode for charts
@@ -2158,6 +2158,269 @@ async function handleConversationMode(
             source: 'llm' as const,
             uiResource: comparisonGalleryResource,
           };
+        }
+
+        // =====================================================================
+        // EARNINGS CHART (C.2 - Chat UI Consolidation)
+        // =====================================================================
+        case 'show_earnings_chart': {
+          const currSymbol = getCurrencySymbol(context.currency as string);
+          const goalAmount = (context.goalAmount as number) || 0;
+          const currentSaved = (context.currentSaved as number) || 0;
+          const goalName = context.goalName as string;
+
+          if (goalAmount === 0) {
+            response = `You haven't set a savings goal yet. Create a goal first to track your earnings progress!`;
+            break;
+          }
+
+          // Calculate income/expenses from budget context
+          let income = budgetContext?.totalIncome || 0;
+          let expenses = budgetContext?.activeExpenses || 0;
+
+          if (income === 0 && Array.isArray(context.incomes)) {
+            income = (context.incomes as Array<{ amount: number }>).reduce(
+              (sum, i) => sum + (i.amount || 0),
+              0
+            );
+          }
+          if (expenses === 0 && Array.isArray(context.expenses)) {
+            expenses = (context.expenses as Array<{ amount: number }>).reduce(
+              (sum, e) => sum + (e.amount || 0),
+              0
+            );
+          }
+
+          const weeklySavings = Math.max(0, (income - expenses) / 4.33);
+          const projectedSaved = getProjectedSavings(currentSaved, weeklySavings, timeCtx);
+
+          // Build weekly data for chart (project 8 weeks forward)
+          const weekLabels: string[] = [];
+          const actualData: number[] = [];
+          const requiredPaceData: number[] = [];
+
+          for (let week = 1; week <= 8; week++) {
+            weekLabels.push(`Week ${week}`);
+            // Cumulative projected earnings
+            actualData.push(Math.round(projectedSaved + weeklySavings * (week - 1)));
+            // Linear pace to goal
+            requiredPaceData.push(Math.round((goalAmount / 8) * week));
+          }
+
+          response = `📊 **Earnings vs Goal Progress**\n\nGoal: **${goalName || 'Savings'}** (${currSymbol}${goalAmount})\nCurrent: **${currSymbol}${Math.round(projectedSaved)}** | Weekly pace: **${currSymbol}${Math.round(weeklySavings)}**`;
+
+          const earningsChartResource: UIResource = {
+            type: 'chart',
+            params: {
+              type: 'line',
+              title: 'Earnings vs Goal Progress',
+              data: {
+                labels: weekLabels,
+                datasets: [
+                  {
+                    label: 'Projected Earnings',
+                    data: actualData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                  },
+                  {
+                    label: 'Required Pace',
+                    data: requiredPaceData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'transparent',
+                  },
+                  {
+                    label: 'Goal Target',
+                    data: weekLabels.map(() => goalAmount),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'transparent',
+                  },
+                ],
+              },
+            },
+          };
+
+          const earningsChartTraceId = ctx.getTraceId();
+          ctx.setOutput({
+            action: 'show_earnings_chart',
+            goalAmount,
+            currentSaved: projectedSaved,
+            weeklySavings,
+          });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: earningsChartTraceId || undefined,
+            traceUrl: earningsChartTraceId ? getTraceUrl(earningsChartTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: earningsChartResource,
+          };
+        }
+
+        // =====================================================================
+        // JOB SEARCH (C.3 - Chat UI Consolidation)
+        // =====================================================================
+        case 'search_jobs':
+        case 'search_remote_jobs': {
+          const isRemote = intent.action === 'search_remote_jobs';
+          const city = context.city as string;
+          const skills = context.skills as string[] | undefined;
+
+          // For remote jobs, we use the "freelance" category which includes remote platforms
+          const categoryId = isRemote ? 'freelance' : 'tutoring'; // Default to tutoring if no specific category
+
+          try {
+            // Fetch jobs from prospection API
+            const prospectionResponse = await fetch(
+              `${process.env.INTERNAL_API_URL || `http://localhost:${process.env.PORT || 3006}`}/api/prospection`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'search',
+                  categoryId,
+                  city: city || 'Paris',
+                }),
+              }
+            );
+
+            if (!prospectionResponse.ok) {
+              response = `I couldn't find jobs right now. Try the Jobs tab for more options!`;
+              break;
+            }
+
+            const prospectionData = await prospectionResponse.json();
+            const jobs = prospectionData.cards || [];
+
+            if (jobs.length === 0) {
+              response = isRemote
+                ? `No remote jobs found at the moment. Check out platforms like Upwork, Fiverr, or Malt for freelance opportunities!`
+                : `No jobs found in your area. Try the Jobs tab to search different categories!`;
+              break;
+            }
+
+            const currSymbol = getCurrencySymbol(context.currency as string);
+            const jobRows = jobs
+              .slice(0, 5)
+              .map((job: Record<string, unknown>) => [
+                job.company || job.title || 'Unknown',
+                `${currSymbol}${job.avgHourlyRate || '?'}/hr`,
+                `${Math.round(((job.score as number) || 0.7) * 100)}%`,
+                (job.commuteMinutes as number)
+                  ? `${job.commuteMinutes}min`
+                  : isRemote
+                    ? 'Remote'
+                    : 'N/A',
+              ]);
+
+            response = isRemote
+              ? `💼 **Remote Jobs Available**\n\nHere are some remote opportunities matching your profile:`
+              : `💼 **Jobs Near You**\n\nHere are jobs in ${city || 'your area'}:`;
+
+            const jobsTableResource: UIResource = {
+              type: 'table',
+              params: {
+                title: isRemote ? 'Remote Jobs' : `Jobs in ${city || 'your area'}`,
+                columns: ['Company', 'Rate', 'Match', 'Distance'],
+                rows: jobRows,
+              },
+            };
+
+            const jobsTraceId = ctx.getTraceId();
+            ctx.setOutput({
+              action: intent.action,
+              jobCount: jobs.length,
+              isRemote,
+            });
+            return {
+              response,
+              extractedData: {},
+              nextStep: 'complete' as OnboardingStep,
+              intent,
+              traceId: jobsTraceId || undefined,
+              traceUrl: jobsTraceId ? getTraceUrl(jobsTraceId) : undefined,
+              source: 'llm' as const,
+              uiResource: jobsTableResource,
+            };
+          } catch (err) {
+            logger.error('[search_jobs] Failed to fetch jobs', { error: String(err) });
+            response = `I couldn't fetch jobs right now. Try the **Jobs** tab directly!`;
+            break;
+          }
+        }
+
+        // =====================================================================
+        // SELLABLE ITEMS (C.4 - Chat UI Consolidation)
+        // =====================================================================
+        case 'show_sellable_items': {
+          const currSymbol = getCurrencySymbol(context.currency as string);
+
+          try {
+            // Fetch trades from trades API
+            const tradesResponse = await fetch(
+              `${process.env.INTERNAL_API_URL || `http://localhost:${process.env.PORT || 3006}`}/api/trades?profileId=${profileId}&type=sell`
+            );
+
+            let trades: Array<{
+              name: string;
+              value: number;
+              status: string;
+              description?: string;
+            }> = [];
+
+            if (tradesResponse.ok) {
+              trades = await tradesResponse.json();
+            }
+
+            // Filter to only pending/available items
+            const availableTrades = trades.filter((t) => t.status === 'pending');
+
+            if (availableTrades.length === 0) {
+              response = `You don't have any items listed for sale yet.\n\nGo to the **Trade** tab to add items you could sell!`;
+              break;
+            }
+
+            const totalValue = availableTrades.reduce((sum, t) => sum + (t.value || 0), 0);
+            const tradeRows = availableTrades.map((t) => [
+              t.name,
+              t.description || '-',
+              `${currSymbol}${t.value || 0}`,
+            ]);
+
+            response = `💰 **Items You Can Sell**\n\nTotal potential: **${currSymbol}${totalValue}**`;
+
+            const tradesTableResource: UIResource = {
+              type: 'table',
+              params: {
+                title: `Sellable Items (Total: ${currSymbol}${totalValue})`,
+                columns: ['Item', 'Description', 'Value'],
+                rows: tradeRows,
+              },
+            };
+
+            const tradesTraceId = ctx.getTraceId();
+            ctx.setOutput({
+              action: 'show_sellable_items',
+              itemCount: availableTrades.length,
+              totalValue,
+            });
+            return {
+              response,
+              extractedData: {},
+              nextStep: 'complete' as OnboardingStep,
+              intent,
+              traceId: tradesTraceId || undefined,
+              traceUrl: tradesTraceId ? getTraceUrl(tradesTraceId) : undefined,
+              source: 'llm' as const,
+              uiResource: tradesTableResource,
+            };
+          } catch (err) {
+            logger.error('[show_sellable_items] Failed to fetch trades', { error: String(err) });
+            response = `I couldn't fetch your items right now. Check the **Trade** tab directly!`;
+            break;
+          }
         }
 
         case 'check_progress': {
