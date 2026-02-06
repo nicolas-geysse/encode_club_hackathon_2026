@@ -567,28 +567,30 @@ export async function POST(event: APIEvent) {
     }
 
     // =========================================================================
-    // CHART REQUESTS - Handle in ANY mode (Sprint Graphiques)
-    // Phase 2: Now uses async detectIntent with LLM fallback
+    // CHART REQUESTS - Only in conversation/profile-edit modes
+    // Skip during onboarding: LLM fallback can misclassify skills/data as show_* intents
     // =========================================================================
-    const chartIntent = await detectIntent(message, context, {
-      llmClient: getLLMClient() || undefined,
-      mode: mode || 'conversation',
-      currentStep: step,
-    });
-    if (chartIntent.action?.startsWith('show_')) {
-      // Redirect to conversation mode handler for ALL display actions (charts, swipe, etc.)
-      const chartResult = await handleConversationMode(
-        message,
-        'conversation', // Force conversation mode for charts
-        context,
-        threadId,
-        profileId,
-        timeContext
-      );
-      return new Response(JSON.stringify(chartResult), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+    if (mode !== 'onboarding') {
+      const chartIntent = await detectIntent(message, context, {
+        llmClient: getLLMClient() || undefined,
+        mode: mode || 'conversation',
+        currentStep: step,
       });
+      if (chartIntent.action?.startsWith('show_')) {
+        // Redirect to conversation mode handler for ALL display actions (charts, swipe, etc.)
+        const chartResult = await handleConversationMode(
+          message,
+          'conversation', // Force conversation mode for charts
+          context,
+          threadId,
+          profileId,
+          timeContext
+        );
+        return new Response(JSON.stringify(chartResult), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Handle conversation mode (after onboarding is complete)
