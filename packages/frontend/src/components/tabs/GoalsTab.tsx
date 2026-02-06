@@ -29,7 +29,10 @@ import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
-import { Plus, Target } from 'lucide-solid';
+import { Plus, Target, Rocket } from 'lucide-solid';
+import { Input } from '~/components/ui/Input';
+import { DatePicker } from '~/components/ui/DatePicker';
+import { todayISO } from '~/lib/dateUtils';
 import { RetroplanPanel } from '~/components/RetroplanPanel';
 import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import type { Mission } from '~/components/suivi/MissionCard';
@@ -139,12 +142,12 @@ export function GoalsTab(props: GoalsTabProps) {
       goalData.refetch();
     }, 50);
 
-    // Auto-open new goal form if action=new
+    // Auto-open new goal form if action=new (uses same routing as button)
     const action = Array.isArray(searchParams.action)
       ? searchParams.action[0]
       : searchParams.action;
     if (action === 'new') {
-      setShowNewGoalForm(true);
+      handleNewGoalClick();
     }
   });
 
@@ -162,6 +165,51 @@ export function GoalsTab(props: GoalsTabProps) {
 
   const [replaceGoalConfirm, setReplaceGoalConfirm] = createSignal<Goal | null>(null);
   const [pendingSavePayload, setPendingSavePayload] = createSignal<any>(null);
+
+  // Fresh Goal Workspace (profile-clone flow when active goal exists)
+  const [showFreshGoalDialog, setShowFreshGoalDialog] = createSignal(false);
+  const [freshGoalForm, setFreshGoalForm] = createSignal({
+    name: '',
+    amount: 500,
+    deadline: '',
+  });
+  const [freshGoalLoading, setFreshGoalLoading] = createSignal(false);
+
+  const handleNewGoalClick = () => {
+    if (activeGoal()) {
+      // Active goal exists — show Fresh Goal Workspace dialog
+      setShowFreshGoalDialog(true);
+    } else {
+      // No active goal — show GoalForm directly (first goal)
+      setShowNewGoalForm(true);
+    }
+  };
+
+  const handleFreshGoalCreate = async () => {
+    const form = freshGoalForm();
+    if (!form.name || !form.amount) return;
+    const current = profileId();
+    if (!current) return;
+
+    setFreshGoalLoading(true);
+    try {
+      const newProfile = await profileService.duplicateProfileForGoal(current, {
+        goalName: form.name,
+        goalAmount: form.amount,
+        goalDeadline: form.deadline || undefined,
+      });
+      if (newProfile) {
+        localStorage.removeItem('followupData');
+        localStorage.removeItem('planData');
+        localStorage.removeItem('achievements');
+        window.location.reload();
+      }
+    } catch (err) {
+      logger.error('Fresh goal creation failed', { error: err });
+    } finally {
+      setFreshGoalLoading(false);
+    }
+  };
 
   // Reset UI logic
   const resetMode = () => {
@@ -197,6 +245,41 @@ export function GoalsTab(props: GoalsTabProps) {
           id: oldGoal.id,
           status: 'paused',
         });
+      }
+    }
+
+    // Archive followupData into goal's planData when completing
+    if (newStatus === 'completed') {
+      const currentFollowup = followupData();
+      if (currentFollowup) {
+        const existingPlanData = (goal.planData || {}) as Record<string, unknown>;
+        await goalService.updateGoal({
+          id: goal.id,
+          status: 'completed',
+          progress: 100,
+          planData: {
+            ...existingPlanData,
+            archivedProgress: {
+              ...currentFollowup,
+              archivedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        // Reset profile followupData (keep energy history only)
+        const p = profile();
+        if (p) {
+          const rawFollowup = p.followupData as Record<string, unknown> | undefined;
+          const freshFollowup = rawFollowup?.energyHistory
+            ? { energyHistory: rawFollowup.energyHistory }
+            : {};
+          await profileService.saveProfile(
+            { ...p, followupData: freshFollowup as typeof p.followupData },
+            { setActive: false }
+          );
+          await refreshProfile();
+        }
+        return; // Already updated goal above
       }
     }
 
@@ -411,7 +494,7 @@ export function GoalsTab(props: GoalsTabProps) {
           <Target class="h-6 w-6 text-primary" /> My Goals
         </h2>
         <Show when={!showNewGoalForm() && goals().length > 0}>
-          <Button onClick={() => setShowNewGoalForm(true)}>
+          <Button onClick={handleNewGoalClick}>
             <Plus class="h-4 w-4 mr-2" /> New Goal
           </Button>
         </Show>
@@ -586,6 +669,97 @@ export function GoalsTab(props: GoalsTabProps) {
           setPendingSavePayload(null);
         }}
       />
+
+      {/* Fresh Goal Workspace Dialog */}
+      <Show when={showFreshGoalDialog()}>
+        <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <Card class="w-full max-w-md">
+            <CardContent class="p-6 space-y-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-primary/10 rounded-lg">
+                  <Rocket class="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 class="text-lg font-semibold text-foreground">Start Fresh Goal</h3>
+                  <p class="text-sm text-muted-foreground">
+                    Your financial setup carries over, progress starts fresh.
+                  </p>
+                </div>
+              </div>
+
+              <div class="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+                <p>
+                  Your current goal "{activeGoal()?.name}" stays accessible via the profile
+                  selector.
+                </p>
+                <p class="mt-1">Items already sold or traded stay with your current goal.</p>
+              </div>
+
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm font-medium text-foreground mb-1">Goal name</label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., Summer trip, New laptop..."
+                    value={freshGoalForm().name}
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                      setFreshGoalForm({ ...freshGoalForm(), name: e.currentTarget.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-foreground mb-1">
+                    Target amount ({getCurrencySymbol(currency())})
+                  </label>
+                  <Input
+                    type="number"
+                    min="50"
+                    max="10000"
+                    value={freshGoalForm().amount}
+                    onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
+                      setFreshGoalForm({
+                        ...freshGoalForm(),
+                        amount: parseInt(e.currentTarget.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <DatePicker
+                    label="Deadline (optional)"
+                    value={freshGoalForm().deadline}
+                    onChange={(date) => setFreshGoalForm({ ...freshGoalForm(), deadline: date })}
+                    min={todayISO()}
+                    fullWidth
+                  />
+                </div>
+              </div>
+
+              <div class="flex gap-2 pt-2">
+                <Button
+                  class="flex-1"
+                  onClick={handleFreshGoalCreate}
+                  disabled={!freshGoalForm().name || !freshGoalForm().amount || freshGoalLoading()}
+                >
+                  {freshGoalLoading() ? 'Creating...' : 'Start Fresh Goal'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowFreshGoalDialog(false);
+                    if (activeGoal()) handleEdit(activeGoal()!);
+                  }}
+                >
+                  Edit Current
+                </Button>
+                <Button variant="ghost" onClick={() => setShowFreshGoalDialog(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Show>
     </div>
   );
 }

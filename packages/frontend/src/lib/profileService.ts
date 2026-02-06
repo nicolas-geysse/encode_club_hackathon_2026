@@ -344,28 +344,56 @@ export async function duplicateProfileForGoal(
       return null;
     }
 
-    // Create new profile with goal data
+    // Create new profile — copy ALL financial/personal fields, fresh goal state
     const newProfile: Partial<FullProfile> & { name: string } = {
+      // Identity & education
       name: `${source.name} - ${goalConfig.goalName}`,
       diploma: source.diploma,
+      field: source.field,
       skills: source.skills,
+      certifications: source.certifications,
+
+      // Location
       city: source.city,
       citySize: source.citySize,
+      latitude: source.latitude,
+      longitude: source.longitude,
+      address: source.address,
+
+      // Financial base (shared reality)
+      currency: source.currency,
       incomeSources: source.incomeSources,
+      incomeDay: source.incomeDay,
       expenses: source.expenses,
-      maxWorkHoursWeekly: source.maxWorkHoursWeekly,
-      minHourlyRate: source.minHourlyRate,
+      monthlyIncome: source.monthlyIncome,
+      monthlyExpenses: source.monthlyExpenses,
+      monthlyMargin: source.monthlyMargin,
       hasLoan: source.hasLoan,
       loanAmount: source.loanAmount,
+      subscriptions: source.subscriptions,
+
+      // Work preferences (learned from swipes)
+      maxWorkHoursWeekly: source.maxWorkHoursWeekly,
+      minHourlyRate: source.minHourlyRate,
+      swipePreferences: source.swipePreferences,
+
+      // Onboarding context
+      skippedSteps: source.skippedSteps,
+
+      // Goal-specific (fresh start)
       profileType: 'goal-clone',
       parentProfileId: sourceProfileId,
       goalName: goalConfig.goalName,
       goalAmount: goalConfig.goalAmount,
       goalDeadline: goalConfig.goalDeadline,
-      // Reset plan/followup data for new goal
+
+      // Fresh progress — only seed energy history (person attribute, not goal)
       planData: undefined,
-      followupData: undefined,
+      followupData: source.followupData?.energyHistory
+        ? ({ energyHistory: source.followupData.energyHistory } as FullProfile['followupData'])
+        : undefined,
       achievements: undefined,
+      // NOTE: inventoryItems NOT copied — items are consumable
     };
 
     const result = await saveProfile(newProfile, { immediate: true, setActive: true });
