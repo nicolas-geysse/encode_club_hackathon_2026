@@ -293,36 +293,20 @@ export function OnboardingChat() {
   // Helper: merge uiResource from localStorage into DB messages (DB may lack ui_resource for older messages)
   const mergeUiResources = (dbMessages: Message[], pid: string): Message[] => {
     const stored = localStorage.getItem(`${CHAT_STORAGE_KEY_PREFIX}${pid}`);
-    if (!stored) {
-      // eslint-disable-next-line no-console
-      console.log('[ChatPersist] No localStorage backup found for merge');
-      return dbMessages;
-    }
+    if (!stored) return dbMessages;
     try {
       const localMessages = JSON.parse(stored) as Message[];
       const localMap = new Map<string, Message>();
       for (const m of localMessages) {
         if (m.id && m.uiResource) localMap.set(m.id, m);
       }
-      // eslint-disable-next-line no-console
-      console.log(
-        '[ChatPersist] Merge: DB msgs=',
-        dbMessages.length,
-        'localStorage with uiResource=',
-        localMap.size
-      );
       if (localMap.size === 0) return dbMessages;
-      let mergedCount = 0;
-      const result = dbMessages.map((msg) => {
+      return dbMessages.map((msg) => {
         if (!msg.uiResource && localMap.has(msg.id)) {
-          mergedCount++;
           return { ...msg, uiResource: localMap.get(msg.id)!.uiResource };
         }
         return msg;
       });
-      // eslint-disable-next-line no-console
-      console.log('[ChatPersist] Merged', mergedCount, 'uiResources from localStorage');
-      return result;
     } catch {
       return dbMessages;
     }
@@ -393,15 +377,6 @@ export function OnboardingChat() {
 
     // Profile exists: save to DuckDB
     try {
-      const hasUi = !!msg.uiResource;
-      // eslint-disable-next-line no-console
-      console.log(
-        '[ChatPersist] saveMessageToDb',
-        msg.id,
-        'hasUiResource=',
-        hasUi,
-        hasUi ? `type=${(msg.uiResource as UIResource).type}` : ''
-      );
       await fetch('/api/chat-history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

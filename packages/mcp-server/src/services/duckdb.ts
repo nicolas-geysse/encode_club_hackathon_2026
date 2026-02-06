@@ -12,9 +12,14 @@
  * - Full schema with goals, projections, academic events, etc.
  */
 
-import * as duckdb from 'duckdb';
+import type * as DuckDBTypes from 'duckdb';
+import { createRequire } from 'module';
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Native module: must use createRequire for ESM compatibility with .node bindings
+const require = createRequire(import.meta.url);
+const duckdb = require('duckdb') as typeof DuckDBTypes;
 
 // Database path - ALIGNED with frontend
 // Priority: DUCKDB_PATH env > cwd/data/stride.duckdb
@@ -23,8 +28,8 @@ const DB_PATH = process.env.DUCKDB_PATH || path.join(DB_DIR, 'stride.duckdb');
 const LOCK_PATH = `${DB_PATH}.app.lock`;
 
 // Database instance
-let db: duckdb.Database | null = null;
-let connection: duckdb.Connection | null = null;
+let db: DuckDBTypes.Database | null = null;
+let connection: DuckDBTypes.Connection | null = null;
 let initialized = false;
 
 // Write queue - serializes all write operations
@@ -105,7 +110,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * Get or create database connection
  */
-function getConnection(): duckdb.Connection {
+function getConnection(): DuckDBTypes.Connection {
   if (!db) {
     ensureDataDir();
 

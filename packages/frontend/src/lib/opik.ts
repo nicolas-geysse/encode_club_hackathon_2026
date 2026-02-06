@@ -390,7 +390,11 @@ export async function trace<T>(
       traceHandle.update({
         metadata: collectedAttrs,
         output: { error: errorMessage },
-        errorInfo: { message: errorMessage },
+        errorInfo: {
+          message: errorMessage,
+          exceptionType: error instanceof Error ? error.constructor.name : 'Error',
+          traceback: error instanceof Error ? error.stack || '' : '',
+        },
       });
       traceHandle.end();
     }
@@ -531,7 +535,11 @@ async function createSpanInternal<T>(
       spanHandle.update({
         metadata: collectedAttrs,
         output: { error: errorMessage },
-        errorInfo: { message: errorMessage },
+        errorInfo: {
+          message: errorMessage,
+          exceptionType: error instanceof Error ? error.constructor.name : 'Error',
+          traceback: error instanceof Error ? error.stack || '' : '',
+        },
       });
       spanHandle.end();
     }

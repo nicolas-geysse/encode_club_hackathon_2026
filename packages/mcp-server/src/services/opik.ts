@@ -658,7 +658,11 @@ async function createSpanInternal<T>(
       spanHandle.update({
         metadata: sanitizeLocationPII(collectedAttrs),
         output: { error: errorMessage },
-        errorInfo: { message: errorMessage },
+        errorInfo: {
+          message: errorMessage,
+          exceptionType: error instanceof Error ? error.constructor.name : 'Error',
+          traceback: error instanceof Error ? error.stack || '' : '',
+        },
       });
       spanHandle.end();
     }
