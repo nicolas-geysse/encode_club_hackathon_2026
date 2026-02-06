@@ -33,6 +33,8 @@ interface ProspectionMapProps {
   onSaveCard?: (card: ScoredJob) => void;
   /** Set of already saved card IDs */
   savedCardIds?: Set<string>;
+  /** Called when exclude (thumb down) button is clicked on a card */
+  onExcludeCard?: (card: ScoredJob) => void;
 }
 
 // =============================================================================
@@ -175,6 +177,18 @@ export function ProspectionMap(props: ProspectionMapProps) {
           return;
         }
 
+        // Guard: Ensure mapContainer is mounted in the DOM before initializing Leaflet
+        if (!mapContainer.isConnected) {
+          // Container not yet in DOM — schedule a retry after paint
+          requestAnimationFrame(() => {
+            if (mapContainer?.isConnected && !mapInitialized()) {
+              // Re-trigger effect by reading tracked signals
+              void [props.userLocation?.lat, props.userLocation?.lng];
+            }
+          });
+          return;
+        }
+
         try {
           await loadLeaflet();
 
@@ -186,7 +200,7 @@ export function ProspectionMap(props: ProspectionMapProps) {
             return;
           }
 
-          // Create map
+          // Create map — catch Leaflet init errors (e.g., container already initialized)
           map = L.map(mapContainer, {
             zoomControl: true,
             scrollWheelZoom: true,
@@ -379,6 +393,14 @@ export function ProspectionMap(props: ProspectionMapProps) {
                 >
                   ${isSaved ? '✓ Saved' : '💾 Save'}
                 </button>
+                <button
+                  data-action="exclude"
+                  data-card-id="${card.id}"
+                  class="px-3 py-1.5 text-xs font-medium rounded bg-red-50 text-red-600 hover:bg-red-100"
+                  title="Not interested"
+                >
+                  👎
+                </button>
                 ${
                   card.url
                     ? `
@@ -416,11 +438,28 @@ export function ProspectionMap(props: ProspectionMapProps) {
                 const cardData = cardId ? cardDataMap.get(cardId) : null;
                 if (cardData && props.onSaveCard) {
                   props.onSaveCard(cardData);
-                  // Update button state
                   saveBtn.disabled = true;
                   saveBtn.textContent = '✓ Saved';
                   saveBtn.className =
                     'flex-1 px-3 py-1.5 text-xs font-medium rounded bg-gray-200 text-gray-500 cursor-not-allowed';
+                }
+              };
+            }
+
+            // Attach exclude button handler
+            const excludeBtn = container.querySelector(
+              '[data-action="exclude"]'
+            ) as HTMLButtonElement;
+            if (excludeBtn) {
+              excludeBtn.onclick = () => {
+                const cardId = excludeBtn.dataset.cardId;
+                const cardData = cardId ? cardDataMap.get(cardId) : null;
+                if (cardData && props.onExcludeCard) {
+                  props.onExcludeCard(cardData);
+                  marker.closePopup();
+                  // Remove this marker from the map
+                  marker.remove();
+                  cardMarkers.delete(cardData.id);
                 }
               };
             }

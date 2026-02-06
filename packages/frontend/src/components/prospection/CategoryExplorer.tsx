@@ -26,6 +26,8 @@ import {
   Globe,
   Star,
   Briefcase,
+  ThumbsDown,
+  Undo2,
 } from 'lucide-solid';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
@@ -66,6 +68,12 @@ interface CategoryExplorerProps {
   allCategoryJobs?: ScoredJob[];
   /** Categories that have been searched (for showing how many categories explored) */
   searchedCategories?: string[];
+  /** Phase 4: Set of excluded category IDs */
+  excludedCategories?: Set<string>;
+  /** Phase 4: Callback to toggle category exclusion */
+  onExcludeCategory?: (categoryId: string, categoryLabel: string) => void;
+  /** Phase 4: Count of excluded jobs per category */
+  exclusionCounts?: Map<string, number>;
 }
 
 export function CategoryExplorer(props: CategoryExplorerProps) {
@@ -90,12 +98,20 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
   };
 
   const categoriesExploredCount = () => props.searchedCategories?.length || 0;
+  const excludedCount = () => props.excludedCategories?.size || 0;
+  const isExcluded = (categoryId: string) => props.excludedCategories?.has(categoryId) ?? false;
+  const jobExclusionCount = (categoryId: string) => props.exclusionCounts?.get(categoryId) || 0;
 
   return (
     <div class="space-y-4">
       <div class="text-center mb-6">
         <h2 class="text-2xl font-bold text-foreground mb-2">Explore Job Categories</h2>
         <p class="text-muted-foreground">Select a category to discover opportunities near you</p>
+        <Show when={excludedCount() > 0}>
+          <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+            {excludedCount()} {excludedCount() === 1 ? 'category' : 'categories'} excluded
+          </p>
+        </Show>
       </div>
 
       <div class="space-y-2">
@@ -108,11 +124,15 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
             const IconComponent = ICON_MAP[category.icon as keyof typeof ICON_MAP] || Building;
             const isPlatformOnly = category.googlePlaceTypes.length === 0;
 
+            const excluded = () => isExcluded(category.id);
+            const jobExclCount = () => jobExclusionCount(category.id);
+
             return (
               <Card
                 class={cn(
                   'transition-all duration-200',
-                  isExpanded() ? 'ring-2 ring-primary/20' : ''
+                  isExpanded() ? 'ring-2 ring-primary/20' : '',
+                  excluded() ? 'opacity-50' : ''
                 )}
               >
                 <button type="button" onClick={() => toggleExpand(category.id)} class="w-full">
@@ -121,30 +141,80 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
                       <div class="flex items-center gap-3">
                         <div
                           class={cn(
-                            'p-2 rounded-lg bg-primary/10',
-                            getCategoryColor(category.effortLevel)
+                            'p-2 rounded-lg',
+                            excluded() ? 'bg-muted' : 'bg-primary/10',
+                            !excluded() && getCategoryColor(category.effortLevel)
                           )}
                         >
-                          <Dynamic component={IconComponent} class="h-5 w-5" />
+                          <Dynamic
+                            component={IconComponent}
+                            class={cn('h-5 w-5', excluded() && 'text-muted-foreground')}
+                          />
                         </div>
                         <div class="text-left">
                           <div class="flex items-center gap-2">
-                            <h3 class="font-semibold text-foreground">{category.label}</h3>
+                            <h3
+                              class={cn(
+                                'font-semibold',
+                                excluded()
+                                  ? 'text-muted-foreground line-through'
+                                  : 'text-foreground'
+                              )}
+                            >
+                              {category.label}
+                            </h3>
                             {isPlatformOnly && (
                               <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-300">
                                 <Globe class="h-3 w-3" />
                                 Platforms
                               </span>
                             )}
+                            <Show when={excluded()}>
+                              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/30 rounded text-xs text-amber-700 dark:text-amber-300">
+                                Excluded
+                              </span>
+                            </Show>
+                            <Show when={!excluded() && jobExclCount() > 0}>
+                              <span class="text-xs text-muted-foreground">
+                                ({jobExclCount()} job{jobExclCount() > 1 ? 's' : ''} excluded)
+                              </span>
+                            </Show>
                           </div>
                         </div>
                       </div>
-                      <ChevronDown
-                        class={cn(
-                          'h-5 w-5 text-muted-foreground transition-transform duration-200',
-                          isExpanded() && 'rotate-180'
-                        )}
-                      />
+                      <div class="flex items-center gap-2">
+                        {/* Exclude/Include toggle */}
+                        <Show when={props.onExcludeCategory}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              props.onExcludeCategory?.(category.id, category.label);
+                            }}
+                            class={cn(
+                              'p-1.5 rounded-full transition-colors',
+                              excluded()
+                                ? 'text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-950/30'
+                                : 'text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10'
+                            )}
+                            title={
+                              excluded() ? 'Re-include this category' : 'Exclude this category'
+                            }
+                          >
+                            {excluded() ? (
+                              <Undo2 class="h-4 w-4" />
+                            ) : (
+                              <ThumbsDown class="h-4 w-4" />
+                            )}
+                          </button>
+                        </Show>
+                        <ChevronDown
+                          class={cn(
+                            'h-5 w-5 text-muted-foreground transition-transform duration-200',
+                            isExpanded() && 'rotate-180'
+                          )}
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </button>

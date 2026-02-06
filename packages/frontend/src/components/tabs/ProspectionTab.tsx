@@ -42,6 +42,7 @@ import type {
   LeadStatus,
   ProspectionTabProps,
   ProspectionSearchMeta,
+  JobExclusion,
 } from '~/lib/prospectionTypes';
 import { getCategoryById, PROSPECTION_CATEGORIES } from '~/config/prospectionCategories';
 import { scoreJobsForProfile, type ScoredJob, type UserProfile } from '~/lib/jobScoring';
@@ -54,6 +55,52 @@ type ViewMode = 'list' | 'map';
 
 // Constant for Wide Search (Top 10 Highlights) - 10km (User requested max limit)
 const DEEP_SEARCH_RADIUS_METERS = 10000;
+
+/**
+ * Balanced Top 10: Ensures category diversity (max 2 per category).
+ * Round 1: Pick the #1 job from each category.
+ * Round 2: Fill remaining slots by best overall score, max 2 per category.
+ */
+function buildBalancedTop10(allJobs: ScoredJob[]): ScoredJob[] {
+  if (allJobs.length <= 10) return [...allJobs].sort((a, b) => b.score - a.score);
+
+  const byCategory = new Map<string, ScoredJob[]>();
+  for (const job of allJobs) {
+    const cat = job.categoryId || 'unknown';
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(job);
+  }
+  for (const jobs of byCategory.values()) {
+    jobs.sort((a, b) => b.score - a.score);
+  }
+
+  const result: ScoredJob[] = [];
+  const categoryCount = new Map<string, number>();
+  const picked = new Set<string>();
+
+  // Round 1: Best from each category
+  for (const [cat, jobs] of byCategory) {
+    if (jobs.length > 0 && result.length < 10) {
+      result.push(jobs[0]);
+      picked.add(jobs[0].id);
+      categoryCount.set(cat, 1);
+    }
+  }
+
+  // Round 2: Fill remaining slots, max 2 per category, sorted by best score
+  const remaining = [...allJobs].filter((j) => !picked.has(j.id)).sort((a, b) => b.score - a.score);
+
+  for (const job of remaining) {
+    if (result.length >= 10) break;
+    const cat = job.categoryId || 'unknown';
+    if ((categoryCount.get(cat) || 0) < 2) {
+      result.push(job);
+      categoryCount.set(cat, (categoryCount.get(cat) || 0) + 1);
+    }
+  }
+
+  return result.sort((a, b) => b.score - a.score);
+}
 
 export function ProspectionTab(props: ProspectionTabProps) {
   const [phase, setPhase] = createSignal<Phase>('idle');
@@ -76,8 +123,22 @@ export function ProspectionTab(props: ProspectionTabProps) {
   const [deepSearchProgress, setDeepSearchProgress] = createSignal<string | null>(null);
   // v4.1: User-configurable search radius (in meters)
   const [searchRadius, setSearchRadius] = createSignal(5000);
+  // Phase 4: Job/category exclusions
+  const [exclusions, setExclusions] = createSignal<JobExclusion[]>([]);
+  const excludedJobIds = () =>
+    new Set(
+      exclusions()
+        .filter((e) => e.exclusionType === 'job')
+        .map((e) => e.targetId)
+    );
+  const excludedCategoryIds = () =>
+    new Set(
+      exclusions()
+        .filter((e) => e.exclusionType === 'category')
+        .map((e) => e.targetId)
+    );
 
-  // Load existing leads on mount
+  // Load existing leads + exclusions on mount
   createEffect(
     on(
       () => props.profileId,
@@ -85,13 +146,20 @@ export function ProspectionTab(props: ProspectionTabProps) {
         if (!profileId) return;
 
         try {
-          const response = await fetch(`/api/leads?profileId=${profileId}`);
-          if (response.ok) {
-            const data = await response.json();
+          const [leadsRes, exclusionsRes] = await Promise.all([
+            fetch(`/api/leads?profileId=${profileId}`),
+            fetch(`/api/exclusions?profileId=${profileId}`),
+          ]);
+          if (leadsRes.ok) {
+            const data = await leadsRes.json();
             setLeads(data);
           }
+          if (exclusionsRes.ok) {
+            const data = await exclusionsRes.json();
+            setExclusions(data);
+          }
         } catch (err) {
-          logger.error('Failed to load leads', { error: err });
+          logger.error('Failed to load leads/exclusions', { error: err });
         }
       }
     )
@@ -319,10 +387,17 @@ export function ProspectionTab(props: ProspectionTabProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Search failed');
+        const errorBody = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Search failed (${response.status}): ${errorBody}`);
       }
 
       const data = await response.json();
+
+      // Guard against malformed response
+      if (!data || !Array.isArray(data.cards)) {
+        logger.warn('Malformed search response', { data });
+        throw new Error('Invalid response from search API');
+      }
 
       // JOBS-04/05: Build user profile for scoring and score/sort jobs
       // Phase 5: Now includes certifications for job boost
@@ -334,12 +409,12 @@ export function ProspectionTab(props: ProspectionTabProps) {
       };
       const scoredCards = scoreJobsForProfile(data.cards, userProfile);
 
+      // Set all data BEFORE changing phase (prevents race with map mount)
       setCurrentCards(scoredCards);
       setCurrentCategory(categoryId);
       setSearchMeta(data.meta);
       setSavedJobIds(new Set<string>());
       setSavedCount(0);
-      setPhase('results');
 
       // Track this category as searched
       setSearchedCategories((prev) => (prev.includes(categoryId) ? prev : [...prev, categoryId]));
@@ -350,9 +425,15 @@ export function ProspectionTab(props: ProspectionTabProps) {
         const newJobs = scoredCards.filter((j) => !existingIds.has(j.id));
         return [...prev, ...newJobs];
       });
+
+      // Phase transition LAST — after all data is set
+      setPhase('results');
     } catch (err) {
-      logger.error('Search error', { error: err });
-      toastPopup.error('Search failed', 'Could not find opportunities. Try again.');
+      logger.error('Search error', { error: err, categoryId });
+      toastPopup.error(
+        'Search failed',
+        err instanceof Error ? err.message : 'Could not find opportunities. Try again.'
+      );
       setPhase('idle');
     } finally {
       setLoadingCategory(null);
@@ -455,6 +536,86 @@ export function ProspectionTab(props: ProspectionTabProps) {
     setViewMode('list');
   };
 
+  // Phase 4: Exclude a job (thumb down)
+  const handleExcludeJob = async (job: ScoredJob) => {
+    if (!props.profileId) return;
+    try {
+      const response = await fetch('/api/exclusions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId: props.profileId,
+          exclusionType: 'job',
+          targetId: job.id,
+          targetLabel: `${job.title} at ${job.company || 'Unknown'}`,
+        }),
+      });
+      if (response.ok) {
+        const exclusion = await response.json();
+        setExclusions((prev) => [...prev, exclusion]);
+        // Remove from current cards
+        setCurrentCards((prev) => prev.filter((c) => c.id !== job.id));
+        setAllCategoryJobs((prev) => prev.filter((c) => c.id !== job.id));
+        toastPopup.success('Job excluded', `${job.company || job.title} won't appear again`);
+      }
+    } catch (err) {
+      logger.error('Failed to exclude job', { error: err });
+      toastPopup.error('Exclusion failed', 'Could not exclude this job');
+    }
+  };
+
+  // Phase 4: Exclude a category (thumb down on category)
+  const handleExcludeCategory = async (categoryId: string, categoryLabel: string) => {
+    if (!props.profileId) return;
+    try {
+      // Check if already excluded → toggle off
+      const existing = exclusions().find(
+        (e) => e.exclusionType === 'category' && e.targetId === categoryId
+      );
+      if (existing) {
+        // Re-include
+        const response = await fetch(`/api/exclusions?id=${existing.id}`, { method: 'DELETE' });
+        if (response.ok) {
+          setExclusions((prev) => prev.filter((e) => e.id !== existing.id));
+          toastPopup.success('Category restored', `${categoryLabel} will appear in searches again`);
+        }
+        return;
+      }
+
+      // Exclude
+      const response = await fetch('/api/exclusions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profileId: props.profileId,
+          exclusionType: 'category',
+          targetId: categoryId,
+          targetLabel: categoryLabel,
+        }),
+      });
+      if (response.ok) {
+        const exclusion = await response.json();
+        setExclusions((prev) => [...prev, exclusion]);
+        // Remove jobs from this category from current cards
+        setCurrentCards((prev) => prev.filter((c) => c.categoryId !== categoryId));
+        setAllCategoryJobs((prev) => prev.filter((c) => c.categoryId !== categoryId));
+        toastPopup.success('Category excluded', `${categoryLabel} hidden from searches and Top 10`);
+      }
+    } catch (err) {
+      logger.error('Failed to exclude category', { error: err });
+      toastPopup.error('Exclusion failed', 'Could not exclude this category');
+    }
+  };
+
+  // Phase 4: Filter jobs by exclusions (applied to display)
+  const filteredCards = () => {
+    const excJobIds = excludedJobIds();
+    const excCatIds = excludedCategoryIds();
+    return currentCards().filter(
+      (card) => !excJobIds.has(card.id) && !excCatIds.has(card.categoryId)
+    );
+  };
+
   // Reset to idle
   const handleReset = () => {
     setPhase('idle');
@@ -491,7 +652,23 @@ export function ProspectionTab(props: ProspectionTabProps) {
           leads: leads().map((l) => ({
             status: l.status,
             title: l.title,
+            company: l.company,
+            salaryMin: l.salaryMin,
+            salaryMax: l.salaryMax,
           })),
+          topJobs: allCategoryJobs()
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 5)
+            .map((j) => ({
+              title: j.title,
+              company: j.company,
+              score: j.score,
+              salaryText: j.salaryText,
+              commuteText: j.commuteText,
+              categoryId: j.categoryId,
+            })),
+          excludedCategories: [...excludedCategoryIds()],
+          excludedJobCount: excludedJobIds().size,
           city: props.city,
           skippedSteps: props.skippedSteps,
         }}
@@ -680,6 +857,20 @@ export function ProspectionTab(props: ProspectionTabProps) {
             currency={props.currency}
             allCategoryJobs={allCategoryJobs()}
             searchedCategories={searchedCategories()}
+            excludedCategories={excludedCategoryIds()}
+            onExcludeCategory={handleExcludeCategory}
+            exclusionCounts={(() => {
+              const counts = new Map<string, number>();
+              for (const e of exclusions()) {
+                if (e.exclusionType === 'job') {
+                  // Find the category of the excluded job from the label or target
+                  // For simplicity, count job exclusions per their target_id prefix (categoryId_placeId)
+                  const catId = e.targetId.split('_')[0];
+                  counts.set(catId, (counts.get(catId) || 0) + 1);
+                }
+              }
+              return counts;
+            })()}
           />
         </div>
       </Show>
@@ -726,7 +917,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
           <Show
             when={
               props.userLocation &&
-              currentCards().length > 0 &&
+              filteredCards().length > 0 &&
               currentCategory() !== REAL_JOBS_CATEGORY_ID
             }
           >
@@ -735,19 +926,20 @@ export function ProspectionTab(props: ProspectionTabProps) {
                 <h3 class="font-semibold text-foreground mb-3 flex items-center gap-2">
                   <MapIcon class="h-4 w-4" />
                   {currentCategory() === TOP10_ALL_CATEGORY_ID
-                    ? `Top 10 of ${currentCards().length} places nearby`
-                    : `${currentCards().length} places nearby`}
+                    ? `Top 10 (balanced across categories) of ${filteredCards().length} places`
+                    : `${filteredCards().length} places nearby`}
                 </h3>
                 <ProspectionMap
                   userLocation={props.userLocation}
                   currentCards={
                     currentCategory() === TOP10_ALL_CATEGORY_ID
-                      ? currentCards().slice(0, 10)
-                      : currentCards()
+                      ? buildBalancedTop10(filteredCards())
+                      : filteredCards()
                   }
                   height="350px"
                   onSaveCard={handleSaveJob}
                   savedCardIds={savedJobIds()}
+                  onExcludeCard={handleExcludeJob}
                 />
 
                 {/* Radius Control - Placed below map as requested */}
@@ -790,16 +982,18 @@ export function ProspectionTab(props: ProspectionTabProps) {
 
           {/* Job list below */}
           <ProspectionList
-            jobs={currentCards()}
+            jobs={filteredCards()}
             onSave={handleSaveJob}
+            onExclude={handleExcludeJob}
             savedIds={savedJobIds()}
             meta={searchMeta()}
             userCertifications={props.userCertifications}
             profileId={props.profileId}
             categoryLabel={categoryLabel()}
-            allCategoryJobs={allCategoryJobs()}
+            allCategoryJobs={allCategoryJobs().filter(
+              (j) => !excludedJobIds().has(j.id) && !excludedCategoryIds().has(j.categoryId)
+            )}
             showViewTabs={true}
-            // Phase 8b: Limit deep search results to Top 10, but allow sorting on full set
             limit={currentCategory() === TOP10_ALL_CATEGORY_ID ? 10 : undefined}
           />
         </div>

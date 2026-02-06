@@ -99,6 +99,14 @@ export async function POST(event: APIEvent) {
       // Chat messages table might not exist yet, ignore
     }
 
+    // Delete job exclusions for this profile
+    try {
+      await execute(`DELETE FROM job_exclusions WHERE profile_id = ${escapedProfileId}`);
+      deletedTables.push('job_exclusions');
+    } catch {
+      // Job exclusions table might not exist yet, ignore
+    }
+
     // Reset skipped_steps and followup_data on the profile itself
     try {
       await execute(`

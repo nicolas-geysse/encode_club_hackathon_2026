@@ -239,7 +239,7 @@ import path from 'path';
 // =============================================================================
 
 const CACHE_FILE = path.resolve(process.cwd(), '.cache/prospection_cache.json');
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CACHE_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours (reduced from 7 days — API is expensive but 7 days is stale)
 
 interface CacheEntry {
   timestamp: number;
@@ -338,6 +338,127 @@ async function setCache(key: string, data: ProspectionCard[]): Promise<void> {
   } catch (error) {
     logger.error('Cache write error', { error });
   }
+}
+
+// =============================================================================
+// Place-Type-Aware Job Title Generation
+// =============================================================================
+
+/**
+ * Maps (categoryId:placeType) → appropriate job titles for students.
+ * Category-specific keys override generic ones to disambiguate shared place types
+ * (e.g., "school" means cleaning staff in cleaning category, but tutor in tutoring).
+ */
+const PLACE_TYPE_JOB_TITLES: Record<string, string[]> = {
+  // --- Category-specific overrides (for ambiguous place types) ---
+  // Cleaning
+  'cleaning:school': ['Cleaning Staff', 'Janitor Assistant', 'Maintenance Helper'],
+  'cleaning:university': ['Cleaning Staff', 'Campus Maintenance', 'Facility Helper'],
+  'cleaning:hospital': ['Cleaning Staff', 'Ward Attendant', 'Sanitation Worker'],
+  'cleaning:gym': ['Cleaning Staff', 'Facility Attendant'],
+  'cleaning:spa': ['Cleaning Staff', 'Facility Attendant'],
+  'cleaning:movie_theater': ['Cleaning Staff', 'Theater Attendant'],
+  'cleaning:stadium': ['Cleaning Staff', 'Facility Attendant'],
+  // Childcare
+  'childcare:school': ['After-school Helper', 'Childcare Assistant'],
+  'childcare:primary_school': ['After-school Helper', 'Childcare Assistant'],
+  'childcare:secondary_school': ['After-school Helper', 'Study Supervisor'],
+  'childcare:pet_store': ['Pet Sitter', 'Dog Walker', 'Pet Care Assistant'],
+  // Tutoring
+  'tutoring:school': ['Tutor', 'Study Helper', 'Homework Supervisor'],
+  'tutoring:university': ['Tutor', 'Study Group Leader', 'Teaching Assistant'],
+  'tutoring:primary_school': ['Tutor', 'Homework Helper'],
+  'tutoring:secondary_school': ['Tutor', 'Exam Prep Coach', 'Study Helper'],
+  'tutoring:library': ['Tutor', 'Study Helper', 'Reading Coach'],
+  'tutoring:book_store': ['Tutor', 'Study Group Organizer'],
+  // Campus
+  'campus:university': ['Lab Monitor', 'IT Helpdesk', 'Administrative Helper'],
+  'campus:school': ['Administrative Helper', 'Reception Assistant'],
+  'campus:library': ['Library Assistant', 'Study Room Monitor'],
+  // Events
+  'events:shopping_mall': ['Promoter', 'Brand Ambassador', 'Event Staff'],
+  'events:stadium': ['Event Staff', 'Usher', 'Ticket Collector'],
+  'events:night_club': ['Event Staff', 'Promoter', 'Door Staff'],
+  'events:movie_theater': ['Event Staff', 'Usher', 'Concession Worker'],
+  // Digital (places are workspaces, not employers)
+  'digital:cafe': ['Freelancer', 'Remote Worker', 'Digital Nomad'],
+  'digital:library': ['Freelancer', 'Remote Worker', 'Digital Nomad'],
+  // Beauty
+  'beauty:gym': ['Reception Assistant', 'Front Desk Staff'],
+  'beauty:spa': ['Spa Assistant', 'Reception Assistant'],
+  // Retail (disambiguation for shared types)
+  'retail:pet_store': ['Sales Associate', 'Stock Clerk', 'Cashier'],
+  'retail:book_store': ['Sales Associate', 'Shelf Organizer', 'Cashier'],
+  'retail:home_goods_store': ['Sales Associate', 'Stock Clerk', 'Cashier'],
+  // Handyman
+  'handyman:hardware_store': ['Sales Advisor', 'Stock Clerk', 'Customer Helper'],
+  'handyman:furniture_store': ['Delivery Helper', 'Assembly Service', 'Stock Clerk'],
+  'handyman:home_goods_store': ['Delivery Helper', 'Assembly Service'],
+
+  // --- Generic place type mappings (fallback when no category-specific key) ---
+  restaurant: ['Waiter/Waitress', 'Kitchen Helper', 'Dishwasher', 'Host/Hostess'],
+  cafe: ['Barista', 'Counter Staff', 'Kitchen Assistant'],
+  bar: ['Bartender', 'Bar Helper', 'Waiter/Waitress'],
+  bakery: ['Sales Assistant', 'Baker Helper', 'Counter Staff'],
+  night_club: ['Bartender', 'Bar Staff', 'Door Staff'],
+  meal_takeaway: ['Order Prep', 'Counter Staff', 'Delivery Helper'],
+  meal_delivery: ['Delivery Driver', 'Order Prep', 'Kitchen Helper'],
+  store: ['Sales Associate', 'Cashier', 'Stock Clerk'],
+  shopping_mall: ['Sales Associate', 'Information Desk', 'Stock Clerk'],
+  supermarket: ['Cashier', 'Shelf Stocker', 'Cart Attendant'],
+  clothing_store: ['Sales Associate', 'Fitting Room Attendant', 'Stock Clerk'],
+  convenience_store: ['Cashier', 'Stock Clerk'],
+  department_store: ['Sales Associate', 'Cashier', 'Stock Clerk'],
+  electronics_store: ['Sales Associate', 'Tech Advisor', 'Cashier'],
+  shoe_store: ['Sales Associate', 'Stock Clerk'],
+  home_goods_store: ['Sales Associate', 'Stock Clerk', 'Cashier'],
+  book_store: ['Sales Associate', 'Shelf Organizer', 'Cashier'],
+  pet_store: ['Sales Associate', 'Animal Care Helper', 'Cashier'],
+  drugstore: ['Cashier', 'Stock Clerk', 'Sales Associate'],
+  florist: ['Sales Assistant', 'Flower Arranger Helper'],
+  jewelry_store: ['Sales Associate', 'Display Assistant'],
+  liquor_store: ['Sales Associate', 'Stock Clerk', 'Cashier'],
+  lodging: ['Housekeeper', 'Room Attendant', 'Front Desk', 'Laundry Staff'],
+  gym: ['Front Desk', 'Facility Attendant', 'Reception'],
+  spa: ['Reception Assistant', 'Spa Attendant'],
+  movie_theater: ['Ticket Seller', 'Concession Worker', 'Usher'],
+  stadium: ['Event Staff', 'Concession Worker', 'Usher'],
+  hospital: ['Receptionist', 'Administrative Helper'],
+  school: ['Administrative Helper', 'School Assistant'],
+  university: ['Administrative Helper', 'Lab Assistant'],
+  primary_school: ['After-school Helper', 'Teaching Assistant'],
+  secondary_school: ['Study Supervisor', 'Teaching Assistant'],
+  library: ['Library Assistant', 'Shelving Staff', 'Front Desk'],
+  hardware_store: ['Sales Associate', 'Stock Clerk', 'Customer Advisor'],
+  furniture_store: ['Sales Associate', 'Delivery Helper', 'Assembly Service'],
+  beauty_salon: ['Salon Assistant', 'Shampoo Helper', 'Reception'],
+  hair_care: ['Salon Assistant', 'Shampoo Helper', 'Reception'],
+  gas_station: ['Pump Attendant', 'Cashier', 'Service Assistant'],
+  car_wash: ['Car Wash Attendant', 'Service Assistant'],
+};
+
+/**
+ * Get an appropriate job title based on category + place type.
+ * 1. Try category-specific key (e.g., "cleaning:school")
+ * 2. Try generic place type key (e.g., "school")
+ * 3. Fallback to category examples
+ */
+function getJobTitle(categoryId: string, placeType: string, categoryExamples: string[]): string {
+  // 1. Category-specific
+  const specificKey = `${categoryId}:${placeType}`;
+  const specificTitles = PLACE_TYPE_JOB_TITLES[specificKey];
+  if (specificTitles && specificTitles.length > 0) {
+    return specificTitles[Math.floor(Math.random() * specificTitles.length)];
+  }
+
+  // 2. Generic place type
+  const genericTitles = PLACE_TYPE_JOB_TITLES[placeType];
+  if (genericTitles && genericTitles.length > 0) {
+    return genericTitles[Math.floor(Math.random() * genericTitles.length)];
+  }
+
+  // 3. Fallback to category examples
+  return categoryExamples[Math.floor(Math.random() * categoryExamples.length)];
 }
 
 /**
@@ -470,10 +591,13 @@ async function searchWithTextSearch(
           category.avgHourlyRate.min +
           Math.random() * (category.avgHourlyRate.max - category.avgHourlyRate.min);
 
+        // Text search doesn't have a specific placeType, use category examples
+        const title = category.examples[Math.floor(Math.random() * category.examples.length)];
+
         return {
           id: `${category.id}_${place.placeId}`,
           type: 'place' as const,
-          title: category.examples[Math.floor(Math.random() * category.examples.length)],
+          title,
           company: place.name,
           location: place.address,
           lat: place.location.lat,
@@ -543,10 +667,13 @@ async function searchWithRadius(
           category.avgHourlyRate.min +
           Math.random() * (category.avgHourlyRate.max - category.avgHourlyRate.min);
 
+        // Place-type-aware title: "Cleaning Staff" at a school, not "Pet walker"
+        const title = getJobTitle(category.id, placeType, category.examples);
+
         return {
           id: `${category.id}_${place.placeId}`,
           type: 'place' as const,
-          title: category.examples[Math.floor(Math.random() * category.examples.length)],
+          title,
           company: place.name,
           location: place.address,
           lat: place.location.lat,

@@ -208,6 +208,22 @@ export interface ProspectionTabProps {
 }
 
 // =============================================================================
+// Exclusion Types
+// =============================================================================
+
+export type ExclusionType = 'job' | 'category';
+
+export interface JobExclusion {
+  id: string;
+  profileId: string;
+  exclusionType: ExclusionType;
+  targetId: string;
+  targetLabel?: string;
+  reason?: string;
+  createdAt?: string;
+}
+
+// =============================================================================
 // Utility Types
 // =============================================================================
 

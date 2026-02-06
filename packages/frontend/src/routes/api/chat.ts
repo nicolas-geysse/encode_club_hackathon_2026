@@ -2613,6 +2613,50 @@ When naturally relevant, remind them they can add this data from the Me tab to u
 Don't nag — mention ONE missing item max per conversation, and only when it's directly useful.`
                       : '';
 
+                  // Build jobs context section if nearby jobs data is available
+                  const topJobs = context.topJobs as
+                    | Array<{
+                        title: string;
+                        company?: string;
+                        score: number;
+                        salaryText?: string;
+                        commuteText?: string;
+                        categoryId?: string;
+                      }>
+                    | undefined;
+                  const savedLeads = context.leads as
+                    | Array<{ status: string; title: string; company?: string }>
+                    | undefined;
+                  const excludedCategories = context.excludedCategories as string[] | undefined;
+                  const excludedJobCount = context.excludedJobCount as number | undefined;
+
+                  let jobsSection = '';
+                  if (topJobs && topJobs.length > 0) {
+                    const jobLines = topJobs
+                      .slice(0, 5)
+                      .map(
+                        (j, i) =>
+                          `${i + 1}. ${j.title}${j.company ? ` at ${j.company}` : ''} (${j.commuteText || 'location unknown'}, ${j.salaryText || 'salary unknown'}, score: ${j.score.toFixed(1)}/5)`
+                      )
+                      .join('\n');
+                    jobsSection += `\n\nNEARBY JOBS (top matches from user's search):\n${jobLines}`;
+                  }
+                  if (savedLeads && savedLeads.length > 0) {
+                    const leadLines = savedLeads
+                      .slice(0, 5)
+                      .map(
+                        (l) => `- [${l.status}] ${l.title}${l.company ? ` at ${l.company}` : ''}`
+                      )
+                      .join('\n');
+                    jobsSection += `\n\nSAVED JOBS:\n${leadLines}`;
+                  }
+                  if (
+                    (excludedCategories && excludedCategories.length > 0) ||
+                    (excludedJobCount && excludedJobCount > 0)
+                  ) {
+                    jobsSection += `\n\nEXCLUDED: ${excludedCategories?.length || 0} categories, ${excludedJobCount || 0} individual jobs`;
+                  }
+
                   const completion = await client.chat.completions.create({
                     model: getModel(),
                     messages: [
@@ -2622,7 +2666,7 @@ Don't nag — mention ONE missing item max per conversation, and only when it's 
 
 📊 PROFILE DATA:
 ${JSON.stringify(context)}
-${budgetSection}${ragSection}${timeSection}${missingSection}
+${budgetSection}${ragSection}${timeSection}${missingSection}${jobsSection}
 
 You have access to consolidated financial data: income, expenses, savings, trades.
 Use this data for personalized, concrete advice.`,

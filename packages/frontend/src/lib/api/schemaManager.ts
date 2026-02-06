@@ -204,4 +204,15 @@ export const SCHEMAS = {
       UNIQUE(profile_id, log_date)
     )
   `,
+  job_exclusions: `
+    CREATE TABLE IF NOT EXISTS job_exclusions (
+      id VARCHAR PRIMARY KEY,
+      profile_id VARCHAR NOT NULL,
+      exclusion_type VARCHAR NOT NULL,
+      target_id VARCHAR NOT NULL,
+      target_label VARCHAR,
+      reason VARCHAR,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `,
 } as const;

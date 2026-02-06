@@ -12,8 +12,8 @@ import {
   Clock,
   ExternalLink,
   Trash2,
-  Check,
-  X,
+  ThumbsUp,
+  ThumbsDown,
   UtensilsCrossed,
   ShoppingBag,
   Sparkles,
@@ -24,9 +24,11 @@ import {
   Laptop,
   Building,
   Filter,
+  DollarSign,
 } from 'lucide-solid';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { cn } from '~/lib/cn';
 import type { Lead, LeadStatus } from '~/lib/prospectionTypes';
 import { getCategoryById } from '~/config/prospectionCategories';
@@ -67,10 +69,23 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
   archived: 'Archived',
 };
 
+/** Format salary range for display */
+function formatSalary(lead: Lead): string | null {
+  if (!lead.salaryMin && !lead.salaryMax) return null;
+  if (lead.salaryMin && lead.salaryMax) {
+    if (lead.salaryMin === lead.salaryMax) return `~${lead.salaryMin}€/h`;
+    return `${lead.salaryMin}-${lead.salaryMax}€/h`;
+  }
+  if (lead.salaryMin) return `~${lead.salaryMin}€/h`;
+  if (lead.salaryMax) return `up to ${lead.salaryMax}€/h`;
+  return null;
+}
+
 export function SavedLeads(props: SavedLeadsProps) {
   const [filterCategory, setFilterCategory] = createSignal<string | null>(null);
   const [filterStatus, setFilterStatus] = createSignal<LeadStatus | null>(null);
   const [showFilters, setShowFilters] = createSignal(false);
+  const [deleteTarget, setDeleteTarget] = createSignal<Lead | null>(null);
 
   // Get unique categories from leads
   const categories = () => {
@@ -255,6 +270,12 @@ export function SavedLeads(props: SavedLeadsProps) {
                                 {lead.commuteTimeMins} min
                               </span>
                             </Show>
+                            <Show when={formatSalary(lead)}>
+                              <span class="flex items-center gap-1 font-medium text-green-600 dark:text-green-400">
+                                <DollarSign class="h-3 w-3" />
+                                {formatSalary(lead)}
+                              </span>
+                            </Show>
                           </div>
                         </div>
                       </div>
@@ -272,17 +293,17 @@ export function SavedLeads(props: SavedLeadsProps) {
 
                         {/* Action buttons */}
                         <div class="flex items-center gap-1">
-                          <Show when={lead.status === 'interested'}>
+                          <Show when={lead.status !== 'applied'}>
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 props.onStatusChange(lead.id, 'applied');
                               }}
-                              class="p-1.5 rounded-md hover:bg-amber-100 dark:hover:bg-amber-950/30 text-amber-600 dark:text-amber-400"
+                              class="p-1.5 rounded-md hover:bg-green-100 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400"
                               title="Mark as Applied"
                             >
-                              <Check class="h-4 w-4" />
+                              <ThumbsUp class="h-4 w-4" />
                             </button>
                           </Show>
 
@@ -296,7 +317,7 @@ export function SavedLeads(props: SavedLeadsProps) {
                               class="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
                               title="Mark as Rejected"
                             >
-                              <X class="h-4 w-4" />
+                              <ThumbsDown class="h-4 w-4" />
                             </button>
                           </Show>
 
@@ -317,7 +338,7 @@ export function SavedLeads(props: SavedLeadsProps) {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              props.onDelete(lead.id);
+                              setDeleteTarget(lead);
                             }}
                             class="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-950/30 text-red-500"
                             title="Delete"
@@ -341,6 +362,24 @@ export function SavedLeads(props: SavedLeadsProps) {
           </For>
         </div>
       </Show>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteTarget() !== null}
+        title="Remove saved job?"
+        message={`Remove "${deleteTarget()?.title || ''}" from your saved jobs? This cannot be undone.`}
+        confirmLabel="Remove"
+        cancelLabel="Keep"
+        variant="danger"
+        onConfirm={() => {
+          const target = deleteTarget();
+          if (target) {
+            props.onDelete(target.id);
+            setDeleteTarget(null);
+          }
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

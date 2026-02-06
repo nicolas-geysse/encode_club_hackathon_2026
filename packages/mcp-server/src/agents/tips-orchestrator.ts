@@ -947,6 +947,14 @@ missing data point that is relevant to THIS tab. Frame it as unlocking a feature
 - Jobs tab + no skills: "I need your skills to match you with the best gigs."
 - Trade tab + no inventory: "Add items you could sell for a quick cash boost!"
 
+JOBS TAB GUIDANCE:
+When generating tips for the Jobs/Prospection tab:
+- Reference SPECIFIC nearby jobs if topJobs data is available (e.g., "Your top match is a Barista role — only 1.2km away!")
+- If the user has saved leads, suggest next actions: "You saved 3 jobs but haven't applied to any yet — start with your highest match!"
+- If the user excluded many jobs/categories, gently suggest reconsidering if it limits options
+- If the user has low/no skills, emphasize: "Adding more skills from your Profile will unlock better job matches"
+- If topJobs show high scores (>4.0), celebrate: "Great matches nearby! Your skills are in demand."
+
 OUTPUT FORMAT (JSON):
 {
   "title": "Short, catchy title (max 6 words)",
