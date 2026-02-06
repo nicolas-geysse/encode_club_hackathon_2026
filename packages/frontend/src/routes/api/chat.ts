@@ -2277,12 +2277,12 @@ async function handleConversationMode(
               )
             : PROSPECTION_CATEGORIES.slice(0, 6); // Top 6 categories
 
-          const jobRows = relevantCategories.map((cat) => [
-            cat.label,
-            `${currSymbol}${cat.avgHourlyRate.min}-${cat.avgHourlyRate.max}/hr`,
-            cat.platforms.slice(0, 2).join(', '),
-            `${'★'.repeat(5 - cat.effortLevel)}${'☆'.repeat(cat.effortLevel)}`,
-          ]);
+          const jobRows = relevantCategories.map((cat) => ({
+            category: cat.label,
+            rate: `${currSymbol}${cat.avgHourlyRate.min}-${cat.avgHourlyRate.max}/hr`,
+            platforms: cat.platforms.slice(0, 2).join(', '),
+            flexibility: `${'★'.repeat(5 - cat.effortLevel)}${'☆'.repeat(cat.effortLevel)}`,
+          }));
 
           response = isRemote
             ? `💼 **Remote & Digital Jobs**\n\nHere are job categories you can do from home:`
@@ -2292,7 +2292,12 @@ async function handleConversationMode(
             type: 'table',
             params: {
               title: isRemote ? 'Remote Job Categories' : 'Job Categories',
-              columns: ['Category', 'Rate Range', 'Platforms', 'Flexibility'],
+              columns: [
+                { key: 'category', label: 'Category' },
+                { key: 'rate', label: 'Rate' },
+                { key: 'platforms', label: 'Platforms' },
+                { key: 'flexibility', label: 'Flexibility' },
+              ],
               rows: jobRows,
             },
           };
@@ -2347,11 +2352,11 @@ async function handleConversationMode(
             }
 
             const totalValue = availableTrades.reduce((sum, t) => sum + (t.value || 0), 0);
-            const tradeRows = availableTrades.map((t) => [
-              t.name,
-              t.description || '-',
-              `${currSymbol}${t.value || 0}`,
-            ]);
+            const tradeRows = availableTrades.map((t) => ({
+              item: t.name,
+              description: t.description || '-',
+              value: `${currSymbol}${t.value || 0}`,
+            }));
 
             response = `💰 **Items You Can Sell**\n\nTotal potential: **${currSymbol}${totalValue}**`;
 
@@ -2359,7 +2364,11 @@ async function handleConversationMode(
               type: 'table',
               params: {
                 title: `Sellable Items (Total: ${currSymbol}${totalValue})`,
-                columns: ['Item', 'Description', 'Value'],
+                columns: [
+                  { key: 'item', label: 'Item' },
+                  { key: 'description', label: 'Description' },
+                  { key: 'value', label: 'Value' },
+                ],
                 rows: tradeRows,
               },
             };
