@@ -19,14 +19,27 @@ import { trace, getTraceUrl, type TraceOptions } from '~/lib/opik';
 import { getCurrencySymbol, type Currency } from '~/lib/dateUtils';
 
 // Google Maps service (lazy loaded to avoid bundling issues)
+// Uses promise singleton to prevent race conditions and ensure init errors are retried
 let googleMapsService: typeof import('@stride/mcp-server/services') | null = null;
+let googleMapsInitPromise: Promise<typeof import('@stride/mcp-server/services')> | null = null;
 
 async function getGoogleMaps() {
-  if (!googleMapsService) {
-    googleMapsService = await import('@stride/mcp-server/services');
-    await googleMapsService.initGoogleMaps();
+  if (googleMapsService) return googleMapsService;
+  if (!googleMapsInitPromise) {
+    googleMapsInitPromise = (async () => {
+      try {
+        const svc = await import('@stride/mcp-server/services');
+        await svc.initGoogleMaps();
+        googleMapsService = svc;
+        return svc;
+      } catch (err) {
+        // Reset so next call retries instead of returning broken service
+        googleMapsInitPromise = null;
+        throw err;
+      }
+    })();
   }
-  return googleMapsService;
+  return googleMapsInitPromise;
 }
 
 const logger = createLogger('prospection-api');

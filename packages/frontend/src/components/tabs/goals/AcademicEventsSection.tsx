@@ -73,6 +73,16 @@ const getEventIcon = (type: AcademicEvent['type']): string => {
   }
 };
 
+/** Map event type to a default name (user can edit) */
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  exam_period: 'Exam period',
+  vacation_rest: 'Vacation (rest)',
+  vacation_available: 'Vacation (available)',
+  internship: 'Internship',
+  class_intensive: 'Intensive class',
+  project_deadline: 'Deadline',
+};
+
 export function AcademicEventsSection(props: AcademicEventsSectionProps) {
   // Add or update an academic event
   const addOrUpdateAcademicEvent = () => {
@@ -123,10 +133,10 @@ export function AcademicEventsSection(props: AcademicEventsSectionProps) {
     <Card>
       <CardContent class="p-6">
         <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-          <GraduationCap class="h-5 w-5 text-primary" /> Academic events
+          <GraduationCap class="h-5 w-5 text-primary" /> Busy Periods
         </h3>
         <p class="text-sm text-muted-foreground mb-4">
-          Add your exam periods or vacations to adapt your goals
+          Add exams, vacations, or busy periods — we'll plan around them
         </p>
 
         {/* Events List */}
@@ -193,12 +203,17 @@ export function AcademicEventsSection(props: AcademicEventsSectionProps) {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <Select
             value={props.newEvent().type}
-            onChange={(e: Event & { currentTarget: HTMLSelectElement }) =>
+            onChange={(e: Event & { currentTarget: HTMLSelectElement }) => {
+              const newType = e.currentTarget.value as AcademicEvent['type'];
+              const currentName = props.newEvent().name || '';
+              const isDefaultOrEmpty =
+                !currentName || Object.values(EVENT_TYPE_LABELS).includes(currentName);
               props.setNewEvent({
                 ...props.newEvent(),
-                type: e.currentTarget.value as AcademicEvent['type'],
-              })
-            }
+                type: newType,
+                ...(isDefaultOrEmpty ? { name: EVENT_TYPE_LABELS[newType] || '' } : {}),
+              });
+            }}
             options={[
               { value: 'exam_period', label: '📝 Exam period' },
               { value: 'vacation_rest', label: '📵 Vacation (rest)' },

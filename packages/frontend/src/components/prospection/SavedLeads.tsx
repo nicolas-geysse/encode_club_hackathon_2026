@@ -293,33 +293,47 @@ export function SavedLeads(props: SavedLeadsProps) {
 
                         {/* Action buttons */}
                         <div class="flex items-center gap-1">
-                          <Show when={lead.status !== 'applied'}>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                props.onStatusChange(lead.id, 'applied');
-                              }}
-                              class="p-1.5 rounded-md hover:bg-green-100 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400"
-                              title="Mark as Applied"
-                            >
-                              <ThumbsUp class="h-4 w-4" />
-                            </button>
-                          </Show>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              props.onStatusChange(
+                                lead.id,
+                                lead.status === 'applied' ? 'interested' : 'applied'
+                              );
+                            }}
+                            class={cn(
+                              'p-1.5 rounded-md transition-colors',
+                              lead.status === 'applied'
+                                ? 'bg-green-100 dark:bg-green-950/30 text-green-600 dark:text-green-400'
+                                : 'hover:bg-green-100 dark:hover:bg-green-950/30 text-gray-400 hover:text-green-600 dark:hover:text-green-400'
+                            )}
+                            title={lead.status === 'applied' ? 'Undo Applied' : 'Mark as Applied'}
+                          >
+                            <ThumbsUp class="h-4 w-4" />
+                          </button>
 
-                          <Show when={lead.status !== 'rejected'}>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                props.onStatusChange(lead.id, 'rejected');
-                              }}
-                              class="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
-                              title="Mark as Rejected"
-                            >
-                              <ThumbsDown class="h-4 w-4" />
-                            </button>
-                          </Show>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              props.onStatusChange(
+                                lead.id,
+                                lead.status === 'rejected' ? 'interested' : 'rejected'
+                              );
+                            }}
+                            class={cn(
+                              'p-1.5 rounded-md transition-colors',
+                              lead.status === 'rejected'
+                                ? 'bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400'
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-500'
+                            )}
+                            title={
+                              lead.status === 'rejected' ? 'Undo Rejected' : 'Mark as Rejected'
+                            }
+                          >
+                            <ThumbsDown class="h-4 w-4" />
+                          </button>
 
                           <Show when={lead.url}>
                             <a

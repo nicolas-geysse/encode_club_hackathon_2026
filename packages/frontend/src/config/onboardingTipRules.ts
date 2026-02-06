@@ -304,7 +304,7 @@ export const ONBOARDING_TIP_RULES: TipRule[] = [
   },
 
   // -------------------------------------------------------------------------
-  // Academic Events Phase
+  // Busy Periods Phase
   // -------------------------------------------------------------------------
   {
     id: 'academic_events_default',

@@ -23,6 +23,7 @@ import {
   Zap,
   Globe,
   ThumbsDown,
+  ThumbsUp,
   Undo2,
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
@@ -97,7 +98,7 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
             return (
               <div
                 class={cn(
-                  'relative rounded-lg border transition-all',
+                  'group relative rounded-lg border transition-all',
                   excluded()
                     ? 'border-border/50 bg-muted/30 opacity-50'
                     : searched()
@@ -183,25 +184,47 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
                   </div>
                 </button>
 
-                {/* Exclude toggle — small button in corner */}
-                <Show when={props.onExcludeCategory}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      props.onExcludeCategory?.(category.id, category.label);
-                    }}
-                    class={cn(
-                      'absolute top-1 right-1 p-1 rounded-full transition-colors',
-                      excluded()
-                        ? 'text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-950/30'
-                        : 'text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10'
-                    )}
-                    title={excluded() ? 'Re-include' : 'Exclude category'}
-                  >
-                    {excluded() ? <Undo2 class="h-3 w-3" /> : <ThumbsDown class="h-3 w-3" />}
-                  </button>
-                </Show>
+                {/* Action buttons — top-right corner, visible on hover */}
+                <div class="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Search / thumbs up */}
+                  <Show when={!excluded() && !props.isLoading}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        props.onCategorySelect(category.id);
+                      }}
+                      class={cn(
+                        'p-1 rounded-full transition-colors',
+                        searched()
+                          ? 'text-green-500 hover:bg-green-100 dark:hover:bg-green-950/30'
+                          : 'text-muted-foreground/30 hover:text-green-600 hover:bg-green-100 dark:hover:bg-green-950/30'
+                      )}
+                      title="Search this category"
+                    >
+                      <ThumbsUp class="h-3 w-3" />
+                    </button>
+                  </Show>
+                  {/* Exclude / thumbs down */}
+                  <Show when={props.onExcludeCategory}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        props.onExcludeCategory?.(category.id, category.label);
+                      }}
+                      class={cn(
+                        'p-1 rounded-full transition-colors',
+                        excluded()
+                          ? 'text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-950/30'
+                          : 'text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10'
+                      )}
+                      title={excluded() ? 'Re-include' : 'Exclude category'}
+                    >
+                      {excluded() ? <Undo2 class="h-3 w-3" /> : <ThumbsDown class="h-3 w-3" />}
+                    </button>
+                  </Show>
+                </div>
               </div>
             );
           }}

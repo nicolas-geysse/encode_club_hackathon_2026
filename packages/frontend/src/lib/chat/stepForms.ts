@@ -480,7 +480,7 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
       {
         name: 'academicEvents',
         type: 'dynamic-list',
-        label: 'Academic Events',
+        label: 'Busy Periods',
         config: {
           itemFields: [
             {
@@ -515,7 +515,7 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
         },
       },
     ],
-    helpText: "Add exams, vacations, or busy periods. We'll plan around them.",
+    helpText: "Add exams, vacations, or busy periods — we'll plan around them.",
   },
 
   inventory: {

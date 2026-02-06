@@ -275,6 +275,12 @@ export function GoalForm(props: GoalFormProps) {
                   min={todayISO()}
                   fullWidth={false}
                 />
+                <Show when={goalDeadline() && goalDeadline() < todayISO()}>
+                  <p class="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    <AlertCircle class="h-3 w-3" />
+                    This deadline has passed — pick a new date
+                  </p>
+                </Show>
               </div>
             </div>
           </div>

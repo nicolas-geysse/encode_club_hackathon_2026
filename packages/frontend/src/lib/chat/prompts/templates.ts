@@ -160,9 +160,9 @@ Generate a response of 2-3 sentences that:
 
 End with an encouraging prompt.`,
 
-  academic_events: `The user mentioned academic events: {academicEvents}.
+  academic_events: `The user mentioned their busy periods: {academicEvents}.
 Generate a response of 2-3 sentences that:
-1. Notes the important periods
+1. Notes the important periods they flagged
 2. Asks if they have any items they could sell (old textbooks, electronics, clothes, etc.)
 
 End with an encouraging prompt.`,

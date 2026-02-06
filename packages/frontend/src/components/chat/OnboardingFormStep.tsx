@@ -495,6 +495,19 @@ function DynamicDatePair(props: {
  * DynamicListItem - A single item in the dynamic list
  * Proper component to preserve DOM identity and prevent re-renders.
  */
+/** Get the label for a select option by its value */
+function getSelectOptionLabel(field: FormField, value: string): string | null {
+  if (field.type !== 'select' || !field.options) return null;
+  const option = field.options.find((o) => o.value === value);
+  return option?.label || null;
+}
+
+/** Get all select option labels for a field (to detect if name is still a default) */
+function getAllSelectLabels(field: FormField): string[] {
+  if (field.type !== 'select' || !field.options) return [];
+  return field.options.map((o) => o.label);
+}
+
 function DynamicListItem(props: {
   item: Record<string, unknown>;
   index: number;
@@ -572,7 +585,23 @@ function DynamicListItem(props: {
                 subField={subField}
                 value={props.item[subField.name]}
                 currencySymbol={props.currencySymbol}
-                onUpdate={(val) => props.onUpdate(subField.name, val)}
+                onUpdate={(val) => {
+                  props.onUpdate(subField.name, val);
+                  // Auto-populate name when type changes (e.g., academic events)
+                  if (subField.name === 'type' && typeof val === 'string') {
+                    const nameField = props.config.itemFields.find((f) => f.name === 'name');
+                    if (nameField) {
+                      const currentName = (props.item.name as string) || '';
+                      const typeField = props.config.itemFields.find((f) => f.name === 'type');
+                      const allLabels = typeField ? getAllSelectLabels(typeField) : [];
+                      const isDefaultOrEmpty = !currentName || allLabels.includes(currentName);
+                      if (isDefaultOrEmpty) {
+                        const label = getSelectOptionLabel(subField, val);
+                        if (label) props.onUpdate('name', label);
+                      }
+                    }
+                  }
+                }}
               />
             </div>
           )}
