@@ -57,8 +57,8 @@ vi.mock('../../services/google-maps.js', () => ({
   isGoogleMapsAvailable: vi.fn(),
 }));
 
-// Mock Groq service
-vi.mock('../../services/groq.js', () => ({
+// Mock LLM service (not used by current prospection but imported by other tools)
+vi.mock('../../services/llm.js', () => ({
   chat: vi.fn(),
 }));
 
@@ -67,7 +67,7 @@ import {
   getDistanceMatrix,
   isGoogleMapsAvailable,
 } from '../../services/google-maps.js';
-import { chat } from '../../services/groq.js';
+import { chat } from '../../services/llm.js';
 
 // ============================================
 // HELPERS
@@ -313,97 +313,73 @@ describe('handleSearchJobOffers', () => {
     vi.clearAllMocks();
   });
 
-  it('returns job offers from Groq response', async () => {
-    vi.mocked(chat).mockResolvedValue(
-      JSON.stringify({
-        results: [
-          {
-            title: 'Serveur étudiant',
-            company: 'Le Petit Bistrot',
-            location: 'Paris 5e',
-            salary: '11.65€/h',
-            schedule: 'Weekends',
-            url: 'https://example.com/job1',
-            source: 'Indeed',
-            snippet: 'Restaurant recherche serveur...',
-          },
-          {
-            title: 'Barista',
-            company: 'Starbucks',
-            location: 'Paris 6e',
-            salary: '12€/h',
-            schedule: 'Temps partiel',
-            url: 'https://example.com/job2',
-            source: 'StudentJob',
-            snippet: 'Nous recherchons un barista...',
-          },
-        ],
-      })
-    );
-
+  it('returns real platform links (no LLM call)', async () => {
     const result = (await handleSearchJobOffers({
       query: 'serveur étudiant',
       city: 'Paris',
-      max_results: 5,
     })) as ToolResult;
 
     expect(result.type).toBe('composite');
-    expect(result.metadata?.results).toHaveLength(2);
     expect(result.metadata?.query).toBe('serveur étudiant');
     expect(result.metadata?.city).toBe('Paris');
+    // Should return platform links, not LLM-generated results
+    expect((result.metadata as Record<string, unknown>)?.method).toBe('real_links');
   });
 
-  it('handles empty results gracefully', async () => {
-    vi.mocked(chat).mockResolvedValue(JSON.stringify({ results: [] }));
-
+  it('includes all job platforms', async () => {
     const result = (await handleSearchJobOffers({
-      query: 'impossible job',
-      city: 'Nowhere',
+      query: 'barista',
+      city: 'Lyon',
     })) as ToolResult;
 
-    expect(result.type).toBe('text');
-    expect(result.params?.content).toContain('No job offers found');
+    expect(result.type).toBe('composite');
+    const platforms = (result.metadata as Record<string, unknown>)?.platforms as Array<{
+      name: string;
+      url: string;
+    }>;
+    expect(platforms).toBeDefined();
+    expect(platforms.length).toBeGreaterThanOrEqual(5);
+    // Check key platforms are present
+    const names = platforms.map((p) => p.name);
+    expect(names).toContain('Indeed');
+    expect(names).toContain('LinkedIn Jobs');
+    expect(names).toContain('StudentJob');
   });
 
-  it('handles malformed JSON response', async () => {
-    vi.mocked(chat).mockResolvedValue('This is not JSON');
-
+  it('encodes query and city in platform URLs', async () => {
     const result = (await handleSearchJobOffers({
-      query: 'test',
-      city: 'Paris',
+      query: 'développeur web',
+      city: 'Paris 5e',
     })) as ToolResult;
 
-    // Should handle gracefully and return no results message
-    expect(result.type).toBe('text');
+    const platforms = (result.metadata as Record<string, unknown>)?.platforms as Array<{
+      name: string;
+      url: string;
+    }>;
+    const indeed = platforms.find((p) => p.name === 'Indeed');
+    expect(indeed?.url).toContain(encodeURIComponent('développeur web'));
+    expect(indeed?.url).toContain(encodeURIComponent('Paris 5e'));
   });
 
-  it('handles API errors', async () => {
-    vi.mocked(chat).mockRejectedValue(new Error('API rate limit exceeded'));
-
-    const result = (await handleSearchJobOffers({
-      query: 'test',
-      city: 'Paris',
-    })) as ToolResult;
-
-    expect(result.type).toBe('text');
-    expect(result.params?.content).toContain('Error searching for jobs');
-    expect(result.metadata?.error).toBe(true);
-  });
-
-  it('uses default max_results when not provided', async () => {
-    vi.mocked(chat).mockResolvedValue(JSON.stringify({ results: [] }));
-
+  it('does not call LLM', async () => {
     await handleSearchJobOffers({
       query: 'test',
       city: 'Paris',
     });
 
-    expect(chat).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ content: expect.stringContaining('5 offres') }),
-      ]),
-      expect.any(Object)
-    );
+    // The new implementation generates real links without LLM
+    expect(chat).not.toHaveBeenCalled();
+  });
+
+  it('returns composite type with table component', async () => {
+    const result = (await handleSearchJobOffers({
+      query: 'test',
+      city: 'Paris',
+    })) as ToolResult;
+
+    expect(result.type).toBe('composite');
+    expect(result.components).toBeDefined();
+    expect(result.components!.length).toBeGreaterThanOrEqual(2);
   });
 });
 

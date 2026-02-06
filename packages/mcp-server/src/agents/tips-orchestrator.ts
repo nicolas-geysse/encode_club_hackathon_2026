@@ -17,7 +17,7 @@
  */
 
 import { trace, createSpan, getCurrentTraceId, getTraceUrl, type Span } from '../services/opik.js';
-import { chat, type ChatMessage } from '../services/groq.js';
+import { chat, safeParseJson, type ChatMessage } from '../services/llm.js';
 import { detectEnergyDebt, type EnergyDebt } from '../algorithms/energy-debt.js';
 import { detectComebackWindow, type ComebackWindow } from '../algorithms/comeback-detection.js';
 import {
@@ -981,15 +981,18 @@ Remember: Focus on the top priority (${topPriority}) and incorporate agent insig
           },
         });
 
-        // Parse JSON response
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-
+        // Parse JSON response (with markdown sanitization for small models)
+        const parsed = safeParseJson<{
+          title?: string;
+          message?: string;
+          category?: string;
+          action?: { label: string; href: string };
+        }>(response);
+        if (parsed) {
           // Sanitize the LLM response to remove hallucinated platform names
           const sanitized = sanitizeTipResponse({
-            title: parsed.title,
-            message: parsed.message,
+            title: parsed.title || 'Tip',
+            message: parsed.message || '',
             action: parsed.action,
           });
 
@@ -1003,7 +1006,8 @@ Remember: Focus on the top priority (${topPriority}) and incorporate agent insig
           return {
             title: sanitized.title,
             message: sanitized.message,
-            category: parsed.category || 'opportunity',
+            category:
+              (parsed.category as TipsOrchestratorOutput['tip']['category']) || 'opportunity',
             action: sanitized.action,
           };
         }

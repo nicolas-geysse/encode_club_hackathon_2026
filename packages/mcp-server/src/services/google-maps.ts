@@ -5,7 +5,7 @@
  * - Places API: Find nearby businesses (restaurants, stores, etc.)
  * - Distance Matrix API: Calculate commute times from user location
  *
- * Pattern follows services/groq.ts with lazy initialization.
+ * Pattern follows services/llm.ts with lazy initialization.
  */
 
 import { trace, createSpan, getCurrentTraceHandle, type SpanOptions } from './opik.js';

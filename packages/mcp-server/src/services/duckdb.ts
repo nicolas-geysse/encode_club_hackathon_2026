@@ -14,6 +14,7 @@
 
 import type * as DuckDBTypes from 'duckdb';
 import { createRequire } from 'module';
+
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -21,9 +22,20 @@ import * as path from 'path';
 const require = createRequire(import.meta.url);
 const duckdb = require('duckdb') as typeof DuckDBTypes;
 
+// Resolve project root - same pattern as frontend/_db.ts
+function getProjectRoot(): string {
+  const cwd = process.cwd();
+  // If running from packages/frontend or packages/mcp-server, go up to monorepo root
+  if (cwd.includes('packages/')) {
+    return path.resolve(cwd, '../..');
+  }
+  return cwd;
+}
+
 // Database path - ALIGNED with frontend
-// Priority: DUCKDB_PATH env > cwd/data/stride.duckdb
-const DB_DIR = process.env.DUCKDB_DIR || path.resolve(process.cwd(), 'data');
+// Priority: DUCKDB_PATH env > PROJECT_ROOT/data/stride.duckdb
+const PROJECT_ROOT = getProjectRoot();
+const DB_DIR = process.env.DUCKDB_DIR || path.join(PROJECT_ROOT, 'data');
 const DB_PATH = process.env.DUCKDB_PATH || path.join(DB_DIR, 'stride.duckdb');
 const LOCK_PATH = `${DB_PATH}.app.lock`;
 
@@ -143,17 +155,27 @@ function getConnection(): DuckDBTypes.Connection {
 
 /**
  * Initialize the DuckDB database
+ * Uses a promise singleton to prevent race conditions with concurrent queries
  */
+let initPromise: Promise<void> | null = null;
+
 export async function initDatabase(): Promise<void> {
   if (initialized && db && connection) return;
 
-  getConnection();
-  initialized = true;
+  // Deduplicate concurrent init calls - all await the same promise
+  if (!initPromise) {
+    initPromise = (async () => {
+      getConnection();
 
-  // Initialize schema if needed
-  await initSchema();
+      // Initialize schema if needed
+      await initSchema();
 
-  console.error(`[DuckDB-MCP] Database initialized at ${DB_PATH}`);
+      initialized = true;
+      console.error(`[DuckDB-MCP] Database initialized at ${DB_PATH}`);
+    })();
+  }
+
+  await initPromise;
 }
 
 /**
@@ -170,56 +192,69 @@ async function initSchema(): Promise<void> {
     // Continue without graph extension - basic queries will still work
   }
 
-  const schemaPath = path.join(__dirname, '../graph/student-knowledge-graph.sql');
-  const prospectionGraphPath = path.join(__dirname, '../graph/prospection-graph.sql');
-  const skillsGraphPath = path.join(__dirname, '../graph/skills-knowledge-graph.sql');
+  // Graph SQL files live in src/graph/ (not copied to dist/ by tsc)
+  // Use PROJECT_ROOT to find them reliably from both src/ and dist/ contexts
+  const graphDir = path.join(PROJECT_ROOT, 'packages/mcp-server/src/graph');
+  const schemaPath = path.join(graphDir, 'student-knowledge-graph.sql');
+  const prospectionGraphPath = path.join(graphDir, 'prospection-graph.sql');
+  const skillsGraphPath = path.join(graphDir, 'skills-knowledge-graph.sql');
 
-  // Check if tables already exist
-  const tablesExist = await query<{ count: number }>(
+  // Check if tables already exist (use queryWithRetry to avoid initDatabase recursion)
+  const tablesExist = await queryWithRetry<{ count: number }>(
     `SELECT COUNT(*) as count FROM information_schema.tables
      WHERE table_name IN ('student_nodes', 'student_edges')`
   );
 
-  if (tablesExist[0]?.count === 0) {
+  if (Number(tablesExist[0]?.count) === 0) {
     // Load and execute base schema
     if (fs.existsSync(schemaPath)) {
       const schema = fs.readFileSync(schemaPath, 'utf-8');
       await executeInternal(schema);
       console.error('[DuckDB-MCP] Knowledge graph schema initialized');
+    } else {
+      console.error(`[DuckDB-MCP] Warning: Graph schema not found at ${schemaPath}`);
     }
   }
 
   // Load prospection graph data (extends the base graph)
-  // Check if prospection nodes exist before loading
-  const prospectionNodesExist = await query<{ count: number }>(
-    `SELECT COUNT(*) as count FROM student_nodes WHERE domain = 'prospection_category'`
-  );
+  // Only attempt if student_nodes table exists (base graph loaded successfully)
+  try {
+    const prospectionNodesExist = await queryWithRetry<{ count: number }>(
+      `SELECT COUNT(*) as count FROM student_nodes WHERE domain = 'prospection_category'`
+    );
 
-  if (prospectionNodesExist[0]?.count === 0 && fs.existsSync(prospectionGraphPath)) {
-    try {
-      const prospectionSchema = fs.readFileSync(prospectionGraphPath, 'utf-8');
-      await executeInternal(prospectionSchema);
-      console.error('[DuckDB-MCP] Prospection graph data loaded successfully');
-    } catch (error) {
-      console.error('[DuckDB-MCP] Warning: Could not load prospection graph:', error);
-      // Continue without prospection graph data
+    if (Number(prospectionNodesExist[0]?.count) === 0 && fs.existsSync(prospectionGraphPath)) {
+      try {
+        const prospectionSchema = fs.readFileSync(prospectionGraphPath, 'utf-8');
+        await executeInternal(prospectionSchema);
+        console.error('[DuckDB-MCP] Prospection graph data loaded successfully');
+      } catch (error) {
+        console.error('[DuckDB-MCP] Warning: Could not load prospection graph:', error);
+      }
     }
+  } catch {
+    console.error(
+      '[DuckDB-MCP] Warning: student_nodes table not found, skipping prospection graph'
+    );
   }
 
   // Load skills knowledge graph data (fields of study + monetizable skills)
-  const skillsNodesExist = await query<{ count: number }>(
-    `SELECT COUNT(*) as count FROM student_nodes WHERE domain = 'field_of_study'`
-  );
+  try {
+    const skillsNodesExist = await queryWithRetry<{ count: number }>(
+      `SELECT COUNT(*) as count FROM student_nodes WHERE domain = 'field_of_study'`
+    );
 
-  if (skillsNodesExist[0]?.count === 0 && fs.existsSync(skillsGraphPath)) {
-    try {
-      const skillsSchema = fs.readFileSync(skillsGraphPath, 'utf-8');
-      await executeInternal(skillsSchema);
-      console.error('[DuckDB-MCP] Skills knowledge graph data loaded successfully');
-    } catch (error) {
-      console.error('[DuckDB-MCP] Warning: Could not load skills knowledge graph:', error);
-      // Continue without skills graph data
+    if (Number(skillsNodesExist[0]?.count) === 0 && fs.existsSync(skillsGraphPath)) {
+      try {
+        const skillsSchema = fs.readFileSync(skillsGraphPath, 'utf-8');
+        await executeInternal(skillsSchema);
+        console.error('[DuckDB-MCP] Skills knowledge graph data loaded successfully');
+      } catch (error) {
+        console.error('[DuckDB-MCP] Warning: Could not load skills knowledge graph:', error);
+      }
     }
+  } catch {
+    console.error('[DuckDB-MCP] Warning: student_nodes table not found, skipping skills graph');
   }
 
   // Create property graph for knowledge graph queries (DuckPGQ)

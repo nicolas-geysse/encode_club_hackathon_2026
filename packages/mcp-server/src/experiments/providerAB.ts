@@ -6,6 +6,9 @@
  * - Metadata injection for Opik tracing
  * - Configurable traffic splits
  *
+ * Uses @ai-sdk/openai with configurable baseURL for provider-agnostic model creation.
+ * Note: Env vars are read lazily (not at module load) for Vite SSR compatibility.
+ *
  * Usage:
  * ```typescript
  * const { model, metadata } = getModelForUser(userId, 'model-comparison-v1');
@@ -15,13 +18,26 @@
  */
 
 import { createHash } from 'crypto';
-import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
 
-// Available model variants
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
-const PRODUCTION_MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
+// Provider-agnostic configuration - read lazily
+const getLLMApiKey = () => process.env.LLM_API_KEY || process.env.GROQ_API_KEY || '';
+const getLLMBaseUrl = () => process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1';
+const getProductionModel = () =>
+  process.env.LLM_MODEL || process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
 
-const groqClient = createGroq({ apiKey: GROQ_API_KEY });
+// Lazy provider singleton
+let _llmProvider: ReturnType<typeof createOpenAI> | null = null;
+
+function getLLMProvider() {
+  if (!_llmProvider) {
+    _llmProvider = createOpenAI({
+      apiKey: getLLMApiKey(),
+      baseURL: getLLMBaseUrl(),
+    });
+  }
+  return _llmProvider;
+}
 
 /**
  * Model variant configuration
@@ -29,39 +45,50 @@ const groqClient = createGroq({ apiKey: GROQ_API_KEY });
 export interface ModelVariant {
   id: string;
   name: string;
-  model: ReturnType<typeof groqClient>;
+  model: unknown;
   description: string;
 }
 
+// Lazy model variants cache
+let _modelVariants: Record<string, ModelVariant> | null = null;
+
+function getModelVariants(): Record<string, ModelVariant> {
+  if (!_modelVariants) {
+    const provider = getLLMProvider();
+    const model = getProductionModel();
+    _modelVariants = {
+      production: {
+        id: 'production',
+        name: `Production (${model})`,
+        model: provider(model),
+        description: 'Model from LLM_MODEL env variable',
+      },
+    };
+  }
+  return _modelVariants;
+}
+
 /**
- * Available model variants for A/B testing
+ * Available model variants for A/B testing (lazy getter)
  */
-export const MODEL_VARIANTS: Record<string, ModelVariant> = {
-  production: {
-    id: 'production',
-    name: `Production (${PRODUCTION_MODEL})`,
-    model: groqClient(PRODUCTION_MODEL),
-    description: 'Model from GROQ_MODEL env variable',
-  },
-  'groq-70b': {
-    id: 'groq-70b',
-    name: 'Llama 3.1 70B',
-    model: groqClient('llama-3.1-70b-versatile'),
-    description: 'Stable baseline model',
-  },
-  'groq-70b-preview': {
-    id: 'groq-70b-preview',
-    name: 'Llama 3.3 70B Preview',
-    model: groqClient('llama-3.3-70b-versatile'),
-    description: 'Newer model, potentially better performance',
-  },
-  'groq-8b': {
-    id: 'groq-8b',
-    name: 'Llama 3.1 8B',
-    model: groqClient('llama-3.1-8b-instant'),
-    description: 'Fast, cheaper model for simple tasks',
-  },
-};
+export const MODEL_VARIANTS: Record<string, ModelVariant> = new Proxy(
+  {} as Record<string, ModelVariant>,
+  {
+    get(_target, prop: string) {
+      return getModelVariants()[prop];
+    },
+    ownKeys() {
+      return Object.keys(getModelVariants());
+    },
+    getOwnPropertyDescriptor(_target, prop: string) {
+      const variants = getModelVariants();
+      if (prop in variants) {
+        return { configurable: true, enumerable: true, value: variants[prop] };
+      }
+      return undefined;
+    },
+  }
+);
 
 /**
  * A/B test configuration
@@ -75,19 +102,14 @@ export interface ABTestConfig {
 
 /**
  * Predefined A/B test configurations
+ * Note: Add variants dynamically based on your provider's available models.
  */
 export const AB_TESTS: Record<string, ABTestConfig> = {
   'model-comparison-v1': {
     name: 'model-comparison-v1',
-    variants: ['groq-70b', 'groq-70b-preview'],
-    trafficSplit: [0.5, 0.5],
-    enabled: true,
-  },
-  'cost-optimization': {
-    name: 'cost-optimization',
-    variants: ['groq-70b', 'groq-8b'],
-    trafficSplit: [0.7, 0.3],
-    enabled: false, // Enable when ready to test
+    variants: ['production'],
+    trafficSplit: [1.0],
+    enabled: false, // Enable and add variants when ready to test
   },
 };
 
@@ -95,7 +117,7 @@ export const AB_TESTS: Record<string, ABTestConfig> = {
  * Result from selecting a model variant
  */
 export interface ABTestResult {
-  model: ReturnType<typeof groqClient>;
+  model: unknown;
   metadata: {
     ab_experiment: string;
     ab_variant: string;
@@ -109,7 +131,6 @@ export interface ABTestResult {
  * Same user always gets the same variant for a given experiment
  */
 function selectVariant(config: ABTestConfig, userId: string): string {
-  // Deterministic selection based on user ID + experiment name
   const hash = createHash('md5')
     .update(userId + config.name)
     .digest('hex');
@@ -128,17 +149,12 @@ function selectVariant(config: ABTestConfig, userId: string): string {
 
 /**
  * Get model and metadata for a user in an A/B test
- *
- * @param userId - User identifier (stable across sessions)
- * @param experimentName - Name of the A/B test configuration
- * @returns Model instance and metadata for tracing
  */
 export function getModelForUser(userId: string, experimentName: string): ABTestResult {
   const config = AB_TESTS[experimentName];
 
   if (!config || !config.enabled) {
-    // Default to production model if experiment not found or disabled
-    const defaultVariant = MODEL_VARIANTS['production'];
+    const defaultVariant = getModelVariants()['production'];
     return {
       model: defaultVariant.model,
       metadata: {
@@ -151,7 +167,8 @@ export function getModelForUser(userId: string, experimentName: string): ABTestR
   }
 
   const variantId = selectVariant(config, userId);
-  const variant = MODEL_VARIANTS[variantId] || MODEL_VARIANTS['production'];
+  const variants = getModelVariants();
+  const variant = variants[variantId] || variants['production'];
 
   return {
     model: variant.model,
@@ -166,10 +183,9 @@ export function getModelForUser(userId: string, experimentName: string): ABTestR
 
 /**
  * Get the default model (no A/B testing)
- * Uses the production model from GROQ_MODEL env variable
  */
-export function getDefaultModel(): ReturnType<typeof groqClient> {
-  return MODEL_VARIANTS['production'].model;
+export function getDefaultModel(): unknown {
+  return getModelVariants()['production'].model;
 }
 
 /**
@@ -183,12 +199,11 @@ export function listABTests(): ABTestConfig[] {
  * List all available model variants
  */
 export function listModelVariants(): ModelVariant[] {
-  return Object.values(MODEL_VARIANTS);
+  return Object.values(getModelVariants());
 }
 
 /**
  * Manually set a user's variant for testing purposes
- * This is useful for debugging or forcing a specific variant
  */
 const variantOverrides = new Map<string, string>();
 
@@ -198,31 +213,4 @@ export function setVariantOverride(
   variantId: string
 ): void {
   variantOverrides.set(`${userId}:${experimentName}`, variantId);
-}
-
-export function clearVariantOverride(userId: string, experimentName: string): void {
-  variantOverrides.delete(`${userId}:${experimentName}`);
-}
-
-/**
- * Get model with override support
- */
-export function getModelForUserWithOverride(userId: string, experimentName: string): ABTestResult {
-  const overrideKey = `${userId}:${experimentName}`;
-  const override = variantOverrides.get(overrideKey);
-
-  if (override && MODEL_VARIANTS[override]) {
-    const variant = MODEL_VARIANTS[override];
-    return {
-      model: variant.model,
-      metadata: {
-        ab_experiment: experimentName,
-        ab_variant: override,
-        ab_variant_name: variant.name + ' (override)',
-      },
-      variant,
-    };
-  }
-
-  return getModelForUser(userId, experimentName);
 }

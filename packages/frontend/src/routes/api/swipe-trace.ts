@@ -47,7 +47,7 @@ export async function POST(event: APIEvent) {
       incomeStability: data.newWeights.incomeStability - data.oldWeights.incomeStability,
     };
 
-    // Trace to Opik
+    // Trace to Opik (flush happens at end of trace() automatically)
     const result = await trace(
       'swipe.preference_update',
       async (ctx) => {
@@ -72,27 +72,7 @@ export async function POST(event: APIEvent) {
           newWeights: data.newWeights,
         });
 
-        // Log feedback score based on swipe type
         const traceId = ctx.getTraceId();
-        if (traceId) {
-          const swipeScore =
-            data.direction === 'up'
-              ? 1.0 // Super like
-              : data.direction === 'right'
-                ? 0.8 // Accept
-                : data.direction === 'down'
-                  ? 0.2 // Meh
-                  : 0.0; // Left = reject
-
-          await logFeedbackScores(traceId, [
-            {
-              name: 'swipe_preference',
-              value: swipeScore,
-              reason: `${data.direction} swipe on "${data.scenarioTitle}"`,
-            },
-          ]);
-        }
-
         return {
           success: true,
           traceId,
@@ -109,6 +89,27 @@ export async function POST(event: APIEvent) {
         },
       }
     );
+
+    // Log feedback AFTER trace is flushed (trace() auto-flushes on completion)
+    if (result.traceId) {
+      const swipeScore =
+        data.direction === 'up'
+          ? 1.0 // Super like
+          : data.direction === 'right'
+            ? 0.8 // Accept
+            : data.direction === 'down'
+              ? 0.2 // Meh
+              : 0.0; // Left = reject
+
+      // Fire and forget - don't block response for feedback logging
+      logFeedbackScores(result.traceId, [
+        {
+          name: 'swipe_preference',
+          value: swipeScore,
+          reason: `${data.direction} swipe on "${data.scenarioTitle}"`,
+        },
+      ]).catch((err) => logger.warn('Feedback score failed', { error: err }));
+    }
 
     logger.info(`${data.direction} on "${data.scenarioTitle}"`, {
       profileId: data.profileId || 'anonymous',

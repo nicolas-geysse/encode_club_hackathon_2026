@@ -1,65 +1,153 @@
 /**
- * Groq LLM Service
+ * Unified LLM Service (Provider-Agnostic)
  *
- * Provides LLM capabilities for budget analysis, advice generation,
- * and speech-to-text transcription via Whisper.
+ * Uses the OpenAI SDK with configurable base URL to support any OpenAI-compatible provider:
+ * - Groq: https://api.groq.com/openai/v1
+ * - Mistral: https://api.mistral.ai/v1
+ * - OpenAI: https://api.openai.com/v1
+ * - OpenRouter: https://openrouter.ai/api/v1
+ *
+ * Configure via environment variables:
+ * - LLM_API_KEY: API key (fallback: GROQ_API_KEY)
+ * - LLM_BASE_URL: Base URL (default: https://api.groq.com/openai/v1)
+ * - LLM_MODEL: Model name (fallback: GROQ_MODEL, default: llama-3.1-8b-instant)
+ *
+ * Replaces the former groq.ts service.
  */
 
-import Groq from 'groq-sdk';
-import { toFile } from 'groq-sdk/uploads';
+import OpenAI from 'openai';
 import { trace, createSpan, getCurrentTraceHandle, type SpanOptions } from './opik.js';
+import type { LLMProvider } from './llm-provider.js';
 
-// Configuration
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const MODEL = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
+// =============================================================================
+// Configuration - LLM_ primary, GROQ_ legacy fallback
+// Note: Read env vars at request time (in initLLM), not module load time,
+// because Vite SSR may not have process.env populated at import time.
+// =============================================================================
 
-// Groq pricing per million tokens (USD)
-// Prices as of 2024 - https://groq.com/pricing
-const GROQ_PRICING: Record<string, { input: number; output: number }> = {
-  'llama-3.1-70b-versatile': { input: 0.59, output: 0.79 },
-  'llama-3.1-8b-instant': { input: 0.05, output: 0.08 },
-  'llama-3.2-90b-vision-preview': { input: 0.9, output: 0.9 },
-  'mixtral-8x7b-32768': { input: 0.24, output: 0.24 },
-  'gemma2-9b-it': { input: 0.2, output: 0.2 },
-  default: { input: 0.15, output: 0.6 },
+let LLM_API_KEY: string | undefined;
+let LLM_BASE_URL = 'https://api.groq.com/openai/v1';
+let LLM_MODEL = 'llama-3.1-8b-instant';
+let PROVIDER = 'groq';
+
+/**
+ * Detect provider from base URL for logging/tracing/pricing
+ */
+export function detectProvider(baseUrl: string): string {
+  if (baseUrl.includes('groq.com')) return 'groq';
+  if (baseUrl.includes('mistral.ai')) return 'mistral';
+  if (baseUrl.includes('openai.com')) return 'openai';
+  if (baseUrl.includes('openrouter.ai')) return 'openrouter';
+  if (baseUrl.includes('together.xyz')) return 'together';
+  return 'custom';
+}
+
+// =============================================================================
+// Multi-provider pricing (per million tokens, USD)
+// =============================================================================
+
+const PRICING: Record<string, Record<string, { input: number; output: number }>> = {
+  groq: {
+    'llama-3.1-70b-versatile': { input: 0.59, output: 0.79 },
+    'llama-3.1-8b-instant': { input: 0.05, output: 0.08 },
+    'llama-3.2-90b-vision-preview': { input: 0.9, output: 0.9 },
+    'mixtral-8x7b-32768': { input: 0.24, output: 0.24 },
+    default: { input: 0.15, output: 0.6 },
+  },
+  mistral: {
+    'mistral-small-latest': { input: 0.1, output: 0.3 },
+    'mistral-medium-latest': { input: 0.27, output: 0.81 },
+    'mistral-large-latest': { input: 2.0, output: 6.0 },
+    'ministral-3b-2512': { input: 0.04, output: 0.04 },
+    'open-mistral-nemo': { input: 0.15, output: 0.15 },
+    default: { input: 0.15, output: 0.45 },
+  },
+  openai: {
+    'gpt-4o': { input: 2.5, output: 10.0 },
+    'gpt-4o-mini': { input: 0.15, output: 0.6 },
+    default: { input: 0.5, output: 1.5 },
+  },
+  default: {
+    default: { input: 0.15, output: 0.6 },
+  },
 };
 
 /**
  * Calculate estimated cost based on token usage
  */
 function calculateCost(model: string, promptTokens: number, completionTokens: number): number {
-  const pricing = GROQ_PRICING[model] || GROQ_PRICING['default'];
-  const inputCost = (promptTokens / 1_000_000) * pricing.input;
-  const outputCost = (completionTokens / 1_000_000) * pricing.output;
+  const providerPricing = PRICING[PROVIDER] || PRICING['default'];
+  const modelPricing = providerPricing[model] || providerPricing['default'];
+  const inputCost = (promptTokens / 1_000_000) * modelPricing.input;
+  const outputCost = (completionTokens / 1_000_000) * modelPricing.output;
   return inputCost + outputCost;
 }
 
-// Groq client instance
-let groqClient: Groq | null = null;
+// =============================================================================
+// Client Singleton
+// =============================================================================
+
+let llmClient: OpenAI | null = null;
 
 /**
- * Initialize Groq client
+ * Initialize LLM client
+ * Reads env vars at call time (not module load) for Vite SSR compatibility.
  */
-export async function initGroq(): Promise<void> {
-  if (!GROQ_API_KEY) {
-    console.error('Warning: GROQ_API_KEY not set, LLM features disabled');
+export async function initLLM(): Promise<void> {
+  // Read env vars now (at request time, not module load time)
+  LLM_API_KEY = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
+  LLM_BASE_URL = process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1';
+  LLM_MODEL = process.env.LLM_MODEL || process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+  PROVIDER = detectProvider(LLM_BASE_URL);
+
+  if (!LLM_API_KEY) {
+    console.error('Warning: LLM_API_KEY not set, LLM features disabled');
     return;
   }
 
-  groqClient = new Groq({
-    apiKey: GROQ_API_KEY,
+  llmClient = new OpenAI({
+    apiKey: LLM_API_KEY,
+    baseURL: LLM_BASE_URL,
   });
 
-  console.error(`Groq initialized with model: ${MODEL}`);
+  console.error(
+    `[LLM] Initialized: provider=${PROVIDER}, model=${LLM_MODEL}, baseURL=${LLM_BASE_URL}`
+  );
 }
 
 /**
- * Chat completion interface
+ * Get the LLM client (for direct use if needed)
  */
+export function getLLMClient(): OpenAI | null {
+  return llmClient;
+}
+
+/**
+ * Get current model name
+ */
+export function getModel(): string {
+  return LLM_MODEL;
+}
+
+/**
+ * Get current provider name
+ */
+export function getProvider(): string {
+  return PROVIDER;
+}
+
+// =============================================================================
+// Chat Types
+// =============================================================================
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
+
+// =============================================================================
+// Chat Completion with Opik Tracing
+// =============================================================================
 
 /**
  * Generate a chat completion
@@ -72,13 +160,13 @@ export async function chat(
   options?: {
     temperature?: number;
     maxTokens?: number;
-    /** Tags for Opik tracing (default: ['llm', 'groq']) */
+    /** Tags for Opik tracing (default: ['llm', PROVIDER]) */
     tags?: string[];
     /** Additional metadata for Opik tracing */
     metadata?: Record<string, unknown>;
   }
 ): Promise<string> {
-  const tags = options?.tags || ['llm', 'groq'];
+  const tags = options?.tags || ['llm', PROVIDER];
   const temperature = options?.temperature ?? 0.5;
 
   // Prepare input for tracing (summarize messages to avoid bloating)
@@ -87,7 +175,7 @@ export async function chat(
       role: m.role,
       content: m.content.length > 200 ? m.content.substring(0, 200) + '...' : m.content,
     })),
-    model: MODEL,
+    model: LLM_MODEL,
     temperature,
   };
 
@@ -95,17 +183,18 @@ export async function chat(
   const executeChatCompletion = async (span: import('./opik.js').Span): Promise<string> => {
     span.setInput(inputData);
     span.setAttributes({
-      model: MODEL,
+      model: LLM_MODEL,
+      provider: PROVIDER,
       messages_count: messages.length,
       temperature,
     });
 
-    if (!groqClient) {
-      throw new Error('Groq client not initialized. Set GROQ_API_KEY environment variable.');
+    if (!llmClient) {
+      throw new Error('LLM client not initialized. Set LLM_API_KEY environment variable.');
     }
 
-    const response = await groqClient.chat.completions.create({
-      model: MODEL,
+    const response = await llmClient.chat.completions.create({
+      model: LLM_MODEL,
       messages,
       temperature,
       max_tokens: options?.maxTokens || 1024,
@@ -123,16 +212,14 @@ export async function chat(
     if (response.usage) {
       const promptTokens = response.usage.prompt_tokens || 0;
       const completionTokens = response.usage.completion_tokens || 0;
-      const cost = calculateCost(MODEL, promptTokens, completionTokens);
+      const cost = calculateCost(LLM_MODEL, promptTokens, completionTokens);
 
-      // Set usage separately from cost (Opik SDK requirement)
       span.setUsage({
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
         total_tokens: response.usage.total_tokens || 0,
       });
 
-      // Cost goes in separate field
       span.setCost(cost);
 
       span.setAttributes({
@@ -142,7 +229,7 @@ export async function chat(
         estimated_cost_usd: cost,
       });
     } else {
-      console.warn(`[Groq] No usage data returned for model ${MODEL}`);
+      console.warn(`[LLM] No usage data returned for model ${LLM_MODEL}`);
       span.setAttributes({ usage_missing: true });
     }
 
@@ -150,16 +237,14 @@ export async function chat(
   };
 
   // Use createSpan if we're inside an existing trace (for proper nesting)
-  // Otherwise create a new top-level trace
   const hasParentTrace = !!getCurrentTraceHandle();
 
-  // Span options with type, model, and provider for proper Opik display
   const spanOptions: SpanOptions = {
     tags,
     input: inputData,
     type: 'llm',
-    model: MODEL,
-    provider: 'groq',
+    model: LLM_MODEL,
+    provider: PROVIDER,
   };
 
   if (hasParentTrace) {
@@ -169,7 +254,8 @@ export async function chat(
       tags,
       metadata: {
         ...options?.metadata,
-        model: MODEL,
+        model: LLM_MODEL,
+        provider: PROVIDER,
         messages_count: messages.length,
         temperature,
       },
@@ -181,51 +267,47 @@ export async function chat(
 /**
  * Generate a chat completion with JSON mode
  * Forces the model to return valid JSON - useful for structured extraction
- *
- * Uses createSpan() when called within an existing trace (for proper nesting),
- * otherwise creates a new trace() for standalone calls.
  */
 export async function chatWithJsonMode<T = Record<string, unknown>>(
   messages: ChatMessage[],
   options?: {
     temperature?: number;
     maxTokens?: number;
-    /** Tags for Opik tracing (default: ['llm', 'groq', 'json']) */
+    /** Tags for Opik tracing (default: ['llm', PROVIDER, 'json']) */
     tags?: string[];
     /** Additional metadata for Opik tracing */
     metadata?: Record<string, unknown>;
   }
 ): Promise<T> {
-  const tags = options?.tags || ['llm', 'groq', 'json'];
+  const tags = options?.tags || ['llm', PROVIDER, 'json'];
   const temperature = options?.temperature ?? 0.0;
 
-  // Prepare input for tracing
   const inputData = {
     messages: messages.map((m) => ({
       role: m.role,
       content: m.content.length > 200 ? m.content.substring(0, 200) + '...' : m.content,
     })),
-    model: MODEL,
+    model: LLM_MODEL,
     temperature,
     response_format: 'json_object',
   };
 
-  // Core chat logic
   const executeChatCompletion = async (span: import('./opik.js').Span): Promise<T> => {
     span.setInput(inputData);
     span.setAttributes({
-      model: MODEL,
+      model: LLM_MODEL,
+      provider: PROVIDER,
       messages_count: messages.length,
       temperature,
       response_format: 'json_object',
     });
 
-    if (!groqClient) {
-      throw new Error('Groq client not initialized. Set GROQ_API_KEY environment variable.');
+    if (!llmClient) {
+      throw new Error('LLM client not initialized. Set LLM_API_KEY environment variable.');
     }
 
-    const response = await groqClient.chat.completions.create({
-      model: MODEL,
+    const response = await llmClient.chat.completions.create({
+      model: LLM_MODEL,
       messages,
       temperature,
       max_tokens: options?.maxTokens || 1024,
@@ -234,20 +316,17 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
 
     const content = response.choices[0]?.message?.content || '{}';
 
-    // Calculate cost and set token usage
     if (response.usage) {
       const promptTokens = response.usage.prompt_tokens || 0;
       const completionTokens = response.usage.completion_tokens || 0;
-      const cost = calculateCost(MODEL, promptTokens, completionTokens);
+      const cost = calculateCost(LLM_MODEL, promptTokens, completionTokens);
 
-      // Set usage separately from cost (Opik SDK requirement)
       span.setUsage({
         prompt_tokens: promptTokens,
         completion_tokens: completionTokens,
         total_tokens: response.usage.total_tokens || 0,
       });
 
-      // Cost goes in separate field
       span.setCost(cost);
 
       span.setAttributes({
@@ -276,16 +355,14 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
     }
   };
 
-  // Use createSpan if we're inside an existing trace
   const hasParentTrace = !!getCurrentTraceHandle();
 
-  // Span options with type, model, and provider for proper Opik display
   const spanOptions: SpanOptions = {
     tags,
     input: inputData,
     type: 'llm',
-    model: MODEL,
-    provider: 'groq',
+    model: LLM_MODEL,
+    provider: PROVIDER,
   };
 
   if (hasParentTrace) {
@@ -295,7 +372,8 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
       tags,
       metadata: {
         ...options?.metadata,
-        model: MODEL,
+        model: LLM_MODEL,
+        provider: PROVIDER,
         messages_count: messages.length,
         temperature,
         response_format: 'json_object',
@@ -304,6 +382,10 @@ export async function chatWithJsonMode<T = Record<string, unknown>>(
     });
   }
 }
+
+// =============================================================================
+// Domain-Specific Functions (Budget, Advice)
+// =============================================================================
 
 /**
  * Analyze budget and provide insights
@@ -346,7 +428,6 @@ Provide:
     { role: 'user', content: userPrompt },
   ]);
 
-  // Parse recommendations from response
   const recommendations = response
     .split('\n')
     .filter((line) => line.match(/^\d+\.|^-/))
@@ -396,192 +477,56 @@ Provide personalized and actionable advice.`;
   ]);
 }
 
-// Whisper model for transcription
-const WHISPER_MODEL = process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3-turbo';
+// =============================================================================
+// JSON Parsing Utilities
+// =============================================================================
 
 /**
- * Transcription result interface
+ * Safely extract and parse JSON from an LLM response.
+ * Handles common issues from small models:
+ * - Markdown formatting inside JSON values (**bold**, *italic*, `code`)
+ * - Trailing commas
+ * - Control characters
+ * Returns null if no valid JSON found.
  */
-export interface TranscriptionResult {
-  text: string;
-  language: string;
-  duration?: number;
-}
+export function safeParseJson<T = Record<string, unknown>>(response: string): T | null {
+  // Strip markdown code fences first (```json ... ```)
+  const cleaned = response.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '');
 
-/**
- * Transcribe audio to text using Whisper via Groq API
- *
- * @param audioBuffer - Audio file as Buffer (supports wav, webm, mp3, etc.)
- * @param options - Transcription options
- * @returns Transcription result with text and metadata
- */
-export async function transcribeAudio(
-  audioBuffer: Buffer,
-  options?: {
-    language?: string;
-    filename?: string;
-    prompt?: string;
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  // Try parsing as-is first (fast path)
+  try {
+    return JSON.parse(jsonMatch[0]) as T;
+  } catch {
+    // Sanitize and retry
   }
-): Promise<TranscriptionResult> {
-  return trace('whisper_transcription', async (span) => {
-    const language = options?.language || 'fr';
-    const filename = options?.filename || 'recording.webm';
 
-    span.setAttributes({
-      'whisper.model': WHISPER_MODEL,
-      'whisper.language': language,
-      'whisper.audio_size_bytes': audioBuffer.length,
-    });
-
-    if (!groqClient) {
-      throw new Error('Groq client not initialized. Set GROQ_API_KEY environment variable.');
-    }
-
-    try {
-      // Convert Buffer to File for Groq API
-      const audioFile = await toFile(audioBuffer, filename);
-
-      const transcription = await groqClient.audio.transcriptions.create({
-        model: WHISPER_MODEL,
-        file: audioFile,
-        language,
-        response_format: 'verbose_json',
-        prompt: options?.prompt,
-      });
-
-      // Cast to any to access verbose_json properties not in base type
-      const verboseResult = transcription as unknown as {
-        text: string;
-        language?: string;
-        duration?: number;
-      };
-
-      const result: TranscriptionResult = {
-        text: verboseResult.text,
-        language: verboseResult.language || language,
-        duration: verboseResult.duration,
-      };
-
-      span.setAttributes({
-        'whisper.transcript_length': result.text.length,
-        'whisper.detected_language': result.language,
-        'whisper.duration_seconds': result.duration || 0,
-      });
-
-      return result;
-    } catch (error) {
-      span.setAttributes({
-        'whisper.error': true,
-        'whisper.error_message': error instanceof Error ? error.message : 'Unknown error',
-      });
-      throw error;
-    }
-  });
+  try {
+    const sanitized = jsonMatch[0]
+      .replace(/\*\*([^*]*?)\*\*/g, '$1') // **bold** → bold
+      .replace(/\*([^*]*?)\*/g, '$1') // *italic* → italic
+      .replace(/`([^`]*?)`/g, '$1') // `code` → code
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ') // control chars (keep \n \r \t)
+      .replace(/,\s*}/g, '}') // trailing comma
+      .replace(/,\s*]/g, ']'); // trailing comma in arrays
+    return JSON.parse(sanitized) as T;
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Transcribe audio and analyze the content for budget/goal context
- *
- * @param audioBuffer - Audio file as Buffer
- * @param context - Analysis context (budget, goal, question)
- * @returns Transcript with contextual analysis
- */
-export async function transcribeAndAnalyze(
-  audioBuffer: Buffer,
-  context: 'budget' | 'goal' | 'question' = 'question'
-): Promise<{
-  transcript: string;
-  analysis: string;
-  extractedData?: Record<string, unknown>;
-}> {
-  return trace('whisper_transcribe_and_analyze', async (span) => {
-    span.setAttributes({
-      'analysis.context': context,
-    });
+// =============================================================================
+// LLMProvider Interface Export
+// =============================================================================
 
-    // First transcribe
-    const transcription = await transcribeAudio(audioBuffer);
-
-    // Then analyze based on context
-    let analysisPrompt = '';
-    switch (context) {
-      case 'budget':
-        analysisPrompt = `Analyze this text and extract budget information:
-- Income sources and amounts
-- Expense categories and amounts
-- Financial concerns mentioned
-
-Text: "${transcription.text}"
-
-Reply in JSON with "incomes" and "expenses" if found, otherwise provide a "summary".`;
-        break;
-      case 'goal':
-        analysisPrompt = `Analyze this text and extract the financial goal:
-- Target amount (in euros)
-- Desired deadline (in weeks/months)
-- Goal name/description
-- Constraints mentioned
-
-Text: "${transcription.text}"
-
-Reply in JSON with "goalAmount", "deadline", "goalName", "constraints" if found.`;
-        break;
-      default:
-        analysisPrompt = `Analyze this student question and provide a helpful response:
-
-Question: "${transcription.text}"
-
-Reply concisely and actionably.`;
-    }
-
-    const analysis = await chat([
-      {
-        role: 'system',
-        content: 'You are a financial assistant for students. Reply in English.',
-      },
-      { role: 'user', content: analysisPrompt },
-    ]);
-
-    // Try to extract JSON data if present
-    let extractedData: Record<string, unknown> | undefined;
-    try {
-      const jsonMatch = analysis.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        extractedData = JSON.parse(jsonMatch[0]);
-      }
-    } catch {
-      // JSON extraction failed, that's OK
-    }
-
-    span.setAttributes({
-      'analysis.has_extracted_data': !!extractedData,
-    });
-
-    return {
-      transcript: transcription.text,
-      analysis,
-      extractedData,
-    };
-  });
-}
-
-import type { LLMProvider } from './llm-provider.js';
-
-// Export service as LLMProvider interface for unified access
-export const groq: LLMProvider = {
-  providerName: 'groq',
-  init: initGroq,
+export const llm: LLMProvider = {
+  providerName: PROVIDER,
+  init: initLLM,
   chat,
   chatWithJsonMode,
 };
 
-// Extended service with Groq-specific features
-export const groqExtended = {
-  ...groq,
-  analyzeBudget,
-  generateAdvice,
-  transcribeAudio,
-  transcribeAndAnalyze,
-};
-
-export default groq;
+export default llm;

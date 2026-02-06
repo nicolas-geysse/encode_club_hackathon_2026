@@ -539,6 +539,20 @@ export async function executeAgent(agentId: string, context: TabContext): Promis
       return executeStrategyComparator(context);
     case 'guardian':
       return executeGuardian(context);
+    // Swipe-specific agents (tool-based, not direct executors)
+    // These are orchestrated via the swipe-orchestrator agent, not individually
+    case 'swipe-orchestrator':
+    case 'lifestyle-agent':
+    case 'essential-guardian':
+    case 'ghost-observer':
+    case 'asset-pivot':
+    case 'cashflow-smoother':
+      return {
+        agentId,
+        recommendation: `Swipe agent ${agentId} requires orchestrator context.`,
+        confidence: 0.6,
+        data: { swipeAgent: true },
+      };
     default:
       logger.warn('Unknown agent ID', { agentId });
       return {

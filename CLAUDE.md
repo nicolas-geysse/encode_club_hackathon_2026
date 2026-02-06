@@ -48,14 +48,14 @@ packages/
         ├── tools/     # MCP tool implementations
         ├── algorithms/# Core logic (retroplanning, skill-arbitrage, comeback, energy-debt)
         ├── evaluation/# Hybrid eval (heuristics + G-Eval LLM)
-        └── services/  # DuckDB, Groq, Opik integrations
+        └── services/  # DuckDB, LLM, Opik integrations
 ```
 
 ### Tech Stack
 - **Frontend**: SolidStart + SolidJS + TailwindCSS, Vinxi for builds
 - **Backend**: MCP Server (stdio transport, not HTTP)
 - **Agent Orchestration**: Mastra (auto-exports traces to Opik)
-- **LLM**: Groq (llama-3.1-70b-versatile)
+- **LLM**: Provider-agnostic via OpenAI SDK (supports Mistral, Groq, OpenAI, etc.)
 - **Database**: DuckDB (single file) + DuckPGQ (graph extension for skill→job queries)
 - **Observability**: Opik (Comet) for tracing every recommendation
 
@@ -230,10 +230,14 @@ This adds `prompt.name`, `prompt.version`, `prompt.hash` to the trace metadata, 
 ## Environment Variables
 
 Required:
-- `GROQ_API_KEY` - LLM provider
+- `LLM_API_KEY` - LLM provider API key (Mistral, Groq, OpenAI, or any OpenAI-compatible)
+- `LLM_BASE_URL` - Provider base URL (e.g. `https://api.mistral.ai/v1`, default: `https://api.groq.com/openai/v1`)
+- `LLM_MODEL` - Model name (e.g. `ministral-3b-2512`, default: `llama-3.1-8b-instant`)
 - `OPIK_API_KEY` + `OPIK_WORKSPACE` - For Opik Cloud (or `OPIK_BASE_URL` for self-hosted)
 
 Optional:
+- `GROQ_API_KEY` - Legacy fallback for LLM / Whisper transcription
+- `STT_API_KEY` + `STT_BASE_URL` + `STT_MODEL` - Override speech-to-text provider (default: Groq Whisper)
 - `GOOGLE_MAPS_API_KEY` - For Prospection tab (Google Places + Distance Matrix APIs)
 
 ## Native Modules in Vite SSR
@@ -260,10 +264,101 @@ When adding new native modules:
 2. Create local types if needed in `src/types/`
 3. Configure `external` in `app.config.ts` if needed for bundling
 
+## DuckDB Pitfalls
+
+### Shared database between frontend and MCP server
+
+Frontend and MCP server open the **same DuckDB file** (`data/stride.duckdb`). The frontend starts first and creates tables with `profile_id`. MCP's `CREATE TABLE IF NOT EXISTS` with `user_id` is a no-op. **Always use `profile_id`** in queries that target shared tables (`profiles`, `goals`, `energy_logs`, `skills`, `inventory_items`).
+
+```typescript
+// ❌ Wrong - MCP schema definition uses user_id, but table has profile_id
+WHERE user_id = '${profileId}'
+
+// ✅ Correct - frontend creates tables first, profile_id is the real column
+WHERE profile_id = '${profileId}'
+```
+
+### `COUNT(*)` returns `bigint`, not `number`
+
+DuckDB returns `COUNT(*)` as JavaScript `bigint`. Strict equality `=== 0` fails silently because `BigInt(0) === 0` is `false`.
+
+```typescript
+// ❌ Wrong - bigint vs number comparison always false
+if (result[0]?.count === 0) { ... }
+
+// ✅ Correct - convert to number first
+if (Number(result[0]?.count) === 0) { ... }
+```
+
+### Init race condition pattern
+
+Use a promise singleton for async initialization to prevent concurrent queries from running before schema is ready:
+
+```typescript
+let initPromise: Promise<void> | null = null;
+export async function initDatabase(): Promise<void> {
+  if (initialized) return;
+  if (!initPromise) {
+    initPromise = (async () => {
+      await initSchema();
+      initialized = true;
+    })();
+  }
+  await initPromise;
+}
+```
+
+## Vite SSR Environment Variables
+
+`process.env` is **NOT populated at module load time** in Vite SSR. All environment variables must be read inside `init*()` functions or via lazy getters.
+
+```typescript
+// ❌ Wrong - undefined at module load time
+const API_KEY = process.env.LLM_API_KEY;
+
+// ✅ Correct - read at runtime inside init
+let API_KEY: string | undefined;
+export async function initLLM() {
+  API_KEY = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
+}
+```
+
+## LLM JSON Parsing (Small Models)
+
+Small LLM models (e.g. `ministral-3b-2512`) inject markdown formatting inside JSON values (`**bold**`, `` ```json `` fences). Always use `safeParseJson()` from `services/llm.ts` instead of raw `JSON.parse()`.
+
+```typescript
+// ❌ Wrong - breaks on markdown in JSON values
+const data = JSON.parse(response);
+
+// ✅ Correct - strips fences, sanitizes markdown, retries
+import { safeParseJson } from '../services/llm.js';
+const data = safeParseJson<{ title?: string }>(response);
+```
+
+## Opik Feedback Timing
+
+Never call `logFeedbackScores()` **inside** a `trace()` callback. The trace hasn't been flushed to Opik Cloud yet, causing 404s. Always call it **after** `trace()` returns.
+
+```typescript
+// ❌ Wrong - trace not yet flushed
+const result = await trace('my_trace', async (ctx) => {
+  await logFeedbackScores(ctx.getTraceId(), scores); // 404!
+  return data;
+});
+
+// ✅ Correct - trace is flushed after trace() returns
+const result = await trace('my_trace', async (ctx) => {
+  return { ...data, traceId: ctx.getTraceId() };
+});
+await logFeedbackScores(result.traceId, scores); // Works!
+```
+
 ## Important Notes
 
 - DuckDB native module requires external dependency config in `app.config.ts` for SSR
 - Frontend and backend use different DuckDB versions (1.4.1 vs 1.0.0)
 - DuckPGQ extension is optional (gracefully degrades)
 - Energy Debt and Comeback Mode are mutually exclusive states
+- tsc does NOT copy non-TS files (`.sql`, `.json`) to `dist/`. Use `PROJECT_ROOT` paths for these assets.
 - **pnpm v10+**: Run `pnpm install --ignore-scripts=false` if native bindings aren't compiled

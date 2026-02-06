@@ -13,7 +13,8 @@ export const config = {
   appName: import.meta.env.VITE_APP_NAME || 'Stride',
 
   // LLM Configuration (for display purposes)
-  groqModel: import.meta.env.VITE_GROQ_MODEL || 'openai/gpt-oss-120b',
+  llmModel:
+    import.meta.env.VITE_LLM_MODEL || import.meta.env.VITE_GROQ_MODEL || 'ministral-3b-2512',
 
   // Feature Flags
   isDev: import.meta.env.DEV,
@@ -27,7 +28,7 @@ export const config = {
  * Get the full model display name
  */
 export function getModelDisplayName(): string {
-  return `Groq ${config.groqModel}`;
+  return config.llmModel;
 }
 
 /**

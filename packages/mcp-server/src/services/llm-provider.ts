@@ -31,8 +31,8 @@ export interface LLMOptions {
  * Common interface for all LLM providers
  */
 export interface LLMProvider {
-  /** Provider identifier */
-  providerName: 'groq' | 'gemini';
+  /** Provider identifier (e.g. 'groq', 'mistral', 'openai', 'gemini') */
+  providerName: string;
 
   /** Initialize the provider (load API key, create client) */
   init(): Promise<void>;

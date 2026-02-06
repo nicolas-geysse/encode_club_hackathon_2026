@@ -26,7 +26,7 @@ import {
   type ConditionalTraceOptions,
   type SamplingContext,
 } from '../services/opik.js';
-import { chat, type ChatMessage } from '../services/groq.js';
+import { chat, safeParseJson, type ChatMessage } from '../services/llm.js';
 import { detectEnergyDebt, type EnergyDebt } from '../algorithms/energy-debt.js';
 import { detectComebackWindow, type ComebackWindow } from '../algorithms/comeback-detection.js';
 import { validateRecommendation } from './guardian.js';
@@ -574,11 +574,14 @@ async function runStage4(
           },
         });
 
-        // Parse JSON response
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-
+        // Parse JSON response (with markdown sanitization for small models)
+        const parsed = safeParseJson<{
+          title?: string;
+          message?: string;
+          category?: string;
+          action?: { label: string; href: string };
+        }>(response);
+        if (parsed) {
           llmSpan.setOutput({
             title: parsed.title,
             category: parsed.category,
@@ -588,7 +591,14 @@ async function runStage4(
           return {
             title: parsed.title || 'Tip',
             message: parsed.message || strategy.getFallbackMessage(),
-            category: parsed.category || 'opportunity',
+            category:
+              (parsed.category as
+                | 'energy'
+                | 'progress'
+                | 'mission'
+                | 'opportunity'
+                | 'warning'
+                | 'celebration') || 'opportunity',
             action: parsed.action,
           };
         }

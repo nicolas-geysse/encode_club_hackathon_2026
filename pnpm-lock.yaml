@@ -112,9 +112,6 @@ importers:
       duckdb:
         specifier: 1.4.1
         version: 1.4.1(encoding@0.1.13)
-      groq-sdk:
-        specifier: ^0.37.0
-        version: 0.37.0(encoding@0.1.13)
       lucide-solid:
         specifier: ^0.562.0
         version: 0.562.0(solid-js@1.9.11)
@@ -173,9 +170,9 @@ importers:
 
   packages/mcp-server:
     dependencies:
-      '@ai-sdk/groq':
-        specifier: ^3.0.15
-        version: 3.0.15(zod@4.3.6)
+      '@ai-sdk/openai':
+        specifier: ^3.0.25
+        version: 3.0.25(zod@4.3.6)
       '@ai-sdk/provider':
         specifier: ^3.0.5
         version: 3.0.5
@@ -206,12 +203,12 @@ importers:
       duckdb:
         specifier: 1.4.1
         version: 1.4.1(encoding@0.1.13)
-      groq-sdk:
-        specifier: ^0.37.0
-        version: 0.37.0(encoding@0.1.13)
       js-yaml:
         specifier: ^4.1.0
         version: 4.1.1
+      openai:
+        specifier: ^6.18.0
+        version: 6.18.0(ws@8.19.0)(zod@4.3.6)
       opik:
         specifier: ^1.9.98
         version: 1.9.98(chokidar@3.6.0)(zod@4.3.6)
@@ -271,14 +268,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/groq@3.0.15':
-    resolution: {integrity: sha512-tvxaM3RNmbDxoI9fktngyd8bdn35RF09FxQT5y7P4Pfcgu0LlyGQ6EtmfWGb2ke1ZLKLXFyr7jN3uX5Y3L3kbA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/openai@3.0.12':
-    resolution: {integrity: sha512-zqLWEKuaKnjXhu7xCw1jgz/+yTbd3F7EtgU4T2Q8BAo8OJC5wZv14l+kwM7Jai7M1/2Y2T/zBkrfiIu+7NsvfQ==}
+  '@ai-sdk/openai@3.0.25':
+    resolution: {integrity: sha512-DsaN46R98+D1W3lU3fKuPU3ofacboLaHlkAwxJPgJ8eup1AJHmPK1N1y10eJJbJcF6iby8Tf/vanoZxc9JPUfw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -297,6 +288,12 @@ packages:
 
   '@ai-sdk/provider-utils@4.0.0':
     resolution: {integrity: sha512-HyCyOls9I3a3e38+gtvOJOEjuw9KRcvbBnCL5GBuSmJvS9Jh9v3fz7pRC6ha1EUo/ZH1zwvLWYXBMtic8MTguA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@4.0.13':
+    resolution: {integrity: sha512-HHG72BN4d+OWTcq2NwTxOm/2qvk1duYsnhCDtsbYwn/h/4zeqURu1S0+Cn0nY2Ysq9a9HGKvrYuMn9bgFhR2Og==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -331,6 +328,10 @@ packages:
 
   '@ai-sdk/provider@3.0.5':
     resolution: {integrity: sha512-2Xmoq6DBJqmSl80U6V9z5jJSJP7ehaJJQMy2iFUqTay06wdCqTnPVBBQbtEL8RCChenL+q5DC5H5WzU3vV3v8w==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/provider@3.0.7':
+    resolution: {integrity: sha512-VkPLrutM6VdA924/mG8OS+5frbVTcu6e046D2bgDo00tehBANR1QBJ/mPcZ9tXMFOsVcm6SQArOregxePzTFPw==}
     engines: {node: '>=18'}
 
   '@ai-sdk/ui-utils@1.2.11':
@@ -5622,16 +5623,10 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.8(zod@4.3.6)
       zod: 4.3.6
 
-  '@ai-sdk/groq@3.0.15(zod@4.3.6)':
+  '@ai-sdk/openai@3.0.25(zod@4.3.6)':
     dependencies:
-      '@ai-sdk/provider': 3.0.5
-      '@ai-sdk/provider-utils': 4.0.9(zod@4.3.6)
-      zod: 4.3.6
-
-  '@ai-sdk/openai@3.0.12(zod@4.3.6)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.4
-      '@ai-sdk/provider-utils': 4.0.8(zod@4.3.6)
+      '@ai-sdk/provider': 3.0.7
+      '@ai-sdk/provider-utils': 4.0.13(zod@4.3.6)
       zod: 4.3.6
 
   '@ai-sdk/provider-utils@2.2.8(zod@4.3.6)':
@@ -5651,6 +5646,13 @@ snapshots:
   '@ai-sdk/provider-utils@4.0.0(zod@4.3.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.0
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.6
+      zod: 4.3.6
+
+  '@ai-sdk/provider-utils@4.0.13(zod@4.3.6)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.7
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
       zod: 4.3.6
@@ -5686,6 +5688,10 @@ snapshots:
       json-schema: 0.4.0
 
   '@ai-sdk/provider@3.0.5':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@3.0.7':
     dependencies:
       json-schema: 0.4.0
 
@@ -10161,7 +10167,7 @@ snapshots:
       '@ai-sdk/anthropic': 3.0.15(zod@4.3.6)
       '@ai-sdk/google': 3.0.10(zod@4.3.6)
       '@ai-sdk/google-vertex': 4.0.17(zod@4.3.6)
-      '@ai-sdk/openai': 3.0.12(zod@4.3.6)
+      '@ai-sdk/openai': 3.0.25(zod@4.3.6)
       ai: 6.0.39(zod@4.3.6)
       ansi-escapes: 7.2.0
       boxen: 8.0.1

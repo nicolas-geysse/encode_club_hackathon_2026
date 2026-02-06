@@ -13,7 +13,7 @@
 
 import { trace, getCurrentTraceId } from '../services/opik.js';
 import { query, execute } from '../services/duckdb.js';
-import { chat } from '../services/groq.js';
+import { chat } from '../services/llm.js';
 import { randomUUID } from 'crypto';
 import { toISODate } from '../utils/dateUtils.js';
 import type {

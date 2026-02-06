@@ -6,7 +6,7 @@
  */
 
 import { trace, getCurrentTraceId } from '../services/opik.js';
-import { transcribeAudio, transcribeAndAnalyze } from '../services/groq.js';
+import { transcribeAudio, transcribeAndAnalyze } from '../services/whisper.js';
 
 // ============================================
 // TOOL DEFINITIONS

@@ -176,15 +176,15 @@ async function loadLeads(profileId: string): Promise<LeadRow[]> {
  */
 async function loadEnergyHistory(profileId: string, weeks = 8): Promise<number[]> {
   try {
-    const rows = await query<{ level: number }>(
-      `SELECT level
+    const rows = await query<{ energy_level: number }>(
+      `SELECT energy_level
        FROM energy_logs
        WHERE profile_id = '${profileId}'
-       ORDER BY week_number DESC
+       ORDER BY log_date DESC
        LIMIT ${weeks}`
     );
     // Return in chronological order
-    return rows.map((r) => r.level).reverse();
+    return rows.map((r) => r.energy_level).reverse();
   } catch (error) {
     logger.warn('Failed to load energy history', { profileId, error });
     return [];

@@ -16,10 +16,18 @@ import { ArrowLeft, Eye, EyeOff, Check, X, ExternalLink } from 'lucide-solid';
 // API key configuration
 const API_KEYS = [
   {
-    id: 'GROQ_API_KEY',
-    name: 'Groq API Key',
-    description: 'Required for AI chat and recommendations',
+    id: 'LLM_API_KEY',
+    name: 'LLM API Key',
+    description: 'Required for AI chat (supports Mistral, Groq, OpenAI)',
     required: true,
+    placeholder: 'your-api-key...',
+    link: 'https://console.mistral.ai/api-keys',
+  },
+  {
+    id: 'GROQ_API_KEY',
+    name: 'Groq API Key (Whisper)',
+    description: 'Optional - for voice transcription via Groq Whisper',
+    required: false,
     placeholder: 'gsk_...',
     link: 'https://console.groq.com/keys',
   },

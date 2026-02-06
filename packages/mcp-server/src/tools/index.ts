@@ -53,7 +53,7 @@
 
 import { query } from '../services/duckdb.js';
 import { trace, getTraceUrl, logFeedback, getCurrentTraceId } from '../services/opik.js';
-import { analyzeBudget, generateAdvice } from '../services/groq.js';
+import { analyzeBudget, generateAdvice } from '../services/llm.js';
 import { runStudentAnalysis, type StudentProfile } from '../workflows/index.js';
 
 // Import new tool modules
@@ -1151,7 +1151,7 @@ Format your response as JSON like this:
 }`;
 
     try {
-      const { chat } = await import('../services/groq.js');
+      const { chat } = await import('../services/llm.js');
       const response = await chat(
         [
           { role: 'system', content: systemPrompt },

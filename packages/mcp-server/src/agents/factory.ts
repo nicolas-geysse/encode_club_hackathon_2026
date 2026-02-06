@@ -68,7 +68,7 @@ let cachedModel: unknown = null;
 async function getDefaultModel(): Promise<unknown> {
   if (!cachedModel) {
     const config = await import('../mastra.config.js');
-    cachedModel = config.defaultModel;
+    cachedModel = config.getDefaultModel();
   }
   return cachedModel;
 }

@@ -19,7 +19,7 @@
  */
 
 import { trace, createSpan, getCurrentTraceId, getTraceUrl } from '../services/opik.js';
-import { chat, type ChatMessage } from '../services/groq.js';
+import { chat, safeParseJson, type ChatMessage } from '../services/llm.js';
 import { detectEnergyDebt } from '../algorithms/energy-debt.js';
 import { detectComebackWindow } from '../algorithms/comeback-detection.js';
 
@@ -409,14 +409,18 @@ VALID ROUTES:
               metadata: { source: 'daily_briefing', priority },
             });
 
-            const jsonMatch = response.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              const parsed = JSON.parse(jsonMatch[0]);
+            const parsed = safeParseJson<{
+              title?: string;
+              message?: string;
+              todaysFocus?: string;
+              action?: { label: string; href: string };
+            }>(response);
+            if (parsed) {
               llmSpan.setOutput({ title: parsed.title, hasAction: !!parsed.action });
               return {
                 greeting: getGreeting(input.currentDate),
-                title: parsed.title,
-                message: parsed.message,
+                title: parsed.title || 'Daily Briefing',
+                message: parsed.message || '',
                 priority,
                 todaysFocus: parsed.todaysFocus,
                 action: parsed.action,
