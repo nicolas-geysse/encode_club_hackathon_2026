@@ -828,7 +828,7 @@ export async function runGoalPlanningWorkflow(input: GoalPlanningInput): Promise
     // Save goal to database
     try {
       await execute(`
-        INSERT INTO goals (id, user_id, goal_name, goal_amount, goal_deadline,
+        INSERT INTO goals (id, profile_id, goal_name, goal_amount, goal_deadline,
                            feasibility_score, risk_level, weekly_target, status)
         VALUES ('${goalId}', '${input.userId || 'default'}', '${input.goalName.replace(/'/g, "''")}',
                 ${input.goalAmount}, '${toISODate(input.goalDeadline)}',
@@ -910,7 +910,7 @@ export async function runRetroplanningWorkflow(
     const [academicEventsRows, commitmentsRows, energyLogsRows] = await Promise.all([
       query<{
         id: string;
-        user_id: string;
+        profile_id: string;
         event_type: AcademicEventType;
         event_name: string;
         start_date: string;
@@ -919,34 +919,36 @@ export async function runRetroplanningWorkflow(
         priority: EventPriority;
         is_recurring: boolean;
         recurrence_pattern: string;
-      }>(`SELECT * FROM academic_events WHERE user_id = '${userId}' AND end_date >= CURRENT_DATE`),
+      }>(
+        `SELECT * FROM academic_events WHERE profile_id = '${userId}' AND end_date >= CURRENT_DATE`
+      ),
       query<{
         id: string;
-        user_id: string;
+        profile_id: string;
         commitment_type: CommitmentType;
         commitment_name: string;
         hours_per_week: number;
         flexible_hours: boolean;
         day_preferences: DayOfWeek[];
         priority: CommitmentPriority;
-      }>(`SELECT * FROM commitments WHERE user_id = '${userId}'`),
+      }>(`SELECT * FROM commitments WHERE profile_id = '${userId}'`),
       query<{
         id: string;
-        user_id: string;
+        profile_id: string;
         log_date: string;
         energy_level: 1 | 2 | 3 | 4 | 5;
         mood_score: 1 | 2 | 3 | 4 | 5;
         stress_level: 1 | 2 | 3 | 4 | 5;
         hours_slept: number;
         notes: string;
-      }>(`SELECT * FROM energy_logs WHERE user_id = '${userId}'
+      }>(`SELECT * FROM energy_logs WHERE profile_id = '${userId}'
           AND log_date >= CURRENT_DATE - INTERVAL 30 DAY ORDER BY log_date DESC`),
     ]);
 
     // Convert to proper types
     const academicEvents: AcademicEvent[] = academicEventsRows.map((e) => ({
       id: e.id,
-      userId: e.user_id,
+      userId: e.profile_id,
       type: e.event_type,
       name: e.event_name,
       startDate: new Date(e.start_date),
@@ -959,7 +961,7 @@ export async function runRetroplanningWorkflow(
 
     const commitments: Commitment[] = commitmentsRows.map((c) => ({
       id: c.id,
-      userId: c.user_id,
+      userId: c.profile_id,
       type: c.commitment_type,
       name: c.commitment_name,
       hoursPerWeek: c.hours_per_week,
@@ -970,7 +972,7 @@ export async function runRetroplanningWorkflow(
 
     const energyHistory: EnergyLog[] = energyLogsRows.map((e) => ({
       id: e.id,
-      userId: e.user_id,
+      userId: e.profile_id,
       date: new Date(e.log_date),
       energyLevel: e.energy_level,
       moodScore: e.mood_score,
@@ -1009,7 +1011,7 @@ export async function runRetroplanningWorkflow(
     // Save retroplan to database
     try {
       await execute(`
-        INSERT INTO retroplans (id, goal_id, user_id, config, milestones, total_weeks,
+        INSERT INTO retroplans (id, goal_id, profile_id, config, milestones, total_weeks,
                                 high_capacity_weeks, medium_capacity_weeks, low_capacity_weeks,
                                 protected_weeks, feasibility_score, confidence_low, confidence_high,
                                 risk_factors, front_loaded_percentage, is_active)

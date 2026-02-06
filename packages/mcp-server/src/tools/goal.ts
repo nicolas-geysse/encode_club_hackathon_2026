@@ -716,7 +716,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
     // Create goal in database
     const goalId = uuidv4();
     await execute(`
-      INSERT INTO goals (id, user_id, goal_name, goal_amount, goal_deadline, minimum_budget,
+      INSERT INTO goals (id, profile_id, goal_name, goal_amount, goal_deadline, minimum_budget,
                          feasibility_score, risk_level, weekly_target, status)
       VALUES ('${goalId}', '${userId}', '${goalName.replace(/'/g, "''")}', ${goalAmount},
               '${toISODate(goalDeadline)}', ${minimumBudget || 'NULL'},
@@ -989,7 +989,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
     for (const achievementId of newAchievements) {
       const achId = uuidv4();
       await execute(`
-        INSERT INTO goal_achievements (id, user_id, achievement_id, goal_id)
+        INSERT INTO goal_achievements (id, profile_id, achievement_id, goal_id)
         VALUES ('${achId}', 'default', '${achievementId}', '${goalId}')
         ON CONFLICT DO NOTHING
       `);
@@ -1412,7 +1412,7 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
       'filter.status': status,
     });
 
-    let whereClause = `user_id = '${userId}'`;
+    let whereClause = `profile_id = '${userId}'`;
     if (status !== 'all') {
       whereClause += ` AND status = '${status}'`;
     }
@@ -1531,7 +1531,7 @@ export async function handleAddAcademicEvent(args: Record<string, unknown>) {
 
     const eventId = uuidv4();
     await execute(`
-      INSERT INTO academic_events (id, user_id, event_type, event_name, start_date, end_date, capacity_impact, priority)
+      INSERT INTO academic_events (id, profile_id, event_type, event_name, start_date, end_date, capacity_impact, priority)
       VALUES ('${eventId}', '${userId}', '${eventType}', '${eventName.replace(/'/g, "''")}',
               '${startDate}', '${endDate}', ${capacityImpact}, '${priority}')
     `);
@@ -1586,7 +1586,7 @@ export async function handleAddCommitment(args: Record<string, unknown>) {
 
     const commitmentId = uuidv4();
     await execute(`
-      INSERT INTO commitments (id, user_id, commitment_type, commitment_name, hours_per_week, flexible_hours, day_preferences, priority)
+      INSERT INTO commitments (id, profile_id, commitment_type, commitment_name, hours_per_week, flexible_hours, day_preferences, priority)
       VALUES ('${commitmentId}', '${userId}', '${commitmentType}', '${commitmentName.replace(/'/g, "''")}',
               ${hoursPerWeek}, ${flexibleHours}, ${dayPreferences ? `ARRAY[${dayPreferences.map((d) => `'${d}'`).join(',')}]` : 'NULL'}, '${priority}')
     `);
@@ -1641,10 +1641,10 @@ export async function handleLogEnergy(args: Record<string, unknown>) {
 
     const logId = uuidv4();
     await execute(`
-      INSERT INTO energy_logs (id, user_id, log_date, energy_level, mood_score, stress_level, hours_slept, notes)
+      INSERT INTO energy_logs (id, profile_id, log_date, energy_level, mood_score, stress_level, hours_slept, notes)
       VALUES ('${logId}', '${userId}', '${date}', ${energyLevel}, ${moodScore}, ${stressLevel},
               ${hoursSlept || 'NULL'}, ${notes ? `'${notes.replace(/'/g, "''")}'` : 'NULL'})
-      ON CONFLICT (user_id, log_date) DO UPDATE SET
+      ON CONFLICT (profile_id, log_date) DO UPDATE SET
         energy_level = ${energyLevel},
         mood_score = ${moodScore},
         stress_level = ${stressLevel},
@@ -1700,7 +1700,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
       goal_deadline: string;
       weekly_target: number;
       minimum_budget: number;
-      user_id: string;
+      profile_id: string;
     }>(`SELECT * FROM goals WHERE id = '${goalId}'`);
 
     if (goals.length === 0) {
@@ -1716,7 +1716,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
       skills: string[];
       max_work_hours_weekly: number;
       min_hourly_rate: number;
-    }>(`SELECT * FROM profiles WHERE id = '${goal.user_id || userId}' LIMIT 1`);
+    }>(`SELECT * FROM profiles WHERE id = '${goal.profile_id || userId}' LIMIT 1`);
 
     const profile = profiles[0] || {
       monthly_income: 500,
@@ -1729,7 +1729,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
     // Get academic events
     const academicEvents = await query<{
       id: string;
-      user_id: string;
+      profile_id: string;
       event_type: AcademicEventType;
       event_name: string;
       start_date: string;
@@ -1738,39 +1738,39 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
       priority: EventPriority;
       is_recurring: boolean;
       recurrence_pattern: string;
-    }>(`SELECT * FROM academic_events WHERE user_id = '${goal.user_id || userId}'
+    }>(`SELECT * FROM academic_events WHERE profile_id = '${goal.profile_id || userId}'
         AND end_date >= CURRENT_DATE`);
 
     // Get commitments
     const commitments = await query<{
       id: string;
-      user_id: string;
+      profile_id: string;
       commitment_type: CommitmentType;
       commitment_name: string;
       hours_per_week: number;
       flexible_hours: boolean;
       day_preferences: DayOfWeek[];
       priority: CommitmentPriority;
-    }>(`SELECT * FROM commitments WHERE user_id = '${goal.user_id || userId}'`);
+    }>(`SELECT * FROM commitments WHERE profile_id = '${goal.profile_id || userId}'`);
 
     // Get energy logs (last 30 days)
     const energyLogs = await query<{
       id: string;
-      user_id: string;
+      profile_id: string;
       log_date: string;
       energy_level: 1 | 2 | 3 | 4 | 5;
       mood_score: 1 | 2 | 3 | 4 | 5;
       stress_level: 1 | 2 | 3 | 4 | 5;
       hours_slept: number;
       notes: string;
-    }>(`SELECT * FROM energy_logs WHERE user_id = '${goal.user_id || userId}'
+    }>(`SELECT * FROM energy_logs WHERE profile_id = '${goal.profile_id || userId}'
         AND log_date >= CURRENT_DATE - INTERVAL 30 DAY
         ORDER BY log_date DESC`);
 
     // Convert to RetroplanInput
     const input: RetroplanInput = {
       goalId,
-      userId: goal.user_id || userId,
+      userId: goal.profile_id || userId,
       goalAmount: goal.goal_amount,
       deadline: new Date(goal.goal_deadline),
       goalName: goal.goal_name,
@@ -1783,7 +1783,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
       },
       academicEvents: academicEvents.map((e) => ({
         id: e.id,
-        userId: e.user_id,
+        userId: e.profile_id,
         type: e.event_type,
         name: e.event_name,
         startDate: new Date(e.start_date),
@@ -1795,7 +1795,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
       })),
       commitments: commitments.map((c) => ({
         id: c.id,
-        userId: c.user_id,
+        userId: c.profile_id,
         type: c.commitment_type,
         name: c.commitment_name,
         hoursPerWeek: c.hours_per_week,
@@ -1805,7 +1805,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
       })),
       energyHistory: energyLogs.map((e) => ({
         id: e.id,
-        userId: e.user_id,
+        userId: e.profile_id,
         date: new Date(e.log_date),
         energyLevel: e.energy_level,
         moodScore: e.mood_score,
@@ -1825,7 +1825,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
 
     // Save retroplan to database
     await execute(`
-      INSERT INTO retroplans (id, goal_id, user_id, config, milestones, total_weeks,
+      INSERT INTO retroplans (id, goal_id, profile_id, config, milestones, total_weeks,
                               high_capacity_weeks, medium_capacity_weeks, low_capacity_weeks,
                               protected_weeks, feasibility_score, confidence_low, confidence_high,
                               risk_factors, front_loaded_percentage, is_active)
@@ -1998,7 +1998,7 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
       event_type: string;
       capacity_impact: number;
     }>(`SELECT event_name, event_type, capacity_impact FROM academic_events
-        WHERE user_id = '${userId}'
+        WHERE profile_id = '${userId}'
         AND start_date <= '${toISODate(weekEnd)}'
         AND end_date >= '${toISODate(weekStart)}'`);
 
@@ -2006,7 +2006,7 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
     const commitments = await query<{
       commitment_name: string;
       hours_per_week: number;
-    }>(`SELECT commitment_name, hours_per_week FROM commitments WHERE user_id = '${userId}'`);
+    }>(`SELECT commitment_name, hours_per_week FROM commitments WHERE profile_id = '${userId}'`);
 
     // Get recent energy logs
     const recentEnergy = await query<{
@@ -2014,7 +2014,7 @@ export async function handleGetWeekCapacity(args: Record<string, unknown>) {
       mood_score: number;
       stress_level: number;
     }>(`SELECT energy_level, mood_score, stress_level FROM energy_logs
-        WHERE user_id = '${userId}'
+        WHERE profile_id = '${userId}'
         ORDER BY log_date DESC LIMIT 7`);
 
     // Calculate capacity
@@ -2123,7 +2123,7 @@ export async function handleListAcademicEvents(args: Record<string, unknown>) {
     const startDate = args.start_date as string | undefined;
     const endDate = args.end_date as string | undefined;
 
-    let whereClause = `user_id = '${userId}'`;
+    let whereClause = `profile_id = '${userId}'`;
     if (startDate) {
       whereClause += ` AND end_date >= '${startDate}'`;
     }
@@ -2211,7 +2211,7 @@ export async function handleListCommitments(args: Record<string, unknown>) {
       flexible_hours: boolean;
       priority: string;
     }>(
-      `SELECT * FROM commitments WHERE user_id = '${userId}' ORDER BY priority, hours_per_week DESC`
+      `SELECT * FROM commitments WHERE profile_id = '${userId}' ORDER BY priority, hours_per_week DESC`
     );
 
     span.setAttributes({

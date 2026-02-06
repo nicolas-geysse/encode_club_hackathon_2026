@@ -86,7 +86,7 @@ async function loadGoals(profileId: string): Promise<GoalRow[]> {
     const rows = await query<GoalRow>(
       `SELECT id, name, amount, deadline, progress, status
        FROM goals
-       WHERE user_id = '${profileId}'
+       WHERE profile_id = '${profileId}'
        ORDER BY created_at DESC`
     );
     return rows;
@@ -179,7 +179,7 @@ async function loadEnergyHistory(profileId: string, weeks = 8): Promise<number[]
     const rows = await query<{ energy_level: number }>(
       `SELECT energy_level
        FROM energy_logs
-       WHERE user_id = '${profileId}'
+       WHERE profile_id = '${profileId}'
        ORDER BY log_date DESC
        LIMIT ${weeks}`
     );

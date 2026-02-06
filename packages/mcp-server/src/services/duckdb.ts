@@ -398,7 +398,7 @@ async function initSchema(): Promise<void> {
   await executeInternal(`
     CREATE TABLE IF NOT EXISTS goals (
       id VARCHAR PRIMARY KEY,
-      user_id VARCHAR,
+      profile_id VARCHAR,
       goal_name VARCHAR NOT NULL,
       goal_amount DECIMAL NOT NULL,
       goal_deadline DATE NOT NULL,
@@ -454,11 +454,11 @@ async function initSchema(): Promise<void> {
   await executeInternal(`
     CREATE TABLE IF NOT EXISTS goal_achievements (
       id VARCHAR PRIMARY KEY,
-      user_id VARCHAR NOT NULL,
+      profile_id VARCHAR NOT NULL,
       achievement_id VARCHAR NOT NULL,
       goal_id VARCHAR,
       unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, achievement_id, goal_id)
+      UNIQUE(profile_id, achievement_id, goal_id)
     )
   `);
 
@@ -470,7 +470,7 @@ async function initSchema(): Promise<void> {
   await executeInternal(`
     CREATE TABLE IF NOT EXISTS academic_events (
       id VARCHAR PRIMARY KEY,
-      user_id VARCHAR NOT NULL,
+      profile_id VARCHAR NOT NULL,
       event_type VARCHAR NOT NULL,
       event_name VARCHAR NOT NULL,
       start_date DATE NOT NULL,
@@ -487,7 +487,7 @@ async function initSchema(): Promise<void> {
   await executeInternal(`
     CREATE TABLE IF NOT EXISTS commitments (
       id VARCHAR PRIMARY KEY,
-      user_id VARCHAR NOT NULL,
+      profile_id VARCHAR NOT NULL,
       commitment_type VARCHAR NOT NULL,
       commitment_name VARCHAR NOT NULL,
       hours_per_week DECIMAL NOT NULL,
@@ -504,7 +504,7 @@ async function initSchema(): Promise<void> {
   await executeInternal(`
     CREATE TABLE IF NOT EXISTS energy_logs (
       id VARCHAR PRIMARY KEY,
-      user_id VARCHAR NOT NULL,
+      profile_id VARCHAR NOT NULL,
       log_date DATE NOT NULL,
       energy_level INTEGER CHECK (energy_level BETWEEN 1 AND 5),
       mood_score INTEGER CHECK (mood_score BETWEEN 1 AND 5),
@@ -512,7 +512,7 @@ async function initSchema(): Promise<void> {
       hours_slept DECIMAL,
       notes VARCHAR,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, log_date)
+      UNIQUE(profile_id, log_date)
     )
   `);
 
@@ -521,7 +521,7 @@ async function initSchema(): Promise<void> {
     CREATE TABLE IF NOT EXISTS retroplans (
       id VARCHAR PRIMARY KEY,
       goal_id VARCHAR NOT NULL,
-      user_id VARCHAR NOT NULL,
+      profile_id VARCHAR NOT NULL,
       config JSON NOT NULL,
       milestones JSON NOT NULL,
       total_weeks INTEGER,
