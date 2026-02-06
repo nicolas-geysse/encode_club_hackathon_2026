@@ -86,7 +86,7 @@ async function loadGoals(profileId: string): Promise<GoalRow[]> {
     const rows = await query<GoalRow>(
       `SELECT id, name, amount, deadline, progress, status
        FROM goals
-       WHERE profile_id = '${profileId}'
+       WHERE user_id = '${profileId}'
        ORDER BY created_at DESC`
     );
     return rows;
@@ -101,9 +101,9 @@ async function loadGoals(profileId: string): Promise<GoalRow[]> {
  */
 async function loadInventory(profileId: string): Promise<InventoryRow[]> {
   try {
-    // Check if inventory table exists
+    // Check if inventory table exists (frontend creates it as inventory_items)
     const tables = await query<{ table_name: string }>(
-      `SELECT table_name FROM information_schema.tables WHERE table_name = 'inventory'`
+      `SELECT table_name FROM information_schema.tables WHERE table_name = 'inventory_items'`
     );
     if (tables.length === 0) {
       return [];
@@ -111,7 +111,7 @@ async function loadInventory(profileId: string): Promise<InventoryRow[]> {
 
     const rows = await query<InventoryRow>(
       `SELECT id, name, estimated_value, category
-       FROM inventory
+       FROM inventory_items
        WHERE profile_id = '${profileId}'`
     );
     return rows;
@@ -179,7 +179,7 @@ async function loadEnergyHistory(profileId: string, weeks = 8): Promise<number[]
     const rows = await query<{ energy_level: number }>(
       `SELECT energy_level
        FROM energy_logs
-       WHERE profile_id = '${profileId}'
+       WHERE user_id = '${profileId}'
        ORDER BY log_date DESC
        LIMIT ${weeks}`
     );
