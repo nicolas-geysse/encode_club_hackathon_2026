@@ -13,7 +13,7 @@ import {
   Clock,
   Zap,
   ExternalLink,
-  Save,
+  ThumbsUp,
   ThumbsDown,
   ChevronDown,
   Sparkles,
@@ -116,7 +116,7 @@ export function JobCard(props: JobCardProps) {
               }
             >
               <span class="px-1.5 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded">
-                {Math.round(props.job.scoreBreakdown!.profileDetails!.skillMatch * 100)}%
+                {Math.round((props.job.scoreBreakdown?.profileDetails?.skillMatch ?? 0) * 100)}%
               </span>
             </Show>
             <Show when={isRemoteJob(props.job)}>
@@ -157,28 +157,30 @@ export function JobCard(props: JobCardProps) {
 
         {/* Line 3: Actions */}
         <div class="flex items-center gap-2 mt-2">
+          {/* Thumb up = Save / Interested */}
           <button
             onClick={() => props.onSave(props.job)}
             disabled={props.isSaved}
             class={cn(
               'flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-colors',
               props.isSaved
-                ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                ? 'bg-green-100 dark:bg-green-950/30 text-green-600 dark:text-green-400 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
             )}
+            title={props.isSaved ? 'Already saved' : 'Interested — save this job'}
           >
-            <Save class="h-3 w-3" />
-            {props.isSaved ? 'Saved' : 'Save'}
+            <ThumbsUp class="h-3 w-3" />
+            {props.isSaved ? 'Saved' : 'Interested'}
           </button>
 
+          {/* Thumb down = Exclude */}
           <Show when={props.onExclude}>
             <button
               onClick={() => props.onExclude?.(props.job)}
               class="flex items-center gap-1 px-2.5 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-              title="Not interested"
+              title="Not interested — exclude this job"
             >
               <ThumbsDown class="h-3 w-3" />
-              Exclude
             </button>
           </Show>
 
@@ -232,44 +234,54 @@ export function JobCard(props: JobCardProps) {
           </Show>
 
           {/* Score breakdown */}
-          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Distance</span>
-              <span class="font-mono">{Math.round(props.job.scoreBreakdown.distance * 100)}%</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Profile</span>
-              <span class="font-mono">{Math.round(props.job.scoreBreakdown.profile * 100)}%</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Effort</span>
-              <span class="font-mono">{Math.round(props.job.scoreBreakdown.effort * 100)}%</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Rate</span>
-              <span class="font-mono">{Math.round(props.job.scoreBreakdown.rate * 100)}%</span>
-            </div>
-            <Show when={props.job.scoreBreakdown.profileDetails?.skillMatch}>
-              <div class="flex justify-between text-blue-600 dark:text-blue-400">
-                <span>Skill match</span>
+          <Show when={props.job.scoreBreakdown}>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Distance</span>
                 <span class="font-mono">
-                  {Math.round((props.job.scoreBreakdown.profileDetails?.skillMatch || 0) * 100)}%
+                  {Math.round((props.job.scoreBreakdown?.distance ?? 0) * 100)}%
                 </span>
               </div>
-            </Show>
-            <Show when={props.job.scoreBreakdown.profileDetails?.certificationBonus}>
-              <div class="flex justify-between text-green-600 dark:text-green-400">
-                <span>Cert boost</span>
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Profile</span>
                 <span class="font-mono">
-                  +
-                  {Math.round(
-                    (props.job.scoreBreakdown.profileDetails?.certificationBonus || 0) * 100
-                  )}
-                  %
+                  {Math.round((props.job.scoreBreakdown?.profile ?? 0) * 100)}%
                 </span>
               </div>
-            </Show>
-          </div>
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Effort</span>
+                <span class="font-mono">
+                  {Math.round((props.job.scoreBreakdown?.effort ?? 0) * 100)}%
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Rate</span>
+                <span class="font-mono">
+                  {Math.round((props.job.scoreBreakdown?.rate ?? 0) * 100)}%
+                </span>
+              </div>
+              <Show when={props.job.scoreBreakdown?.profileDetails?.skillMatch}>
+                <div class="flex justify-between text-blue-600 dark:text-blue-400">
+                  <span>Skill match</span>
+                  <span class="font-mono">
+                    {Math.round((props.job.scoreBreakdown?.profileDetails?.skillMatch || 0) * 100)}%
+                  </span>
+                </div>
+              </Show>
+              <Show when={props.job.scoreBreakdown?.profileDetails?.certificationBonus}>
+                <div class="flex justify-between text-green-600 dark:text-green-400">
+                  <span>Cert boost</span>
+                  <span class="font-mono">
+                    +
+                    {Math.round(
+                      (props.job.scoreBreakdown?.profileDetails?.certificationBonus || 0) * 100
+                    )}
+                    %
+                  </span>
+                </div>
+              </Show>
+            </div>
+          </Show>
 
           {/* Google rating if available */}
           <Show when={props.job.rating}>

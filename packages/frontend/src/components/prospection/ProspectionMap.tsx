@@ -386,12 +386,12 @@ export function ProspectionMap(props: ProspectionMapProps) {
                   data-card-id="${card.id}"
                   class="flex-1 px-3 py-1.5 text-xs font-medium rounded ${
                     isSaved
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      ? 'bg-green-100 text-green-600 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
                   }"
                   ${isSaved ? 'disabled' : ''}
                 >
-                  ${isSaved ? '✓ Saved' : '💾 Save'}
+                  ${isSaved ? '✓ Saved' : '👍 Interested'}
                 </button>
                 <button
                   data-action="exclude"

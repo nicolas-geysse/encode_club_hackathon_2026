@@ -16,10 +16,10 @@ import {
   Clock,
   MapPin,
   ExternalLink,
-  Save,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-solid';
 import { Card, CardContent } from '~/components/ui/Card';
-import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/cn';
 import type { ScoredJob } from '~/lib/jobScoring';
 import type { ProspectionSearchMeta } from '~/lib/prospectionTypes';
@@ -304,15 +304,30 @@ export function ProspectionList(props: ProspectionListProps) {
                       <ExternalLink class="h-3 w-3" />
                     </a>
                   </Show>
-                  <Button
-                    size="sm"
-                    variant={isSaved(job.id) ? 'outline' : 'default'}
-                    onClick={() => props.onSave(job)}
-                    disabled={isSaved(job.id)}
-                    class="h-6 px-2 text-xs shrink-0"
-                  >
-                    {isSaved(job.id) ? 'Saved' : 'Save'}
-                  </Button>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => props.onSave(job)}
+                      disabled={isSaved(job.id)}
+                      class={cn(
+                        'p-1 rounded transition-colors',
+                        isSaved(job.id)
+                          ? 'text-green-500 cursor-not-allowed'
+                          : 'text-muted-foreground hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30'
+                      )}
+                      title={isSaved(job.id) ? 'Saved' : 'Interested'}
+                    >
+                      <ThumbsUp class="h-3.5 w-3.5" />
+                    </button>
+                    <Show when={props.onExclude}>
+                      <button
+                        onClick={() => props.onExclude!(job)}
+                        class="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Not interested"
+                      >
+                        <ThumbsDown class="h-3.5 w-3.5" />
+                      </button>
+                    </Show>
+                  </div>
                 </div>
               )}
             </For>
