@@ -75,6 +75,42 @@ export async function POST(event: APIEvent) {
       // Leads table might not exist yet, ignore
     }
 
+    // Delete trades for this profile
+    try {
+      await execute(`DELETE FROM trades WHERE profile_id = ${escapedProfileId}`);
+      deletedTables.push('trades');
+    } catch {
+      // Trades table might not exist yet, ignore
+    }
+
+    // Delete energy logs for this profile
+    try {
+      await execute(`DELETE FROM energy_logs WHERE profile_id = ${escapedProfileId}`);
+      deletedTables.push('energy_logs');
+    } catch {
+      // Energy logs table might not exist yet, ignore
+    }
+
+    // Delete chat messages for this profile
+    try {
+      await execute(`DELETE FROM chat_messages WHERE profile_id = ${escapedProfileId}`);
+      deletedTables.push('chat_messages');
+    } catch {
+      // Chat messages table might not exist yet, ignore
+    }
+
+    // Reset skipped_steps and followup_data on the profile itself
+    try {
+      await execute(`
+        UPDATE profiles SET
+          skipped_steps = NULL,
+          followup_data = '{}'
+        WHERE id = ${escapedProfileId}
+      `);
+    } catch {
+      // Column might not exist yet, ignore
+    }
+
     logger.info('Profile data reset', { profileId, deletedTables });
 
     return new Response(

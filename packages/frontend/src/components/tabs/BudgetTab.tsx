@@ -489,6 +489,7 @@ export function BudgetTab(props: BudgetTabProps) {
             category: l.category || 'other',
             amount: l.currentCost,
           })),
+          skippedSteps: profile()?.skippedSteps,
         }}
         fallbackMessage="Track your income and expenses to maximize your savings potential!"
         compact

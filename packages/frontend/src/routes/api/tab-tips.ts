@@ -90,6 +90,8 @@ function hashContext(context: Record<string, unknown>): string {
     skillsCount: Array.isArray(context.skills) ? context.skills.length : 0,
     // Inventory
     inventoryCount: Array.isArray(context.inventory) ? context.inventory.length : 0,
+    // Skipped steps
+    skippedSteps: Array.isArray(context.skippedSteps) ? context.skippedSteps.join(',') : '',
   };
 
   // Simple hash

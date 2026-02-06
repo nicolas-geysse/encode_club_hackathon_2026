@@ -100,6 +100,7 @@ export interface FullProfile {
   swipePreferences?: SwipePreferences;
   subscriptions?: { name: string; currentCost?: number }[];
   inventoryItems?: { name: string; category?: string; estimatedValue?: number }[];
+  skippedSteps?: string[];
 }
 
 export interface ProfileSummary {

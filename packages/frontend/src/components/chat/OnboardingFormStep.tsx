@@ -49,11 +49,11 @@ interface OnboardingFormStepProps {
   onSubmit: (data: Record<string, unknown>) => void;
   /** Called when user starts typing (for text-based input fallback) */
   onTextInput?: (text: string) => void;
-  /** Called when user clicks "Fill in later" to skip optional step */
-  onSkip?: () => void;
+  /** Called when user submits an empty form on a skippable step */
+  onSubmitEmpty?: (step: OnboardingStep) => void;
 }
 
-/** Steps that can be skipped with "Fill in later" */
+/** Steps that can be skipped (empty submission advances to next step) */
 const SKIPPABLE_STEPS: OnboardingStep[] = [
   'skills',
   'certifications',
@@ -712,6 +712,7 @@ function DynamicListField(props: {
 
 export default function OnboardingFormStep(props: OnboardingFormStepProps) {
   const [formData, setFormData] = createSignal<Record<string, unknown>>({});
+  const [validationError, setValidationError] = createSignal<string | null>(null);
   const [geoError, setGeoError] = createSignal<string | null>(null);
   const [detectedLocation, setDetectedLocation] = createSignal<{
     city: string;
@@ -732,12 +733,63 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
   // Update a single field
   const updateField = (name: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear validation error when user edits a field
+    if (validationError()) setValidationError(null);
+  };
+
+  // Check if form data is empty for skippable steps
+  const isFormDataEmpty = (data: Record<string, unknown>): boolean => {
+    const fields = config()?.fields;
+    if (!fields) return true;
+
+    return fields.every((field) => {
+      const val = data[field.name];
+      if (val === undefined || val === null || val === '') return true;
+      if (Array.isArray(val) && val.length === 0) return true;
+      if (typeof val === 'number' && val === 0) return true;
+      return false;
+    });
+  };
+
+  // Check if all required fields have values
+  const getMissingRequiredFields = (data: Record<string, unknown>): string[] => {
+    const fields = config()?.fields;
+    if (!fields) return [];
+
+    return fields
+      .filter((field) => {
+        if (!field.required) return false;
+        if (!isFieldVisible(field)) return false;
+        const val = data[field.name];
+        if (val === undefined || val === null || val === '') return true;
+        if (Array.isArray(val) && val.length === 0) return true;
+        return false;
+      })
+      .map((field) => field.label);
   };
 
   // Handle form submission
   const handleSubmit = (e: Event) => {
     e.preventDefault();
-    props.onSubmit(formData());
+    const data = formData();
+
+    // For skippable steps, detect empty submissions
+    if (SKIPPABLE_STEPS.includes(props.step) && props.onSubmitEmpty && isFormDataEmpty(data)) {
+      props.onSubmitEmpty(props.step);
+      return;
+    }
+
+    // For non-skippable steps, validate required fields
+    if (!SKIPPABLE_STEPS.includes(props.step)) {
+      const missing = getMissingRequiredFields(data);
+      if (missing.length > 0) {
+        setValidationError(`Please fill in: ${missing.join(', ')}`);
+        return;
+      }
+    }
+
+    setValidationError(null);
+    props.onSubmit(data);
   };
 
   // Handle geolocation result
@@ -993,6 +1045,11 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             <p class="text-xs text-muted-foreground">{cfg().helpText}</p>
           </Show>
 
+          {/* Validation error */}
+          <Show when={validationError()}>
+            <p class="text-sm text-destructive">{validationError()}</p>
+          </Show>
+
           {/* Submit button */}
           <button
             type="submit"
@@ -1000,17 +1057,6 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
           >
             Continue
           </button>
-
-          {/* Skip button for optional steps */}
-          <Show when={SKIPPABLE_STEPS.includes(props.step) && props.onSkip}>
-            <button
-              type="button"
-              onClick={() => props.onSkip?.()}
-              class="w-full px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-lg transition-colors text-sm"
-            >
-              Fill in later
-            </button>
-          </Show>
         </form>
       )}
     </Show>

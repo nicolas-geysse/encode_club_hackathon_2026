@@ -654,6 +654,7 @@ export default function MePage() {
                     userSkills={activeProfile()?.skills}
                     userCertifications={activeProfile()?.certifications}
                     minHourlyRate={activeProfile()?.minHourlyRate}
+                    skippedSteps={activeProfile()?.skippedSteps}
                     onLeadsChange={setLeads}
                     onLeadSaved={(lead) => {
                       if (lead.status === 'interested') {

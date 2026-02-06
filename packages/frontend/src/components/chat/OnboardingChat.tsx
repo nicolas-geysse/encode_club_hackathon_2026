@@ -261,6 +261,9 @@ export function OnboardingChat() {
   const [threadId, setThreadId] = createSignal<string>(generateThreadId());
   const [profileId, setProfileId] = createSignal<string | undefined>(undefined);
 
+  // Track which steps were skipped (empty submission) during onboarding
+  const [skippedSteps, setSkippedSteps] = createSignal<string[]>([]);
+
   // Location consent state - show consent screen before requesting GPS
   const [showLocationConsent, setShowLocationConsent] = createSignal(false);
   const [locationConsentGiven, setLocationConsentGiven] = createSignal<
@@ -1657,6 +1660,10 @@ export function OnboardingChat() {
     localStorage.removeItem('followupData');
     localStorage.removeItem('achievements');
     localStorage.removeItem(ONBOARDING_TEMP_KEY); // Clear temp chat messages
+    // Clear chat history for this profile
+    if (currentProfileId) {
+      localStorage.removeItem(`${CHAT_STORAGE_KEY_PREFIX}${currentProfileId}`);
+    }
 
     // Reset profile to defaults
     setProfile({
@@ -1685,6 +1692,8 @@ export function OnboardingChat() {
     });
     // Clear profile ID - will create NEW profile on completion
     setProfileId(undefined);
+    // Clear skipped steps tracking
+    setSkippedSteps([]);
     // Switch to onboarding mode
     setChatMode('onboarding');
     setStep('greeting'); // Start at greeting to collect name first
@@ -1728,6 +1737,8 @@ export function OnboardingChat() {
     // KEEP profile ID - will UPDATE existing profile on completion
     // (don't call setProfileId(undefined))
 
+    // Clear skipped steps tracking
+    setSkippedSteps([]);
     // Switch to onboarding mode
     setChatMode('onboarding');
     setStep('greeting'); // Start from greeting to ask name first
@@ -1763,6 +1774,14 @@ export function OnboardingChat() {
       localStorage.removeItem('stride_last_mood_check'); // Daily mood check timestamp
       localStorage.removeItem('stride_has_visited'); // First visit flag
 
+      // Clear all chat history entries (keyed by profile ID)
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(CHAT_STORAGE_KEY_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      }
+
       // 4. Set flag to force fresh onboarding (skip API profile loading on refresh)
       localStorage.setItem('forceNewProfile', 'true');
 
@@ -1797,6 +1816,7 @@ export function OnboardingChat() {
 
       setThreadId(generateThreadId());
       setProfileId(undefined);
+      setSkippedSteps([]);
       setIsComplete(false);
       setChatMode('onboarding');
       setStep('greeting');
@@ -2282,6 +2302,8 @@ export function OnboardingChat() {
         currency: currentProfile.currency || 'USD',
         // Energy history for energy chart (from Suivi page's followupData)
         energyHistory: (fullProfile.followupData as Record<string, unknown>)?.energyHistory || [],
+        // Skipped onboarding steps for agent hints
+        skippedSteps: skippedSteps(),
       };
 
       // Collect recent conversation history (last 4 turns = 8 messages) for context
@@ -2429,6 +2451,7 @@ export function OnboardingChat() {
             time_flexibility: 0.5,
             income_stability: 0.5,
           },
+          skippedSteps: skippedSteps(),
         };
 
         // Save to API first
@@ -2565,6 +2588,16 @@ export function OnboardingChat() {
 
   const goToPlan = () => {
     navigate('/me');
+  };
+
+  /**
+   * Handle empty form submission on skippable steps.
+   * Shows a toast and advances to the next step.
+   */
+  const handleEmptySubmit = (stepName: string) => {
+    setSkippedSteps((prev) => [...prev, stepName]);
+    toast.info('Skipped', 'No data entered — you can fill this in later from the Me tab.');
+    handleSend('none');
   };
 
   /**
@@ -3065,7 +3098,7 @@ export function OnboardingChat() {
                           | undefined
                       }
                       onSubmit={handleFormSubmit}
-                      onSkip={() => handleSend('none')}
+                      onSubmitEmpty={handleEmptySubmit}
                     />
                   </div>
                 </Show>

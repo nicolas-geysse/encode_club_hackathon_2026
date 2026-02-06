@@ -671,6 +671,7 @@ export function SkillsTab(props: SkillsTabProps) {
               arbitrageScore: s.score,
             })),
             city: profile()?.city,
+            skippedSteps: profile()?.skippedSteps,
           }}
           fallbackMessage="Add your skills and I'll find the best earning opportunities for you!"
           compact

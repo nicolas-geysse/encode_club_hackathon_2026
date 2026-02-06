@@ -2561,6 +2561,58 @@ IMPORTANT - TIME SIMULATION ACTIVE:
                   const conversationPrompt =
                     SYSTEM_PROMPTS.conversation || SYSTEM_PROMPTS.onboarding;
 
+                  // Build missing data hints for agent hooks
+                  const missingDataHints: string[] = [];
+                  if (
+                    !context.skills ||
+                    (Array.isArray(context.skills) && context.skills.length === 0)
+                  ) {
+                    missingDataHints.push('skills (needed for Job Matching on the Jobs tab)');
+                  }
+                  if (
+                    !context.certifications ||
+                    (Array.isArray(context.certifications) && context.certifications.length === 0)
+                  ) {
+                    missingDataHints.push('certifications (boosts hourly rate for certain jobs)');
+                  }
+                  if (
+                    !context.academicEvents ||
+                    (Array.isArray(context.academicEvents) && context.academicEvents.length === 0)
+                  ) {
+                    missingDataHints.push(
+                      'academic schedule (exams, vacations — needed for smart planning)'
+                    );
+                  }
+                  if (
+                    !context.inventoryItems ||
+                    (Array.isArray(context.inventoryItems) && context.inventoryItems.length === 0)
+                  ) {
+                    missingDataHints.push('items to sell (quick cash from unused stuff)');
+                  }
+                  if (
+                    !context.tradeOpportunities ||
+                    (Array.isArray(context.tradeOpportunities) &&
+                      context.tradeOpportunities.length === 0)
+                  ) {
+                    missingDataHints.push(
+                      'trade/borrow opportunities (save money by borrowing or swapping)'
+                    );
+                  }
+                  if (
+                    !context.subscriptions ||
+                    (Array.isArray(context.subscriptions) && context.subscriptions.length === 0)
+                  ) {
+                    missingDataHints.push('subscriptions (budget optimization opportunities)');
+                  }
+
+                  const missingSection =
+                    missingDataHints.length > 0
+                      ? `\n\nMISSING DATA (use as conversation hooks when relevant):
+The user skipped these during onboarding: ${missingDataHints.join(', ')}.
+When naturally relevant, remind them they can add this data from the Me tab to unlock more features.
+Don't nag — mention ONE missing item max per conversation, and only when it's directly useful.`
+                      : '';
+
                   const completion = await client.chat.completions.create({
                     model: getModel(),
                     messages: [
@@ -2570,7 +2622,7 @@ IMPORTANT - TIME SIMULATION ACTIVE:
 
 📊 PROFILE DATA:
 ${JSON.stringify(context)}
-${budgetSection}${ragSection}${timeSection}
+${budgetSection}${ragSection}${timeSection}${missingSection}
 
 You have access to consolidated financial data: income, expenses, savings, trades.
 Use this data for personalized, concrete advice.`,

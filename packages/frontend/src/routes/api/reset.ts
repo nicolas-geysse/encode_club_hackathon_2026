@@ -75,6 +75,14 @@ export async function DELETE(_event: APIEvent) {
       // Table might not exist
     }
 
+    // 5d. Delete all chat messages
+    try {
+      await execute(`DELETE FROM chat_messages`);
+      logger.info('Deleted all chat messages');
+    } catch {
+      // Table might not exist
+    }
+
     // 6. Reset simulation state to today (UPDATE, not DELETE)
     // Sprint 13.14 Fix: UPDATE instead of DELETE to preserve the 'global' row
     // Deleting causes the simulation to not have a row, which breaks the context

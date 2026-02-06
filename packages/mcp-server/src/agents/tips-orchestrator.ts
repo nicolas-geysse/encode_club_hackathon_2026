@@ -938,6 +938,15 @@ STYLE:
 - NEVER mention external websites, platforms, or URLs
 - NEVER suggest specific companies like "Superprof", "Upwork", etc. - just say "tutoring platforms" or "freelance platforms"
 
+MISSING DATA HOOKS:
+If the user's context includes skippedSteps or empty data arrays, you may mention ONE
+missing data point that is relevant to THIS tab. Frame it as unlocking a feature:
+- Profile tab + no skills: "Add your skills to unlock personalized job matching!"
+- Goals tab + no academic_events: "Add your exam schedule so I can plan around busy periods."
+- Budget tab + no subscriptions: "List your subscriptions and I'll find savings opportunities."
+- Jobs tab + no skills: "I need your skills to match you with the best gigs."
+- Trade tab + no inventory: "Add items you could sell for a quick cash boost!"
+
 OUTPUT FORMAT (JSON):
 {
   "title": "Short, catchy title (max 6 words)",

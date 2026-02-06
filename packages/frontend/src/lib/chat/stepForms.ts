@@ -392,6 +392,7 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
         label: 'Monthly income',
         placeholder: '0',
         min: 0,
+        required: true,
         suffix: '/month',
       },
       {
@@ -400,11 +401,12 @@ export const STEP_FORMS: Partial<Record<OnboardingStep, StepFormConfig>> = {
         label: 'Monthly expenses',
         placeholder: '0',
         min: 0,
+        required: true,
         suffix: '/month',
       },
     ],
     helpText:
-      'Include all regular income (job, allowance, aid) and expenses (rent, food, subscriptions).',
+      'Include all regular income (job, allowance, aid) and expenses (rent, food, subscriptions). You can adjust these later from the Me tab.',
   },
 
   income_timing: {

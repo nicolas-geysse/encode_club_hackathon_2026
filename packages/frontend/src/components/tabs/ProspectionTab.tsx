@@ -493,6 +493,7 @@ export function ProspectionTab(props: ProspectionTabProps) {
             title: l.title,
           })),
           city: props.city,
+          skippedSteps: props.skippedSteps,
         }}
         fallbackMessage="Explore job opportunities near you. I'll match them to your skills!"
         compact

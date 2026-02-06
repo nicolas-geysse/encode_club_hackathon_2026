@@ -430,6 +430,7 @@ export function GoalsTab(props: GoalsTabProps) {
             status: g.status,
           })),
           monthlyMargin: profile()?.monthlyMargin,
+          skippedSteps: profile()?.skippedSteps,
         }}
         fallbackMessage="Break down big goals into smaller milestones. I'll help you track progress!"
         compact

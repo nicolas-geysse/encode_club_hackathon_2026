@@ -120,7 +120,7 @@ Generate a response of 2-3 sentences that:
 
 Make the question direct: "What skills can you monetize?"
 
-End with "(or fill in later)".`,
+End with an encouraging prompt.`,
 
   certifications: `The user has these skills: {skills}.
 Generate a response of 2-3 sentences that:
@@ -133,7 +133,7 @@ Mention examples like:
 🇺🇸 US: CPR/First Aid, Lifeguard, Food Handler
 🌍 International: PADI diving, TEFL teaching
 
-End with "(or fill in later)".`,
+End with an encouraging prompt.`,
 
   budget: `The user has {currencySymbol}{income} income and {currencySymbol}{expenses} expenses per month (margin: {currencySymbol}{margin}).
 Generate a response of 2-3 sentences that:
@@ -145,7 +145,7 @@ Generate a response of 2-3 sentences that:
 1. Acknowledges when their income arrives
 2. Asks about their work preferences (max hours per week, minimum hourly rate)
 
-End with "(or fill in later)".`,
+End with an encouraging prompt.`,
 
   work_preferences: `The user can work {maxWorkHours}h/week, minimum {currencySymbol}{minHourlyRate}/h.
 Generate a response of 2-3 sentences that:
@@ -158,14 +158,14 @@ Generate a response of 2-3 sentences that:
 1. Positively comments on their goal
 2. Asks about any upcoming academic events (exams, vacations, busy periods) to plan around
 
-End with "(or fill in later)".`,
+End with an encouraging prompt.`,
 
   academic_events: `The user mentioned academic events: {academicEvents}.
 Generate a response of 2-3 sentences that:
 1. Notes the important periods
 2. Asks if they have any items they could sell (old textbooks, electronics, clothes, etc.)
 
-End with "(or fill in later)".`,
+End with an encouraging prompt.`,
 
   inventory: `The user has items to potentially sell: {inventoryItems}.
 Generate a response of 2-3 sentences that:
@@ -182,7 +182,7 @@ Generate a response of 2-3 sentences that:
 1. Acknowledges their trade ideas (if any) or that they don't have any
 2. Asks about their current subscriptions and recurring expenses (streaming, gym, phone plan, etc.)
 
-End with "(or fill in later)".`,
+End with an encouraging prompt.`,
 
   lifestyle: `The user has these subscriptions: {subscriptions}.
 Complete profile: {name}, {diploma} {field}, skills: {skills}, city: {city}, goal: {goalName} ({currencySymbol}{goalAmount}).

@@ -204,6 +204,7 @@ export interface ProspectionTabProps {
     timeFlexibility: number;
     incomeStability: number;
   };
+  skippedSteps?: string[];
 }
 
 // =============================================================================

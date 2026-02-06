@@ -214,6 +214,13 @@ export function ProfileSelector(props: Props) {
       localStorage.removeItem('stride_chat_onboarding_temp'); // Temp chat messages during onboarding
       localStorage.removeItem('stride_last_mood_check'); // Daily mood check timestamp
       localStorage.removeItem('stride_has_visited'); // First visit flag
+      // Clear all chat history entries (keyed by profile ID)
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('stride_chat_history_')) {
+          localStorage.removeItem(key);
+        }
+      }
       // Signal OnboardingChat to start completely fresh (skip API profile loading)
       localStorage.setItem('forceNewProfile', 'true');
 

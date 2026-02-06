@@ -60,6 +60,7 @@ const SCHEMA_SQL = `
     followup_data JSON,
     achievements JSON,
     swipe_preferences JSON,
+    skipped_steps VARCHAR[],
     is_active BOOLEAN DEFAULT FALSE
   )
 `;
@@ -73,6 +74,7 @@ const MIGRATIONS = [
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS longitude DOUBLE`,
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address VARCHAR`,
   `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS income_day INTEGER DEFAULT 15`,
+  `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS skipped_steps VARCHAR[]`,
 ];
 
 /**
@@ -209,6 +211,7 @@ interface ProfileRow {
   followup_data: string | null;
   achievements: string | null;
   swipe_preferences: string | null;
+  skipped_steps: string[] | null;
   is_active: boolean;
 }
 
@@ -247,6 +250,7 @@ function rowToProfile(row: ProfileRow) {
     followupData: row.followup_data ? JSON.parse(row.followup_data) : undefined,
     achievements: row.achievements ? JSON.parse(row.achievements) : undefined,
     swipePreferences: row.swipe_preferences ? JSON.parse(row.swipe_preferences) : undefined,
+    skippedSteps: row.skipped_steps || undefined,
     isActive: row.is_active,
   };
 }
@@ -384,6 +388,11 @@ export async function POST(event: APIEvent) {
         ? `ARRAY[${body.certifications.map((c: string) => escapeSQL(c)).join(', ')}]`
         : 'NULL';
 
+    const skippedStepsSQL =
+      body.skippedSteps && Array.isArray(body.skippedSteps) && body.skippedSteps.length > 0
+        ? `ARRAY[${body.skippedSteps.map((s: string) => escapeSQL(s)).join(', ')}]`
+        : 'NULL';
+
     if (existing.length > 0) {
       const isActiveClause = preserveActiveState
         ? ''
@@ -421,7 +430,8 @@ export async function POST(event: APIEvent) {
           plan_data = ${body.planData ? escapeJSON(body.planData) : 'NULL'},
           followup_data = ${body.followupData ? escapeJSON(body.followupData) : 'NULL'},
           achievements = ${body.achievements ? escapeJSON(body.achievements) : 'NULL'},
-          swipe_preferences = ${body.swipePreferences ? escapeJSON(body.swipePreferences) : 'NULL'}${isActiveClause}
+          swipe_preferences = ${body.swipePreferences ? escapeJSON(body.swipePreferences) : 'NULL'},
+          skipped_steps = ${skippedStepsSQL}${isActiveClause}
         WHERE id = ${escapedProfileId}
       `);
     } else {
@@ -432,7 +442,7 @@ export async function POST(event: APIEvent) {
           max_work_hours_weekly, min_hourly_rate, has_loan, loan_amount,
           monthly_income, monthly_expenses, monthly_margin, income_day,
           profile_type, parent_profile_id, goal_name, goal_amount, goal_deadline,
-          plan_data, followup_data, achievements, swipe_preferences, is_active
+          plan_data, followup_data, achievements, swipe_preferences, skipped_steps, is_active
         ) VALUES (
           ${escapedProfileId},
           ${escapeSQL(body.name)},
@@ -465,6 +475,7 @@ export async function POST(event: APIEvent) {
           ${body.followupData ? escapeJSON(body.followupData) : 'NULL'},
           ${body.achievements ? escapeJSON(body.achievements) : 'NULL'},
           ${body.swipePreferences ? escapeJSON(body.swipePreferences) : 'NULL'},
+          ${skippedStepsSQL},
           ${setActive ? 'TRUE' : 'FALSE'}
         )
       `);
