@@ -2277,10 +2277,51 @@ async function handleConversationMode(
               )
             : PROSPECTION_CATEGORIES.slice(0, 6); // Top 6 categories
 
+          // Platform URL mapping for clickable links
+          const PLATFORM_URLS: Record<string, string> = {
+            Indeed: 'https://www.indeed.fr/',
+            StudentJob: 'https://www.studentjob.fr/',
+            HelloWork: 'https://www.hellowork.com/',
+            'Carrefour Jobs': 'https://recrute.carrefour.fr/',
+            Monoprix: 'https://recrute.monoprix.fr/',
+            O2: 'https://www.o2recrute.fr/',
+            Shiva: 'https://www.shiva.fr/',
+            TaskRabbit: 'https://www.taskrabbit.fr/',
+            Frizbiz: 'https://www.frizbiz.com/',
+            YoupiJob: 'https://youpijob.fr/',
+            Yoopies: 'https://yoopies.fr/',
+            Bsit: 'https://bsit.com/',
+            'Nounou-Top': 'https://www.nounou-top.fr/',
+            DogBuddy: 'https://www.rover.com/',
+            Superprof: 'https://www.superprof.fr/',
+            Kelprof: 'https://www.kelprof.com/',
+            Acadomia: 'https://www.acadomia.fr/',
+            Complétude: 'https://www.completude.com/',
+            'Hotesse.com': 'https://www.hotesse.com/',
+            Jobbing: 'https://www.jobbing.fr/',
+            'Student Pop': 'https://www.studentpop.fr/',
+            Adecco: 'https://www.adecco.fr/',
+            Manpower: 'https://www.manpower.fr/',
+            Randstad: 'https://www.randstad.fr/',
+            Synergie: 'https://www.synergie.fr/',
+            Malt: 'https://www.malt.fr/',
+            Fiverr: 'https://www.fiverr.com/',
+            Upwork: 'https://www.upwork.com/',
+            Comeup: 'https://comeup.com/',
+            Jobaviz: 'https://www.jobaviz.fr/',
+            Jooble: 'https://fr.jooble.org/',
+            'TotalEnergies Jobs': 'https://careers.totalenergies.com/',
+          };
+
           const jobRows = relevantCategories.map((cat) => ({
             category: cat.label,
             rate: `${currSymbol}${cat.avgHourlyRate.min}-${cat.avgHourlyRate.max}/hr`,
-            platforms: cat.platforms.slice(0, 2).join(', '),
+            platforms: cat.platforms.slice(0, 2).map((p) => ({
+              text: p,
+              href:
+                PLATFORM_URLS[p] ||
+                `https://www.google.com/search?q=${encodeURIComponent(p + ' emploi étudiant')}`,
+            })),
             flexibility: `${'★'.repeat(5 - cat.effortLevel)}${'☆'.repeat(cat.effortLevel)}`,
           }));
 

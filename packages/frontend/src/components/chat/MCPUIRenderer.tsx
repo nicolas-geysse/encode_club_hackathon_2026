@@ -142,6 +142,64 @@ function TextResource(props: { params?: Record<string, unknown> }) {
 }
 
 /**
+ * Cell Value Renderer - supports plain text, links, and link lists
+ */
+function CellValue(props: { value: unknown }) {
+  // Link object: { text, href }
+  const isLink = () => {
+    const v = props.value;
+    return v && typeof v === 'object' && 'href' in (v as Record<string, unknown>);
+  };
+  // Array of links: [{ text, href }, ...]
+  const isLinkArray = () => {
+    const v = props.value;
+    return (
+      Array.isArray(v) &&
+      v.length > 0 &&
+      typeof v[0] === 'object' &&
+      v[0] !== null &&
+      'href' in v[0]
+    );
+  };
+
+  return (
+    <Switch fallback={<>{String(props.value || '-')}</>}>
+      <Match when={isLinkArray()}>
+        <span class="flex flex-wrap gap-1.5">
+          <For each={props.value as Array<{ text: string; href: string }>}>
+            {(link, i) => (
+              <>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-primary hover:text-primary/80 underline"
+                >
+                  {link.text}
+                </a>
+                <Show when={i() < (props.value as unknown[]).length - 1}>
+                  <span class="text-muted-foreground">,</span>
+                </Show>
+              </>
+            )}
+          </For>
+        </span>
+      </Match>
+      <Match when={isLink()}>
+        <a
+          href={(props.value as { text: string; href: string }).href}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-primary hover:text-primary/80 underline"
+        >
+          {(props.value as { text: string; href: string }).text}
+        </a>
+      </Match>
+    </Switch>
+  );
+}
+
+/**
  * Table Resource
  */
 function TableResource(props: { params?: Record<string, unknown> }) {
@@ -173,7 +231,9 @@ function TableResource(props: { params?: Record<string, unknown> }) {
                 <tr class="border-b border-border last:border-b-0">
                   <For each={columns()}>
                     {(col) => (
-                      <td class="px-3 py-2 text-foreground">{String(row[col.key] || '-')}</td>
+                      <td class="px-3 py-2 text-foreground">
+                        <CellValue value={row[col.key]} />
+                      </td>
                     )}
                   </For>
                 </tr>

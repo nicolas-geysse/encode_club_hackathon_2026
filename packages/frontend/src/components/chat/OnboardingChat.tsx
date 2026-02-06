@@ -290,6 +290,58 @@ export function OnboardingChat() {
   const ONBOARDING_TEMP_KEY = 'stride_chat_onboarding_temp';
 
   // Load chat history from DuckDB when profileId becomes available
+  // Helper: merge uiResource from localStorage into DB messages (DB may lack ui_resource for older messages)
+  const mergeUiResources = (dbMessages: Message[], pid: string): Message[] => {
+    const stored = localStorage.getItem(`${CHAT_STORAGE_KEY_PREFIX}${pid}`);
+    if (!stored) {
+      // eslint-disable-next-line no-console
+      console.log('[ChatPersist] No localStorage backup found for merge');
+      return dbMessages;
+    }
+    try {
+      const localMessages = JSON.parse(stored) as Message[];
+      const localMap = new Map<string, Message>();
+      for (const m of localMessages) {
+        if (m.id && m.uiResource) localMap.set(m.id, m);
+      }
+      // eslint-disable-next-line no-console
+      console.log(
+        '[ChatPersist] Merge: DB msgs=',
+        dbMessages.length,
+        'localStorage with uiResource=',
+        localMap.size
+      );
+      if (localMap.size === 0) return dbMessages;
+      let mergedCount = 0;
+      const result = dbMessages.map((msg) => {
+        if (!msg.uiResource && localMap.has(msg.id)) {
+          mergedCount++;
+          return { ...msg, uiResource: localMap.get(msg.id)!.uiResource };
+        }
+        return msg;
+      });
+      // eslint-disable-next-line no-console
+      console.log('[ChatPersist] Merged', mergedCount, 'uiResources from localStorage');
+      return result;
+    } catch {
+      return dbMessages;
+    }
+  };
+
+  // Helper: detect completion from message list
+  const detectCompletion = (msgs: Message[]) => {
+    if (msgs.some((m: Message) => m.role === 'assistant')) {
+      const lastAssistantMsg = msgs.filter((m: Message) => m.role === 'assistant').pop();
+      if (
+        lastAssistantMsg?.content?.includes('setup is complete') ||
+        lastAssistantMsg?.content?.includes('your dashboard')
+      ) {
+        setIsComplete(true);
+        setChatMode('conversation');
+      }
+    }
+  };
+
   createEffect(() => {
     const pid = profileId();
     const tid = threadId();
@@ -299,20 +351,10 @@ export function OnboardingChat() {
         .then((res) => (res.ok ? res.json() : Promise.reject('API failed')))
         .then((dbMessages: Message[]) => {
           if (Array.isArray(dbMessages) && dbMessages.length > 0) {
-            setMessages(dbMessages);
-            // Check if onboarding is complete based on stored state
-            if (dbMessages.some((m: Message) => m.role === 'assistant')) {
-              const lastAssistantMsg = dbMessages
-                .filter((m: Message) => m.role === 'assistant')
-                .pop();
-              if (
-                lastAssistantMsg?.content?.includes('setup is complete') ||
-                lastAssistantMsg?.content?.includes('your dashboard')
-              ) {
-                setIsComplete(true);
-                setChatMode('conversation');
-              }
-            }
+            // Merge uiResource from localStorage for older messages missing it in DB
+            const merged = mergeUiResources(dbMessages, pid);
+            setMessages(merged);
+            detectCompletion(merged);
           }
         })
         .catch(() => {
@@ -323,18 +365,7 @@ export function OnboardingChat() {
               const parsed = JSON.parse(stored);
               if (Array.isArray(parsed) && parsed.length > 0) {
                 setMessages(parsed);
-                if (parsed.some((m: Message) => m.role === 'assistant')) {
-                  const lastAssistantMsg = parsed
-                    .filter((m: Message) => m.role === 'assistant')
-                    .pop();
-                  if (
-                    lastAssistantMsg?.content?.includes('setup is complete') ||
-                    lastAssistantMsg?.content?.includes('your dashboard')
-                  ) {
-                    setIsComplete(true);
-                    setChatMode('conversation');
-                  }
-                }
+                detectCompletion(parsed);
               }
             } catch (e) {
               logger.warn('Failed to parse stored chat history', { error: e });
@@ -362,6 +393,15 @@ export function OnboardingChat() {
 
     // Profile exists: save to DuckDB
     try {
+      const hasUi = !!msg.uiResource;
+      // eslint-disable-next-line no-console
+      console.log(
+        '[ChatPersist] saveMessageToDb',
+        msg.id,
+        'hasUiResource=',
+        hasUi,
+        hasUi ? `type=${(msg.uiResource as UIResource).type}` : ''
+      );
       await fetch('/api/chat-history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -372,6 +412,7 @@ export function OnboardingChat() {
           role: msg.role,
           content: msg.content,
           source: msg.source,
+          ui_resource: msg.uiResource || null,
         }),
       });
       logger.info('Chat message saved to DB', { messageId: msg.id, profileId: pid });
@@ -755,15 +796,14 @@ export function OnboardingChat() {
           const action = chartActionMap[chartType] || 'show_chart_gallery';
 
           // Add user message showing what was requested
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `user-chart-${Date.now()}`,
-              role: 'user',
-              content: `Show me my ${chartType.replace('_', ' ')} chart`,
-              source: 'fallback',
-            },
-          ]);
+          const userChartMsg: Message = {
+            id: `user-chart-${Date.now()}`,
+            role: 'user',
+            content: `Show me my ${chartType.replace('_', ' ')} chart`,
+            source: 'fallback',
+          };
+          setMessages((prev) => [...prev, userChartMsg]);
+          saveMessageToDb(userChartMsg);
 
           // Call API with explicit action to bypass intent detection
           setLoading(true);
@@ -796,18 +836,17 @@ export function OnboardingChat() {
           })
             .then((res) => res.json())
             .then((result) => {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `assistant-chart-${Date.now()}`,
-                  role: 'assistant',
-                  content: result.response || 'Here is your chart:',
-                  source: result.source || 'llm',
-                  uiResource: result.uiResource,
-                  traceId: result.traceId,
-                  traceUrl: result.traceUrl,
-                },
-              ]);
+              const assistantChartMsg: Message = {
+                id: `assistant-chart-${Date.now()}`,
+                role: 'assistant',
+                content: result.response || 'Here is your chart:',
+                source: result.source || 'llm',
+                uiResource: result.uiResource,
+                traceId: result.traceId,
+                traceUrl: result.traceUrl,
+              };
+              setMessages((prev) => [...prev, assistantChartMsg]);
+              saveMessageToDb(assistantChartMsg);
             })
             .catch((err) => {
               logger.error('Chart request failed', { error: err });

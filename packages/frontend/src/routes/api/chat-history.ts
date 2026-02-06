@@ -78,7 +78,8 @@ export async function GET({ request }: APIEvent) {
       sql += ` AND thread_id = ${escapeSQL(threadId)}`;
     }
 
-    sql += ` ORDER BY created_at ASC LIMIT ${limit}`;
+    // Subquery: get the N most RECENT messages, then sort ASC for display order
+    sql = `SELECT * FROM (${sql} ORDER BY created_at DESC LIMIT ${limit}) sub ORDER BY created_at ASC`;
 
     const rows = await query<{
       id: string;
