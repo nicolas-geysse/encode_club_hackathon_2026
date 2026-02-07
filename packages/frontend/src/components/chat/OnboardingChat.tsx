@@ -14,7 +14,6 @@ import type { ChatMessage as Message, UIResource } from '~/types/chat';
 import { Repeat, Wallet, Target, Zap, PiggyBank } from 'lucide-solid';
 import type { Component } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
-import { lifestyleService } from '~/lib/lifestyleService';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('OnboardingChat');
@@ -651,35 +650,18 @@ export function OnboardingChat() {
 
                   const merged = [...currentSubs];
 
-                  // Use Promise.all to create items in parallel
-                  await Promise.all(
-                    newSubs.map(async (newSub) => {
-                      const exists = merged.some(
-                        (s) => s.name.toLowerCase() === newSub.name.toLowerCase()
-                      );
-                      if (!exists) {
-                        merged.push({
-                          name: newSub.name,
-                          currentCost: newSub.currentCost || 10,
-                        });
-
-                        // CRITICAL: Create as LifestyleItem so it appears in Budget Tab
-                        try {
-                          await lifestyleService.createItem({
-                            profileId: currentProfileId,
-                            name: newSub.name,
-                            category: 'subscriptions',
-                            currentCost: newSub.currentCost || 10,
-                          });
-                          logger.info('Created lifestyle item for subscription', {
-                            name: newSub.name,
-                          });
-                        } catch (err) {
-                          logger.error('Failed to create lifestyle item', { error: err });
-                        }
-                      }
-                    })
-                  );
+                  // Merge into signal only — DuckDB write happens at completion via persistAllOnboardingData
+                  for (const newSub of newSubs) {
+                    const exists = merged.some(
+                      (s) => s.name.toLowerCase() === newSub.name.toLowerCase()
+                    );
+                    if (!exists) {
+                      merged.push({
+                        name: newSub.name,
+                        currentCost: newSub.currentCost ?? 10,
+                      });
+                    }
+                  }
 
                   updatedProfile.subscriptions = merged;
                 }
@@ -2842,7 +2824,7 @@ export function OnboardingChat() {
       case 'lifestyle': {
         const rawSubs = data.subscriptions as Array<{ name: string; currentCost?: number }>;
         const subItems: Subscription[] = Array.isArray(rawSubs)
-          ? rawSubs.map((s) => ({ name: s.name, currentCost: s.currentCost || 0 }))
+          ? rawSubs.map((s) => ({ name: s.name, currentCost: s.currentCost ?? 0 }))
           : [];
         // Directly update profile — no LLM re-parsing needed
         setProfile((prev) => ({ ...prev, subscriptions: subItems }));
