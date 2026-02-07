@@ -113,30 +113,40 @@ Only 8 jobs: Freelance Dev, Tutoring, Data Entry, Community Manager, Research As
 
 Only 6 skills have diploma requirements defined. Skills like "Junior cybersecurity" require bachelor, "Freelance translation" requires master. But many other skills that arguably need credentials (medical transcription, scientific proofreading, etc.) are not gated.
 
+### Issue 9: MCP job-matcher bug -- French string comparison
+
+**File:** `job-matcher.ts:166`
+
+```typescript
+if (input.prioritizeNetworking && job.networking === 'fort') {
+```
+
+The code checks `'fort'` (French) but the JOB_DATABASE uses `'high'`/`'medium'`/`'low'` (English). The networking boost **never fires**.
+
+### Issue 10: Rate normalization mismatch
+
+- `skill-arbitrage.ts` (MCP): `MAX_HOURLY_RATE_EUROS = 30` -- a 25/h skill scores 0.83
+- `jobScoring.ts` (frontend): `MAX_HOURLY_RATE = 25` -- the same 25/h job scores 1.0
+
+Same rate, different scores depending on which system evaluates it. Creates inconsistency between SkillsTab arbitrage scores and ProspectionTab job scores.
+
+### Issue 11: `getSkillSuggestions('other')` dumps all 87 skills
+
+**File:** `skillsByField.ts:227`
+
+When field is `'other'`, the function returns `getAllSkills()` -- all 87 skills in a flat list with no ordering, no field match scoring, no Bruno's picks. This overwhelms the user with an unsorted wall of skills.
+
 ---
 
 ## Improvement Plan
 
-### Phase 1: Always show metadata in SkillMultiSelect
+### Phase 1: Fix orphan skill names + add regression guard
 
-**Goal:** Remove compact mode -- always show stars, hourly rate, and field match badge for all skills.
-
-**Files:**
-- `SkillMultiSelect.tsx` -- Remove `compact` prop usage in rest group, always render metadata row
-
-**Changes:**
-1. Remove `compact` prop from SkillChip in the "Autres options" group
-2. Keep the section label "Autres options" but add star header like other groups
-3. Possibly use 2-col grid for rest group (same as 4-star/5-star)
-
-**Estimate:** Small
-
-### Phase 2: Fix orphan skill names in SKILLS_BY_FIELD
-
-**Goal:** All skill names in field mappings must match SKILL_REGISTRY entries exactly.
+**Goal:** All skill names in field mappings must match SKILL_REGISTRY entries exactly. Add a unit test to prevent orphans from ever returning.
 
 **Files:**
 - `skillsByField.ts` -- Fix 7 orphan names
+- New: `frontend/src/lib/data/__tests__/skillDataIntegrity.test.ts` -- Regression guard
 
 **Changes:**
 | Field | Current (orphan) | Fix (registry match) |
@@ -149,6 +159,36 @@ Only 6 skills have diploma requirements defined. Skills like "Junior cybersecuri
 | social_sciences | "Online community moderation" | "Content moderation" |
 | sciences | "Data entry and cleaning" | "Data entry" |
 
+**Unit test** (prevents regression):
+```typescript
+import { SKILLS_BY_FIELD } from '../skillsByField';
+import { SKILL_REGISTRY } from '../skillRegistry';
+
+test('every name in SKILLS_BY_FIELD exists in SKILL_REGISTRY', () => {
+  const registryNames = new Set(SKILL_REGISTRY.map(s => s.name));
+  for (const [field, skills] of Object.entries(SKILLS_BY_FIELD)) {
+    for (const skill of skills) {
+      expect(registryNames.has(skill)).toBe(true);
+      // ↑ Fails fast with: "Urban gardening..." not found in registry
+    }
+  }
+});
+```
+
+**Estimate:** Small
+
+### Phase 2: Always show metadata in SkillMultiSelect
+
+**Goal:** Remove compact mode -- always show stars, hourly rate, and field match badge for all skills.
+
+**Files:**
+- `SkillMultiSelect.tsx` -- Remove `compact` prop usage in rest group, always render metadata row
+
+**Changes:**
+1. Remove `compact` prop from SkillChip in the "Autres options" group
+2. Add star header for "Autres options" section (show range, e.g. "1-3 stars")
+3. Use 2-col grid for rest group (same as 4-star/5-star)
+
 **Estimate:** Small
 
 ### Phase 3: Bridge skills registry to prospection categories
@@ -160,7 +200,7 @@ Only 6 skills have diploma requirements defined. Skills like "Junior cybersecuri
 - New: `frontend/src/lib/data/skillCategoryBridge.ts` -- Mapping table
 
 **Approach:**
-1. Create a mapping from registry skill names/categories to prospection category IDs
+1. Create a mapping from registry skill categories to prospection category IDs
 2. Each registry category maps to 1-2 prospection categories:
    - `tech` → `digital`, `campus`
    - `creative` → `digital`, `events`
@@ -170,17 +210,20 @@ Only 6 skills have diploma requirements defined. Skills like "Junior cybersecuri
    - `physical` → `childcare`, `cleaning`, `handyman`
    - `business` → `digital`, `events`, `interim`
    - `health` → `cleaning`, `childcare` (wellness focus)
-3. `matchSkillsToCategory` now checks: does the user have skills in categories that map to this prospection category?
-4. Bonus: surface "Recommended for you" categories based on user skills
+3. `matchSkillsToCategory` now:
+   - Looks up each user skill name in `SKILL_REGISTRY` to get its `category`
+   - Checks if that category maps to the prospection category being scored
+   - Returns a match ratio based on how many of the user's skills are relevant
+4. Bonus: surface "Recommended for you" badge on prospection categories that match user skills
 
 **Estimate:** Medium
 
 ### Phase 4: Enrich Services and Other field connections
 
-**Goal:** No field should have zero strong connections in the knowledge graph.
+**Goal:** No field should have zero strong connections in the knowledge graph. Fix `getSkillSuggestions('other')` to stop dumping all 87 skills.
 
 **Files:**
-- `skillsByField.ts` -- Update FIELD_CONNECTIONS
+- `skillsByField.ts` -- Update FIELD_CONNECTIONS + fix `getSkillSuggestions`
 
 **Changes:**
 ```typescript
@@ -188,22 +231,29 @@ services: { strong: ['business'], medium: ['arts', 'humanities', 'social_science
 other:    { strong: [], medium: ['business', 'services'] }
 ```
 
-Also consider adding more skills to the `other` field since it's the catch-all.
+Fix `getSkillSuggestions('other')` to use medium connections + universal skills instead of `getAllSkills()`:
+```typescript
+// Before: if (!field || field === 'other') return getAllSkills();
+// After:  if (field === 'other') use medium connections like any other field
+//         if (!field) return getAllSkills();  // only for truly undefined
+```
 
 **Estimate:** Small
 
-### Phase 5: Expand MCP job-matcher database
+### Phase 5: Expand MCP job-matcher database + fix bugs
 
-**Goal:** Align the MCP job-matcher with the 87-skill registry and 12 prospection categories so Bruno's chat advice is relevant.
+**Goal:** Align the MCP job-matcher with the 87-skill registry and 12 prospection categories so Bruno's chat advice is relevant. Fix the `'fort'` vs `'high'` networking bug.
 
 **Files:**
-- `mcp-server/src/agents/job-matcher.ts` -- Expand JOB_DATABASE
+- `mcp-server/src/agents/job-matcher.ts` -- Expand JOB_DATABASE, fix networking comparison
 
 **Approach:**
-1. Add jobs for each prospection category (12 categories = ~15-20 jobs total)
-2. Use skill IDs from the registry in `skills` arrays (not generic terms)
-3. Add proper arbitrage metrics (marketDemand, cognitiveEffort, restNeeded)
-4. Include platform suggestions from prospection categories
+1. **Bug fix:** Change `job.networking === 'fort'` to `job.networking === 'high'` (line 166)
+2. Add jobs for each prospection category (12 categories = ~15-20 jobs total)
+3. Use skill names from the registry in `skills` arrays (not generic terms like `'web'`)
+4. Add proper arbitrage metrics (marketDemand, cognitiveEffort, restNeeded)
+5. Include platform suggestions from prospection categories
+6. Normalize `MAX_HOURLY_RATE` to 30/h (align with skill-arbitrage.ts, not 25/h)
 
 **Estimate:** Medium
 
@@ -242,30 +292,47 @@ Also consider adding more skills to the `other` field since it's the catch-all.
 ## Phase Dependencies
 
 ```
-Phase 1 (SkillMultiSelect)  ←── standalone
-Phase 2 (orphan fix)        ←── standalone
-Phase 3 (bridge)            ←── depends on Phase 2
+Phase 1 (orphans + test)    ←── standalone, DATA INTEGRITY FIRST
+Phase 2 (SkillMultiSelect)  ←── standalone (but better after Phase 1 fixes data)
+Phase 3 (bridge)            ←── depends on Phase 1
 Phase 4 (field connections)  ←── standalone
-Phase 5 (MCP jobs)          ←── depends on Phase 2
+Phase 5 (MCP jobs + bugs)   ←── depends on Phase 1
 Phase 6 (accessibility)     ←── standalone
 Phase 7 (chat)              ←── depends on Phase 3 + 5
 ```
 
-Suggested execution order: 1 → 2 → 4 → 6 → 3 → 5 → 7
+**Execution order:** 1 → 2 → 4 → 6 → 3 → 5 → 7
+
+Rationale: data integrity first (Phase 1), then UX (Phase 2), then standalone data fixes (4, 6), then the two medium-complexity phases that depend on clean data (3, 5), finally chat integration that depends on both (7).
 
 ---
 
 ## Verification
 
+### Per-phase checks
+
 ```bash
 # After each phase
 pnpm typecheck && pnpm build:frontend && pnpm build:mcp
 
-# MCP tests
-pnpm --filter @stride/mcp-server test
+# After Phase 1 specifically
+pnpm --filter @stride/frontend vitest run skillDataIntegrity
 
-# Visual checks
-# - Onboarding: all skills now show stars + rates
-# - Jobs tab: categories sorted by skill match
-# - Chat: Bruno references actual skills
+# After Phase 5
+pnpm --filter @stride/mcp-server test
 ```
+
+### End-to-end visual checks
+
+After all phases:
+1. **Onboarding:** Select "Master" + "Services" → verify skills show stars + rates (not compact)
+2. **Onboarding:** Select "Other" → verify curated list (not 87 unsorted skills)
+3. **Skills tab:** Add "Freelance web development" → check arbitrage score displays
+4. **Jobs tab:** With web dev skill → "Digital & Remote" category should rank higher
+5. **Chat (Jobs tab):** Bruno references actual user skills and suggests relevant categories
+
+### Regression guard
+
+The unit test from Phase 1 (`skillDataIntegrity.test.ts`) runs in CI and catches:
+- Any new skill added to `SKILLS_BY_FIELD` that doesn't exist in `SKILL_REGISTRY`
+- Any skill rename in registry that wasn't propagated to field mappings
