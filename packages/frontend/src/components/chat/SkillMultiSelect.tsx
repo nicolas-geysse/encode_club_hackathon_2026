@@ -222,6 +222,7 @@ export default function SkillMultiSelect(props: SkillMultiSelectProps) {
           <Show when={groupedOptions().rest.length > 0}>
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <StarRating stars={3} size="sm" />
                 <span>Autres options</span>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -231,7 +232,6 @@ export default function SkillMultiSelect(props: SkillMultiSelectProps) {
                       skill={skill}
                       isSelected={isSelected(skill.name)}
                       onToggle={() => toggleItem(skill.name)}
-                      compact
                     />
                   )}
                 </For>
@@ -270,7 +270,6 @@ interface SkillChipProps {
   isSelected: boolean;
   onToggle: () => void;
   showBadge?: boolean;
-  compact?: boolean;
 }
 
 function SkillChip(props: SkillChipProps) {
@@ -290,22 +289,18 @@ function SkillChip(props: SkillChipProps) {
         <div class="flex-1 min-w-0">
           {/* Skill name */}
           <div class="flex items-center gap-2 flex-wrap">
-            <span class={`font-medium ${props.compact ? 'text-sm' : 'text-sm'}`}>
-              {props.skill.name}
-            </span>
+            <span class="font-medium text-sm">{props.skill.name}</span>
             <Show when={props.showBadge && props.skill.isBrunoPick}>
               <BrunoPick />
             </Show>
           </div>
 
           {/* Metadata row */}
-          <Show when={!props.compact}>
-            <div class="flex items-center gap-2 mt-1 flex-wrap">
-              <StarRating stars={props.skill.stars} />
-              <FieldMatchBadge match={props.skill.fieldMatch} />
-              <span class="text-xs text-muted-foreground">{props.skill.hourlyRate}€/h</span>
-            </div>
-          </Show>
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
+            <StarRating stars={props.skill.stars} />
+            <FieldMatchBadge match={props.skill.fieldMatch} />
+            <span class="text-xs text-muted-foreground">{props.skill.hourlyRate}€/h</span>
+          </div>
         </div>
 
         {/* Selection indicator */}
