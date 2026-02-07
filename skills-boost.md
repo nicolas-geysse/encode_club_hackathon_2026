@@ -273,21 +273,24 @@ When field is `'other'`, the function returns `getAllSkills()` -- all 87 skills 
   - Moderate barrier (explicit confirmation): Social media (SMEs), Community management, Debugging/QA, Task automation, Excel, SQL Coaching
 - Remaining 13 uncovered skills all compute reasonable scores via the formula
 
-### Phase 7: Chat integration -- Bruno uses skill context
+### Phase 7: Chat integration -- Bruno uses skill context -- DONE
+
+**Status:** DONE (commit `2913df4`)
 
 **Goal:** When Bruno gives tips in the Jobs tab, use the user's actual skill arbitrage scores and the bridge mapping to give personalized advice.
 
-**Files:**
-- `mcp-server/src/agents/strategies/jobs.strategy.ts` -- Enhance prompt context
-- `mcp-server/src/agents/strategies/tab-prompts.ts` -- Add skill-to-category suggestions
+**Files modified:**
+- `mcp-server/src/agents/strategies/jobs.strategy.ts` -- Enhanced prompt context + new `deriveMatchingCategories` method
+- `mcp-server/src/agents/strategies/tab-prompts.ts` -- Updated JOBS_SYSTEM_PROMPT
 
-**Approach:**
-1. Include user's top-scoring skills (by arbitrage score) in the prompt
-2. Include which prospection categories match those skills
-3. Include the user's min hourly rate vs their skill's potential rates
-4. Bruno can now say: "Your web dev skills match the Digital & Remote category -- have you checked those listings?"
+**Changes applied:**
+1. `formatContextForPrompt` now sorts skills by arbitrage score (highest first)
+2. Derives matching prospection categories from skill names via keyword matching (13 category rules)
+3. Prompt context now includes: `"Matching job categories: Digital & Remote: matches Freelance web development, Python"`
+4. System prompt updated to instruct Bruno to reference actual skill names, categories, and platforms
+5. `JOBS_SYSTEM_PROMPT` in tab-prompts.ts aligned with the strategy's `getSystemPrompt()`
 
-**Estimate:** Medium
+**Note:** The MCP server doesn't import the frontend's skill registry, so category derivation uses keyword matching on skill names rather than the `skillCategoryBridge.ts` bridge. This is intentional to keep the packages decoupled.
 
 ---
 
