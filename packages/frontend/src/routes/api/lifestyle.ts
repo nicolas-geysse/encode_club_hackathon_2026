@@ -167,9 +167,10 @@ export async function POST(event: APIEvent) {
       return errorResponse('profileId, name, and currentCost are required', 400);
     }
 
-    // Check for existing item (deduplication)
+    // Check for existing item (deduplication, case-insensitive)
     const existing = await checkDuplicate<LifestyleItemRow>(profileId, name, {
       table: 'lifestyle_items',
+      caseSensitive: false,
     });
     if (existing) {
       logger.info('Item already exists, returning existing', { name, profileId });

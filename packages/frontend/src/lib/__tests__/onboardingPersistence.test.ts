@@ -10,8 +10,7 @@ import {
   persistGoal,
   persistSkills,
   persistInventory,
-  persistExpenses,
-  persistSubscriptions,
+  persistLifestyle,
   persistIncome,
   persistTrades,
   persistAllOnboardingData,
@@ -272,7 +271,7 @@ describe('onboardingPersistence', () => {
     });
   });
 
-  describe('persistExpenses', () => {
+  describe('persistLifestyle', () => {
     const profileId = 'test-profile-123';
     const expenses: ExpenseItem[] = [
       { category: 'rent', amount: 600 },
@@ -283,7 +282,7 @@ describe('onboardingPersistence', () => {
     ];
 
     it('maps rent category to housing', async () => {
-      await persistExpenses(profileId, [{ category: 'rent', amount: 600 }]);
+      await persistLifestyle(profileId, [{ category: 'rent', amount: 600 }]);
 
       expect(lifestyleService.bulkCreateItems).toHaveBeenCalledWith(
         profileId,
@@ -297,7 +296,7 @@ describe('onboardingPersistence', () => {
         { name: 'Spotify', currentCost: 10 },
       ];
 
-      await persistExpenses(profileId, expenses, subscriptions);
+      await persistLifestyle(profileId, expenses, subscriptions);
 
       // Original subscriptions: 50, Actual: 25, Adjustment: 25
       // other should be 150 + 25 = 175
@@ -312,30 +311,32 @@ describe('onboardingPersistence', () => {
     it('excludes subscriptions category when subscriptions are explicit', async () => {
       const subscriptions: Subscription[] = [{ name: 'Netflix', currentCost: 15 }];
 
-      await persistExpenses(profileId, expenses, subscriptions);
+      await persistLifestyle(profileId, expenses, subscriptions);
 
       const call = (lifestyleService.bulkCreateItems as Mock).mock.calls[0][1];
       const categories = call.map((item: { category: string }) => item.category);
-      expect(categories).not.toContain('subscriptions');
+      // Should have subscription items like "Netflix" but NOT the aggregate "subscriptions" category
+      const categoryItems = call.filter(
+        (item: { category: string; name: string }) =>
+          item.category === 'subscriptions' && item.name === 'Subscriptions'
+      );
+      expect(categoryItems).toHaveLength(0);
     });
 
-    it('returns true without calling service when expenses array is empty', async () => {
-      const result = await persistExpenses(profileId, []);
+    it('returns true without calling service when both arrays are empty', async () => {
+      const result = await persistLifestyle(profileId, [], []);
 
       expect(result).toBe(true);
       expect(lifestyleService.bulkCreateItems).not.toHaveBeenCalled();
     });
-  });
 
-  describe('persistSubscriptions', () => {
-    const profileId = 'test-profile-123';
-    const subscriptions: Subscription[] = [
-      { name: 'Netflix', currentCost: 15 },
-      { name: 'Spotify', currentCost: 10 },
-    ];
+    it('creates subscription items with correct category', async () => {
+      const subscriptions: Subscription[] = [
+        { name: 'Netflix', currentCost: 15 },
+        { name: 'Spotify', currentCost: 10 },
+      ];
 
-    it('calls lifestyleService.bulkCreateItems with subscriptions category', async () => {
-      const result = await persistSubscriptions(profileId, subscriptions);
+      const result = await persistLifestyle(profileId, undefined, subscriptions);
 
       expect(result).toBe(true);
       expect(lifestyleService.bulkCreateItems).toHaveBeenCalledWith(
@@ -352,11 +353,28 @@ describe('onboardingPersistence', () => {
         { name: 'Unknown Service', currentCost: undefined as unknown as number },
       ];
 
-      await persistSubscriptions(profileId, subsWithUndefined);
+      await persistLifestyle(profileId, undefined, subsWithUndefined);
 
       expect(lifestyleService.bulkCreateItems).toHaveBeenCalledWith(
         profileId,
         expect.arrayContaining([expect.objectContaining({ currentCost: 10 })])
+      );
+    });
+
+    it('combines expenses and subscriptions into a single bulkCreateItems call', async () => {
+      const subscriptions: Subscription[] = [{ name: 'Netflix', currentCost: 15 }];
+
+      await persistLifestyle(profileId, expenses, subscriptions);
+
+      // Should be called exactly once (not twice)
+      expect(lifestyleService.bulkCreateItems).toHaveBeenCalledTimes(1);
+      const call = (lifestyleService.bulkCreateItems as Mock).mock.calls[0][1];
+      // Should have expense categories + Netflix subscription
+      expect(call.length).toBeGreaterThanOrEqual(4); // at least: Rent, Food, Transport, Other + Netflix
+      expect(call).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Netflix', category: 'subscriptions' }),
+        ])
       );
     });
   });

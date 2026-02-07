@@ -305,15 +305,18 @@ export async function persistInventory(
 }
 
 /**
- * Persist expense breakdown to the lifestyle table.
- * Handles subscription adjustment to preserve expense totals.
+ * Persist expenses AND subscriptions to the lifestyle table in a single operation.
+ * Combines both into one bulkCreateItems call to avoid the race condition
+ * where parallel clears wipe each other's data.
  */
-export async function persistExpenses(
+export async function persistLifestyle(
   profileId: string,
-  expenses: ExpenseItem[],
+  expenses?: ExpenseItem[],
   subscriptions?: Subscription[]
 ): Promise<boolean> {
-  if (!expenses || expenses.length === 0) return true;
+  const hasExpenses = expenses && expenses.length > 0;
+  const hasSubscriptions = subscriptions && subscriptions.length > 0;
+  if (!hasExpenses && !hasSubscriptions) return true;
 
   try {
     const categoryNames: Record<string, string> = {
@@ -325,22 +328,25 @@ export async function persistExpenses(
       other: 'Other expenses',
     };
 
-    const hasExplicitSubscriptions = subscriptions && subscriptions.length > 0;
+    const items: Array<{
+      name: string;
+      category: 'housing' | 'food' | 'transport' | 'subscriptions' | 'other';
+      currentCost: number;
+    }> = [];
 
-    // Adjust 'other' category to preserve total when subscriptions are explicit
-    let subscriptionAdjustment = 0;
-    if (hasExplicitSubscriptions) {
-      const originalSubsAllocation =
-        expenses.find((e) => e.category === 'subscriptions')?.amount || 0;
-      const actualSubsTotal = subscriptions!.reduce((sum, s) => sum + (s.currentCost ?? 10), 0);
-      subscriptionAdjustment = originalSubsAllocation - actualSubsTotal;
-    }
+    // Add expense categories (filtering out aggregate "subscriptions" if individual subs exist)
+    if (hasExpenses) {
+      let subscriptionAdjustment = 0;
+      if (hasSubscriptions) {
+        const originalSubsAllocation =
+          expenses!.find((e) => e.category === 'subscriptions')?.amount || 0;
+        const actualSubsTotal = subscriptions!.reduce((sum, s) => sum + (s.currentCost ?? 10), 0);
+        subscriptionAdjustment = originalSubsAllocation - actualSubsTotal;
+      }
 
-    await lifestyleService.bulkCreateItems(
-      profileId,
-      expenses
-        .filter((exp) => !hasExplicitSubscriptions || exp.category !== 'subscriptions')
-        .map((exp) => ({
+      for (const exp of expenses!) {
+        if (hasSubscriptions && exp.category === 'subscriptions') continue;
+        items.push({
           name: categoryNames[exp.category] || exp.category,
           category: (exp.category === 'rent' ? 'housing' : exp.category) as
             | 'housing'
@@ -348,38 +354,27 @@ export async function persistExpenses(
             | 'transport'
             | 'subscriptions'
             | 'other',
-          // Add the subscription adjustment to 'other' category to preserve total
           currentCost: exp.category === 'other' ? exp.amount + subscriptionAdjustment : exp.amount,
-        }))
-    );
+        });
+      }
+    }
+
+    // Add individual subscriptions
+    if (hasSubscriptions) {
+      for (const sub of subscriptions!) {
+        items.push({
+          name: sub.name,
+          category: 'subscriptions',
+          currentCost: sub.currentCost ?? 10,
+        });
+      }
+    }
+
+    // Single bulkCreateItems call: clears once, creates all items
+    await lifestyleService.bulkCreateItems(profileId, items);
     return true;
   } catch (error) {
-    logger.error('Failed to persist expenses', { error });
-    return false;
-  }
-}
-
-/**
- * Persist subscriptions to the lifestyle table.
- */
-export async function persistSubscriptions(
-  profileId: string,
-  subscriptions: Subscription[]
-): Promise<boolean> {
-  if (!subscriptions || subscriptions.length === 0) return true;
-
-  try {
-    await lifestyleService.bulkCreateItems(
-      profileId,
-      subscriptions.map((sub) => ({
-        name: sub.name,
-        category: 'subscriptions' as const,
-        currentCost: sub.currentCost ?? 10,
-      }))
-    );
-    return true;
-  } catch (error) {
-    logger.error('Failed to persist subscriptions', { error });
+    logger.error('Failed to persist lifestyle items', { error });
     return false;
   }
 }
@@ -535,19 +530,13 @@ export async function persistAllOnboardingData(
     });
   }
 
-  // Expenses
-  if (data.expenses && data.expenses.length > 0) {
+  // Lifestyle (expenses + subscriptions combined to avoid race condition)
+  const hasExpenses = data.expenses && data.expenses.length > 0;
+  const hasSubscriptions = data.subscriptions && data.subscriptions.length > 0;
+  if (hasExpenses || hasSubscriptions) {
     tasks.push({
-      name: 'expenses',
-      promise: persistExpenses(profileId, data.expenses, data.subscriptions),
-    });
-  }
-
-  // Subscriptions
-  if (data.subscriptions && data.subscriptions.length > 0) {
-    tasks.push({
-      name: 'subscriptions',
-      promise: persistSubscriptions(profileId, data.subscriptions),
+      name: 'lifestyle',
+      promise: persistLifestyle(profileId, data.expenses, data.subscriptions),
     });
   }
 

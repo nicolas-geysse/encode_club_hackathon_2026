@@ -91,6 +91,30 @@ export async function DELETE(_event: APIEvent) {
       // Table might not exist
     }
 
+    // 5f. Delete all income items
+    try {
+      await execute(`DELETE FROM income_items`);
+      logger.info('Deleted all income items');
+    } catch {
+      // Table might not exist
+    }
+
+    // 5g. Delete all academic events
+    try {
+      await execute(`DELETE FROM academic_events`);
+      logger.info('Deleted all academic events');
+    } catch {
+      // Table might not exist
+    }
+
+    // 5h. Delete all commitments
+    try {
+      await execute(`DELETE FROM commitments`);
+      logger.info('Deleted all commitments');
+    } catch {
+      // Table might not exist
+    }
+
     // 6. Reset simulation state to today (UPDATE, not DELETE)
     // Sprint 13.14 Fix: UPDATE instead of DELETE to preserve the 'global' row
     // Deleting causes the simulation to not have a row, which breaks the context

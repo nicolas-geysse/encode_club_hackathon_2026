@@ -46,6 +46,7 @@ import {
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
 import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardingStateStore';
 import { addDays, now } from '~/lib/dateUtils';
+import { normalizeSubscriptionName } from '~/lib/chat/extraction/patterns';
 
 // Message type imported from ~/types/chat
 
@@ -2824,7 +2825,10 @@ export function OnboardingChat() {
       case 'lifestyle': {
         const rawSubs = data.subscriptions as Array<{ name: string; currentCost?: number }>;
         const subItems: Subscription[] = Array.isArray(rawSubs)
-          ? rawSubs.map((s) => ({ name: s.name, currentCost: s.currentCost ?? 10 }))
+          ? rawSubs.map((s) => ({
+              name: normalizeSubscriptionName(s.name),
+              currentCost: s.currentCost ?? 10,
+            }))
           : [];
         // Directly update profile — no LLM re-parsing needed
         setProfile((prev) => ({ ...prev, subscriptions: subItems }));

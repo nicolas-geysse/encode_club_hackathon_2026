@@ -520,6 +520,15 @@ export function matchPattern<T>(text: string, patterns: [RegExp, T][]): T | null
 }
 
 /**
+ * Normalize a subscription name using SUBSCRIPTION_PATTERNS.
+ * Returns the canonical name if recognized, otherwise the original name.
+ */
+export function normalizeSubscriptionName(name: string): string {
+  const match = matchPattern(name, SUBSCRIPTION_PATTERNS);
+  return match ? match.name : name;
+}
+
+/**
  * Match all patterns and return all matches
  */
 export function matchAllPatterns<T>(text: string, patterns: [RegExp, T][]): T[] {

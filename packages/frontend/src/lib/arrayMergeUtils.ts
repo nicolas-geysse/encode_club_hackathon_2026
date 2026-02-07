@@ -62,7 +62,10 @@ function mergeObjectsByName<T>(existing: T[], incoming: T[]): T[] {
   for (const item of incoming) {
     const itemName = (item as { name?: string }).name;
     if (itemName) {
-      const existsIdx = merged.findIndex((e) => (e as { name?: string }).name === itemName);
+      const lowerName = itemName.toLowerCase();
+      const existsIdx = merged.findIndex(
+        (e) => (e as { name?: string }).name?.toLowerCase() === lowerName
+      );
       if (existsIdx === -1) {
         merged.push(item);
       }
