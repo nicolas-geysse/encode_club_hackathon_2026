@@ -2824,7 +2824,7 @@ export function OnboardingChat() {
       case 'lifestyle': {
         const rawSubs = data.subscriptions as Array<{ name: string; currentCost?: number }>;
         const subItems: Subscription[] = Array.isArray(rawSubs)
-          ? rawSubs.map((s) => ({ name: s.name, currentCost: s.currentCost ?? 0 }))
+          ? rawSubs.map((s) => ({ name: s.name, currentCost: s.currentCost ?? 10 }))
           : [];
         // Directly update profile — no LLM re-parsing needed
         setProfile((prev) => ({ ...prev, subscriptions: subItems }));
