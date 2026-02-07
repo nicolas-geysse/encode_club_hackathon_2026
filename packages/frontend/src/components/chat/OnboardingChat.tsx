@@ -2605,6 +2605,73 @@ export function OnboardingChat() {
    * For dynamic-list fields, directly updates profile with structured data.
    * For other fields, converts to natural language message for LLM processing.
    */
+  // Advance to next step locally, bypassing LLM extraction.
+  // Used for form-submitted structured data (dynamic lists, pill selectors)
+  // where the profile is already updated via setProfile — no need to re-parse.
+  const STEP_ORDER: OnboardingStep[] = [
+    'greeting',
+    'currency_confirm',
+    'name',
+    'studies',
+    'skills',
+    'certifications',
+    'budget',
+    'income_timing',
+    'work_preferences',
+    'goal',
+    'academic_events',
+    'inventory',
+    'trade',
+    'lifestyle',
+    'complete',
+  ];
+  const advanceFormStep = (displayMessage: string) => {
+    const currentStep = step();
+    const idx = STEP_ORDER.indexOf(currentStep);
+    const nextStep = STEP_ORDER[Math.min(idx + 1, STEP_ORDER.length - 1)];
+
+    // If advancing to 'complete', delegate to handleSend which has the full
+    // completion handler (profile save, DB persistence, GlassButton CTA, etc.)
+    if (nextStep === 'complete') {
+      handleSend(displayMessage);
+      return;
+    }
+
+    // User bubble
+    const userMsg: Message = { id: `user-${Date.now()}`, role: 'user', content: displayMessage };
+    setMessages((prev) => [...prev, userMsg]);
+    saveMessageToDb(userMsg);
+
+    // Compute advance message for next step
+    const name = profile().name || '';
+    const currencySymbol =
+      profile().currency === 'GBP' ? '£' : profile().currency === 'EUR' ? '€' : '$';
+    const advanceMessages: Partial<Record<OnboardingStep, string>> = {
+      inventory: `🏷️ Items you could sell for extra cash? (or "none")`,
+      trade: `🔄 Things you could borrow or trade with friends?\n📥 Borrow gear · 🔄 Trade skills\n(or "none")`,
+      lifestyle: `📱 What subscriptions do you pay for? (or "none")`,
+      academic_events: `📆 Any busy periods coming up? (exams, projects, vacations) or "none"`,
+      certifications: `📜 Any professional certifications?\n🇫🇷 BAFA, BNSSA, PSC1 · 🇬🇧 DBS, First Aid · 🇺🇸 CPR, Lifeguard · 🌍 PADI, TEFL\n(or "none")`,
+      budget: `💰 Monthly budget: how much do you earn and spend? (in ${currencySymbol})`,
+      work_preferences: `⏰ Max hours/week you can work? Minimum hourly rate? (in ${currencySymbol}/h)`,
+      goal: `🎯 What's your savings goal?`,
+    };
+    const responseText =
+      advanceMessages[nextStep] || `Great${name ? `, ${name}` : ''}! Let's continue.`;
+
+    // Assistant bubble
+    const assistantMsg: Message = {
+      id: `bot-${Date.now()}`,
+      role: 'assistant',
+      content: responseText,
+      source: 'fallback',
+    };
+    setMessages((prev) => [...prev, assistantMsg]);
+    saveMessageToDb(assistantMsg);
+
+    setStep(nextStep);
+  };
+
   const handleFormSubmit = (data: Record<string, unknown>) => {
     const currentStep = step();
 
@@ -2639,12 +2706,11 @@ export function OnboardingChat() {
         startDate: item.startDate as string,
         endDate: item.endDate as string,
       }));
-      // Directly update profile and advance
+      // Directly update profile and advance — no LLM re-parsing needed
       setProfile((prev) => ({ ...prev, academicEvents: events }));
-      // Generate simple message for chat history
       const message =
         events.length > 0 ? events.map((e) => `${e.name} (${e.type})`).join(', ') : 'none';
-      handleSend(message);
+      advanceFormStep(message);
       return;
     }
 
@@ -2654,7 +2720,7 @@ export function OnboardingChat() {
         category: (item.category as string) || 'other',
         estimatedValue: (item.estimatedValue as number) || 0,
       }));
-      // Directly update profile
+      // Directly update profile — no LLM re-parsing needed
       setProfile((prev) => ({ ...prev, inventoryItems: items }));
       const message =
         items.length > 0
@@ -2665,7 +2731,7 @@ export function OnboardingChat() {
               )
               .join(', ')
           : 'none';
-      handleSend(message);
+      advanceFormStep(message);
       return;
     }
 
@@ -2676,7 +2742,7 @@ export function OnboardingChat() {
         withPerson: (item.partner as string) || '',
         estimatedValue: (item.estimatedSavings as number) || 0,
       }));
-      // Directly update profile
+      // Directly update profile — no LLM re-parsing needed
       setProfile((prev) => ({ ...prev, tradeOpportunities: trades }));
       const message =
         trades.length > 0
@@ -2687,7 +2753,7 @@ export function OnboardingChat() {
               )
               .join(', ')
           : 'none';
-      handleSend(message);
+      advanceFormStep(message);
       return;
     }
 
@@ -2740,15 +2806,18 @@ export function OnboardingChat() {
         message = `${diploma || ''} in ${fieldDisplay || ''}`.trim();
         break;
       }
-      case 'skills':
-        message = Array.isArray(data.skills) ? (data.skills as string[]).join(', ') : 'none';
-        break;
-      case 'certifications':
-        message =
-          Array.isArray(data.certifications) && data.certifications.length > 0
-            ? (data.certifications as string[]).join(', ')
-            : 'none';
-        break;
+      case 'skills': {
+        const skills = Array.isArray(data.skills) ? (data.skills as string[]) : [];
+        setProfile((prev) => ({ ...prev, skills }));
+        advanceFormStep(skills.length > 0 ? skills.join(', ') : 'none');
+        return;
+      }
+      case 'certifications': {
+        const certs = Array.isArray(data.certifications) ? (data.certifications as string[]) : [];
+        setProfile((prev) => ({ ...prev, certifications: certs }));
+        advanceFormStep(certs.length > 0 ? certs.join(', ') : 'none');
+        return;
+      }
       case 'budget':
         message = `income ${data.income || 0}, expenses ${data.expenses || 0}`;
         break;
@@ -2771,18 +2840,23 @@ export function OnboardingChat() {
         message = `${data.goalName} - ${data.goalAmount} by ${data.goalDeadline}`;
         break;
       case 'lifestyle': {
-        const subs = data.subscriptions as Array<{ name: string; currentCost?: number }>;
-        if (Array.isArray(subs) && subs.length > 0) {
-          message = subs
-            .map(
-              (sub) =>
-                `${sub.name}${sub.currentCost ? ` (${getCurrencySymbolForForm()}${sub.currentCost}/month)` : ''}`
-            )
-            .join(', ');
-        } else {
-          message = 'none';
-        }
-        break;
+        const rawSubs = data.subscriptions as Array<{ name: string; currentCost?: number }>;
+        const subItems: Subscription[] = Array.isArray(rawSubs)
+          ? rawSubs.map((s) => ({ name: s.name, currentCost: s.currentCost || 0 }))
+          : [];
+        // Directly update profile — no LLM re-parsing needed
+        setProfile((prev) => ({ ...prev, subscriptions: subItems }));
+        const subMessage =
+          subItems.length > 0
+            ? subItems
+                .map(
+                  (sub) =>
+                    `${sub.name}${sub.currentCost ? ` (${getCurrencySymbolForForm()}${sub.currentCost}/month)` : ''}`
+                )
+                .join(', ')
+            : 'none';
+        advanceFormStep(subMessage);
+        return;
       }
       default:
         message = JSON.stringify(data);

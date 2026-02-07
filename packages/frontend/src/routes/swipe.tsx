@@ -181,18 +181,14 @@ export default function SwipePage() {
     if (!p?.id || !p?.name) return;
 
     try {
-      await profileService.saveProfile(
-        {
-          ...p,
-          swipePreferences: {
-            effort_sensitivity: prefs.effortSensitivity,
-            hourly_rate_priority: prefs.hourlyRatePriority,
-            time_flexibility: prefs.timeFlexibility,
-            income_stability: prefs.incomeStability,
-          },
+      await profileService.patchProfile(p.id, {
+        swipePreferences: {
+          effort_sensitivity: prefs.effortSensitivity,
+          hourly_rate_priority: prefs.hourlyRatePriority,
+          time_flexibility: prefs.timeFlexibility,
+          income_stability: prefs.incomeStability,
         },
-        { setActive: false }
-      );
+      });
       logger.info('Swipe preferences saved');
     } catch (error) {
       logger.error('Failed to save swipe preferences', { error });
@@ -237,13 +233,9 @@ export default function SwipePage() {
         })),
       };
 
-      await profileService.saveProfile(
-        {
-          ...p,
-          planData: updatedPlanData,
-        },
-        { setActive: false }
-      );
+      await profileService.patchProfile(p.id, {
+        planData: updatedPlanData,
+      });
       logger.info('Selected scenarios saved to profile');
 
       // Refresh profile to get updated data

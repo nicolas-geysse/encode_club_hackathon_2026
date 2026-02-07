@@ -289,6 +289,35 @@ export async function saveProfile(
 }
 
 /**
+ * Partial profile update — only updates provided fields, leaves others untouched.
+ * Use this instead of saveProfile when you only need to update a few fields
+ * (e.g., goal name/amount/deadline) to avoid overwriting unrelated data.
+ */
+export async function patchProfile(
+  profileId: string,
+  fields: Partial<FullProfile>
+): Promise<boolean> {
+  try {
+    const response = await fetch('/api/profiles', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: profileId, ...fields }),
+    });
+
+    if (!response.ok) {
+      logger.warn('PATCH profile failed', { status: response.status });
+      return false;
+    }
+
+    eventBus.emit('DATA_CHANGED');
+    return true;
+  } catch (error) {
+    logger.warn('PATCH profile error', { error });
+    return false;
+  }
+}
+
+/**
  * Switch to a different profile
  * Clears localStorage to prevent profile contamination (Sprint 2 Bug #8 fix)
  */
@@ -326,7 +355,9 @@ export async function switchProfile(profileId: string): Promise<boolean> {
 }
 
 /**
- * Duplicate a profile for a new goal
+ * Duplicate a profile for a new goal.
+ * Server-side duplication that also copies skills, income, lifestyle, trades
+ * and creates the goal in the goals table.
  */
 export async function duplicateProfileForGoal(
   sourceProfileId: string,
@@ -337,66 +368,23 @@ export async function duplicateProfileForGoal(
   }
 ): Promise<FullProfile | null> {
   try {
-    // Load source profile
-    const source = await loadProfile(sourceProfileId);
-    if (!source) {
-      logger.error('Source profile not found', { sourceProfileId });
+    const response = await fetch('/api/profiles/duplicate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceProfileId,
+        goalName: goalConfig.goalName,
+        goalAmount: goalConfig.goalAmount,
+        goalDeadline: goalConfig.goalDeadline,
+      }),
+    });
+
+    if (!response.ok) {
+      logger.error('Profile duplication failed', { status: response.status });
       return null;
     }
 
-    // Create new profile — copy ALL financial/personal fields, fresh goal state
-    const newProfile: Partial<FullProfile> & { name: string } = {
-      // Identity & education
-      name: `${source.name} - ${goalConfig.goalName}`,
-      diploma: source.diploma,
-      field: source.field,
-      skills: source.skills,
-      certifications: source.certifications,
-
-      // Location
-      city: source.city,
-      citySize: source.citySize,
-      latitude: source.latitude,
-      longitude: source.longitude,
-      address: source.address,
-
-      // Financial base (shared reality)
-      currency: source.currency,
-      incomeSources: source.incomeSources,
-      incomeDay: source.incomeDay,
-      expenses: source.expenses,
-      monthlyIncome: source.monthlyIncome,
-      monthlyExpenses: source.monthlyExpenses,
-      monthlyMargin: source.monthlyMargin,
-      hasLoan: source.hasLoan,
-      loanAmount: source.loanAmount,
-      subscriptions: source.subscriptions,
-
-      // Work preferences (learned from swipes)
-      maxWorkHoursWeekly: source.maxWorkHoursWeekly,
-      minHourlyRate: source.minHourlyRate,
-      swipePreferences: source.swipePreferences,
-
-      // Onboarding context
-      skippedSteps: source.skippedSteps,
-
-      // Goal-specific (fresh start)
-      profileType: 'goal-clone',
-      parentProfileId: sourceProfileId,
-      goalName: goalConfig.goalName,
-      goalAmount: goalConfig.goalAmount,
-      goalDeadline: goalConfig.goalDeadline,
-
-      // Fresh progress — only seed energy history (person attribute, not goal)
-      planData: undefined,
-      followupData: source.followupData?.energyHistory
-        ? ({ energyHistory: source.followupData.energyHistory } as FullProfile['followupData'])
-        : undefined,
-      achievements: undefined,
-      // NOTE: inventoryItems NOT copied — items are consumable
-    };
-
-    const result = await saveProfile(newProfile, { immediate: true, setActive: true });
+    const result = await response.json();
     if (result.success && result.profileId) {
       eventBus.emit('DATA_CHANGED');
       return loadProfile(result.profileId);
@@ -698,6 +686,7 @@ export const profileService = {
   loadProfile,
   listProfiles,
   saveProfile,
+  patchProfile,
   switchProfile,
   duplicateProfileForGoal,
   createSimulationProfile,

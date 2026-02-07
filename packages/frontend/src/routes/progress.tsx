@@ -705,7 +705,7 @@ export default function ProgressPage() {
     // Save to DuckDB via profileService (single source of truth)
     const profile = activeProfile();
     if (profile) {
-      await profileService.saveProfile({ ...profile, followupData: updated }, { setActive: false });
+      await profileService.patchProfile(profile.id, { followupData: updated });
 
       // Sprint 3 Bug B fix: Sync progress to goals table
       // This ensures Goals tab shows correct progress (not always 0%)

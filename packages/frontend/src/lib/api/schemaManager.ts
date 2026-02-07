@@ -148,11 +148,14 @@ export const SCHEMAS = {
       id VARCHAR PRIMARY KEY,
       profile_id VARCHAR NOT NULL,
       name VARCHAR NOT NULL,
-      target_amount DECIMAL NOT NULL,
-      current_amount DECIMAL DEFAULT 0,
-      deadline TIMESTAMP,
+      amount DECIMAL NOT NULL,
+      deadline DATE,
       priority INTEGER DEFAULT 1,
+      parent_goal_id VARCHAR,
+      condition_type VARCHAR DEFAULT 'none',
       status VARCHAR DEFAULT 'active',
+      progress DECIMAL DEFAULT 0,
+      plan_data JSON,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )

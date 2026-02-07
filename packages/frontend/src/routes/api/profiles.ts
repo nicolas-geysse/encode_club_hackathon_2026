@@ -492,6 +492,167 @@ export async function POST(event: APIEvent) {
   }
 }
 
+// PATCH: Partial profile update (only updates provided fields)
+export async function PATCH(event: APIEvent) {
+  try {
+    await ensureProfilesSchema();
+
+    const body = await event.request.json();
+    const profileId = body.id;
+
+    if (!profileId) {
+      return errorResponse('id required', 400, true);
+    }
+
+    const escapedProfileId = escapeSQL(profileId);
+    const existing = await query<{ id: string }>(
+      `SELECT id FROM profiles WHERE id = ${escapedProfileId}`
+    );
+    if (existing.length === 0) {
+      return errorResponse('Profile not found', 404, true);
+    }
+
+    // Build SET clauses only for provided fields
+    const setClauses: string[] = ['updated_at = CURRENT_TIMESTAMP'];
+
+    // Simple string fields
+    const stringFields: [string, string][] = [
+      ['name', 'name'],
+      ['diploma', 'diploma'],
+      ['field', 'field'],
+      ['currency', 'currency'],
+      ['city', 'city'],
+      ['citySize', 'city_size'],
+      ['address', 'address'],
+      ['profileType', 'profile_type'],
+      ['parentProfileId', 'parent_profile_id'],
+      ['goalName', 'goal_name'],
+    ];
+    for (const [bodyKey, dbCol] of stringFields) {
+      if (bodyKey in body) {
+        setClauses.push(`${dbCol} = ${escapeSQL(body[bodyKey])}`);
+      }
+    }
+
+    // Numeric fields
+    const numericFields: [string, string][] = [
+      ['goalAmount', 'goal_amount'],
+      ['maxWorkHoursWeekly', 'max_work_hours_weekly'],
+      ['minHourlyRate', 'min_hourly_rate'],
+      ['loanAmount', 'loan_amount'],
+      ['incomeDay', 'income_day'],
+    ];
+    for (const [bodyKey, dbCol] of numericFields) {
+      if (bodyKey in body) {
+        setClauses.push(`${dbCol} = ${body[bodyKey] != null ? body[bodyKey] : 'NULL'}`);
+      }
+    }
+
+    // Date fields
+    if ('goalDeadline' in body) {
+      setClauses.push(
+        `goal_deadline = ${body.goalDeadline ? escapeSQL(toISODateString(body.goalDeadline) || body.goalDeadline) : 'NULL'}`
+      );
+    }
+
+    // Location
+    if ('latitude' in body) {
+      setClauses.push(`latitude = ${body.latitude != null ? body.latitude : 'NULL'}`);
+    }
+    if ('longitude' in body) {
+      setClauses.push(`longitude = ${body.longitude != null ? body.longitude : 'NULL'}`);
+    }
+
+    // Boolean fields
+    if ('hasLoan' in body) {
+      setClauses.push(`has_loan = ${body.hasLoan ? 'TRUE' : 'FALSE'}`);
+    }
+
+    // JSON fields
+    const jsonFields: [string, string][] = [
+      ['incomeSources', 'income_sources'],
+      ['expenses', 'expenses'],
+      ['planData', 'plan_data'],
+      ['followupData', 'followup_data'],
+      ['achievements', 'achievements'],
+      ['swipePreferences', 'swipe_preferences'],
+    ];
+    for (const [bodyKey, dbCol] of jsonFields) {
+      if (bodyKey in body) {
+        setClauses.push(`${dbCol} = ${body[bodyKey] ? escapeJSON(body[bodyKey]) : 'NULL'}`);
+      }
+    }
+
+    // Recompute monthly totals only if income/expense sources are provided
+    if ('incomeSources' in body) {
+      const monthlyIncome = body.incomeSources
+        ? body.incomeSources.reduce(
+            (sum: number, i: { amount: number }) => sum + (i.amount || 0),
+            0
+          )
+        : 0;
+      setClauses.push(`monthly_income = ${monthlyIncome}`);
+
+      // Also update margin if we have expenses in body or need current value
+      if ('expenses' in body) {
+        const monthlyExpenses = body.expenses
+          ? body.expenses.reduce((sum: number, e: { amount: number }) => sum + (e.amount || 0), 0)
+          : 0;
+        setClauses.push(`monthly_expenses = ${monthlyExpenses}`);
+        setClauses.push(`monthly_margin = ${monthlyIncome - monthlyExpenses}`);
+      }
+    } else if ('expenses' in body) {
+      const monthlyExpenses = body.expenses
+        ? body.expenses.reduce((sum: number, e: { amount: number }) => sum + (e.amount || 0), 0)
+        : 0;
+      setClauses.push(`monthly_expenses = ${monthlyExpenses}`);
+    }
+
+    // Array fields
+    if ('skills' in body) {
+      const skillsSQL =
+        body.skills && Array.isArray(body.skills) && body.skills.length > 0
+          ? `ARRAY[${body.skills.map((s: string) => escapeSQL(s)).join(', ')}]`
+          : 'NULL';
+      setClauses.push(`skills = ${skillsSQL}`);
+    }
+    if ('certifications' in body) {
+      const certificationsSQL =
+        body.certifications && Array.isArray(body.certifications) && body.certifications.length > 0
+          ? `ARRAY[${body.certifications.map((c: string) => escapeSQL(c)).join(', ')}]`
+          : 'NULL';
+      setClauses.push(`certifications = ${certificationsSQL}`);
+    }
+    if ('skippedSteps' in body) {
+      const skippedStepsSQL =
+        body.skippedSteps && Array.isArray(body.skippedSteps) && body.skippedSteps.length > 0
+          ? `ARRAY[${body.skippedSteps.map((s: string) => escapeSQL(s)).join(', ')}]`
+          : 'NULL';
+      setClauses.push(`skipped_steps = ${skippedStepsSQL}`);
+    }
+
+    if (setClauses.length <= 1) {
+      // Only updated_at, nothing else to update
+      return successResponse({ success: true, profileId, noChanges: true }, 200, true);
+    }
+
+    await execute(`
+      UPDATE profiles SET
+        ${setClauses.join(',\n        ')}
+      WHERE id = ${escapedProfileId}
+    `);
+
+    return successResponse({ success: true, profileId }, 200, true);
+  } catch (error) {
+    logger.error('PATCH error', { error });
+    return errorResponse(
+      error instanceof Error ? error.message : 'Database operation failed',
+      500,
+      true
+    );
+  }
+}
+
 // PUT: Switch active profile
 export async function PUT(event: APIEvent) {
   try {

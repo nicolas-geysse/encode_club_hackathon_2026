@@ -828,7 +828,7 @@ export async function runGoalPlanningWorkflow(input: GoalPlanningInput): Promise
     // Save goal to database
     try {
       await execute(`
-        INSERT INTO goals (id, profile_id, goal_name, goal_amount, goal_deadline,
+        INSERT INTO goals (id, profile_id, name, amount, deadline,
                            feasibility_score, risk_level, weekly_target, status)
         VALUES ('${goalId}', '${input.userId || 'default'}', '${input.goalName.replace(/'/g, "''")}',
                 ${input.goalAmount}, '${toISODate(input.goalDeadline)}',

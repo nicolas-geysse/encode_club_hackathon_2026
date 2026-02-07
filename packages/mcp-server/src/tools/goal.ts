@@ -716,7 +716,7 @@ export async function handleCreateGoalPlan(args: Record<string, unknown>) {
     // Create goal in database
     const goalId = uuidv4();
     await execute(`
-      INSERT INTO goals (id, profile_id, goal_name, goal_amount, goal_deadline, minimum_budget,
+      INSERT INTO goals (id, profile_id, name, amount, deadline, minimum_budget,
                          feasibility_score, risk_level, weekly_target, status)
       VALUES ('${goalId}', '${userId}', '${goalName.replace(/'/g, "''")}', ${goalAmount},
               '${toISODate(goalDeadline)}', ${minimumBudget || 'NULL'},
@@ -903,10 +903,10 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
 
     // Get goal info
     const goals = await query<{
-      goal_amount: number;
+      amount: number;
       weekly_target: number;
-      goal_name: string;
-    }>(`SELECT goal_amount, weekly_target, goal_name FROM goals WHERE id = '${goalId}'`);
+      name: string;
+    }>(`SELECT amount, weekly_target, name FROM goals WHERE id = '${goalId}'`);
 
     if (goals.length === 0) {
       throw new Error(`Goal not found: ${goalId}`);
@@ -964,7 +964,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
     // Check for new achievements
     const newAchievements = checkAchievements(
       totalEarned,
-      goal.goal_amount,
+      goal.amount,
       consecutiveWeeks,
       paceRatio,
       (actionsCompleted?.length || 0) + 1, // Simplified sources count
@@ -1003,7 +1003,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
     });
 
     // Build response
-    const progressPct = Math.round((totalEarned / goal.goal_amount) * 100);
+    const progressPct = Math.round((totalEarned / goal.amount) * 100);
     const progressBarFilled = Math.round(progressPct / 10);
     const progressBar = '█'.repeat(progressBarFilled) + '░'.repeat(10 - progressBarFilled);
 
@@ -1016,7 +1016,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
         id: 'update-header',
         type: 'text',
         params: {
-          content: `# 📊 Week ${weekNumber} - ${goal.goal_name}\n\n**+${amountEarned}€** this week`,
+          content: `# 📊 Week ${weekNumber} - ${goal.name}\n\n**+${amountEarned}€** this week`,
           markdown: true,
         },
       },
@@ -1070,7 +1070,7 @@ export async function handleUpdateGoalProgress(args: Record<string, unknown>) {
         id: 'progress-bar',
         type: 'text',
         params: {
-          content: `\n[${progressBar}] ${progressPct}%\n\n**${totalEarned}€** / ${goal.goal_amount}€`,
+          content: `\n[${progressBar}] ${progressPct}%\n\n**${totalEarned}€** / ${goal.amount}€`,
           markdown: true,
         },
       },
@@ -1125,9 +1125,9 @@ export async function handleGetGoalStatus(args: Record<string, unknown>) {
 
     // Get goal
     const goals = await query<{
-      goal_name: string;
-      goal_amount: number;
-      goal_deadline: string;
+      name: string;
+      amount: number;
+      deadline: string;
       weekly_target: number;
       feasibility_score: number;
       risk_level: string;
@@ -1154,11 +1154,11 @@ export async function handleGetGoalStatus(args: Record<string, unknown>) {
     );
 
     const totalEarned = progress.reduce((sum, p) => sum + (p.earned_amount || 0), 0);
-    const progressPct = Math.round((totalEarned / goal.goal_amount) * 100);
+    const progressPct = Math.round((totalEarned / goal.amount) * 100);
     const currentWeek = progress.length;
 
     // Build progress visualization
-    const totalWeeks = Math.ceil(goal.goal_amount / goal.weekly_target);
+    const totalWeeks = Math.ceil(goal.amount / goal.weekly_target);
     const weeklyViz = [];
     for (let w = 1; w <= totalWeeks; w++) {
       const weekProgress = progress.find((p) => p.week_number === w);
@@ -1191,7 +1191,7 @@ export async function handleGetGoalStatus(args: Record<string, unknown>) {
           id: 'status-header',
           type: 'text',
           params: {
-            content: `# 📊 ${goal.goal_name}\n\n**Statut:** ${goal.status === 'active' ? '🟢 Actif' : goal.status === 'completed' ? '✅ Terminé' : '⏸️ En pause'}`,
+            content: `# 📊 ${goal.name}\n\n**Statut:** ${goal.status === 'active' ? '🟢 Actif' : goal.status === 'completed' ? '✅ Terminé' : '⏸️ En pause'}`,
             markdown: true,
           },
         },
@@ -1209,7 +1209,7 @@ export async function handleGetGoalStatus(args: Record<string, unknown>) {
                 params: {
                   title: 'Gagné',
                   value: totalEarned,
-                  unit: `€ / ${goal.goal_amount}€`,
+                  unit: `€ / ${goal.amount}€`,
                 },
               },
               {
@@ -1261,10 +1261,10 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
 
     // Get goal and progress
     const goals = await query<{
-      goal_amount: number;
-      goal_deadline: string;
+      amount: number;
+      deadline: string;
       weekly_target: number;
-      goal_name: string;
+      name: string;
     }>(`SELECT * FROM goals WHERE id = '${goalId}'`);
 
     if (goals.length === 0) {
@@ -1284,9 +1284,9 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
     const deficit = expectedTotal - totalEarned;
 
     // Calculate remaining
-    const deadline = new Date(goal.goal_deadline);
+    const deadline = new Date(goal.deadline);
     const weeksRemaining = calculateWeeks(deadline);
-    const amountRemaining = goal.goal_amount - totalEarned;
+    const amountRemaining = goal.amount - totalEarned;
     const requiredWeeklyRate = amountRemaining / weeksRemaining;
 
     // Risk assessment
@@ -1331,7 +1331,7 @@ export async function handleGoalRiskAssessment(args: Record<string, unknown>) {
           id: 'risk-header',
           type: 'text',
           params: {
-            content: `# ⚠️ Analyse de risque - ${goal.goal_name}`,
+            content: `# ⚠️ Analyse de risque - ${goal.name}`,
             markdown: true,
           },
         },
@@ -1419,13 +1419,13 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
 
     const goals = await query<{
       id: string;
-      goal_name: string;
-      goal_amount: number;
-      goal_deadline: string;
+      name: string;
+      amount: number;
+      deadline: string;
       status: string;
       feasibility_score: number;
     }>(
-      `SELECT id, goal_name, goal_amount, goal_deadline, status, feasibility_score FROM goals WHERE ${whereClause} ORDER BY created_at DESC`
+      `SELECT id, name, amount, deadline, status, feasibility_score FROM goals WHERE ${whereClause} ORDER BY created_at DESC`
     );
 
     // Get progress for each goal
@@ -1438,7 +1438,7 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
         return {
           ...g,
           earned,
-          progressPct: Math.round((earned / g.goal_amount) * 100),
+          progressPct: Math.round((earned / g.amount) * 100),
         };
       })
     );
@@ -1463,17 +1463,17 @@ export async function handleListUserGoals(args: Record<string, unknown>) {
       params: {
         title: `My goals ${status === 'all' ? '' : `(${status})`}`,
         columns: [
-          { key: 'goal_name', label: 'Goal' },
-          { key: 'goal_amount', label: 'Amount' },
+          { key: 'name', label: 'Goal' },
+          { key: 'amount', label: 'Amount' },
           { key: 'progress', label: 'Progress' },
           { key: 'deadline', label: 'Deadline' },
           { key: 'status', label: 'Status' },
         ],
         rows: goalsWithProgress.map((g) => ({
-          goal_name: g.goal_name,
-          goal_amount: `${g.goal_amount}€`,
+          name: g.name,
+          amount: `${g.amount}€`,
           progress: `${g.progressPct}% (${g.earned}€)`,
-          deadline: new Date(g.goal_deadline).toLocaleDateString('en-US'),
+          deadline: new Date(g.deadline).toLocaleDateString('en-US'),
           status: g.status === 'active' ? '🟢' : g.status === 'completed' ? '✅' : '⏸️',
         })),
       },
@@ -1695,9 +1695,9 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
 
     // Get goal details
     const goals = await query<{
-      goal_name: string;
-      goal_amount: number;
-      goal_deadline: string;
+      name: string;
+      amount: number;
+      deadline: string;
       weekly_target: number;
       minimum_budget: number;
       profile_id: string;
@@ -1771,9 +1771,9 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
     const input: RetroplanInput = {
       goalId,
       userId: goal.profile_id || userId,
-      goalAmount: goal.goal_amount,
-      deadline: new Date(goal.goal_deadline),
-      goalName: goal.goal_name,
+      goalAmount: goal.amount,
+      deadline: new Date(goal.deadline),
+      goalName: goal.name,
       userProfile: {
         skills: profile.skills || [],
         monthlyIncome: profile.monthly_income || 500,
@@ -1888,7 +1888,7 @@ export async function handleGenerateRetroplan(args: Record<string, unknown>) {
           id: 'retroplan-header',
           type: 'text',
           params: {
-            content: `# 📅 Retroplan: ${goal.goal_name}\n\n**${goal.goal_amount}€** d'ici le **${new Date(goal.goal_deadline).toLocaleDateString('fr-FR')}**`,
+            content: `# 📅 Retroplan: ${goal.name}\n\n**${goal.amount}€** d'ici le **${new Date(goal.deadline).toLocaleDateString('fr-FR')}**`,
             markdown: true,
           },
         },

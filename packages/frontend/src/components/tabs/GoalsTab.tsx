@@ -273,10 +273,9 @@ export function GoalsTab(props: GoalsTabProps) {
           const freshFollowup = rawFollowup?.energyHistory
             ? { energyHistory: rawFollowup.energyHistory }
             : {};
-          await profileService.saveProfile(
-            { ...p, followupData: freshFollowup as typeof p.followupData },
-            { setActive: false }
-          );
+          await profileService.patchProfile(p.id, {
+            followupData: freshFollowup as typeof p.followupData,
+          });
           await refreshProfile();
         }
         return; // Already updated goal above
@@ -320,24 +319,16 @@ export function GoalsTab(props: GoalsTabProps) {
       });
     }
 
-    // Sync profile generic fields
-    const currentProfile = profile();
-    if (currentProfile) {
-      try {
-        await profileService.saveProfile(
-          {
-            ...currentProfile,
-            id: profileId()!,
-            goalName: payload.name,
-            goalAmount: payload.amount,
-            goalDeadline: payload.deadline,
-          },
-          { setActive: false }
-        );
-        await refreshProfile();
-      } catch (err) {
-        logger.warn('Failed to sync profile', { error: err });
-      }
+    // Sync goal fields on profile (partial update — only touches goal_name, goal_amount, goal_deadline)
+    try {
+      await profileService.patchProfile(profileId()!, {
+        goalName: payload.name,
+        goalAmount: payload.amount,
+        goalDeadline: payload.deadline,
+      });
+      await refreshProfile();
+    } catch (err) {
+      logger.warn('Failed to sync profile goal fields', { error: err });
     }
 
     props.onComplete({
@@ -476,7 +467,7 @@ export function GoalsTab(props: GoalsTabProps) {
 
     const p = profile();
     if (p) {
-      await profileService.saveProfile({ ...p, followupData: updated }, { setActive: false });
+      await profileService.patchProfile(p.id, { followupData: updated });
       await refreshProfile();
       goalData.refetch();
     }

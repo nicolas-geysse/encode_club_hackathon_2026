@@ -259,11 +259,11 @@ async function handleSimulateWeekProgress(args: Record<string, unknown>) {
 
     // Get goal info
     const goals = await query<{
-      goal_name: string;
-      goal_amount: number;
+      name: string;
+      amount: number;
       weekly_target: number;
       status: string;
-    }>(`SELECT goal_name, goal_amount, weekly_target, status FROM goals WHERE id = '${goalId}'`);
+    }>(`SELECT name, amount, weekly_target, status FROM goals WHERE id = '${goalId}'`);
 
     if (goals.length === 0) {
       return {
@@ -277,7 +277,7 @@ async function handleSimulateWeekProgress(args: Record<string, unknown>) {
     }
 
     const goal = goals[0];
-    const weeklyTarget = goal.weekly_target || goal.goal_amount / 12;
+    const weeklyTarget = goal.weekly_target || goal.amount / 12;
 
     // Get current progress
     const currentProgress = await query<{ week_number: number; earned_amount: number }>(
@@ -380,9 +380,9 @@ async function handleSimulateWeekProgress(args: Record<string, unknown>) {
           id: 'summary',
           type: 'metric',
           params: {
-            title: `Progression ${goal.goal_name}`,
-            value: `${totalEarned}€ / ${goal.goal_amount}€`,
-            subtitle: `${Math.round((totalEarned / goal.goal_amount) * 100)}% complété`,
+            title: `Progression ${goal.name}`,
+            value: `${totalEarned}€ / ${goal.amount}€`,
+            subtitle: `${Math.round((totalEarned / goal.amount) * 100)}% complété`,
           },
         },
         {
@@ -425,8 +425,8 @@ async function handleSimulateWeekProgress(args: Record<string, unknown>) {
       data: {
         goalId,
         totalEarned,
-        goalAmount: goal.goal_amount,
-        progressPercent: Math.round((totalEarned / goal.goal_amount) * 100),
+        goalAmount: goal.amount,
+        progressPercent: Math.round((totalEarned / goal.amount) * 100),
         weekResults,
         simulatedDate: toISODate(newSimulatedDate),
         offsetDays: newOffsetDays,

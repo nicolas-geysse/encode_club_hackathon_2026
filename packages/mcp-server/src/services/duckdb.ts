@@ -120,7 +120,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Get or create database connection
+ * Get or create database connection.
+ * Auto-recovers from corrupted WAL files by deleting and retrying.
  */
 function getConnection(): DuckDBTypes.Connection {
   if (!db) {
@@ -131,8 +132,27 @@ function getConnection(): DuckDBTypes.Connection {
       throw new Error('Database is locked by another process');
     }
 
-    // Open database
-    db = new duckdb.Database(DB_PATH);
+    try {
+      db = new duckdb.Database(DB_PATH);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg.includes('WAL') ||
+        msg.includes('INTERNAL Error') ||
+        msg.includes('Failure while replaying')
+      ) {
+        console.error(`[DuckDB-MCP] Corrupted WAL detected — deleting database files and retrying`);
+        try {
+          if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
+          if (fs.existsSync(DB_PATH + '.wal')) fs.unlinkSync(DB_PATH + '.wal');
+        } catch (e) {
+          console.error('[DuckDB-MCP] Failed to delete corrupted files:', e);
+        }
+        db = new duckdb.Database(DB_PATH);
+      } else {
+        throw err;
+      }
+    }
     console.error(`[DuckDB-MCP] Opened database: ${DB_PATH} (PID: ${PROCESS_ID})`);
 
     // Register cleanup on process exit
@@ -394,23 +414,47 @@ async function initSchema(): Promise<void> {
   // GOAL-DRIVEN MODE TABLES
   // ==========================================
 
-  // Goals table - main goal definitions
+  // Goals table - MUST match frontend's goals.ts schema exactly
+  // The frontend is the authoritative source for this table.
   await executeInternal(`
     CREATE TABLE IF NOT EXISTS goals (
       id VARCHAR PRIMARY KEY,
-      profile_id VARCHAR,
-      goal_name VARCHAR NOT NULL,
-      goal_amount DECIMAL NOT NULL,
-      goal_deadline DATE NOT NULL,
-      minimum_budget DECIMAL,
+      profile_id VARCHAR NOT NULL,
+      name VARCHAR NOT NULL,
+      amount DECIMAL NOT NULL,
+      deadline DATE,
+      priority INTEGER DEFAULT 1,
+      parent_goal_id VARCHAR,
+      condition_type VARCHAR DEFAULT 'none',
       status VARCHAR DEFAULT 'active',
-      feasibility_score DECIMAL,
-      risk_level VARCHAR,
-      weekly_target DECIMAL,
+      progress DECIMAL DEFAULT 0,
+      plan_data JSON,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Ensure all columns exist (covers both frontend-first and MCP-first scenarios)
+  const goalColumnAdditions = [
+    // Frontend columns (missing if old MCP created the table first)
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 1`,
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS parent_goal_id VARCHAR`,
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS condition_type VARCHAR DEFAULT 'none'`,
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS progress DECIMAL DEFAULT 0`,
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS plan_data JSON`,
+    // MCP-specific columns (missing if frontend created the table first)
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS minimum_budget DECIMAL`,
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS feasibility_score DECIMAL`,
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS risk_level VARCHAR`,
+    `ALTER TABLE goals ADD COLUMN IF NOT EXISTS weekly_target DECIMAL`,
+  ];
+  for (const migration of goalColumnAdditions) {
+    try {
+      await executeInternal(migration);
+    } catch {
+      // Column may already exist
+    }
+  }
 
   // Goal progress tracking - weekly milestones
   await executeInternal(`
@@ -539,6 +583,60 @@ async function initSchema(): Promise<void> {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // ==========================================
+  // MIGRATION: Rename user_id → profile_id
+  // Handles databases created before the column was standardized.
+  // ==========================================
+  const tablesToMigrate = [
+    'goals',
+    'goal_achievements',
+    'academic_events',
+    'commitments',
+    'energy_logs',
+    'retroplans',
+  ];
+
+  for (const table of tablesToMigrate) {
+    try {
+      const cols = await queryWithRetry<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = '${table}' AND column_name = 'user_id'`
+      );
+      if (cols.length > 0) {
+        await executeInternal(`ALTER TABLE ${table} RENAME COLUMN user_id TO profile_id`);
+        console.error(`[DuckDB-MCP] Migrated ${table}: user_id → profile_id`);
+      }
+    } catch {
+      // Table may not exist yet or column already correct — safe to ignore
+    }
+  }
+
+  // ==========================================
+  // MIGRATION: Rename goals columns to match frontend schema
+  // Old MCP schema: goal_name, goal_amount, goal_deadline
+  // Frontend schema: name, amount, deadline
+  // ==========================================
+  const goalColumnRenames: [string, string][] = [
+    ['goal_name', 'name'],
+    ['goal_amount', 'amount'],
+    ['goal_deadline', 'deadline'],
+  ];
+
+  for (const [oldCol, newCol] of goalColumnRenames) {
+    try {
+      const cols = await queryWithRetry<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'goals' AND column_name = '${oldCol}'`
+      );
+      if (cols.length > 0) {
+        await executeInternal(`ALTER TABLE goals RENAME COLUMN ${oldCol} TO ${newCol}`);
+        console.error(`[DuckDB-MCP] Migrated goals: ${oldCol} → ${newCol}`);
+      }
+    } catch {
+      // Column may not exist or already renamed — safe to ignore
+    }
+  }
 }
 
 /**

@@ -86,16 +86,10 @@ function ensureDataDir(): void {
  * Open database with callback (required for DuckDB async init)
  * Includes timeout to detect hanging operations
  */
-function openDatabase(): Promise<DuckDBDatabase> {
-  ensureDataDir();
-  logger.info(`Opening database: ${DB_PATH}`);
-
+function openDatabaseOnce(): Promise<DuckDBDatabase> {
   return new Promise((resolve, reject) => {
-    // Timeout after 10 seconds - if callback never fires, something is wrong
     const timeout = setTimeout(() => {
       logger.error('TIMEOUT: Database open callback never fired after 10s');
-      logger.error('This usually means corrupted DB file or WAL lock');
-      logger.error('Try deleting the database file and restarting');
       reject(new Error('Database open timeout - callback never fired'));
     }, 10000);
 
@@ -105,13 +99,37 @@ function openDatabase(): Promise<DuckDBDatabase> {
     ) => DuckDBDatabase)(DB_PATH, (err) => {
       clearTimeout(timeout);
       if (err) {
-        logger.error('Failed to open database', { error: err.message });
         reject(err);
       } else {
         logger.info('Database opened successfully');
         resolve(db);
       }
     });
+  });
+}
+
+function openDatabase(): Promise<DuckDBDatabase> {
+  ensureDataDir();
+  logger.info(`Opening database: ${DB_PATH}`);
+
+  return openDatabaseOnce().catch((err) => {
+    const msg = err?.message || '';
+    // Auto-recover from corrupted WAL or incompatible database files
+    if (
+      msg.includes('WAL') ||
+      msg.includes('INTERNAL Error') ||
+      msg.includes('Failure while replaying')
+    ) {
+      logger.warn('Corrupted WAL detected — deleting database files and retrying', { error: msg });
+      try {
+        if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
+        if (fs.existsSync(DB_PATH + '.wal')) fs.unlinkSync(DB_PATH + '.wal');
+      } catch (e) {
+        logger.error('Failed to delete corrupted database files', { error: e });
+      }
+      return openDatabaseOnce();
+    }
+    throw err;
   });
 }
 

@@ -368,13 +368,9 @@ export default function MePage() {
 
     if (hasProf && profile && !saving) {
       // Debounced save to DuckDB only (no localStorage to prevent cross-profile contamination)
-      profileService.saveProfile(
-        {
-          ...profile,
-          planData: data as unknown as Record<string, unknown>,
-        },
-        { setActive: false }
-      );
+      profileService.patchProfile(profile.id, {
+        planData: data as unknown as Record<string, unknown>,
+      });
     }
   });
 

@@ -268,14 +268,40 @@ When adding new native modules:
 
 ### Shared database between frontend and MCP server
 
-Frontend and MCP server open the **same DuckDB file** (`data/stride.duckdb`). The frontend starts first and creates tables with `profile_id`. MCP's `CREATE TABLE IF NOT EXISTS` with `user_id` is a no-op. **Always use `profile_id`** in queries that target shared tables (`profiles`, `goals`, `energy_logs`, `skills`, `inventory_items`).
+Frontend and MCP server open the **same DuckDB file** (`data/stride.duckdb`). Both use `CREATE TABLE IF NOT EXISTS` — whichever process starts first "wins" and defines the schema. The other process's CREATE is a no-op.
+
+**Rules for shared tables** (`profiles`, `goals`, `energy_logs`, `skills`, `inventory_items`, `academic_events`, `commitments`, `retroplans`, `goal_achievements`):
+- **Always use `profile_id`** (never `user_id`) in all table definitions and queries
+- **Frontend's `goals.ts` is the authoritative schema** for the `goals` table: columns are `name`, `amount`, `deadline`, `progress`, `plan_data` (NOT `goal_name`/`goal_amount`/`goal_deadline`)
+- MCP adds extra columns (`feasibility_score`, `risk_level`, `weekly_target`) via `ALTER TABLE ADD COLUMN IF NOT EXISTS`
+- MCP's `initSchema()` auto-migrates old column names at startup
 
 ```typescript
-// ❌ Wrong - MCP schema definition uses user_id, but table has profile_id
+// ❌ Wrong - never use user_id as a column name
 WHERE user_id = '${profileId}'
 
-// ✅ Correct - frontend creates tables first, profile_id is the real column
+// ✅ Correct - profile_id is the standardized column name
 WHERE profile_id = '${profileId}'
+```
+
+### `CREATE TABLE IF NOT EXISTS` does NOT migrate columns
+
+`CREATE TABLE IF NOT EXISTS` is a **no-op** if the table already exists, even if the column names differ. This means:
+- Renaming a column in a CREATE TABLE statement has **zero effect** on existing databases
+- The running DuckDB process keeps the schema **in memory** — deleting the `.duckdb` file while the server runs does nothing (DuckDB recreates it from WAL/memory)
+
+**Always add explicit migrations** when renaming columns. See `duckdb.ts` `initSchema()` for the pattern:
+
+```typescript
+// ✅ Correct - auto-migration at startup handles both fresh and existing DBs
+const tablesToMigrate = ['goals', 'energy_logs', ...];
+for (const table of tablesToMigrate) {
+  const cols = await query(`SELECT column_name FROM information_schema.columns
+    WHERE table_name = '${table}' AND column_name = 'old_name'`);
+  if (cols.length > 0) {
+    await execute(`ALTER TABLE ${table} RENAME COLUMN old_name TO new_name`);
+  }
+}
 ```
 
 ### `COUNT(*)` returns `bigint`, not `number`
@@ -288,6 +314,21 @@ if (result[0]?.count === 0) { ... }
 
 // ✅ Correct - convert to number first
 if (Number(result[0]?.count) === 0) { ... }
+```
+
+### WAL corruption auto-recovery
+
+DuckDB uses a Write-Ahead Log (WAL) file (`stride.duckdb.wal`). It can become corrupted when:
+- The process is killed mid-write (`Ctrl+C` during a transaction, `kill -9`)
+- Two different DuckDB versions open the same file (frontend uses 1.0.0, MCP uses 1.4.1)
+- The `.duckdb` file is deleted while the `.wal` file remains
+
+Both `_db.ts` (frontend) and `duckdb.ts` (MCP) have **auto-recovery**: if opening fails with a WAL replay error, they delete both files and retry with a fresh database. Never need to manually delete DB files.
+
+```
+// Error you'll see in logs when WAL is corrupted:
+INTERNAL Error: Failure while replaying WAL file "...stride.duckdb.wal"
+// → Auto-recovered: both .duckdb and .wal deleted, fresh DB created
 ```
 
 ### Init race condition pattern
