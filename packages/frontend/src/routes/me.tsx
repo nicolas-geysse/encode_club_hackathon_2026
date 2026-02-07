@@ -184,9 +184,25 @@ export default function MePage() {
 
   // Initialize activeTab from URL param (e.g., /me?tab=goals) or default to 'profile'
   const validTabIds = TABS.map((t) => t.id) as readonly string[];
-  const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
-  const initialTab = tabParam && validTabIds.includes(tabParam) ? tabParam : 'profile';
+  const tabParam = () => {
+    const raw = searchParams.tab;
+    return Array.isArray(raw) ? raw[0] : raw;
+  };
+  const initialTab = tabParam() && validTabIds.includes(tabParam()!) ? tabParam()! : 'profile';
+  // Reactive category param for deep-linking into Jobs tab (e.g., /me?tab=jobs&category=digital)
+  const categoryParam = () => {
+    const raw = searchParams.category;
+    return Array.isArray(raw) ? raw[0] : raw;
+  };
   const [activeTab, setActiveTab] = createSignal<string>(initialTab);
+
+  // Sync activeTab when URL search params change (e.g., notification deep links on same page)
+  createEffect(() => {
+    const newTab = tabParam();
+    if (newTab && validTabIds.includes(newTab) && newTab !== untrack(() => activeTab())) {
+      setActiveTab(newTab);
+    }
+  });
   const [isLoading, setIsLoading] = createSignal(true); // Keep loading to show spinner while context loads
   // Derived state for profile existence
   const hasProfile = () => !!activeProfile();
@@ -651,6 +667,7 @@ export default function MePage() {
                     userCertifications={activeProfile()?.certifications}
                     minHourlyRate={activeProfile()?.minHourlyRate}
                     skippedSteps={activeProfile()?.skippedSteps}
+                    initialCategory={categoryParam() || undefined}
                     onLeadsChange={setLeads}
                     onLeadSaved={(lead) => {
                       if (lead.status === 'interested') {

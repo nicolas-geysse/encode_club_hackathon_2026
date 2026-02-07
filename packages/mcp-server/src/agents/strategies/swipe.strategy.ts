@@ -65,6 +65,11 @@ Given the user's context:
 - Energy level: {{energyLevel}}%
 - Preferences: effort={{effortSensitivity}}, rate={{hourlyRatePriority}}
 
+ESSENTIAL EXPENSES (STRICT):
+- NEVER suggest pausing or canceling rent, food, or transport. These are non-negotiable.
+- Only suggest pausing SUBSCRIPTIONS (streaming, gym memberships, premium apps).
+- For essential costs, suggest structural alternatives: roommate, biking, meal prep, student aid.
+
 SMART RECOMMENDATION RULES:
 1. If energy < 40%: Prioritize selling items or pausing subscriptions (minimal effort)
 2. If sellable items available AND energy < 60%: Suggest selling first

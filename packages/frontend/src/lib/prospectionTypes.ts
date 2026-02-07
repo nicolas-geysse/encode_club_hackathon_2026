@@ -205,6 +205,8 @@ export interface ProspectionTabProps {
     incomeStability: number;
   };
   skippedSteps?: string[];
+  /** Auto-select and search a category on mount (from skill notification deep link) */
+  initialCategory?: string;
 }
 
 // =============================================================================

@@ -230,10 +230,22 @@ export const findOptimizationsTool = createTool({
         ],
         transport: [
           {
-            solution: 'Bike/Walk',
+            solution: 'Walk more (exercise + savings)',
+            savingsPct: 0.8,
+            effort: 'low',
+            condition: 'trips under 2km',
+          },
+          {
+            solution: 'Buy a bike (exercise + zero fuel cost)',
             savingsPct: 0.8,
             effort: 'medium',
             condition: 'bike-friendly city',
+          },
+          {
+            solution: 'Electric scooter (one-time cost, zero fuel)',
+            savingsPct: 0.7,
+            effort: 'low',
+            condition: 'trips under 10km',
           },
           {
             solution: 'Student transit pass',

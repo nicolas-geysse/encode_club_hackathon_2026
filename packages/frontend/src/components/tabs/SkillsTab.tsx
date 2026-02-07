@@ -19,6 +19,7 @@ import { type LegacySkill, skillToLegacy } from '~/types/entities';
 import { updateAchievements, onAchievementUnlock } from '~/lib/achievements';
 import { toastPopup } from '~/components/ui/Toast';
 import { getSkillDefaults, getQuickAddTemplates } from '~/lib/data/skillRegistry';
+import { getMatchingProspectionCategories } from '~/lib/data/skillCategoryBridge';
 import { createLogger } from '~/lib/logger';
 import { showProactiveAlert } from '~/lib/eventBus';
 import { Card, CardContent } from '~/components/ui/Card';
@@ -474,12 +475,19 @@ export function SkillsTab(props: SkillsTabProps) {
         props.onSkillsChange?.(contextSkills().map(skillToLegacy));
 
         // v4.2: Proactive trigger - suggest checking Jobs tab
+        const matchingCategories = getMatchingProspectionCategories([created.name]);
+        const bestCategory = matchingCategories[0];
         showProactiveAlert({
           id: `skill_job_${Date.now()}`,
           type: 'skill_job',
           title: 'New skill added!',
-          message: `I found jobs matching "${created.name}". Check them out in the Jobs tab.`,
-          action: { label: 'View Jobs', href: '/me?tab=jobs' },
+          message: bestCategory
+            ? `Explore "${created.name}" opportunities in the Jobs tab.`
+            : `"${created.name}" added! Check the Jobs tab for opportunities.`,
+          action: {
+            label: 'View Jobs',
+            href: bestCategory ? `/me?tab=jobs&category=${bestCategory}` : '/me?tab=jobs',
+          },
         });
       }
     } finally {

@@ -43,6 +43,15 @@ Analyze the student's budget (income and expenses) and give ONE short actionable
 Focus on: reducing a specific expense, increasing income, or optimizing savings margin.
 If the budget is in deficit, prioritize reducing non-essential expenses.
 If the budget is tight (<€50 margin), suggest low-effort quick wins.
+
+ESSENTIAL EXPENSES RULES (STRICT):
+- NEVER suggest stopping or pausing rent, food, or transport. These are non-negotiable.
+- Instead, suggest STRUCTURAL alternatives to REDUCE their cost:
+  - Rent: "Take a roommate", "Apply for housing aid (APL/ALS)", "Move to student housing"
+  - Food: "Batch cook on Sundays", "Use campus dining (CROUS)", "Try Too Good To Go"
+  - Transport: "Consider walking or biking for exercise AND savings", "Look into an electric scooter", "Get a student transit pass", "Try carpooling"
+- Subscriptions (streaming, gym, phone plan) ARE fair game for pausing or canceling.
+
 Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 

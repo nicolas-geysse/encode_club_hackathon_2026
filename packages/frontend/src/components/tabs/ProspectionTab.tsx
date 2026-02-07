@@ -138,6 +138,17 @@ export function ProspectionTab(props: ProspectionTabProps) {
         .map((e) => e.targetId)
     );
 
+  // Auto-trigger category search when navigated from skill notification deep link.
+  // Guard prevents re-triggering if user switches tabs and comes back (URL still has &category=).
+  let initialCategoryHandled = false;
+  createEffect(() => {
+    const cat = props.initialCategory;
+    if (cat && !initialCategoryHandled && phase() === 'idle') {
+      initialCategoryHandled = true;
+      handleCategorySelect(cat);
+    }
+  });
+
   // Load existing leads + exclusions on mount
   createEffect(
     on(

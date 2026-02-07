@@ -135,11 +135,25 @@ export const STRUCTURAL_ALTERNATIVES: Record<EssentialCategory, AlternativeTempl
   transport: [
     {
       type: 'lifestyle_change',
-      description: 'Passer au vélo (trajets < 5km)',
+      description: 'Marcher plus (gratuit + exercice, trajets < 2km)',
+      savingsPercent: 80,
+      implementationEffort: 'easy',
+      implementationTime: 'immédiat',
+    },
+    {
+      type: 'lifestyle_change',
+      description: 'Passer au vélo (exercice + zéro carburant, trajets < 5km)',
       savingsPercent: 80,
       implementationEffort: 'medium',
       implementationTime: '1 semaine',
       resources: ['geovelo.fr'],
+    },
+    {
+      type: 'lifestyle_change',
+      description: 'Trottinette électrique (investissement unique, zéro carburant)',
+      savingsPercent: 70,
+      implementationEffort: 'easy',
+      implementationTime: '1 semaine',
     },
     {
       type: 'switch_provider',
@@ -250,9 +264,25 @@ const NAIVE_PATTERNS: NaivePattern[] = [
     reason: "Manger moins n'est pas une solution - ta santé passe avant",
   },
   {
-    keywords: ['arrêter manger', 'stop eating', 'no food'],
+    keywords: ['arrêter manger', 'stop eating', 'no food', 'pause food', 'cancel food'],
     category: 'food',
     reason: 'Tu dois te nourrir ! On cherche des alternatives moins chères, pas la faim',
+  },
+
+  // Transport
+  {
+    keywords: [
+      'pause transport',
+      'cancel transport',
+      'stop transport',
+      'arrêter transport',
+      'no transport',
+      'skip transport',
+      'supprimer transport',
+    ],
+    category: 'transport',
+    reason:
+      'Se déplacer est essentiel - mais tu peux marcher, prendre un vélo ou une trottinette électrique',
   },
 
   // Health
