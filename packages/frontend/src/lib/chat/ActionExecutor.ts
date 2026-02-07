@@ -1,6 +1,7 @@
 import type { ActionType } from '~/types/actions';
 import * as lifestyleService from '~/lib/lifestyleService';
 import * as profileService from '~/lib/profileService';
+import { goalService } from '~/lib/goalService';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('ActionExecutor');
@@ -32,8 +33,7 @@ export class ActionExecutor {
           return await this.executeUpdateBudget(data, profileId);
 
         case 'create_goal':
-          // TODO: Implement create goal
-          return { success: false, message: 'Create goal not implemented yet' };
+          return await this.executeCreateGoal(data, profileId);
 
         default:
           return { success: false, message: `Unknown action type: ${actionType}` };
@@ -122,6 +122,34 @@ export class ActionExecutor {
     return {
       success: true,
       message: `Updated your budget! 📉\n${changes.join('\n')}`,
+    };
+  }
+
+  private static async executeCreateGoal(
+    data: Record<string, any>,
+    profileId: string
+  ): Promise<ExecutionResult> {
+    const { name, amount, deadline } = data;
+
+    if (!name || !amount) {
+      return { success: false, message: 'Missing goal name or amount.' };
+    }
+
+    const goal = await goalService.createGoal({
+      profileId,
+      name,
+      amount: Number(amount),
+      deadline: deadline || undefined,
+      status: 'active',
+    });
+
+    if (!goal) {
+      return { success: false, message: 'Failed to create goal.' };
+    }
+
+    return {
+      success: true,
+      message: `Goal "${name}" created with a target of $${amount}!`,
     };
   }
 }

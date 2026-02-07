@@ -143,23 +143,7 @@ export const SCHEMAS = {
     )
   `,
 
-  goals: `
-    CREATE TABLE IF NOT EXISTS goals (
-      id VARCHAR PRIMARY KEY,
-      profile_id VARCHAR NOT NULL,
-      name VARCHAR NOT NULL,
-      amount DECIMAL NOT NULL,
-      deadline DATE,
-      priority INTEGER DEFAULT 1,
-      parent_goal_id VARCHAR,
-      condition_type VARCHAR DEFAULT 'none',
-      status VARCHAR DEFAULT 'active',
-      progress DECIMAL DEFAULT 0,
-      plan_data JSON,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `,
+  // goals: Authoritative schema is in routes/api/goals.ts — not duplicated here
 
   academic_events: `
     CREATE TABLE IF NOT EXISTS academic_events (
