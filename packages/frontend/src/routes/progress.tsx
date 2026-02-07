@@ -22,6 +22,7 @@ import { SavingsAdjustModal } from '~/components/suivi/SavingsAdjustModal';
 import type { Mission } from '~/components/suivi/MissionCard';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { goalService, type Goal } from '~/lib/goalService';
+import { setGoalAchieved } from '~/lib/goalAchievementStore';
 import { useProfile } from '~/lib/profileContext';
 import { useSimulation } from '~/lib/simulationContext';
 import { eventBus } from '~/lib/eventBus';
@@ -330,6 +331,22 @@ export default function ProgressPage() {
         // Sprint 2.3 Fix: Load goal from goals table (single source of truth)
         // NO localStorage fallback to prevent cross-profile contamination
         const primaryGoal = await goalService.getPrimaryGoal(profile.id);
+
+        // Check if active goal is achieved (hides BrunoTips)
+        if (primaryGoal) {
+          const currentAmount = Number(profile.followupData?.currentAmount || 0);
+          const isAchieved =
+            primaryGoal.progress >= 100 ||
+            (primaryGoal.amount > 0 && currentAmount >= primaryGoal.amount);
+          if (isAchieved) {
+            let days: number | null = null;
+            if (primaryGoal.createdAt) {
+              const start = new Date(primaryGoal.createdAt);
+              days = Math.max(1, Math.ceil((Date.now() - start.getTime()) / 86_400_000));
+            }
+            setGoalAchieved(true, days);
+          }
+        }
 
         // Get planData from profile ONLY (no localStorage to prevent contamination)
         const planData = (profile.planData || {}) as {

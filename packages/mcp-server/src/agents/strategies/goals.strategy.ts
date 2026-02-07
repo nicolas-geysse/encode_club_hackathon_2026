@@ -42,6 +42,10 @@ export class GoalsStrategy extends BaseTabStrategy {
 Analyze the student's financial goals and give ONE short actionable tip.
 Focus on: goal feasibility with current margin, breaking down into steps, or adjusting amounts/deadlines.
 If a goal seems unrealistic (insufficient margin for the deadline), suggest an adjustment.
+
+GOAL ACHIEVED: If any goal has 100% progress, celebrate warmly and encourage creating a new goal.
+Example: "You crushed it! Your goal is fully funded. Ready to aim higher? Create a new goal!"
+
 Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 
@@ -51,6 +55,11 @@ Reply in 1-2 sentences max, in an encouraging tone.`;
 
   formatContextForPrompt(context: TabContext): string {
     const parts: string[] = [];
+
+    // Goal achieved flag (from frontend dynamic progress)
+    if (context.goalAchieved) {
+      parts.push('*** GOAL ACHIEVED — progress is 100%! Celebrate and suggest a new goal. ***');
+    }
 
     // Goals
     if (context.goals && context.goals.length > 0) {

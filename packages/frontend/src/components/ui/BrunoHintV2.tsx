@@ -33,6 +33,7 @@ import {
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { cn } from '~/lib/cn';
 import { createLogger } from '~/lib/logger';
+import { goalAchieved } from '~/lib/goalAchievementStore';
 
 const logger = createLogger('BrunoHintV2');
 
@@ -160,7 +161,7 @@ export function BrunoHintV2(props: BrunoHintV2Props) {
 
   // Fetch tip from API
   const fetchTip = async (forceRefresh = false) => {
-    if (props.disableLLM || !props.profileId) {
+    if (props.disableLLM || !props.profileId || goalAchieved()) {
       return;
     }
 
@@ -316,195 +317,197 @@ export function BrunoHintV2(props: BrunoHintV2Props) {
     props.showAgentDetails !== false && processingInfo() && processingInfo()!.agentsUsed.length > 0;
 
   return (
-    <Card
-      class={cn(
-        'bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 border-l-4 transition-all',
-        CATEGORY_COLORS[category()]
-      )}
-    >
-      <CardContent class={props.compact ? 'p-2' : 'p-3'}>
-        {/* Main row */}
-        <div class="flex items-start gap-2.5">
-          {/* Bruno Avatar */}
-          <div class="flex-shrink-0 mt-0.5">
-            <Show
-              when={!isLoading()}
-              fallback={
-                <div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Loader2 class="h-4 w-4 animate-spin text-primary" />
-                </div>
-              }
-            >
-              <PlasmaAvatar size={28} color="green" />
-            </Show>
-          </div>
-
-          {/* Content */}
-          <div class="flex-1 min-w-0">
-            {/* Title row with badges */}
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="font-medium text-sm text-foreground">{displayTitle()}</span>
-
-              {/* AI Badge */}
-              <Show when={processingInfo() && processingInfo()!.fallbackLevel < 3}>
-                <span class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                  <Sparkles class="h-2.5 w-2.5" />
-                  AI
-                </span>
-              </Show>
-
-              {/* Agent count badge (clickable) */}
-              <Show when={canShowDetails()}>
-                <button
-                  onClick={() => setShowDetails(!showDetails())}
-                  class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
-                  title={showDetails() ? 'Hide agent details' : 'Show agent details'}
-                >
-                  <Bot class="h-2.5 w-2.5" />
-                  {processingInfo()!.agentsUsed.length}
-                  <Show when={showDetails()} fallback={<ChevronDown class="h-2 w-2" />}>
-                    <ChevronUp class="h-2 w-2" />
-                  </Show>
-                </button>
-              </Show>
-
-              {/* Cached indicator */}
-              <Show when={processingInfo()?.cached}>
-                <span class="text-[9px] text-muted-foreground">(cached)</span>
+    <Show when={!goalAchieved()}>
+      <Card
+        class={cn(
+          'bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 border-l-4 transition-all',
+          CATEGORY_COLORS[category()]
+        )}
+      >
+        <CardContent class={props.compact ? 'p-2' : 'p-3'}>
+          {/* Main row */}
+          <div class="flex items-start gap-2.5">
+            {/* Bruno Avatar */}
+            <div class="flex-shrink-0 mt-0.5">
+              <Show
+                when={!isLoading()}
+                fallback={
+                  <div class="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Loader2 class="h-4 w-4 animate-spin text-primary" />
+                  </div>
+                }
+              >
+                <PlasmaAvatar size={28} color="green" />
               </Show>
             </div>
 
-            {/* Message */}
-            <p class="text-xs text-muted-foreground leading-relaxed mt-0.5">{displayMessage()}</p>
+            {/* Content */}
+            <div class="flex-1 min-w-0">
+              {/* Title row with badges */}
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-medium text-sm text-foreground">{displayTitle()}</span>
 
-            {/* Action link */}
-            <Show when={displayAction()}>
-              <a
-                href={displayAction()!.href}
-                class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline mt-1"
-              >
-                {displayAction()!.label} →
-              </a>
-            </Show>
-          </div>
+                {/* AI Badge */}
+                <Show when={processingInfo() && processingInfo()!.fallbackLevel < 3}>
+                  <span class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <Sparkles class="h-2.5 w-2.5" />
+                    AI
+                  </span>
+                </Show>
 
-          {/* Actions column */}
-          <div class="flex flex-col items-end gap-1 flex-shrink-0">
-            {/* Refresh + Feedback row */}
-            <div class="flex items-center gap-0.5">
-              {/* Refresh Button */}
-              <Show when={!isLoading() && props.profileId && !props.disableLLM}>
-                <button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing()}
-                  class="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-                  title="Refresh tip"
-                >
-                  <RefreshCw class={cn('h-3 w-3', isRefreshing() && 'animate-spin')} />
-                </button>
-              </Show>
-
-              {/* Feedback Buttons */}
-              <Show when={traceId() && !isLoading()}>
-                <Show
-                  when={feedbackGiven() === null}
-                  fallback={
-                    <span class="text-[10px] text-muted-foreground px-1">
-                      {feedbackGiven() === 'up' ? '👍' : '👎'}
-                    </span>
-                  }
-                >
+                {/* Agent count badge (clickable) */}
+                <Show when={canShowDetails()}>
                   <button
-                    onClick={() => handleFeedback(true)}
-                    class="p-1 rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                    title="Helpful"
+                    onClick={() => setShowDetails(!showDetails())}
+                    class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors"
+                    title={showDetails() ? 'Hide agent details' : 'Show agent details'}
                   >
-                    <ThumbsUp class="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => handleFeedback(false)}
-                    class="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                    title="Not helpful"
-                  >
-                    <ThumbsDown class="h-3 w-3" />
+                    <Bot class="h-2.5 w-2.5" />
+                    {processingInfo()!.agentsUsed.length}
+                    <Show when={showDetails()} fallback={<ChevronDown class="h-2 w-2" />}>
+                      <ChevronUp class="h-2 w-2" />
+                    </Show>
                   </button>
                 </Show>
+
+                {/* Cached indicator */}
+                <Show when={processingInfo()?.cached}>
+                  <span class="text-[9px] text-muted-foreground">(cached)</span>
+                </Show>
+              </div>
+
+              {/* Message */}
+              <p class="text-xs text-muted-foreground leading-relaxed mt-0.5">{displayMessage()}</p>
+
+              {/* Action link */}
+              <Show when={displayAction()}>
+                <a
+                  href={displayAction()!.href}
+                  class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline mt-1"
+                >
+                  {displayAction()!.label} →
+                </a>
               </Show>
             </div>
-          </div>
-        </div>
 
-        {/* Expandable Agent Details Panel */}
-        <Show when={showDetails() && canShowDetails()}>
-          <div class="mt-2 pt-2 border-t border-border/50 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
-            {/* Agents row */}
-            <div class="flex items-center gap-1 flex-wrap">
-              <span class="text-[10px] text-muted-foreground mr-1">Agents:</span>
-              <For each={processingInfo()!.agentsUsed}>
-                {(agentId) => {
-                  const config = AGENT_CONFIG[agentId] || {
-                    icon: Bot,
-                    label: agentId,
-                    color: 'text-gray-500',
-                  };
-                  const AgentIcon = config.icon;
-                  return (
-                    <span
-                      class={cn(
-                        'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-muted/50',
-                        config.color
-                      )}
+            {/* Actions column */}
+            <div class="flex flex-col items-end gap-1 flex-shrink-0">
+              {/* Refresh + Feedback row */}
+              <div class="flex items-center gap-0.5">
+                {/* Refresh Button */}
+                <Show when={!isLoading() && props.profileId && !props.disableLLM}>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing()}
+                    class="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                    title="Refresh tip"
+                  >
+                    <RefreshCw class={cn('h-3 w-3', isRefreshing() && 'animate-spin')} />
+                  </button>
+                </Show>
+
+                {/* Feedback Buttons */}
+                <Show when={traceId() && !isLoading()}>
+                  <Show
+                    when={feedbackGiven() === null}
+                    fallback={
+                      <span class="text-[10px] text-muted-foreground px-1">
+                        {feedbackGiven() === 'up' ? '👍' : '👎'}
+                      </span>
+                    }
+                  >
+                    <button
+                      onClick={() => handleFeedback(true)}
+                      class="p-1 rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                      title="Helpful"
                     >
-                      <AgentIcon class="h-2.5 w-2.5" />
-                      {config.label}
-                    </span>
-                  );
-                }}
-              </For>
+                      <ThumbsUp class="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => handleFeedback(false)}
+                      class="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                      title="Not helpful"
+                    >
+                      <ThumbsDown class="h-3 w-3" />
+                    </button>
+                  </Show>
+                </Show>
+              </div>
             </div>
+          </div>
 
-            {/* Processing info row */}
-            <div class="flex items-center gap-3 text-[9px] text-muted-foreground">
-              <span class="inline-flex items-center gap-0.5">
-                <Clock class="h-2.5 w-2.5" />
-                {processingInfo()!.durationMs}ms
-              </span>
-              <span>Level: {FALLBACK_LEVEL_LABELS[processingInfo()!.fallbackLevel]}</span>
-              <span>Type: {processingInfo()!.orchestrationType}</span>
-            </div>
-
-            {/* Agent recommendations */}
-            <Show when={agentRecommendations() && agentRecommendations()!.length > 0}>
-              <div class="space-y-1 pt-1">
-                <For each={agentRecommendations()!.slice(0, 2)}>
-                  {(rec) => {
-                    const config = AGENT_CONFIG[rec.agentId] || {
+          {/* Expandable Agent Details Panel */}
+          <Show when={showDetails() && canShowDetails()}>
+            <div class="mt-2 pt-2 border-t border-border/50 space-y-1.5 animate-in slide-in-from-top-2 duration-200">
+              {/* Agents row */}
+              <div class="flex items-center gap-1 flex-wrap">
+                <span class="text-[10px] text-muted-foreground mr-1">Agents:</span>
+                <For each={processingInfo()!.agentsUsed}>
+                  {(agentId) => {
+                    const config = AGENT_CONFIG[agentId] || {
                       icon: Bot,
-                      label: rec.agentId,
+                      label: agentId,
                       color: 'text-gray-500',
                     };
+                    const AgentIcon = config.icon;
                     return (
-                      <div class="flex items-start gap-1.5 text-[10px]">
-                        <span class={cn('flex-shrink-0', config.color)}>{config.label}:</span>
-                        <span class="text-muted-foreground truncate">{rec.recommendation}</span>
-                        <span class="text-muted-foreground/60 flex-shrink-0">
-                          ({Math.round(rec.confidence * 100)}%)
-                        </span>
-                      </div>
+                      <span
+                        class={cn(
+                          'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-muted/50',
+                          config.color
+                        )}
+                      >
+                        <AgentIcon class="h-2.5 w-2.5" />
+                        {config.label}
+                      </span>
                     );
                   }}
                 </For>
               </div>
-            </Show>
-          </div>
-        </Show>
 
-        {/* Error state */}
-        <Show when={error() && !tipData()}>
-          <p class="text-[10px] text-red-500 mt-1">{error()}</p>
-        </Show>
-      </CardContent>
-    </Card>
+              {/* Processing info row */}
+              <div class="flex items-center gap-3 text-[9px] text-muted-foreground">
+                <span class="inline-flex items-center gap-0.5">
+                  <Clock class="h-2.5 w-2.5" />
+                  {processingInfo()!.durationMs}ms
+                </span>
+                <span>Level: {FALLBACK_LEVEL_LABELS[processingInfo()!.fallbackLevel]}</span>
+                <span>Type: {processingInfo()!.orchestrationType}</span>
+              </div>
+
+              {/* Agent recommendations */}
+              <Show when={agentRecommendations() && agentRecommendations()!.length > 0}>
+                <div class="space-y-1 pt-1">
+                  <For each={agentRecommendations()!.slice(0, 2)}>
+                    {(rec) => {
+                      const config = AGENT_CONFIG[rec.agentId] || {
+                        icon: Bot,
+                        label: rec.agentId,
+                        color: 'text-gray-500',
+                      };
+                      return (
+                        <div class="flex items-start gap-1.5 text-[10px]">
+                          <span class={cn('flex-shrink-0', config.color)}>{config.label}:</span>
+                          <span class="text-muted-foreground truncate">{rec.recommendation}</span>
+                          <span class="text-muted-foreground/60 flex-shrink-0">
+                            ({Math.round(rec.confidence * 100)}%)
+                          </span>
+                        </div>
+                      );
+                    }}
+                  </For>
+                </div>
+              </Show>
+            </div>
+          </Show>
+
+          {/* Error state */}
+          <Show when={error() && !tipData()}>
+            <p class="text-[10px] text-red-500 mt-1">{error()}</p>
+          </Show>
+        </CardContent>
+      </Card>
+    </Show>
   );
 }
 

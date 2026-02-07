@@ -47,6 +47,8 @@ import type {
 import { getCategoryById, PROSPECTION_CATEGORIES } from '~/config/prospectionCategories';
 import { scoreJobsForProfile, type ScoredJob, type UserProfile } from '~/lib/jobScoring';
 import { createLogger } from '~/lib/logger';
+import { goalAchieved } from '~/lib/goalAchievementStore';
+import { VictoryBanner } from '~/components/ui/VictoryBanner';
 
 const logger = createLogger('ProspectionTab');
 
@@ -687,413 +689,419 @@ export function ProspectionTab(props: ProspectionTabProps) {
         compact
       />
 
-      {/* Top Dashboard - Visible when Idle or Results (but not loading deep search) */}
-      <Show when={phase() !== 'loading'}>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Panel 1: Quick Action - Top 10 Highlights (Blue) */}
-          <button
-            onClick={() => {
-              setSearchRadius(DEEP_SEARCH_RADIUS_METERS); // Set to 50km for initial "Deep Search"
-              handleCategorySelect(TOP10_ALL_CATEGORY_ID);
-            }}
-            disabled={phase() === 'loading'}
-            class="group relative overflow-hidden rounded-xl border border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 shadow-sm transition-all hover:shadow-lg hover:border-blue-400/50 hover:ring-2 hover:ring-blue-500/20 text-left h-full min-h-[100px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <div class="p-4 flex flex-col justify-between h-full">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
-                  Highlights
-                </span>
-                <div class="flex items-center gap-2">
-                  <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
-                    <Dynamic
-                      component={getCategoryById(TOP10_ALL_CATEGORY_ID)?.icon || Compass}
-                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
-                    />
-                  </div>
-                  <ChevronRight class="h-5 w-5 text-blue-400/50 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                </div>
-              </div>
-              <div>
-                <div class="text-lg font-bold text-blue-900 dark:text-blue-100">
-                  Top 10 Opportunities
-                </div>
-                <div class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
-                  Best matches across all categories
-                </div>
-              </div>
-            </div>
-          </button>
+      {/* Victory Banner */}
+      <VictoryBanner />
 
-          {/* Panel 2: Quick Action - Remote */}
-          <button
-            onClick={() => handleCategorySelect(REAL_JOBS_CATEGORY_ID)}
-            disabled={phase() === 'loading'}
-            class="group relative overflow-hidden rounded-xl border border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 shadow-sm transition-all hover:shadow-lg hover:border-blue-400/50 hover:ring-2 hover:ring-blue-500/20 text-left h-full min-h-[100px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <div class="p-4 flex flex-col justify-between h-full">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
-                  Remote First
-                </span>
-                <div class="flex items-center gap-2">
-                  <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
-                    <Dynamic
-                      component={getCategoryById(REAL_JOBS_CATEGORY_ID)?.icon || MapIcon}
-                      class="h-4 w-4 text-blue-600 dark:text-blue-400"
-                    />
-                  </div>
-                  <ChevronRight class="h-5 w-5 text-blue-400/50 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                </div>
-              </div>
-              <div>
-                <div class="text-lg font-bold text-blue-900 dark:text-blue-100">
-                  Full Remote Jobs
-                </div>
-                <div class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
-                  Work from anywhere in the world
-                </div>
-              </div>
-            </div>
-          </button>
-
-          {/* Panel 3: My Selection Shortcut (Purple) */}
-          <button
-            onClick={() => setShowLeadsPanel(true)}
-            class="group relative overflow-hidden rounded-xl border border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 shadow-sm transition-all hover:shadow-lg hover:border-purple-400/50 hover:ring-2 hover:ring-purple-500/20 text-left h-full min-h-[100px] cursor-pointer"
-          >
-            <div class="p-4 flex flex-col justify-between h-full">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 text-sm font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">
-                  <Bookmark class="h-4 w-4" />
-                  <span>My Selection</span>
-                </div>
-                <ChevronRight class="h-5 w-5 text-purple-400/50 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
-              </div>
-              <div>
-                <div class="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                  {leads().length}
-                </div>
-                <div class="text-xs text-purple-600/80 dark:text-purple-400/80 mt-1">
-                  Saved opportunities
-                </div>
-              </div>
-            </div>
-          </button>
-        </div>
-      </Show>
-
-      {/* Saved Jobs Inline Section */}
-      <Show when={leads().length > 0}>
-        <div class="border rounded-xl bg-card shadow-sm overflow-hidden">
-          <button
-            onClick={() => setShowLeadsPanel(!showLeadsPanel())}
-            class="w-full flex items-center justify-between p-4 bg-muted/20 hover:bg-muted/30 transition-colors"
-          >
-            <div class="flex items-center gap-3">
-              <div class="h-8 w-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center shadow-sm">
-                <Bookmark class="h-4 w-4" />
-              </div>
-              <div class="text-left">
-                <h3 class="font-bold text-foreground">My Selection</h3>
-                <p class="text-xs text-muted-foreground">{leads().length} saved opportunities</p>
-              </div>
-            </div>
-            <div
-              class={`transition-transform duration-300 ${showLeadsPanel() ? 'rotate-180' : ''}`}
+      {/* All content below — hidden when goal achieved */}
+      <Show when={!goalAchieved()}>
+        {/* Top Dashboard - Visible when Idle or Results (but not loading deep search) */}
+        <Show when={phase() !== 'loading'}>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Panel 1: Quick Action - Top 10 Highlights (Blue) */}
+            <button
+              onClick={() => {
+                setSearchRadius(DEEP_SEARCH_RADIUS_METERS); // Set to 50km for initial "Deep Search"
+                handleCategorySelect(TOP10_ALL_CATEGORY_ID);
+              }}
+              disabled={phase() === 'loading'}
+              class="group relative overflow-hidden rounded-xl border border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 shadow-sm transition-all hover:shadow-lg hover:border-blue-400/50 hover:ring-2 hover:ring-blue-500/20 text-left h-full min-h-[100px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <ChevronDown class="h-5 w-5 text-muted-foreground" />
-            </div>
-          </button>
-
-          <Show when={showLeadsPanel()}>
-            <div class="p-0 border-t border-border animate-in slide-in-from-top-2 duration-200">
-              {/* View Toggle inside panel */}
-              <div class="p-2 flex justify-end bg-muted/10 border-b border-border/50">
-                <div class="flex items-center gap-1 bg-background rounded-lg p-1 border">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewMode('list');
-                    }}
-                    class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${viewMode() === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
-                  >
-                    List
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setViewMode('map');
-                    }}
-                    class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${viewMode() === 'map' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
-                  >
-                    Map
-                  </button>
+              <div class="p-4 flex flex-col justify-between h-full">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                    Highlights
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
+                      <Dynamic
+                        component={getCategoryById(TOP10_ALL_CATEGORY_ID)?.icon || Compass}
+                        class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                      />
+                    </div>
+                    <ChevronRight class="h-5 w-5 text-blue-400/50 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                  </div>
+                </div>
+                <div>
+                  <div class="text-lg font-bold text-blue-900 dark:text-blue-100">
+                    Top 10 Opportunities
+                  </div>
+                  <div class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+                    Best matches across all categories
+                  </div>
                 </div>
               </div>
+            </button>
 
-              <div class="p-4">
-                <Show when={viewMode() === 'map'}>
+            {/* Panel 2: Quick Action - Remote */}
+            <button
+              onClick={() => handleCategorySelect(REAL_JOBS_CATEGORY_ID)}
+              disabled={phase() === 'loading'}
+              class="group relative overflow-hidden rounded-xl border border-blue-200/50 dark:border-blue-800/50 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/10 shadow-sm transition-all hover:shadow-lg hover:border-blue-400/50 hover:ring-2 hover:ring-blue-500/20 text-left h-full min-h-[100px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <div class="p-4 flex flex-col justify-between h-full">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                    Remote First
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center transition-transform group-hover:scale-110">
+                      <Dynamic
+                        component={getCategoryById(REAL_JOBS_CATEGORY_ID)?.icon || MapIcon}
+                        class="h-4 w-4 text-blue-600 dark:text-blue-400"
+                      />
+                    </div>
+                    <ChevronRight class="h-5 w-5 text-blue-400/50 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
+                  </div>
+                </div>
+                <div>
+                  <div class="text-lg font-bold text-blue-900 dark:text-blue-100">
+                    Full Remote Jobs
+                  </div>
+                  <div class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+                    Work from anywhere in the world
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            {/* Panel 3: My Selection Shortcut (Purple) */}
+            <button
+              onClick={() => setShowLeadsPanel(true)}
+              class="group relative overflow-hidden rounded-xl border border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 shadow-sm transition-all hover:shadow-lg hover:border-purple-400/50 hover:ring-2 hover:ring-purple-500/20 text-left h-full min-h-[100px] cursor-pointer"
+            >
+              <div class="p-4 flex flex-col justify-between h-full">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-sm font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">
+                    <Bookmark class="h-4 w-4" />
+                    <span>My Selection</span>
+                  </div>
+                  <ChevronRight class="h-5 w-5 text-purple-400/50 group-hover:text-purple-500 group-hover:translate-x-1 transition-all" />
+                </div>
+                <div>
+                  <div class="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                    {leads().length}
+                  </div>
+                  <div class="text-xs text-purple-600/80 dark:text-purple-400/80 mt-1">
+                    Saved opportunities
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </Show>
+
+        {/* Saved Jobs Inline Section */}
+        <Show when={leads().length > 0}>
+          <div class="border rounded-xl bg-card shadow-sm overflow-hidden">
+            <button
+              onClick={() => setShowLeadsPanel(!showLeadsPanel())}
+              class="w-full flex items-center justify-between p-4 bg-muted/20 hover:bg-muted/30 transition-colors"
+            >
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center shadow-sm">
+                  <Bookmark class="h-4 w-4" />
+                </div>
+                <div class="text-left">
+                  <h3 class="font-bold text-foreground">My Selection</h3>
+                  <p class="text-xs text-muted-foreground">{leads().length} saved opportunities</p>
+                </div>
+              </div>
+              <div
+                class={`transition-transform duration-300 ${showLeadsPanel() ? 'rotate-180' : ''}`}
+              >
+                <ChevronDown class="h-5 w-5 text-muted-foreground" />
+              </div>
+            </button>
+
+            <Show when={showLeadsPanel()}>
+              <div class="p-0 border-t border-border animate-in slide-in-from-top-2 duration-200">
+                {/* View Toggle inside panel */}
+                <div class="p-2 flex justify-end bg-muted/10 border-b border-border/50">
+                  <div class="flex items-center gap-1 bg-background rounded-lg p-1 border">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewMode('list');
+                      }}
+                      class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${viewMode() === 'list' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                      List
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewMode('map');
+                      }}
+                      class={`px-3 py-1 rounded-md text-xs font-medium transition-all ${viewMode() === 'map' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
+                    >
+                      Map
+                    </button>
+                  </div>
+                </div>
+
+                <div class="p-4">
+                  <Show when={viewMode() === 'map'}>
+                    <ProspectionMap
+                      userLocation={props.userLocation}
+                      leads={leads()}
+                      highlightedId={highlightedLeadId() || undefined}
+                      onMarkerClick={handleMarkerClick}
+                      height="300px"
+                    />
+                  </Show>
+                  <Show when={viewMode() === 'list'}>
+                    <SavedLeads
+                      leads={leads()}
+                      onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
+                      onLeadClick={handleLeadClick}
+                      highlightedId={highlightedLeadId() || undefined}
+                    />
+                  </Show>
+                </div>
+              </div>
+            </Show>
+          </div>
+        </Show>
+
+        {/* Idle Phase - Category Explorer */}
+        <Show when={phase() === 'idle'}>
+          <div class="pt-4 border-t border-border/50">
+            <h3 class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+              Explore Job Categories
+            </h3>
+            <CategoryExplorer
+              onCategorySelect={handleCategorySelect}
+              currency={props.currency}
+              allCategoryJobs={allCategoryJobs()}
+              searchedCategories={searchedCategories()}
+              excludedCategories={excludedCategoryIds()}
+              onExcludeCategory={handleExcludeCategory}
+              exclusionCounts={(() => {
+                const counts = new Map<string, number>();
+                for (const e of exclusions()) {
+                  if (e.exclusionType === 'job') {
+                    // Find the category of the excluded job from the label or target
+                    // For simplicity, count job exclusions per their target_id prefix (categoryId_placeId)
+                    const catId = e.targetId.split('_')[0];
+                    counts.set(catId, (counts.get(catId) || 0) + 1);
+                  }
+                }
+                return counts;
+              })()}
+            />
+          </div>
+        </Show>
+
+        {/* Loading Phase */}
+        <Show when={phase() === 'loading'}>
+          <div class="flex flex-col items-center justify-center py-20">
+            <Compass class="h-16 w-16 animate-spin text-primary mb-6" />
+            <p class="text-lg text-muted-foreground animate-pulse">
+              {deepSearchProgress() || `Searching for ${categoryLabel()} opportunities...`}
+            </p>
+            <Show when={deepSearchProgress()}>
+              <p class="text-sm text-muted-foreground mt-2">Deep search in progress...</p>
+            </Show>
+          </div>
+        </Show>
+
+        {/* Results Phase */}
+        <Show when={phase() === 'results'}>
+          <div class="space-y-6">
+            {/* Header with quick actions */}
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
+                <p class="text-sm text-muted-foreground">Save opportunities you're interested in</p>
+                <Show when={props.userLocation}>
+                  <p class="text-xs text-muted-foreground mt-1">📍 {props.city || 'Near you'}</p>
+                </Show>
+              </div>
+              {/* Phase 8b: Quick access button at top */}
+              <div class="flex flex-col items-end gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleReset}
+                  class="shrink-0 bg-foreground text-background hover:bg-muted-foreground"
+                >
+                  <RotateCcw class="h-4 w-4 mr-2" />
+                  Change category
+                </Button>
+              </div>
+            </div>
+
+            {/* Map at top - visible on all devices (except for Remote Jobs) */}
+            <Show
+              when={
+                props.userLocation &&
+                filteredCards().length > 0 &&
+                currentCategory() !== REAL_JOBS_CATEGORY_ID
+              }
+            >
+              <Card>
+                <CardContent class="p-4">
+                  <h3 class="font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <MapIcon class="h-4 w-4" />
+                    {currentCategory() === TOP10_ALL_CATEGORY_ID
+                      ? `Top 10 (balanced across categories) of ${filteredCards().length} places`
+                      : `${filteredCards().length} places nearby`}
+                  </h3>
                   <ProspectionMap
                     userLocation={props.userLocation}
-                    leads={leads()}
-                    highlightedId={highlightedLeadId() || undefined}
-                    onMarkerClick={handleMarkerClick}
-                    height="300px"
+                    currentCards={
+                      currentCategory() === TOP10_ALL_CATEGORY_ID
+                        ? buildBalancedTop10(filteredCards())
+                        : filteredCards()
+                    }
+                    height="350px"
+                    onSaveCard={handleSaveJob}
+                    savedCardIds={savedJobIds()}
+                    onExcludeCard={handleExcludeJob}
                   />
-                </Show>
-                <Show when={viewMode() === 'list'}>
-                  <SavedLeads
-                    leads={leads()}
-                    onStatusChange={handleStatusChange}
-                    onDelete={handleDelete}
-                    onLeadClick={handleLeadClick}
-                    highlightedId={highlightedLeadId() || undefined}
-                  />
-                </Show>
-              </div>
-            </div>
-          </Show>
-        </div>
-      </Show>
 
-      {/* Idle Phase - Category Explorer */}
-      <Show when={phase() === 'idle'}>
-        <div class="pt-4 border-t border-border/50">
-          <h3 class="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-            Explore Job Categories
-          </h3>
-          <CategoryExplorer
-            onCategorySelect={handleCategorySelect}
-            currency={props.currency}
-            allCategoryJobs={allCategoryJobs()}
-            searchedCategories={searchedCategories()}
-            excludedCategories={excludedCategoryIds()}
-            onExcludeCategory={handleExcludeCategory}
-            exclusionCounts={(() => {
-              const counts = new Map<string, number>();
-              for (const e of exclusions()) {
-                if (e.exclusionType === 'job') {
-                  // Find the category of the excluded job from the label or target
-                  // For simplicity, count job exclusions per their target_id prefix (categoryId_placeId)
-                  const catId = e.targetId.split('_')[0];
-                  counts.set(catId, (counts.get(catId) || 0) + 1);
-                }
-              }
-              return counts;
-            })()}
-          />
-        </div>
-      </Show>
+                  {/* Radius Control - Placed below map as requested */}
+                  <Show when={props.userLocation && searchMeta()?.radiusUsed !== 'external_api'}>
+                    <div class="flex items-center justify-between mt-3 px-1 pt-2 border-t border-border/50">
+                      <span class="text-xs text-muted-foreground">Search Radius</span>
+                      <div class="flex items-center gap-3">
+                        <div class="w-32">
+                          <Slider
+                            label=""
+                            min={1}
+                            max={10}
+                            step={1}
+                            value={[searchRadius() / 1000]}
+                            onChange={(v) => setSearchRadius(v[0] * 1000)}
+                          />
+                        </div>
+                        <span class="text-xs font-medium w-8 text-right">
+                          {(searchRadius() / 1000).toFixed(0)}km
+                        </span>
 
-      {/* Loading Phase */}
-      <Show when={phase() === 'loading'}>
-        <div class="flex flex-col items-center justify-center py-20">
-          <Compass class="h-16 w-16 animate-spin text-primary mb-6" />
-          <p class="text-lg text-muted-foreground animate-pulse">
-            {deepSearchProgress() || `Searching for ${categoryLabel()} opportunities...`}
-          </p>
-          <Show when={deepSearchProgress()}>
-            <p class="text-sm text-muted-foreground mt-2">Deep search in progress...</p>
-          </Show>
-        </div>
-      </Show>
+                        {/* Inline update button if changed */}
+                        <Show when={String(searchMeta()?.radiusUsed) !== String(searchRadius())}>
+                          <button
+                            onClick={() =>
+                              currentCategory() && handleCategorySelect(currentCategory()!)
+                            }
+                            class="p-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+                            title="Update Search"
+                          >
+                            <RotateCcw class="h-3 w-3" />
+                          </button>
+                        </Show>
+                      </div>
+                    </div>
+                  </Show>
+                </CardContent>
+              </Card>
+            </Show>
 
-      {/* Results Phase */}
-      <Show when={phase() === 'results'}>
-        <div class="space-y-6">
-          {/* Header with quick actions */}
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-xl font-bold text-foreground">{categoryLabel()}</h2>
-              <p class="text-sm text-muted-foreground">Save opportunities you're interested in</p>
-              <Show when={props.userLocation}>
-                <p class="text-xs text-muted-foreground mt-1">📍 {props.city || 'Near you'}</p>
-              </Show>
-            </div>
-            {/* Phase 8b: Quick access button at top */}
-            <div class="flex flex-col items-end gap-2">
-              <Button
-                size="sm"
-                onClick={handleReset}
-                class="shrink-0 bg-foreground text-background hover:bg-muted-foreground"
-              >
-                <RotateCcw class="h-4 w-4 mr-2" />
-                Change category
-              </Button>
-            </div>
+            {/* Job list below */}
+            <ProspectionList
+              jobs={filteredCards()}
+              onSave={handleSaveJob}
+              onExclude={handleExcludeJob}
+              savedIds={savedJobIds()}
+              meta={searchMeta()}
+              userCertifications={props.userCertifications}
+              profileId={props.profileId}
+              categoryLabel={categoryLabel()}
+              allCategoryJobs={allCategoryJobs().filter(
+                (j) => !excludedJobIds().has(j.id) && !excludedCategoryIds().has(j.categoryId)
+              )}
+              showViewTabs={true}
+              limit={currentCategory() === TOP10_ALL_CATEGORY_ID ? 10 : undefined}
+            />
           </div>
 
-          {/* Map at top - visible on all devices (except for Remote Jobs) */}
-          <Show
-            when={
-              props.userLocation &&
-              filteredCards().length > 0 &&
-              currentCategory() !== REAL_JOBS_CATEGORY_ID
-            }
-          >
+          {/* Action buttons */}
+          <div class="flex justify-center gap-4 mt-6">
+            <Button variant="ghost" onClick={handleReset}>
+              <RotateCcw class="h-4 w-4 mr-2" />
+              Choose another category
+            </Button>
+            <Show when={savedCount() > 0}>
+              <Button onClick={handleFinishResults}>
+                <Check class="h-4 w-4 mr-2" />
+                Done ({savedCount()} saved)
+              </Button>
+            </Show>
+          </div>
+        </Show>
+
+        {/* Complete Phase */}
+        <Show when={phase() === 'complete'}>
+          <div class="space-y-6">
+            {/* Summary */}
             <Card>
-              <CardContent class="p-4">
-                <h3 class="font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <MapIcon class="h-4 w-4" />
-                  {currentCategory() === TOP10_ALL_CATEGORY_ID
-                    ? `Top 10 (balanced across categories) of ${filteredCards().length} places`
-                    : `${filteredCards().length} places nearby`}
-                </h3>
-                <ProspectionMap
-                  userLocation={props.userLocation}
-                  currentCards={
-                    currentCategory() === TOP10_ALL_CATEGORY_ID
-                      ? buildBalancedTop10(filteredCards())
-                      : filteredCards()
-                  }
-                  height="350px"
-                  onSaveCard={handleSaveJob}
-                  savedCardIds={savedJobIds()}
-                  onExcludeCard={handleExcludeJob}
-                />
-
-                {/* Radius Control - Placed below map as requested */}
-                <Show when={props.userLocation && searchMeta()?.radiusUsed !== 'external_api'}>
-                  <div class="flex items-center justify-between mt-3 px-1 pt-2 border-t border-border/50">
-                    <span class="text-xs text-muted-foreground">Search Radius</span>
-                    <div class="flex items-center gap-3">
-                      <div class="w-32">
-                        <Slider
-                          label=""
-                          min={1}
-                          max={10}
-                          step={1}
-                          value={[searchRadius() / 1000]}
-                          onChange={(v) => setSearchRadius(v[0] * 1000)}
-                        />
-                      </div>
-                      <span class="text-xs font-medium w-8 text-right">
-                        {(searchRadius() / 1000).toFixed(0)}km
-                      </span>
-
-                      {/* Inline update button if changed */}
-                      <Show when={String(searchMeta()?.radiusUsed) !== String(searchRadius())}>
-                        <button
-                          onClick={() =>
-                            currentCategory() && handleCategorySelect(currentCategory()!)
-                          }
-                          class="p-1.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
-                          title="Update Search"
-                        >
-                          <RotateCcw class="h-3 w-3" />
-                        </button>
-                      </Show>
-                    </div>
-                  </div>
-                </Show>
+              <CardContent class="p-6 text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-950/30 rounded-full mb-4">
+                  <Check class="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h2 class="text-2xl font-bold text-foreground mb-2">Exploration Complete!</h2>
+                <p class="text-muted-foreground">
+                  You explored {currentCards().length} opportunities in {categoryLabel()}.
+                  <br />
+                  {savedCount()} saved to your list.
+                </p>
               </CardContent>
             </Card>
-          </Show>
 
-          {/* Job list below */}
-          <ProspectionList
-            jobs={filteredCards()}
-            onSave={handleSaveJob}
-            onExclude={handleExcludeJob}
-            savedIds={savedJobIds()}
-            meta={searchMeta()}
-            userCertifications={props.userCertifications}
-            profileId={props.profileId}
-            categoryLabel={categoryLabel()}
-            allCategoryJobs={allCategoryJobs().filter(
-              (j) => !excludedJobIds().has(j.id) && !excludedCategoryIds().has(j.categoryId)
-            )}
-            showViewTabs={true}
-            limit={currentCategory() === TOP10_ALL_CATEGORY_ID ? 10 : undefined}
-          />
-        </div>
-
-        {/* Action buttons */}
-        <div class="flex justify-center gap-4 mt-6">
-          <Button variant="ghost" onClick={handleReset}>
-            <RotateCcw class="h-4 w-4 mr-2" />
-            Choose another category
-          </Button>
-          <Show when={savedCount() > 0}>
-            <Button onClick={handleFinishResults}>
-              <Check class="h-4 w-4 mr-2" />
-              Done ({savedCount()} saved)
-            </Button>
-          </Show>
-        </div>
-      </Show>
-
-      {/* Complete Phase */}
-      <Show when={phase() === 'complete'}>
-        <div class="space-y-6">
-          {/* Summary */}
-          <Card>
-            <CardContent class="p-6 text-center">
-              <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-950/30 rounded-full mb-4">
-                <Check class="h-8 w-8 text-green-600 dark:text-green-400" />
+            {/* View mode toggle */}
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-foreground">Your Leads</h3>
+              <div class="flex items-center gap-2">
+                <Button
+                  variant={viewMode() === 'list' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List class="h-4 w-4 mr-1" />
+                  List
+                </Button>
+                <Button
+                  variant={viewMode() === 'map' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('map')}
+                >
+                  <MapIcon class="h-4 w-4 mr-1" />
+                  Map
+                </Button>
               </div>
-              <h2 class="text-2xl font-bold text-foreground mb-2">Exploration Complete!</h2>
-              <p class="text-muted-foreground">
-                You explored {currentCards().length} opportunities in {categoryLabel()}.
-                <br />
-                {savedCount()} saved to your list.
-              </p>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* View mode toggle */}
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-foreground">Your Leads</h3>
-            <div class="flex items-center gap-2">
-              <Button
-                variant={viewMode() === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-              >
-                <List class="h-4 w-4 mr-1" />
-                List
-              </Button>
-              <Button
-                variant={viewMode() === 'map' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('map')}
-              >
-                <MapIcon class="h-4 w-4 mr-1" />
-                Map
+            {/* Content based on view mode */}
+            <Show when={viewMode() === 'list'}>
+              <SavedLeads
+                leads={leads()}
+                onStatusChange={handleStatusChange}
+                onDelete={handleDelete}
+                onLeadClick={handleLeadClick}
+                highlightedId={highlightedLeadId() || undefined}
+              />
+            </Show>
+
+            <Show when={viewMode() === 'map'}>
+              <ProspectionMap
+                userLocation={props.userLocation}
+                leads={leads()}
+                highlightedId={highlightedLeadId() || undefined}
+                onMarkerClick={handleMarkerClick}
+                height="400px"
+              />
+            </Show>
+
+            {/* Actions */}
+            <div class="flex gap-4">
+              <Button variant="outline" class="flex-1" onClick={handleReset}>
+                <Compass class="h-4 w-4 mr-2" />
+                Explore More
               </Button>
             </div>
           </div>
-
-          {/* Content based on view mode */}
-          <Show when={viewMode() === 'list'}>
-            <SavedLeads
-              leads={leads()}
-              onStatusChange={handleStatusChange}
-              onDelete={handleDelete}
-              onLeadClick={handleLeadClick}
-              highlightedId={highlightedLeadId() || undefined}
-            />
-          </Show>
-
-          <Show when={viewMode() === 'map'}>
-            <ProspectionMap
-              userLocation={props.userLocation}
-              leads={leads()}
-              highlightedId={highlightedLeadId() || undefined}
-              onMarkerClick={handleMarkerClick}
-              height="400px"
-            />
-          </Show>
-
-          {/* Actions */}
-          <div class="flex gap-4">
-            <Button variant="outline" class="flex-1" onClick={handleReset}>
-              <Compass class="h-4 w-4 mr-2" />
-              Explore More
-            </Button>
-          </div>
-        </div>
+        </Show>
       </Show>
     </div>
   );

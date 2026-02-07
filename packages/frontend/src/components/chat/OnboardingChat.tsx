@@ -44,6 +44,7 @@ import {
   type FieldChange,
 } from '~/lib/chat/fieldValidation';
 import { isDeadlinePassed } from '~/lib/timeAwareDate';
+import { setGoalAchieved } from '~/lib/goalAchievementStore';
 import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardingStateStore';
 import { addDays, now } from '~/lib/dateUtils';
 import { normalizeSubscriptionName } from '~/lib/chat/extraction/patterns';
@@ -230,6 +231,7 @@ export function OnboardingChat() {
 
   const [messages, setMessages] = createSignal<Message[]>([]);
   const [loading, setLoading] = createSignal(false);
+  const [chatBlocked, setChatBlocked] = createSignal(false);
   const [step, setStep] = createSignal<OnboardingStep>('greeting');
   const [chatMode, setChatMode] = createSignal<ChatMode>('onboarding');
   const [profile, setProfile] = createSignal<Partial<ProfileData>>({
@@ -1167,6 +1169,93 @@ export function OnboardingChat() {
                 content: getWelcomeBackMessage(apiProfile.name || 'there'),
               },
             ]);
+          }
+
+          // Proactive MCP-UI victory card — blocks chat when a goal is achieved
+          try {
+            const goals = await goalService.listGoals(apiProfile.id, { status: 'active' });
+            const currentAmount = Number(apiProfile.followupData?.currentAmount || 0);
+            const achieved = goals.find(
+              (g) => g.progress >= 100 || (g.amount > 0 && currentAmount >= g.amount)
+            );
+            if (achieved) {
+              let daysToReach: number | null = null;
+              if (achieved.createdAt) {
+                const start = new Date(achieved.createdAt);
+                daysToReach = Math.max(
+                  1,
+                  Math.ceil((Date.now() - start.getTime()) / (1000 * 60 * 60 * 24))
+                );
+              }
+              const victoryMessage: Message = {
+                id: `goal-victory-${achieved.id}`,
+                role: 'assistant',
+                content: `You reached your "${achieved.name}" goal! ${daysToReach ? `Completed in ${daysToReach} day${daysToReach > 1 ? 's' : ''}!` : 'Congratulations!'} Ready for the next challenge?`,
+                uiResource: {
+                  type: 'composite',
+                  components: [
+                    {
+                      type: 'text',
+                      params: {
+                        content: `**Goal Achieved!** "${achieved.name}"`,
+                        markdown: true,
+                      },
+                    },
+                    {
+                      type: 'grid',
+                      params: {
+                        columns: 3,
+                        children: [
+                          {
+                            type: 'metric',
+                            params: {
+                              title: 'Target',
+                              value: achieved.amount,
+                              unit: '\u20ac',
+                              subtitle: 'Reached!',
+                              trend: { direction: 'up', value: '100%' },
+                            },
+                          },
+                          {
+                            type: 'metric',
+                            params: {
+                              title: 'Progress',
+                              value: 100,
+                              unit: '%',
+                              subtitle: `${Math.round(currentAmount)}\u20ac / ${achieved.amount}\u20ac`,
+                            },
+                          },
+                          {
+                            type: 'metric',
+                            params: {
+                              title: daysToReach ? 'Reached in' : 'Status',
+                              value: daysToReach ?? '\u2713',
+                              unit: daysToReach ? (daysToReach > 1 ? 'days' : 'day') : '',
+                              subtitle: 'Congratulations!',
+                            },
+                          },
+                        ],
+                      },
+                    },
+                    {
+                      type: 'action',
+                      params: {
+                        type: 'button',
+                        label: 'Create New Goal',
+                        variant: 'primary',
+                        action: 'navigate',
+                        params: { to: '/me?tab=goals&action=new' },
+                      },
+                    },
+                  ],
+                },
+              };
+              setMessages((prev) => [...prev, victoryMessage]);
+              setChatBlocked(true);
+              setGoalAchieved(true, daysToReach);
+            }
+          } catch (e) {
+            logger.debug('Could not check for achieved goals', { error: e });
           }
         } else {
           // No profile but onboarding marked complete - show welcome
@@ -2784,10 +2873,13 @@ export function OnboardingChat() {
           field,
         }));
 
-        // Build message for LLM
+        // Use advanceFormStep (not handleSend) to skip the LLM round-trip.
+        // handleSend would re-extract "phd in computer_science" via regex,
+        // producing "Computer Science" which overwrites the correct "computer_science"
+        // select value and breaks field-specific skill suggestions.
         const fieldDisplay = field === 'other' && fieldOther ? fieldOther : field;
-        message = `${diploma || ''} in ${fieldDisplay || ''}`.trim();
-        break;
+        advanceFormStep(`${diploma || ''} in ${fieldDisplay || ''}`.trim());
+        return;
       }
       case 'skills': {
         const skills = Array.isArray(data.skills) ? (data.skills as string[]) : [];
@@ -2980,8 +3072,8 @@ export function OnboardingChat() {
               <h2 class="text-2xl font-bold text-foreground">Bruno</h2>
               <p class="text-muted-foreground font-medium">Financial Coach</p>
 
-              {/* Bruno Tips Panel - Context-aware tips after onboarding complete */}
-              <Show when={isComplete()}>
+              {/* Bruno Tips Panel - Context-aware tips after onboarding complete, hidden when goal achieved */}
+              <Show when={isComplete() && !chatBlocked()}>
                 <div class="mt-4 w-full max-w-[280px]">
                   <OnboardingTips
                     currentStep={step()}
@@ -2991,8 +3083,8 @@ export function OnboardingChat() {
                 </div>
               </Show>
 
-              {/* Quick Links - Show after onboarding, trigger charts in chat */}
-              <Show when={isComplete()}>
+              {/* Quick Links - Show after onboarding, hidden when goal achieved */}
+              <Show when={isComplete() && !chatBlocked()}>
                 <div class="mt-6 flex flex-col gap-2 w-full max-w-[180px]">
                   <For each={QUICK_LINKS}>
                     {(link, i) => {
@@ -3177,22 +3269,39 @@ export function OnboardingChat() {
             <div class="p-4 md:p-6 bg-background/80 backdrop-blur-xl border-t border-border z-20">
               <div class="max-w-3xl w-full relative">
                 <Show
-                  when={isComplete()}
+                  when={!chatBlocked()}
                   fallback={
+                    <div class="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300/40 dark:border-yellow-700/40">
+                      <span class="text-sm text-yellow-700 dark:text-yellow-300 font-medium">
+                        Goal achieved! Create a new goal to continue.
+                      </span>
+                      <button
+                        onClick={() => navigate('/me?tab=goals&action=new')}
+                        class="px-3 py-1.5 text-xs font-medium rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition-colors"
+                      >
+                        New Goal
+                      </button>
+                    </div>
+                  }
+                >
+                  <Show
+                    when={isComplete()}
+                    fallback={
+                      <ChatInput
+                        ref={(el) => (chatInputRef = el)}
+                        onSend={handleSend}
+                        placeholder="Type your response..."
+                        disabled={loading()}
+                      />
+                    }
+                  >
                     <ChatInput
                       ref={(el) => (chatInputRef = el)}
                       onSend={handleSend}
-                      placeholder="Type your response..."
+                      placeholder="Ask Bruno anything..."
                       disabled={loading()}
                     />
-                  }
-                >
-                  <ChatInput
-                    ref={(el) => (chatInputRef = el)}
-                    onSend={handleSend}
-                    placeholder="Ask Bruno anything..."
-                    disabled={loading()}
-                  />
+                  </Show>
                 </Show>
               </div>
             </div>

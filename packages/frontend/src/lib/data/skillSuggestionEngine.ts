@@ -319,16 +319,16 @@ export function getEnhancedSkillSuggestions(
     // Convert to 1-5 stars
     const stars = Math.max(1, Math.min(5, Math.round(adjustedScore))) as 1 | 2 | 3 | 4 | 5;
 
-    // Bruno's pick criteria:
-    // - 5 stars
+    // Bruno's pick criteria (onboarding = skill discovery, not job readiness):
+    // - High stars (≥ 4)
     // - Primary or strong field match
-    // - High accessibility (easy to start)
-    // - Good market demand
+    // - Reasonable market demand (≥ 3)
+    // Accessibility is intentionally NOT required — onboarding should surface
+    // creative skills the student might not think of, even if hard to monetize.
     const isBrunoPick =
       stars >= 4 &&
       (fieldMatch === 'primary' || fieldMatch === 'strong') &&
-      accessibility >= 4 &&
-      (def?.marketDemand || 3) >= 4;
+      (def?.marketDemand || 3) >= 3;
 
     suggestions.push({
       name: skillName,
@@ -374,7 +374,21 @@ export function getEnhancedSkillSuggestions(
   ];
   universalSkills.forEach(addSkill);
 
-  // 4. Sort: Bruno's picks first, then by stars (desc), then by accessibility (desc)
+  // 4. Guarantee at least 1 Bruno pick from the user's OWN field.
+  //    Cross-field picks may exist but students need their field's skills highlighted.
+  const primarySkillNames = new Set(field ? SKILLS_BY_FIELD[field] || [] : []);
+  const hasPrimaryPick = suggestions.some((s) => s.isBrunoPick && primarySkillNames.has(s.name));
+  if (!hasPrimaryPick && primarySkillNames.size > 0) {
+    // Promote the highest-starred primary field skill
+    const primarySuggestions = suggestions
+      .filter((s) => primarySkillNames.has(s.name))
+      .sort((a, b) => b.stars - a.stars);
+    if (primarySuggestions.length > 0) {
+      primarySuggestions[0].isBrunoPick = true;
+    }
+  }
+
+  // 5. Sort: Bruno's picks first, then by stars (desc), then by accessibility (desc)
   suggestions.sort((a, b) => {
     // Bruno's picks first
     if (a.isBrunoPick !== b.isBrunoPick) {

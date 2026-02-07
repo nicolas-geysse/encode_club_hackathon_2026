@@ -35,6 +35,7 @@ export interface TabContext {
   };
 
   // Goals-specific
+  goalAchieved?: boolean;
   goals?: Array<{
     id: string;
     name: string;

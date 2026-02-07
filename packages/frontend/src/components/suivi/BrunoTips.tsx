@@ -35,6 +35,7 @@ import {
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 import { createLogger } from '~/lib/logger';
+import { goalAchieved } from '~/lib/goalAchievementStore';
 import type { Mission } from './MissionCard';
 import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 
@@ -384,7 +385,7 @@ export function BrunoTips(props: BrunoTipsProps) {
 
   // Fetch AI-generated tip with multi-agent orchestration
   const fetchAITip = async () => {
-    if (!props.useLLM) return;
+    if (!props.useLLM || goalAchieved()) return;
 
     setIsLoadingAI(true);
 
@@ -480,200 +481,204 @@ export function BrunoTips(props: BrunoTipsProps) {
     isAITip() && (agentRecommendations() || localOpportunities() || processingInfo());
 
   return (
-    <Card class="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 overflow-hidden">
-      <CardContent class="p-3">
-        {/* Main row */}
-        <div class="flex items-center gap-2.5">
-          {/* Bruno Avatar */}
-          <div class="flex-shrink-0">
-            <Show
-              when={!isLoadingAI()}
-              fallback={
-                <div class={cn('p-1.5 rounded-lg', config().bg)}>
-                  <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              }
-            >
-              <PlasmaAvatar size={32} color="green" />
-            </Show>
-          </div>
-
-          {/* Content */}
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-1.5">
-              <h4 class="font-semibold text-foreground text-sm truncate">{tip().title}</h4>
-              <Show when={isAITip()}>
-                <span class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 flex-shrink-0">
-                  <Sparkles class="h-2.5 w-2.5" />
-                  AI
-                </span>
-              </Show>
-              {/* Agent count badge */}
-              <Show when={isAITip() && processingInfo() && processingInfo()!.agentsUsed.length > 0}>
-                <button
-                  onClick={() => setShowAgentDetails(!showAgentDetails())}
-                  class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0 hover:bg-blue-500/20 transition-colors"
-                  title="Click to see agent details"
-                >
-                  <Bot class="h-2.5 w-2.5" />
-                  {processingInfo()!.agentsUsed.length}
-                </button>
-              </Show>
-            </div>
-
-            <p
-              class={cn(
-                'text-xs text-muted-foreground transition-opacity duration-200 line-clamp-2',
-                isTransitioning() && 'opacity-0'
-              )}
-            >
-              {tip().message}
-            </p>
-          </div>
-
-          {/* Navigation */}
-          <Show when={totalTips() > 1}>
-            <div class="flex items-center gap-0.5 flex-shrink-0">
-              <button
-                onClick={prevTip}
-                disabled={isTransitioning()}
-                class="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                <ChevronLeft class="h-4 w-4" />
-              </button>
-              <span class="text-xs text-muted-foreground tabular-nums min-w-[2.5rem] text-center">
-                {currentTipIndex() + 1}/{totalTips()}
-              </span>
-              <button
-                onClick={nextTip}
-                disabled={isTransitioning()}
-                class="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                <ChevronRight class="h-4 w-4" />
-              </button>
-            </div>
-          </Show>
-        </div>
-
-        {/* Bottom row: Action + Feedback */}
-        <div class="flex items-center justify-between mt-1.5 min-h-[24px]">
-          <div class="flex-1">
-            <Show when={tip().action}>
-              <a
-                href={tip().action!.href}
-                class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-              >
-                {tip().action!.label} →
-              </a>
-            </Show>
-          </div>
-
-          {/* Feedback buttons */}
-          <Show when={isAITip() && aiTraceId()}>
-            <div class="flex items-center gap-0.5">
+    <Show when={!goalAchieved()}>
+      <Card class="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 overflow-hidden">
+        <CardContent class="p-3">
+          {/* Main row */}
+          <div class="flex items-center gap-2.5">
+            {/* Bruno Avatar */}
+            <div class="flex-shrink-0">
               <Show
-                when={feedbackGiven() === null}
+                when={!isLoadingAI()}
                 fallback={
-                  <span class="text-[10px] text-muted-foreground">
-                    {feedbackGiven() === 'up' ? '👍' : '👎'}
-                  </span>
+                  <div class={cn('p-1.5 rounded-lg', config().bg)}>
+                    <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
                 }
               >
-                <button
-                  onClick={() => handleFeedback(true)}
-                  class="p-1 rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                  title="Helpful"
-                >
-                  <ThumbsUp class="h-3 w-3" />
-                </button>
-                <button
-                  onClick={() => handleFeedback(false)}
-                  class="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                  title="Not helpful"
-                >
-                  <ThumbsDown class="h-3 w-3" />
-                </button>
+                <PlasmaAvatar size={32} color="green" />
               </Show>
             </div>
-          </Show>
-        </div>
 
-        {/* Agent Details Panel (expandable) */}
-        <Show when={showAgentDetails() && hasAgentInsights()}>
-          <div class="mt-2 pt-2 border-t border-border/50 space-y-2">
-            {/* Agents used */}
-            <Show when={processingInfo()}>
-              <div class="flex items-center gap-1 flex-wrap">
-                <span class="text-[10px] text-muted-foreground">Agents:</span>
-                <For each={processingInfo()!.agentsUsed}>
-                  {(agent) => {
-                    const agentInfo = AGENT_ICONS[agent] || { icon: Bot, label: agent };
-                    const AgentIcon = agentInfo.icon;
-                    return (
-                      <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-muted/50 text-muted-foreground">
-                        <AgentIcon class="h-2.5 w-2.5" />
-                        {agentInfo.label}
-                      </span>
-                    );
-                  }}
-                </For>
-                <span class="text-[9px] text-muted-foreground ml-auto">
-                  {processingInfo()!.durationMs}ms
-                </span>
-              </div>
-            </Show>
-
-            {/* Job Matcher insight */}
-            <Show when={agentRecommendations()?.jobMatcher?.topMatch}>
-              <div class="flex items-center gap-2 text-[10px]">
-                <Briefcase class="h-3 w-3 text-blue-500" />
-                <span class="text-muted-foreground">
-                  Top job:{' '}
-                  <span class="text-foreground font-medium">
-                    {agentRecommendations()!.jobMatcher!.topMatch!.name}
-                  </span>{' '}
-                  (${agentRecommendations()!.jobMatcher!.topMatch!.hourlyRate}/hr)
-                </span>
-              </div>
-            </Show>
-
-            {/* Budget Coach insight */}
-            <Show when={agentRecommendations()?.budgetCoach?.topOptimization}>
-              <div class="flex items-center gap-2 text-[10px]">
-                <PiggyBank class="h-3 w-3 text-green-500" />
-                <span class="text-muted-foreground">
-                  Save:{' '}
-                  <span class="text-foreground font-medium">
-                    {agentRecommendations()!.budgetCoach!.topOptimization!.solution}
-                  </span>{' '}
-                  (${agentRecommendations()!.budgetCoach!.topOptimization!.potentialSavings}/mo)
-                </span>
-              </div>
-            </Show>
-
-            {/* Strategy Comparator insight */}
-            <Show when={agentRecommendations()?.strategyComparator}>
-              <div class="flex items-center gap-2 text-[10px]">
-                <TrendingUp class="h-3 w-3 text-purple-500" />
-                <span class="text-muted-foreground">
-                  Best:{' '}
-                  <span class="text-foreground font-medium">
-                    {agentRecommendations()!.strategyComparator!.bestStrategy}
+            {/* Content */}
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <h4 class="font-semibold text-foreground text-sm truncate">{tip().title}</h4>
+                <Show when={isAITip()}>
+                  <span class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 flex-shrink-0">
+                    <Sparkles class="h-2.5 w-2.5" />
+                    AI
                   </span>
-                </span>
+                </Show>
+                {/* Agent count badge */}
+                <Show
+                  when={isAITip() && processingInfo() && processingInfo()!.agentsUsed.length > 0}
+                >
+                  <button
+                    onClick={() => setShowAgentDetails(!showAgentDetails())}
+                    class="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0 hover:bg-blue-500/20 transition-colors"
+                    title="Click to see agent details"
+                  >
+                    <Bot class="h-2.5 w-2.5" />
+                    {processingInfo()!.agentsUsed.length}
+                  </button>
+                </Show>
               </div>
-            </Show>
 
-            {/* Location insights */}
-            <Show when={localOpportunities() && localOpportunities()!.regionalTips.length > 0}>
-              <div class="flex items-start gap-2 text-[10px]">
-                <MapPin class="h-3 w-3 text-orange-500 mt-0.5" />
-                <span class="text-muted-foreground">{localOpportunities()!.regionalTips[0]}</span>
+              <p
+                class={cn(
+                  'text-xs text-muted-foreground transition-opacity duration-200 line-clamp-2',
+                  isTransitioning() && 'opacity-0'
+                )}
+              >
+                {tip().message}
+              </p>
+            </div>
+
+            {/* Navigation */}
+            <Show when={totalTips() > 1}>
+              <div class="flex items-center gap-0.5 flex-shrink-0">
+                <button
+                  onClick={prevTip}
+                  disabled={isTransitioning()}
+                  class="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                >
+                  <ChevronLeft class="h-4 w-4" />
+                </button>
+                <span class="text-xs text-muted-foreground tabular-nums min-w-[2.5rem] text-center">
+                  {currentTipIndex() + 1}/{totalTips()}
+                </span>
+                <button
+                  onClick={nextTip}
+                  disabled={isTransitioning()}
+                  class="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                >
+                  <ChevronRight class="h-4 w-4" />
+                </button>
               </div>
             </Show>
           </div>
-        </Show>
-      </CardContent>
-    </Card>
+
+          {/* Bottom row: Action + Feedback */}
+          <div class="flex items-center justify-between mt-1.5 min-h-[24px]">
+            <div class="flex-1">
+              <Show when={tip().action}>
+                <a
+                  href={tip().action!.href}
+                  class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  {tip().action!.label} →
+                </a>
+              </Show>
+            </div>
+
+            {/* Feedback buttons */}
+            <Show when={isAITip() && aiTraceId()}>
+              <div class="flex items-center gap-0.5">
+                <Show
+                  when={feedbackGiven() === null}
+                  fallback={
+                    <span class="text-[10px] text-muted-foreground">
+                      {feedbackGiven() === 'up' ? '👍' : '👎'}
+                    </span>
+                  }
+                >
+                  <button
+                    onClick={() => handleFeedback(true)}
+                    class="p-1 rounded hover:bg-green-500/10 text-muted-foreground hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                    title="Helpful"
+                  >
+                    <ThumbsUp class="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => handleFeedback(false)}
+                    class="p-1 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                    title="Not helpful"
+                  >
+                    <ThumbsDown class="h-3 w-3" />
+                  </button>
+                </Show>
+              </div>
+            </Show>
+          </div>
+
+          {/* Agent Details Panel (expandable) */}
+          <Show when={showAgentDetails() && hasAgentInsights()}>
+            <div class="mt-2 pt-2 border-t border-border/50 space-y-2">
+              {/* Agents used */}
+              <Show when={processingInfo()}>
+                <div class="flex items-center gap-1 flex-wrap">
+                  <span class="text-[10px] text-muted-foreground">Agents:</span>
+                  <For each={processingInfo()!.agentsUsed}>
+                    {(agent) => {
+                      const agentInfo = AGENT_ICONS[agent] || { icon: Bot, label: agent };
+                      const AgentIcon = agentInfo.icon;
+                      return (
+                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-muted/50 text-muted-foreground">
+                          <AgentIcon class="h-2.5 w-2.5" />
+                          {agentInfo.label}
+                        </span>
+                      );
+                    }}
+                  </For>
+                  <span class="text-[9px] text-muted-foreground ml-auto">
+                    {processingInfo()!.durationMs}ms
+                  </span>
+                </div>
+              </Show>
+
+              {/* Job Matcher insight */}
+              <Show when={agentRecommendations()?.jobMatcher?.topMatch}>
+                <div class="flex items-center gap-2 text-[10px]">
+                  <Briefcase class="h-3 w-3 text-blue-500" />
+                  <span class="text-muted-foreground">
+                    Top job:{' '}
+                    <span class="text-foreground font-medium">
+                      {agentRecommendations()!.jobMatcher!.topMatch!.name}
+                    </span>{' '}
+                    (${agentRecommendations()!.jobMatcher!.topMatch!.hourlyRate}/hr)
+                  </span>
+                </div>
+              </Show>
+
+              {/* Budget Coach insight */}
+              <Show when={agentRecommendations()?.budgetCoach?.topOptimization}>
+                <div class="flex items-center gap-2 text-[10px]">
+                  <PiggyBank class="h-3 w-3 text-green-500" />
+                  <span class="text-muted-foreground">
+                    Save:{' '}
+                    <span class="text-foreground font-medium">
+                      {agentRecommendations()!.budgetCoach!.topOptimization!.solution}
+                    </span>{' '}
+                    (${agentRecommendations()!.budgetCoach!.topOptimization!.potentialSavings}/mo)
+                  </span>
+                </div>
+              </Show>
+
+              {/* Strategy Comparator insight */}
+              <Show when={agentRecommendations()?.strategyComparator}>
+                <div class="flex items-center gap-2 text-[10px]">
+                  <TrendingUp class="h-3 w-3 text-purple-500" />
+                  <span class="text-muted-foreground">
+                    Best:{' '}
+                    <span class="text-foreground font-medium">
+                      {agentRecommendations()!.strategyComparator!.bestStrategy}
+                    </span>
+                  </span>
+                </div>
+              </Show>
+
+              {/* Location insights */}
+              <Show when={localOpportunities() && localOpportunities()!.regionalTips.length > 0}>
+                <div class="flex items-start gap-2 text-[10px]">
+                  <MapPin class="h-3 w-3 text-orange-500 mt-0.5" />
+                  <span class="text-muted-foreground">{localOpportunities()!.regionalTips[0]}</span>
+                </div>
+              </Show>
+            </div>
+          </Show>
+        </CardContent>
+      </Card>
+    </Show>
   );
 }

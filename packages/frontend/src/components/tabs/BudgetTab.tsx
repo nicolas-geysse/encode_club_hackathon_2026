@@ -46,6 +46,8 @@ import {
   X,
   PiggyBank,
 } from 'lucide-solid';
+import { goalAchieved } from '~/lib/goalAchievementStore';
+import { VictoryBanner } from '~/components/ui/VictoryBanner';
 
 interface BudgetTabProps {
   initialItems?: LegacyLifestyleItem[];
@@ -710,8 +712,11 @@ export function BudgetTab(props: BudgetTabProps) {
         </div>
       </div>
 
-      {/* Deadline Info */}
-      <Show when={maxPauseMonths() > 0 && !isIncomeCategory()}>
+      {/* Victory Banner */}
+      <VictoryBanner />
+
+      {/* Deadline Info — hidden when goal achieved */}
+      <Show when={!goalAchieved() && maxPauseMonths() > 0 && !isIncomeCategory()}>
         <Card class="bg-amber-500/10 border-amber-500/20">
           <CardContent class="p-4 flex items-center gap-3">
             <Target class="h-5 w-5 text-amber-600" />
@@ -723,197 +728,200 @@ export function BudgetTab(props: BudgetTabProps) {
         </Card>
       </Show>
 
-      {/* Category Tabs */}
-      <div class="flex flex-wrap gap-2 p-1 bg-muted/20 border border-border/50 rounded-2xl w-fit">
-        <For each={CATEGORIES}>
-          {(cat) => {
-            const isActive = () => activeCategory() === cat.id;
-            return (
-              <Button
-                variant="ghost"
-                size="sm"
-                class={cn(
-                  'rounded-xl px-4 h-9 transition-all duration-300 font-medium border border-transparent',
-                  isActive()
-                    ? cat.type === 'income'
-                      ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600'
-                      : 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                )}
-                onClick={() => setActiveCategory(cat.id)}
-              >
-                <div
+      {/* Category Tabs — hidden when goal achieved */}
+      <Show when={!goalAchieved()}>
+        <div class="flex flex-wrap gap-2 p-1 bg-muted/20 border border-border/50 rounded-2xl w-fit">
+          <For each={CATEGORIES}>
+            {(cat) => {
+              const isActive = () => activeCategory() === cat.id;
+              return (
+                <Button
+                  variant="ghost"
+                  size="sm"
                   class={cn(
-                    'mr-2 h-5 w-5 rounded-full flex items-center justify-center transition-colors',
-                    isActive() ? 'bg-white/20' : 'bg-transparent'
+                    'rounded-xl px-4 h-9 transition-all duration-300 font-medium border border-transparent',
+                    isActive()
+                      ? cat.type === 'income'
+                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600'
+                        : 'bg-red-500 text-white shadow-md shadow-red-500/20 hover:bg-red-600'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   )}
+                  onClick={() => setActiveCategory(cat.id)}
                 >
-                  <Dynamic component={cat.icon} class="h-3.5 w-3.5" />
-                </div>
-                {cat.label}
-              </Button>
-            );
-          }}
-        </For>
-      </div>
-
-      {/* Items List */}
-      <div class="space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="font-medium text-foreground flex items-center gap-2">
-            <Dynamic component={getCategoryInfo(activeCategory())?.icon} class="h-5 w-5" />
-            {getCategoryInfo(activeCategory())?.label}
-          </h3>
-          <Button size="sm" onClick={openAddForm}>
-            <Plus class="h-4 w-4 mr-2" /> Add
-          </Button>
-        </div>
-
-        {/* Income Items */}
-        <Show when={isIncomeCategory()}>
-          <For each={incomeItems()}>
-            {(item) => (
-              <Card class="group hover:border-emerald-500/30 hover:shadow-md transition-all duration-300">
-                <CardContent class="p-4 flex items-center gap-4">
-                  {/* Icon */}
-                  <div class="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <Wallet class="h-5 w-5 text-emerald-600 dark:text-emerald-400 opacity-80" />
-                  </div>
-
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between">
-                      <h4 class="font-bold text-foreground truncate text-base">{item.name}</h4>
-                      <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">
-                        +{formatCurrency(item.amount, currency(), { showSign: false })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                      onClick={() => handleEditIncome(item)}
-                    >
-                      <Pencil class="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
-                    >
-                      <Trash2 class="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </For>
-
-          <Show when={incomeItems().length === 0}>
-            <div class="text-center py-8 text-muted-foreground">
-              No income sources yet. Add your first one!
-            </div>
-          </Show>
-        </Show>
-
-        {/* Expense Items */}
-        <Show when={!isIncomeCategory()}>
-          <For each={items().filter((i) => i.category === activeCategory())}>
-            {(item) => (
-              <Card class="group hover:border-red-500/30 hover:shadow-md transition-all duration-300">
-                <CardContent class="p-4 flex items-center gap-4">
-                  {/* Icon */}
                   <div
                     class={cn(
-                      'h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300',
-                      item.pausedMonths > 0
-                        ? 'bg-amber-100 dark:bg-amber-900/40'
-                        : 'bg-red-100 dark:bg-red-900/40'
+                      'mr-2 h-5 w-5 rounded-full flex items-center justify-center transition-colors',
+                      isActive() ? 'bg-white/20' : 'bg-transparent'
                     )}
                   >
-                    <Dynamic
-                      component={getCategoryInfo(item.category)?.icon}
-                      class={cn(
-                        'h-5 w-5',
-                        item.pausedMonths > 0
-                          ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-red-600 dark:text-red-400 opacity-80'
-                      )}
-                    />
+                    <Dynamic component={cat.icon} class="h-3.5 w-3.5" />
                   </div>
+                  {cat.label}
+                </Button>
+              );
+            }}
+          </For>
+        </div>
 
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between mb-0.5">
-                      <div class="flex items-center gap-2 overflow-hidden">
+        {/* Items List */}
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-medium text-foreground flex items-center gap-2">
+              <Dynamic component={getCategoryInfo(activeCategory())?.icon} class="h-5 w-5" />
+              {getCategoryInfo(activeCategory())?.label}
+            </h3>
+            <Button size="sm" onClick={openAddForm}>
+              <Plus class="h-4 w-4 mr-2" /> Add
+            </Button>
+          </div>
+
+          {/* Income Items */}
+          <Show when={isIncomeCategory()}>
+            <For each={incomeItems()}>
+              {(item) => (
+                <Card class="group hover:border-emerald-500/30 hover:shadow-md transition-all duration-300">
+                  <CardContent class="p-4 flex items-center gap-4">
+                    {/* Icon */}
+                    <div class="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300">
+                      <Wallet class="h-5 w-5 text-emerald-600 dark:text-emerald-400 opacity-80" />
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center justify-between">
                         <h4 class="font-bold text-foreground truncate text-base">{item.name}</h4>
-                        <Show when={item.pausedMonths > 0}>
-                          <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full border border-amber-200/50 flex-shrink-0">
-                            Paused {item.pausedMonths}mo
-                          </span>
-                        </Show>
-                      </div>
-                      <div
-                        class={cn(
-                          'font-bold text-lg flex-shrink-0 ml-2',
-                          item.pausedMonths > 0
-                            ? 'text-muted-foreground line-through decoration-amber-500/50 opacity-70'
-                            : 'text-foreground'
-                        )}
-                      >
-                        {formatCurrency(item.currentCost, currency())}
+                        <div class="font-bold text-emerald-600 dark:text-emerald-400 text-lg">
+                          +{formatCurrency(item.amount, currency(), { showSign: false })}
+                        </div>
                       </div>
                     </div>
 
-                    <Show when={maxPauseMonths() > 0}>
-                      <div class="pt-1 flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <MonthPicker
-                          max={maxPauseMonths()}
-                          value={item.pausedMonths}
-                          onChange={(val) => updatePausedMonths(item.id, val)}
-                          disabled={isLoading()}
-                        />
-                        <Show when={item.pausedMonths > 0}>
-                          <span class="text-xs text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">
-                            Saves {formatCurrency(item.pausedMonths * item.currentCost, currency())}
-                          </span>
-                        </Show>
-                      </div>
-                    </Show>
-                  </div>
+                    {/* Actions */}
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        onClick={() => handleEditIncome(item)}
+                      >
+                        <Pencil class="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="h-8 w-8 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </For>
 
-                  {/* Actions */}
-                  <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100 self-center ml-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                      onClick={() => handleEditExpense(item)}
-                    >
-                      <Pencil class="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
-                    >
-                      <Trash2 class="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </For>
-
-          <Show when={items().filter((i) => i.category === activeCategory()).length === 0}>
-            <div class="text-center py-8 text-muted-foreground">No items in this category</div>
+            <Show when={incomeItems().length === 0}>
+              <div class="text-center py-8 text-muted-foreground">
+                No income sources yet. Add your first one!
+              </div>
+            </Show>
           </Show>
-        </Show>
-      </div>
+
+          {/* Expense Items */}
+          <Show when={!isIncomeCategory()}>
+            <For each={items().filter((i) => i.category === activeCategory())}>
+              {(item) => (
+                <Card class="group hover:border-red-500/30 hover:shadow-md transition-all duration-300">
+                  <CardContent class="p-4 flex items-center gap-4">
+                    {/* Icon */}
+                    <div
+                      class={cn(
+                        'h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300',
+                        item.pausedMonths > 0
+                          ? 'bg-amber-100 dark:bg-amber-900/40'
+                          : 'bg-red-100 dark:bg-red-900/40'
+                      )}
+                    >
+                      <Dynamic
+                        component={getCategoryInfo(item.category)?.icon}
+                        class={cn(
+                          'h-5 w-5',
+                          item.pausedMonths > 0
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-red-600 dark:text-red-400 opacity-80'
+                        )}
+                      />
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center justify-between mb-0.5">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                          <h4 class="font-bold text-foreground truncate text-base">{item.name}</h4>
+                          <Show when={item.pausedMonths > 0}>
+                            <span class="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 rounded-full border border-amber-200/50 flex-shrink-0">
+                              Paused {item.pausedMonths}mo
+                            </span>
+                          </Show>
+                        </div>
+                        <div
+                          class={cn(
+                            'font-bold text-lg flex-shrink-0 ml-2',
+                            item.pausedMonths > 0
+                              ? 'text-muted-foreground line-through decoration-amber-500/50 opacity-70'
+                              : 'text-foreground'
+                          )}
+                        >
+                          {formatCurrency(item.currentCost, currency())}
+                        </div>
+                      </div>
+
+                      <Show when={maxPauseMonths() > 0}>
+                        <div class="pt-1 flex items-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <MonthPicker
+                            max={maxPauseMonths()}
+                            value={item.pausedMonths}
+                            onChange={(val) => updatePausedMonths(item.id, val)}
+                            disabled={isLoading()}
+                          />
+                          <Show when={item.pausedMonths > 0}>
+                            <span class="text-xs text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">
+                              Saves{' '}
+                              {formatCurrency(item.pausedMonths * item.currentCost, currency())}
+                            </span>
+                          </Show>
+                        </div>
+                      </Show>
+                    </div>
+
+                    {/* Actions */}
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100 self-center ml-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        onClick={() => handleEditExpense(item)}
+                      >
+                        <Pencil class="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteConfirm({ id: item.id, name: item.name })}
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </For>
+
+            <Show when={items().filter((i) => i.category === activeCategory()).length === 0}>
+              <div class="text-center py-8 text-muted-foreground">No items in this category</div>
+            </Show>
+          </Show>
+        </div>
+      </Show>
 
       {/* Add/Edit Form Modal */}
       <Show when={showAddForm()}>

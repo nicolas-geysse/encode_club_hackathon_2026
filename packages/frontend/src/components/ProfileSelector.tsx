@@ -1,9 +1,8 @@
 /**
- * ProfileSelector Component (Goal Switcher)
+ * ProfileSelector Component
  *
- * Dropdown in header to switch between goal workspaces.
- * Each goal maps to a profile (main or goal-clone).
- * Shows active goal name prominently; profile name is secondary.
+ * Dropdown in header for simulations, settings, and reset.
+ * Goal switching is handled by GoalsTab inline selector.
  * Uses ProfileContext for shared state across the app.
  */
 
@@ -14,21 +13,10 @@ import { useProfile } from '~/lib/profileContext';
 import { eventBus } from '~/lib/eventBus';
 import { toast } from '~/lib/notificationStore';
 import { Button } from '~/components/ui/Button';
-import { Input } from '~/components/ui/Input';
-import { DatePicker } from '~/components/ui/DatePicker';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from '~/components/ui/Card';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
   Target,
   ChevronDown,
-  Plus,
   Trash2,
   Check,
   RotateCcw,
@@ -48,24 +36,16 @@ export function ProfileSelector(props: Props) {
   const [isOpen, setIsOpen] = createSignal(false);
   const [profiles, setProfiles] = createSignal<ProfileSummary[]>([]);
   const [localLoading, setLocalLoading] = createSignal(true);
-  const [showNewGoalModal, setShowNewGoalModal] = createSignal(false);
   const [showResetConfirm1, setShowResetConfirm1] = createSignal(false);
   const [showResetConfirm2, setShowResetConfirm2] = createSignal(false);
   const [deleteProfileConfirm, setDeleteProfileConfirm] = createSignal<{
     id: string;
     name: string;
   } | null>(null);
-  const [newGoalForm, setNewGoalForm] = createSignal({
-    name: '',
-    amount: 500,
-    deadline: '',
-  });
 
   // Combined loading state
   const loading = () => contextLoading() || localLoading();
 
-  // Split profiles: goals (main + goal-clones) vs simulations
-  const goalProfiles = () => profiles().filter((p) => p.profileType !== 'simulation');
   const simProfiles = () => profiles().filter((p) => p.profileType === 'simulation');
 
   // Load profiles on mount
@@ -109,32 +89,6 @@ export function ProfileSelector(props: Props) {
       window.location.reload();
     }
     setIsOpen(false);
-  };
-
-  const handleDuplicateForGoal = async () => {
-    const current = activeProfile();
-    if (!current) return;
-
-    const form = newGoalForm();
-    if (!form.name || !form.amount) return;
-
-    const newProfile = await profileService.duplicateProfileForGoal(current.id, {
-      goalName: form.name,
-      goalAmount: form.amount,
-      goalDeadline: form.deadline || undefined,
-    });
-
-    if (newProfile) {
-      // Clear profile-specific localStorage items to prevent cross-profile contamination
-      localStorage.removeItem('followupData');
-      localStorage.removeItem('planData');
-      localStorage.removeItem('achievements');
-      // Force full page reload to reset all component state for new profile
-      window.location.reload();
-    }
-
-    setShowNewGoalModal(false);
-    setNewGoalForm({ name: '', amount: 500, deadline: '' });
   };
 
   const isSimulation = (profile: ProfileSummary | FullProfile | null) => {
@@ -262,66 +216,12 @@ export function ProfileSelector(props: Props) {
       <Show when={isOpen()}>
         <div class="absolute right-0 mt-2 w-72 bg-popover rounded-md shadow-md border border-border z-50 animate-in fade-in zoom-in-95 duration-200">
           <div class="py-2">
-            <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              My Goals
-            </div>
-
-            <Show when={goalProfiles().length === 0}>
-              <a
-                href="/"
-                class="w-full flex items-center gap-3 px-3 py-2 text-primary hover:bg-accent hover:text-accent-foreground transition-colors"
-                onClick={() => setIsOpen(false)}
-              >
-                <Plus class="h-4 w-4" />
-                <span class="text-sm font-medium">Create your first goal</span>
-              </a>
-            </Show>
-
-            <div class="max-h-[300px] overflow-y-auto">
-              <For each={goalProfiles()}>
-                {(profile) => (
-                  <div
-                    class={`group w-full flex items-center gap-2 px-3 py-2 hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer ${
-                      profile.isActive ? 'bg-primary/5' : ''
-                    }`}
-                    onClick={() => handleSwitch(profile.id)}
-                  >
-                    <Target class="h-4 w-4 text-muted-foreground" />
-                    <div class="flex-1 min-w-0">
-                      <div class="font-medium text-sm truncate">
-                        {profile.goalName || 'No goal set'}
-                      </div>
-                      <div class="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <Show when={profile.goalAmount}>
-                          <span>${profile.goalAmount}</span>
-                          <span class="text-muted-foreground/50">·</span>
-                        </Show>
-                        <span>{profile.name}</span>
-                      </div>
-                    </div>
-                    <Show when={profile.isActive}>
-                      <Check class="h-4 w-4 text-primary" />
-                    </Show>
-
-                    {/* Delete button - only show if more than 1 goal */}
-                    <Show when={goalProfiles().length > 1}>
-                      <button
-                        onClick={(e) => handleDelete(profile.id, profile.name, e)}
-                        class="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
-                        title="Delete goal"
-                      >
-                        <Trash2 class="h-4 w-4" />
-                      </button>
-                    </Show>
-                  </div>
-                )}
-              </For>
-
-              {/* Simulation profiles (shown separately if any) */}
-              <Show when={simProfiles().length > 0}>
-                <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t border-border mt-1 pt-2">
-                  Simulations
-                </div>
+            {/* Simulation profiles (shown if any) */}
+            <Show when={simProfiles().length > 0}>
+              <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Simulations
+              </div>
+              <div class="max-h-[200px] overflow-y-auto">
                 <For each={simProfiles()}>
                   {(profile) => (
                     <div
@@ -352,25 +252,12 @@ export function ProfileSelector(props: Props) {
                     </div>
                   )}
                 </For>
-              </Show>
-            </div>
+              </div>
+            </Show>
 
-            <div class="border-t border-border mt-2 pt-2 px-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setIsOpen(false);
-                  setShowNewGoalModal(true);
-                }}
-                class="w-full justify-start gap-2 mb-1"
-              >
-                <Plus class="h-4 w-4" />
-                New goal
-              </Button>
-            </div>
-
-            <div class="border-t border-border mt-2 pt-2 px-1">
+            <div
+              class={simProfiles().length > 0 ? 'border-t border-border mt-2 pt-2 px-1' : 'px-1'}
+            >
               <Button
                 variant="ghost"
                 size="sm"
@@ -404,79 +291,6 @@ export function ProfileSelector(props: Props) {
       {/* Click outside to close */}
       <Show when={isOpen()}>
         <div class="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-      </Show>
-
-      {/* New Goal Modal */}
-      <Show when={showNewGoalModal()}>
-        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <Card class="w-full max-w-md mx-4 shadow-xl">
-            <CardHeader>
-              <CardTitle>New goal</CardTitle>
-              <CardDescription>
-                Start a new savings goal. Your current data (budget, skills, schedule) will carry
-                over.
-              </CardDescription>
-            </CardHeader>
-            <CardContent class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-foreground mb-1">Goal name</label>
-                <Input
-                  type="text"
-                  value={newGoalForm().name}
-                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                    setNewGoalForm({ ...newGoalForm(), name: e.currentTarget.value })
-                  }
-                  placeholder="Ex: Driver's license"
-                />
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-foreground mb-1">
-                  Target amount ($)
-                </label>
-                <Input
-                  type="number"
-                  value={newGoalForm().amount}
-                  onInput={(e: InputEvent & { currentTarget: HTMLInputElement }) =>
-                    setNewGoalForm({
-                      ...newGoalForm(),
-                      amount: parseInt(e.currentTarget.value) || 0,
-                    })
-                  }
-                  min="0"
-                  step="50"
-                />
-              </div>
-
-              <div>
-                <DatePicker
-                  label="Deadline (optional)"
-                  value={newGoalForm().deadline}
-                  onChange={(date) => setNewGoalForm({ ...newGoalForm(), deadline: date })}
-                  fullWidth={false}
-                />
-              </div>
-            </CardContent>
-            <CardFooter class="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowNewGoalModal(false);
-                  setNewGoalForm({ name: '', amount: 500, deadline: '' });
-                }}
-                class="bg-[#F4F4F5] hover:bg-[#E4E4E7] dark:bg-[#27272A] dark:hover:bg-[#3F3F46] border-border"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleDuplicateForGoal}
-                disabled={!newGoalForm().name || !newGoalForm().amount}
-              >
-                Create
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
       </Show>
 
       {/* Reset Confirmation Step 1 */}

@@ -22,6 +22,7 @@ interface GoalMetricsProps {
   feasibilityScore: number | null;
   simulatedDate?: Date;
   isLoading?: boolean;
+  goalAchieved?: boolean;
 }
 
 export function GoalMetrics(props: GoalMetricsProps) {
@@ -158,24 +159,45 @@ export function GoalMetrics(props: GoalMetricsProps) {
     };
   });
 
+  const victoryCell = () =>
+    props.goalAchieved
+      ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300/40 dark:border-yellow-700/40'
+      : 'bg-slate-50 dark:bg-slate-700/50';
+
   return (
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {/* Target */}
-      <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-        <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+      <div class={`rounded-lg p-3 text-center ${victoryCell()}`}>
+        <p
+          class={`text-xs uppercase tracking-wider mb-1 ${props.goalAchieved ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-500 dark:text-slate-400'}`}
+        >
           Target
         </p>
-        <p class="text-lg font-bold text-slate-900 dark:text-slate-100">
+        <p
+          class={`text-lg font-bold ${props.goalAchieved ? 'text-yellow-800 dark:text-yellow-200' : 'text-slate-900 dark:text-slate-100'}`}
+        >
           {formatCurrency(props.goal.amount, props.currency)}
         </p>
       </div>
 
       {/* Deadline */}
-      <div class={`rounded-lg p-3 text-center ${getDeadlineColor()}`}>
-        <p class="text-xs uppercase tracking-wider mb-1 opacity-80">Deadline</p>
+      <div
+        class={`rounded-lg p-3 text-center ${props.goalAchieved ? victoryCell() : getDeadlineColor()}`}
+      >
+        <p
+          class={`text-xs uppercase tracking-wider mb-1 ${props.goalAchieved ? 'text-yellow-700 dark:text-yellow-400' : 'opacity-80'}`}
+        >
+          Deadline
+        </p>
         <Show when={props.goal.deadline} fallback={<p class="text-lg font-bold">Not set</p>}>
-          <p class="text-lg font-bold">{formattedDeadline()}</p>
-          <p class="text-xs font-medium mt-0.5">
+          <p
+            class={`text-lg font-bold ${props.goalAchieved ? 'text-yellow-800 dark:text-yellow-200' : ''}`}
+          >
+            {formattedDeadline()}
+          </p>
+          <p
+            class={`text-xs font-medium mt-0.5 ${props.goalAchieved ? 'text-yellow-700 dark:text-yellow-400' : ''}`}
+          >
             {daysRemaining() !== null && daysRemaining()! > 0
               ? `${daysRemaining()}d left`
               : daysRemaining() === 0
@@ -186,34 +208,56 @@ export function GoalMetrics(props: GoalMetricsProps) {
       </div>
 
       {/* Progress */}
-      <div class="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3 text-center">
-        <p class="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+      <div class={`rounded-lg p-3 text-center ${victoryCell()}`}>
+        <p
+          class={`text-xs uppercase tracking-wider mb-1 ${props.goalAchieved ? 'text-yellow-700 dark:text-yellow-400' : 'text-slate-500 dark:text-slate-400'}`}
+        >
           Progress
         </p>
-        <p class={`text-lg font-bold ${getProgressColor()}`}>
+        <p
+          class={`text-lg font-bold ${props.goalAchieved ? 'text-yellow-600 dark:text-yellow-300' : getProgressColor()}`}
+        >
           {Math.round(props.adjustedProgress)}%
         </p>
       </div>
 
       {/* Achievable */}
-      <div
-        class={`rounded-lg p-3 text-center border-2 ${feasibility().bg} ${feasibility().border}`}
+      <Show
+        when={!props.goalAchieved}
+        fallback={
+          <div
+            class={`rounded-lg p-3 text-center border-2 border-yellow-400/50 bg-yellow-100 dark:bg-yellow-900/30`}
+          >
+            <p class="text-xs uppercase tracking-wider mb-1 text-yellow-700 dark:text-yellow-400">
+              Status
+            </p>
+            <div class="flex items-center justify-center gap-1 text-lg font-bold text-yellow-600 dark:text-yellow-300">
+              <CheckCircle2 class="h-5 w-5" />
+              <span>Done</span>
+            </div>
+            <p class="text-xs font-medium mt-0.5 text-yellow-700 dark:text-yellow-400">Completed</p>
+          </div>
+        }
       >
-        <p class={`text-xs uppercase tracking-wider mb-1 ${feasibility().text} opacity-80`}>
-          Achievable
-        </p>
         <div
-          class={`flex items-center justify-center gap-2 text-lg font-bold ${feasibility().text}`}
+          class={`rounded-lg p-3 text-center border-2 ${feasibility().bg} ${feasibility().border}`}
         >
-          {feasibility().icon}
-          <span>
-            {props.feasibilityScore !== null
-              ? `${Math.round(props.feasibilityScore! * 100)}%`
-              : '--'}
-          </span>
+          <p class={`text-xs uppercase tracking-wider mb-1 ${feasibility().text} opacity-80`}>
+            Achievable
+          </p>
+          <div
+            class={`flex items-center justify-center gap-2 text-lg font-bold ${feasibility().text}`}
+          >
+            {feasibility().icon}
+            <span>
+              {props.feasibilityScore !== null
+                ? `${Math.round(props.feasibilityScore! * 100)}%`
+                : '--'}
+            </span>
+          </div>
+          <p class={`text-xs font-medium mt-0.5 ${feasibility().text}`}>{feasibility().label}</p>
         </div>
-        <p class={`text-xs font-medium mt-0.5 ${feasibility().text}`}>{feasibility().label}</p>
-      </div>
+      </Show>
     </div>
   );
 }

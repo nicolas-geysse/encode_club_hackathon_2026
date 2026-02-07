@@ -14,6 +14,7 @@ import {
   createEffect,
   createResource,
   Show,
+  For,
   onMount,
   onCleanup,
 } from 'solid-js';
@@ -21,7 +22,7 @@ import { useSearchParams } from '@solidjs/router';
 import { goalService } from '~/lib/goalService';
 import { profileService } from '~/lib/profileService';
 import { useProfile, type Goal } from '~/lib/profileContext';
-import { eventBus } from '~/lib/eventBus';
+import { eventBus, showProactiveAlert } from '~/lib/eventBus';
 import { createLogger } from '~/lib/logger';
 
 const logger = createLogger('GoalsTab');
@@ -29,7 +30,8 @@ import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
-import { Plus, Target, Rocket } from 'lucide-solid';
+import { Plus, Target, Rocket, ChevronDown, Check } from 'lucide-solid';
+import type { ProfileSummary } from '~/lib/profileService';
 import { Input } from '~/components/ui/Input';
 import { DatePicker } from '~/components/ui/DatePicker';
 import { todayISO } from '~/lib/dateUtils';
@@ -151,6 +153,23 @@ export function GoalsTab(props: GoalsTabProps) {
     }
   });
 
+  // Proactive alert when goal reaches 100%
+  let goalAchievedAlertFired = false;
+  createEffect(() => {
+    const goal = activeGoal();
+    const stats = goalData.stats();
+    if (goal && stats.percentComplete >= 100 && !goalAchievedAlertFired) {
+      goalAchievedAlertFired = true;
+      showProactiveAlert({
+        id: `goal_achieved_${goal.id}`,
+        type: 'goal_achieved',
+        title: 'Goal Reached!',
+        message: `You reached your "${goal.name}" goal! Ready for the next challenge?`,
+        action: { label: 'Create new goal', href: '/me?tab=goals&action=new' },
+      });
+    }
+  });
+
   // UI State
   const [showNewGoalForm, setShowNewGoalForm] = createSignal(false);
   const [editingGoalId, setEditingGoalId] = createSignal<string | null>(null);
@@ -178,6 +197,35 @@ export function GoalsTab(props: GoalsTabProps) {
     deadline: '',
   });
   const [freshGoalLoading, setFreshGoalLoading] = createSignal(false);
+
+  // Goal Profile Switcher (shows when 2+ goal profiles exist)
+  const [goalProfilesOpen, setGoalProfilesOpen] = createSignal(false);
+  const [goalProfiles, setGoalProfiles] = createSignal<ProfileSummary[]>([]);
+
+  onMount(async () => {
+    try {
+      const allProfiles = await profileService.listProfiles();
+      setGoalProfiles(allProfiles.filter((p) => p.profileType !== 'simulation'));
+    } catch {
+      // Silent — switcher just won't show
+    }
+  });
+
+  const handleSwitchGoalProfile = async (id: string) => {
+    if (id === profileId()) {
+      setGoalProfilesOpen(false);
+      return;
+    }
+    const success = await profileService.switchProfile(id);
+    if (success) {
+      localStorage.removeItem('followupData');
+      localStorage.removeItem('planData');
+      localStorage.removeItem('achievements');
+      // Navigate to clean URL (not reload) to avoid &action=new triggering edit mode
+      window.location.href = '/me?tab=goals';
+    }
+    setGoalProfilesOpen(false);
+  };
 
   const handleNewGoalClick = () => {
     if (activeGoal()) {
@@ -549,11 +597,57 @@ export function GoalsTab(props: GoalsTabProps) {
         <h2 class="text-xl font-bold text-foreground flex items-center gap-2">
           <Target class="h-6 w-6 text-primary" /> My Goals
         </h2>
-        <Show when={!showNewGoalForm() && goals().length > 0}>
-          <Button onClick={handleNewGoalClick}>
-            <Plus class="h-4 w-4 mr-2" /> New Goal
-          </Button>
-        </Show>
+        <div class="flex items-center gap-2">
+          {/* Goal Profile Switcher — visible when 2+ goal profiles */}
+          <Show when={goalProfiles().length >= 2}>
+            <span class="text-xs text-muted-foreground hidden sm:inline">Choose another goal</span>
+            <div class="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setGoalProfilesOpen(!goalProfilesOpen())}
+                class="flex items-center gap-1.5 h-8 px-2.5 text-xs"
+              >
+                <span class="max-w-[120px] truncate">
+                  {goalProfiles().find((p) => p.isActive)?.goalName ||
+                    profile()?.goalName ||
+                    'Goal'}
+                </span>
+                <ChevronDown
+                  class={`w-3.5 h-3.5 text-muted-foreground transition-transform ${goalProfilesOpen() ? 'rotate-180' : ''}`}
+                />
+              </Button>
+              <Show when={goalProfilesOpen()}>
+                <div class="absolute right-0 mt-1 w-56 bg-popover rounded-md shadow-md border border-border z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div class="py-1 max-h-[240px] overflow-y-auto">
+                    <For each={goalProfiles()}>
+                      {(gp) => (
+                        <button
+                          class={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors ${
+                            gp.isActive ? 'bg-primary/5 font-medium' : ''
+                          }`}
+                          onClick={() => handleSwitchGoalProfile(gp.id)}
+                        >
+                          <Target class="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span class="flex-1 text-left truncate">{gp.goalName || gp.name}</span>
+                          <Show when={gp.isActive}>
+                            <Check class="h-3.5 w-3.5 text-primary shrink-0" />
+                          </Show>
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </div>
+                <div class="fixed inset-0 z-40" onClick={() => setGoalProfilesOpen(false)} />
+              </Show>
+            </div>
+          </Show>
+          <Show when={!showNewGoalForm() && goals().length > 0}>
+            <Button onClick={handleNewGoalClick}>
+              <Plus class="h-4 w-4 mr-2" /> New Goal
+            </Button>
+          </Show>
+        </div>
       </div>
 
       {/* Bruno Hint */}
@@ -565,13 +659,18 @@ export function GoalsTab(props: GoalsTabProps) {
             name: g.name,
             amount: g.amount,
             deadline: g.deadline,
-            progress: g.progress,
+            progress: g.id === activeGoal()?.id ? goalData.stats().percentComplete : g.progress,
             status: g.status,
           })),
+          goalAchieved: goalData.stats().percentComplete >= 100,
           monthlyMargin: profile()?.monthlyMargin,
           skippedSteps: profile()?.skippedSteps,
         }}
-        fallbackMessage="Break down big goals into smaller milestones. I'll help you track progress!"
+        fallbackMessage={
+          goalData.stats().percentComplete >= 100
+            ? "Incredible! You've reached your goal! Time to set a new challenge!"
+            : "Break down big goals into smaller milestones. I'll help you track progress!"
+        }
         compact
       />
 
@@ -627,10 +726,14 @@ export function GoalsTab(props: GoalsTabProps) {
                       monthlyMargin={monthlyMargin()}
                       savingsAdjustments={followupData()?.savingsAdjustments}
                       weeklyCardsRetroplan={weeklyCardsRetroplan()}
-                      onAdjustSavings={(week, amount) => {
-                        setAdjustingWeek({ weekNumber: week, amount });
-                        setShowSavingsAdjust(true);
-                      }}
+                      onAdjustSavings={
+                        adjustedProgress(goal()) >= 100
+                          ? undefined
+                          : (week, amount) => {
+                              setAdjustingWeek({ weekNumber: week, amount });
+                              setShowSavingsAdjust(true);
+                            }
+                      }
                       userId={profileId() || undefined}
                       chartStats={goalData.stats()}
                       weeklyChartEarnings={chartWeeklyEarnings()}
@@ -638,9 +741,9 @@ export function GoalsTab(props: GoalsTabProps) {
                       chartMilestones={goalData.milestones()}
                       avgAdjustedTarget={avgAdjustedTarget() || undefined}
                       onEdit={() => handleEdit(goal())}
-                      onToggleStatus={() => handleToggleStatus(goal())}
                       onDelete={() => handleDelete(goal().id)}
                       onShowRetroplan={() => setShowRetroplan(goal())}
+                      onNewGoal={handleNewGoalClick}
                       isLoading={goalData.loading()}
                     />
                   )}
@@ -765,8 +868,8 @@ export function GoalsTab(props: GoalsTabProps) {
 
               <div class="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
                 <p>
-                  Your current goal "{activeGoal()?.name}" stays accessible via the profile
-                  selector.
+                  Your current goal "{activeGoal()?.name}" stays accessible via the goal switcher
+                  above.
                 </p>
                 <p class="mt-1">Items already sold or traded stay with your current goal.</p>
               </div>

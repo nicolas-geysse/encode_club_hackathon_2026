@@ -34,6 +34,8 @@ import {
 } from 'lucide-solid';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { cn } from '~/lib/cn';
+import { goalAchieved } from '~/lib/goalAchievementStore';
+import { VictoryBanner } from '~/components/ui/VictoryBanner';
 
 interface TradeItem {
   id: string;
@@ -563,6 +565,9 @@ export function TradeTab(props: TradeTabProps) {
         compact
       />
 
+      {/* Victory Banner */}
+      <VictoryBanner />
+
       <Show when={!isLoading()} fallback={<TradeSkeleton />}>
         {/* Summary Cards */}
         <div class="grid grid-cols-1 md:grid-cols-3 md:items-start gap-4">
@@ -683,254 +688,257 @@ export function TradeTab(props: TradeTabProps) {
           </Card>
         </div>
 
-        {/* Type Tabs (Pill Design) */}
-        <div class="flex flex-wrap gap-2 p-1 bg-muted/20 border border-border/50 rounded-2xl w-fit">
-          <For each={TRADE_TYPES}>
-            {(type) => {
-              const activeClass =
-                {
-                  sell: 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600',
-                  borrow: 'bg-blue-500 text-white shadow-md shadow-blue-500/20 hover:bg-blue-600',
-                  trade:
-                    'bg-purple-500 text-white shadow-md shadow-purple-500/20 hover:bg-purple-600',
-                  lend: 'bg-orange-500 text-white shadow-md shadow-orange-500/20 hover:bg-orange-600',
-                }[type.id] || 'bg-primary text-primary-foreground';
-
-              return (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class={cn(
-                    'rounded-xl px-4 h-9 transition-all duration-300 font-medium border border-transparent',
-                    activeType() === type.id
-                      ? activeClass
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                  )}
-                  onClick={() => setActiveType(type.id)}
-                  title={type.description}
-                >
-                  <div
-                    class={cn(
-                      'mr-2 h-5 w-5 rounded-full flex items-center justify-center transition-colors',
-                      activeType() === type.id ? 'bg-white/20' : 'bg-transparent'
-                    )}
-                  >
-                    <Dynamic component={type.icon} class="h-3.5 w-3.5" />
-                  </div>
-                  {type.label}
-                </Button>
-              );
-            }}
-          </For>
-        </div>
-
-        {/* Pending Items Reminder */}
-        <Show when={getReminderMessage(activeType())}>
-          <div class="px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200 text-sm">
-            {getReminderMessage(activeType())}
-          </div>
-        </Show>
-
-        {/* Trades List */}
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <h3 class="font-medium text-foreground flex items-center gap-2">
-              <Dynamic component={getTypeIcon(activeType())} class="h-5 w-5" />
-              {getTypeInfo(activeType())?.label} Items
-            </h3>
-            <Button
-              size="sm"
-              onClick={openAddForm}
-              class="rounded-md shadow-sm hover:shadow-md transition-all"
-            >
-              <Plus class="h-4 w-4 mr-2" /> Add {getTypeInfo(activeType())?.label}
-            </Button>
-          </div>
-
-          <For each={trades().filter((t) => t.type === activeType())}>
-            {(trade) => (
-              <Card class="group hover:shadow-md transition-all duration-300 border-transparent hover:border-border/50 bg-card/60 hover:bg-card">
-                <CardContent class="p-4 flex items-center gap-4">
-                  {/* Icon */}
-                  <div
-                    class={cn(
-                      'flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110',
-                      {
-                        sell: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400',
-                        borrow: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
-                        trade:
-                          'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400',
-                        lend: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400',
-                      }[trade.type]
-                    )}
-                  >
-                    <Dynamic component={getTypeIcon(trade.type)} class="h-6 w-6" />
-                  </div>
-
-                  {/* Trade Info */}
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1">
-                      <h4 class="font-bold text-foreground truncate text-base">{trade.name}</h4>
-                      <span
-                        class={cn(
-                          'px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-full border border-transparent bg-opacity-50',
-                          getStatusBadge(trade.status).class
-                        )}
-                      >
-                        {getStatusBadge(trade.status).label}
-                      </span>
-                    </div>
-                    {/* Simplified Metadata: Description only, Partner if exists */}
-                    <div class="flex items-center gap-3 text-sm text-muted-foreground">
-                      <Show
-                        when={
-                          trade.partner &&
-                          trade.partner !== 'Unknown' &&
-                          trade.partner !== 'Marketplace'
-                        }
-                      >
-                        <span class="flex items-center gap-1 opacity-80">
-                          <span class="text-xs">
-                            {trade.type === 'borrow'
-                              ? 'From'
-                              : trade.type === 'lend'
-                                ? 'To'
-                                : 'With'}
-                          </span>
-                          <span class="font-medium text-foreground/80">{trade.partner}</span>
-                        </span>
-                      </Show>
-                      <Show
-                        when={
-                          trade.description &&
-                          (!trade.partner ||
-                            trade.partner === 'Unknown' ||
-                            trade.partner === 'Marketplace')
-                        }
-                      >
-                        <p class="text-xs text-muted-foreground/60 truncate max-w-[200px]">
-                          {trade.description}
-                        </p>
-                      </Show>
-                    </div>
-                  </div>
-
-                  {/* Value/Karma & Actions */}
-                  <div class="flex items-center gap-4">
-                    <div class="text-right min-w-[60px]">
-                      {/* Sell: just money */}
-                      <Show when={trade.type === 'sell'}>
-                        <div class="font-bold text-lg">
-                          {formatCurrency(trade.value, currency())}
-                        </div>
-                      </Show>
-                      {/* Borrow: money saved + karma */}
-                      <Show when={trade.type === 'borrow'}>
-                        <div class="font-bold text-lg text-green-600 dark:text-green-400">
-                          {formatCurrency(trade.value, currency())}
-                        </div>
-                        <div class="text-xs text-purple-600 dark:text-purple-400">+20 karma</div>
-                      </Show>
-                      {/* Lend/Trade: just karma */}
-                      <Show when={trade.type === 'lend' || trade.type === 'trade'}>
-                        <div class="font-bold text-lg text-purple-600 dark:text-purple-400">
-                          +{trade.type === 'lend' ? '50' : '30'} karma
-                        </div>
-                      </Show>
-                    </div>
-
-                    {/* Hover Actions */}
-                    <div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100">
-                      <Show when={trade.status === 'active'}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class="h-8 w-8 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/20"
-                          onClick={() => updateStatus(trade.id, 'pending')}
-                          title="Revert to pending"
-                        >
-                          <Undo2 class="h-4 w-4" />
-                        </Button>
-                      </Show>
-
-                      <Show when={trade.status !== 'completed'}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          class={cn(
-                            'h-8 w-8',
-                            trade.status === 'pending'
-                              ? 'text-primary hover:text-primary'
-                              : 'text-green-600 hover:text-green-700'
-                          )}
-                          onClick={() =>
-                            updateStatus(
-                              trade.id,
-                              trade.status === 'pending' ? 'active' : 'completed'
-                            )
-                          }
-                          title={trade.status === 'pending' ? 'Mark as active' : 'Mark as done'}
-                        >
-                          <Check class="h-4 w-4" />
-                        </Button>
-                      </Show>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="h-8 w-8 text-muted-foreground hover:text-primary"
-                        onClick={() => handleEditTrade(trade)}
-                        title="Edit"
-                      >
-                        <Pencil class="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => requestDeleteTrade(trade)}
-                        title="Delete"
-                      >
-                        <Trash2 class="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </For>
-
-          {/* Empty state - for sell tab, only show if no trades AND no inventory items */}
-          <Show
-            when={
-              trades().filter((t) => t.type === activeType()).length === 0 &&
-              (activeType() !== 'sell' ||
-                (props.inventoryItems || []).filter(
-                  (item) => !trades().some((t) => t.inventoryItemId === item.id)
-                ).length === 0)
-            }
-          >
-            <div class="text-center py-12">
-              <div
-                class={cn(
-                  'h-16 w-16 rounded-full mx-auto flex items-center justify-center mb-4 bg-muted/30 text-muted-foreground',
+        {/* Type Tabs + Trades List — hidden when goal achieved */}
+        <Show when={!goalAchieved()}>
+          <div class="flex flex-wrap gap-2 p-1 bg-muted/20 border border-border/50 rounded-2xl w-fit">
+            <For each={TRADE_TYPES}>
+              {(type) => {
+                const activeClass =
                   {
-                    sell: 'bg-emerald-500/10 text-emerald-500',
-                    borrow: 'bg-blue-500/10 text-blue-500',
-                    trade: 'bg-purple-500/10 text-purple-500',
-                    lend: 'bg-orange-500/10 text-orange-500',
-                  }[activeType()] || 'bg-muted'
-                )}
-              >
-                <Dynamic component={getTypeIcon(activeType())} class="h-8 w-8 opacity-50" />
-              </div>
-              <h3 class="text-lg font-medium text-foreground">No {activeType()} items yet</h3>
-              <Button variant="outline" class="mt-4" onClick={openAddForm}>
-                <Plus class="h-4 w-4 mr-2" /> Add first item
-              </Button>
+                    sell: 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600',
+                    borrow: 'bg-blue-500 text-white shadow-md shadow-blue-500/20 hover:bg-blue-600',
+                    trade:
+                      'bg-purple-500 text-white shadow-md shadow-purple-500/20 hover:bg-purple-600',
+                    lend: 'bg-orange-500 text-white shadow-md shadow-orange-500/20 hover:bg-orange-600',
+                  }[type.id] || 'bg-primary text-primary-foreground';
+
+                return (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class={cn(
+                      'rounded-xl px-4 h-9 transition-all duration-300 font-medium border border-transparent',
+                      activeType() === type.id
+                        ? activeClass
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    )}
+                    onClick={() => setActiveType(type.id)}
+                    title={type.description}
+                  >
+                    <div
+                      class={cn(
+                        'mr-2 h-5 w-5 rounded-full flex items-center justify-center transition-colors',
+                        activeType() === type.id ? 'bg-white/20' : 'bg-transparent'
+                      )}
+                    >
+                      <Dynamic component={type.icon} class="h-3.5 w-3.5" />
+                    </div>
+                    {type.label}
+                  </Button>
+                );
+              }}
+            </For>
+          </div>
+
+          {/* Pending Items Reminder */}
+          <Show when={getReminderMessage(activeType())}>
+            <div class="px-4 py-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-200 text-sm">
+              {getReminderMessage(activeType())}
             </div>
           </Show>
-        </div>
+
+          {/* Trades List */}
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-medium text-foreground flex items-center gap-2">
+                <Dynamic component={getTypeIcon(activeType())} class="h-5 w-5" />
+                {getTypeInfo(activeType())?.label} Items
+              </h3>
+              <Button
+                size="sm"
+                onClick={openAddForm}
+                class="rounded-md shadow-sm hover:shadow-md transition-all"
+              >
+                <Plus class="h-4 w-4 mr-2" /> Add {getTypeInfo(activeType())?.label}
+              </Button>
+            </div>
+
+            <For each={trades().filter((t) => t.type === activeType())}>
+              {(trade) => (
+                <Card class="group hover:shadow-md transition-all duration-300 border-transparent hover:border-border/50 bg-card/60 hover:bg-card">
+                  <CardContent class="p-4 flex items-center gap-4">
+                    {/* Icon */}
+                    <div
+                      class={cn(
+                        'flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110',
+                        {
+                          sell: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400',
+                          borrow:
+                            'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
+                          trade:
+                            'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400',
+                          lend: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400',
+                        }[trade.type]
+                      )}
+                    >
+                      <Dynamic component={getTypeIcon(trade.type)} class="h-6 w-6" />
+                    </div>
+
+                    {/* Trade Info */}
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 mb-1">
+                        <h4 class="font-bold text-foreground truncate text-base">{trade.name}</h4>
+                        <span
+                          class={cn(
+                            'px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-full border border-transparent bg-opacity-50',
+                            getStatusBadge(trade.status).class
+                          )}
+                        >
+                          {getStatusBadge(trade.status).label}
+                        </span>
+                      </div>
+                      {/* Simplified Metadata: Description only, Partner if exists */}
+                      <div class="flex items-center gap-3 text-sm text-muted-foreground">
+                        <Show
+                          when={
+                            trade.partner &&
+                            trade.partner !== 'Unknown' &&
+                            trade.partner !== 'Marketplace'
+                          }
+                        >
+                          <span class="flex items-center gap-1 opacity-80">
+                            <span class="text-xs">
+                              {trade.type === 'borrow'
+                                ? 'From'
+                                : trade.type === 'lend'
+                                  ? 'To'
+                                  : 'With'}
+                            </span>
+                            <span class="font-medium text-foreground/80">{trade.partner}</span>
+                          </span>
+                        </Show>
+                        <Show
+                          when={
+                            trade.description &&
+                            (!trade.partner ||
+                              trade.partner === 'Unknown' ||
+                              trade.partner === 'Marketplace')
+                          }
+                        >
+                          <p class="text-xs text-muted-foreground/60 truncate max-w-[200px]">
+                            {trade.description}
+                          </p>
+                        </Show>
+                      </div>
+                    </div>
+
+                    {/* Value/Karma & Actions */}
+                    <div class="flex items-center gap-4">
+                      <div class="text-right min-w-[60px]">
+                        {/* Sell: just money */}
+                        <Show when={trade.type === 'sell'}>
+                          <div class="font-bold text-lg">
+                            {formatCurrency(trade.value, currency())}
+                          </div>
+                        </Show>
+                        {/* Borrow: money saved + karma */}
+                        <Show when={trade.type === 'borrow'}>
+                          <div class="font-bold text-lg text-green-600 dark:text-green-400">
+                            {formatCurrency(trade.value, currency())}
+                          </div>
+                          <div class="text-xs text-purple-600 dark:text-purple-400">+20 karma</div>
+                        </Show>
+                        {/* Lend/Trade: just karma */}
+                        <Show when={trade.type === 'lend' || trade.type === 'trade'}>
+                          <div class="font-bold text-lg text-purple-600 dark:text-purple-400">
+                            +{trade.type === 'lend' ? '50' : '30'} karma
+                          </div>
+                        </Show>
+                      </div>
+
+                      {/* Hover Actions */}
+                      <div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 focus-within:opacity-100">
+                        <Show when={trade.status === 'active'}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            class="h-8 w-8 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/20"
+                            onClick={() => updateStatus(trade.id, 'pending')}
+                            title="Revert to pending"
+                          >
+                            <Undo2 class="h-4 w-4" />
+                          </Button>
+                        </Show>
+
+                        <Show when={trade.status !== 'completed'}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            class={cn(
+                              'h-8 w-8',
+                              trade.status === 'pending'
+                                ? 'text-primary hover:text-primary'
+                                : 'text-green-600 hover:text-green-700'
+                            )}
+                            onClick={() =>
+                              updateStatus(
+                                trade.id,
+                                trade.status === 'pending' ? 'active' : 'completed'
+                              )
+                            }
+                            title={trade.status === 'pending' ? 'Mark as active' : 'Mark as done'}
+                          >
+                            <Check class="h-4 w-4" />
+                          </Button>
+                        </Show>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          class="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => handleEditTrade(trade)}
+                          title="Edit"
+                        >
+                          <Pencil class="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => requestDeleteTrade(trade)}
+                          title="Delete"
+                        >
+                          <Trash2 class="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </For>
+
+            {/* Empty state - for sell tab, only show if no trades AND no inventory items */}
+            <Show
+              when={
+                trades().filter((t) => t.type === activeType()).length === 0 &&
+                (activeType() !== 'sell' ||
+                  (props.inventoryItems || []).filter(
+                    (item) => !trades().some((t) => t.inventoryItemId === item.id)
+                  ).length === 0)
+              }
+            >
+              <div class="text-center py-12">
+                <div
+                  class={cn(
+                    'h-16 w-16 rounded-full mx-auto flex items-center justify-center mb-4 bg-muted/30 text-muted-foreground',
+                    {
+                      sell: 'bg-emerald-500/10 text-emerald-500',
+                      borrow: 'bg-blue-500/10 text-blue-500',
+                      trade: 'bg-purple-500/10 text-purple-500',
+                      lend: 'bg-orange-500/10 text-orange-500',
+                    }[activeType()] || 'bg-muted'
+                  )}
+                >
+                  <Dynamic component={getTypeIcon(activeType())} class="h-8 w-8 opacity-50" />
+                </div>
+                <h3 class="text-lg font-medium text-foreground">No {activeType()} items yet</h3>
+                <Button variant="outline" class="mt-4" onClick={openAddForm}>
+                  <Plus class="h-4 w-4 mr-2" /> Add first item
+                </Button>
+              </div>
+            </Show>
+          </div>
+        </Show>
       </Show>
 
       {/* Add/Edit Form Modal */}

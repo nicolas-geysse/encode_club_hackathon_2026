@@ -7,15 +7,19 @@
  * Phase 2 of navigation restructure.
  */
 
-import { Show, Suspense, lazy, createMemo } from 'solid-js';
+import { Show, Suspense, lazy, createMemo, createEffect } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { useProfile } from '~/lib/profileContext';
 import { profileService } from '~/lib/profileService';
 import { Card } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { BrunoHintV2 } from '~/components/ui/BrunoHintV2';
+import { goalService } from '~/lib/goalService';
+import { setGoalAchieved } from '~/lib/goalAchievementStore';
 import { createLogger } from '~/lib/logger';
 import { Dices, ShoppingBag, Briefcase, Pause, Heart } from 'lucide-solid';
+import { goalAchieved } from '~/lib/goalAchievementStore';
+import { VictoryBanner } from '~/components/ui/VictoryBanner';
 
 const logger = createLogger('SwipePage');
 
@@ -47,6 +51,29 @@ export default function SwipePage() {
   const activeProfile = () => profile();
   const isLoading = () => loading();
   const hasProfile = () => !!activeProfile()?.id;
+
+  // Set goal-achievement store (hides tips + content when goal reached)
+  createEffect(() => {
+    const p = activeProfile();
+    if (!p?.id) return;
+    const currentAmount = Number(p.followupData?.currentAmount || 0);
+    goalService
+      .listGoals(p.id, { status: 'active' })
+      .then((goals) => {
+        const achievedGoal = goals.find(
+          (g) => g.progress >= 100 || (g.amount > 0 && currentAmount >= g.amount)
+        );
+        if (achievedGoal) {
+          let days: number | null = null;
+          if (achievedGoal.createdAt) {
+            const start = new Date(achievedGoal.createdAt);
+            days = Math.max(1, Math.ceil((Date.now() - start.getTime()) / 86_400_000));
+          }
+          setGoalAchieved(true, days);
+        }
+      })
+      .catch(() => {});
+  });
 
   // Access control: Check if user has content to swipe (Pull Architecture)
   const swipeAccess = createMemo(() => {
@@ -346,18 +373,23 @@ export default function SwipePage() {
             />
           </div>
 
-          {/* Content - Check access control first */}
-          <Show when={swipeAccess().canAccess} fallback={<EmptySwipeView />}>
-            <Show when={swipeProps()}>
-              {(props) => (
-                <Suspense fallback={<SwipeSkeleton />}>
-                  <SwipeTab
-                    {...props()}
-                    onPreferencesChange={handlePreferencesChange}
-                    onScenariosSelected={handleScenariosSelected}
-                  />
-                </Suspense>
-              )}
+          {/* Victory Banner */}
+          <VictoryBanner />
+
+          {/* Content — hidden when goal achieved */}
+          <Show when={!goalAchieved()}>
+            <Show when={swipeAccess().canAccess} fallback={<EmptySwipeView />}>
+              <Show when={swipeProps()}>
+                {(props) => (
+                  <Suspense fallback={<SwipeSkeleton />}>
+                    <SwipeTab
+                      {...props()}
+                      onPreferencesChange={handlePreferencesChange}
+                      onScenariosSelected={handleScenariosSelected}
+                    />
+                  </Suspense>
+                )}
+              </Show>
             </Show>
           </Show>
         </div>

@@ -39,7 +39,7 @@ function StarRating(props: { stars: number; size?: 'sm' | 'md' }) {
   const sizeClass = () => (props.size === 'md' ? 'text-sm' : 'text-xs');
 
   return (
-    <span class={`${sizeClass()} flex gap-0.5`} title={`${props.stars}/5 étoiles`}>
+    <span class={`${sizeClass()} flex gap-0.5`} title={`${props.stars}/5 stars`}>
       <For each={[1, 2, 3, 4, 5]}>
         {(i) => (
           <span class={i <= props.stars ? 'text-yellow-500' : 'text-muted-foreground/30'}>★</span>
@@ -147,7 +147,7 @@ export default function SkillMultiSelect(props: SkillMultiSelectProps) {
         type="text"
         value={filter()}
         onInput={(e) => setFilter(e.currentTarget.value)}
-        placeholder={props.placeholder || 'Rechercher une compétence...'}
+        placeholder={props.placeholder || 'Search skills...'}
         class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm"
       />
 
@@ -159,7 +159,7 @@ export default function SkillMultiSelect(props: SkillMultiSelectProps) {
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <span class="text-base">🎯</span>
-                <span>Recommandés pour toi</span>
+                <span>Recommended for you</span>
               </div>
               <div class="grid grid-cols-1 gap-2">
                 <For each={groupedOptions().brunoPicks}>
@@ -181,7 +181,7 @@ export default function SkillMultiSelect(props: SkillMultiSelectProps) {
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <StarRating stars={5} size="sm" />
-                <span>Parfaitement adaptés</span>
+                <span>Perfect match</span>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <For each={groupedOptions().fiveStars}>
@@ -202,7 +202,7 @@ export default function SkillMultiSelect(props: SkillMultiSelectProps) {
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <StarRating stars={4} size="sm" />
-                <span>Très compatibles</span>
+                <span>Great fit</span>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <For each={groupedOptions().fourStars}>
@@ -223,7 +223,7 @@ export default function SkillMultiSelect(props: SkillMultiSelectProps) {
             <div class="space-y-2">
               <div class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <StarRating stars={3} size="sm" />
-                <span>Autres options</span>
+                <span>Other options</span>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <For each={groupedOptions().rest}>

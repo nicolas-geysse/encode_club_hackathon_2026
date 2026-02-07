@@ -23,6 +23,7 @@ const ProspectionTab = lazy(() =>
 import { profileService } from '~/lib/profileService';
 import { inventoryService } from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
+import { setGoalAchieved } from '~/lib/goalAchievementStore';
 import { tradeService } from '~/lib/tradeService';
 import { useProfile } from '~/lib/profileContext';
 import { useSimulation } from '~/lib/simulationContext';
@@ -363,6 +364,29 @@ export default function MePage() {
             setPlanData(newSetupData);
           }
         }
+      }
+    }
+
+    // Check if active goal is achieved (hides BrunoHintV2 + editing across all tabs)
+    if (profile) {
+      try {
+        const activeGoals = await goalService.listGoals(profile.id, { status: 'active' });
+        const currentAmount = Number(profile.followupData?.currentAmount || 0);
+        const achievedGoal = activeGoals.find(
+          (g) => g.progress >= 100 || (g.amount > 0 && currentAmount >= g.amount)
+        );
+        if (achievedGoal) {
+          let days: number | null = null;
+          if (achievedGoal.createdAt) {
+            const start = new Date(achievedGoal.createdAt);
+            days = Math.max(1, Math.ceil((Date.now() - start.getTime()) / 86_400_000));
+          }
+          setGoalAchieved(true, days);
+        } else {
+          setGoalAchieved(false);
+        }
+      } catch {
+        // Non-critical — leave default (false)
       }
     }
 
