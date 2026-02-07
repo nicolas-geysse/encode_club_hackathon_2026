@@ -481,6 +481,151 @@ export function OnboardingChat() {
     }
   });
 
+  // Phase 2: Welcome message + daily briefing injection
+  // Runs once per profile when entering conversation mode with messages loaded
+  let lastInjectedPid: string | undefined;
+  createEffect(() => {
+    const mode = chatMode();
+    const pid = profileId();
+    const msgCount = messages().length;
+
+    if (!pid || mode !== 'conversation' || msgCount === 0) return;
+
+    // Only run once per profile per session
+    if (lastInjectedPid === pid) return;
+    lastInjectedPid = pid;
+
+    // 2.1 Welcome message (one-time per profile)
+    const welcomeKey = `stride_welcome_shown_${pid}`;
+    if (!localStorage.getItem(welcomeKey)) {
+      localStorage.setItem(welcomeKey, 'true');
+      const welcomeMsg: Message = {
+        id: `welcome-conv-${Date.now()}`,
+        role: 'assistant',
+        content:
+          `Welcome to **conversation mode**! Here's what I can help with:\n\n` +
+          `- **Charts** — budget, progress, energy, projections\n` +
+          `- **"What if"** — simulate working more, selling items, cutting subscriptions\n` +
+          `- **Actions** — create goals, pause subscriptions, find jobs\n` +
+          `- **Swipe** — discover opportunities\n\n` +
+          `Try one:`,
+        uiResource: {
+          type: 'grid',
+          params: {
+            columns: 2,
+            children: [
+              {
+                type: 'action',
+                params: {
+                  type: 'button',
+                  label: 'My Budget',
+                  action: 'show_chart',
+                  params: { chartType: 'budget_breakdown' },
+                },
+              },
+              {
+                type: 'action',
+                params: {
+                  type: 'button',
+                  label: 'My Progress',
+                  action: 'show_chart',
+                  params: { chartType: 'progress' },
+                },
+              },
+              {
+                type: 'action',
+                params: {
+                  type: 'button',
+                  label: 'Swipe',
+                  action: 'navigate',
+                  params: { to: '/swipe' },
+                },
+              },
+              {
+                type: 'action',
+                params: {
+                  type: 'button',
+                  label: 'Energy',
+                  action: 'show_chart',
+                  params: { chartType: 'energy' },
+                },
+              },
+            ],
+          },
+        },
+      };
+      setMessages((prev) => [...prev, welcomeMsg]);
+      saveMessageToDb(welcomeMsg);
+      return; // Skip briefing on the same session as welcome
+    }
+
+    // 2.2 Daily briefing (once per day per profile)
+    const briefingKey = `stride_last_briefing_${pid}`;
+    const today = new Date().toISOString().split('T')[0];
+    if (localStorage.getItem(briefingKey) === today) return;
+    localStorage.setItem(briefingKey, today);
+
+    // Fetch budget + goals for briefing (non-blocking)
+    Promise.all([
+      fetch(`/api/budget?profileId=${pid}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+      fetch(`/api/goals?profileId=${pid}&status=active`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+      .then(([budgetData, goalsData]) => {
+        const goal = goalsData?.goals?.[0];
+        const progress =
+          goal?.amount > 0 ? Math.round(((goal.progress ?? 0) / goal.amount) * 100) : 0;
+        const margin = budgetData?.adjustedMargin || budgetData?.netMargin || 0;
+        const curr = getCurrencySymbolForForm();
+
+        const briefingMsg: Message = {
+          id: `briefing-${Date.now()}`,
+          role: 'assistant',
+          content:
+            `Daily update:\n\n` +
+            (goal
+              ? `- **${goal.name}**: ${progress}% (${curr}${goal.progress ?? 0} / ${curr}${goal.amount})\n`
+              : '') +
+            `- **Margin**: ${curr}${margin}/month\n` +
+            `\nWhat would you like to do?`,
+          uiResource: {
+            type: 'grid',
+            params: {
+              columns: 2,
+              children: [
+                {
+                  type: 'action',
+                  params: {
+                    type: 'button',
+                    label: 'Charts',
+                    action: 'show_chart',
+                    params: { chartType: 'budget_breakdown' },
+                  },
+                },
+                {
+                  type: 'action',
+                  params: {
+                    type: 'button',
+                    label: 'Opportunities',
+                    action: 'navigate',
+                    params: { to: '/swipe' },
+                  },
+                },
+              ],
+            },
+          },
+        };
+        setMessages((prev) => [...prev, briefingMsg]);
+        saveMessageToDb(briefingMsg);
+      })
+      .catch((err) => {
+        logger.debug('Failed to fetch briefing data', { error: err });
+      });
+  });
+
   /**
    * Handle MCP-UI actions from interactive components
    * Called when user interacts with forms, buttons, etc.

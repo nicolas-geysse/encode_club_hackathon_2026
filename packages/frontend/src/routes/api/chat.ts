@@ -1294,6 +1294,16 @@ async function handleConversationMode(
       }
       // -----------------------------------------------------------------------
 
+      // Phase 2.3: Proactive detection — prefix response if notable state detected
+      let proactivePrefix = '';
+      const goalProgress = budgetContext?.goalProgress || 0;
+      if (goalProgress >= 100 && !context._goalCelebrated) {
+        proactivePrefix = `**Goal Achieved!** You reached your target for ${context.goalName || 'your goal'}!\n\n`;
+        context._goalCelebrated = true;
+      } else if (goalProgress >= 80 && goalProgress < 100) {
+        proactivePrefix = `**Almost there!** You're at ${Math.round(goalProgress)}% of your goal.\n\n`;
+      }
+
       switch (intent.action) {
         case 'restart_new_profile': {
           // Signal frontend to reset ALL state and create a new profile
@@ -2788,9 +2798,15 @@ Use this data for personalized, concrete advice.`,
       // (e.g., "show my progress", "projection chart", etc.)
       // Removed: overly aggressive auto-attach that triggered on keywords in ANY response
 
+      // Prepend proactive prefix (goal achievement, nearly there, etc.)
+      if (proactivePrefix) {
+        response = proactivePrefix + response;
+      }
+
       ctx.setAttributes({
         'chat.response_length': response.length,
         'chat.extracted_fields': Object.keys(extractedData).length,
+        'chat.proactive_prefix': Boolean(proactivePrefix),
       });
       ctx.setOutput({ response: response.substring(0, 300), intent });
 
