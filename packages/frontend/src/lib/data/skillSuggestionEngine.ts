@@ -44,7 +44,8 @@ export type DiplomaLevel = 'high_school' | 'vocational' | 'bachelor' | 'master' 
  * Skills that are HARD to monetize quickly (need audience, portfolio, certifications).
  * These get a penalty in accessibility scoring.
  */
-const HARD_TO_START_SKILLS: Record<string, number> = {
+/** @internal Exported for data integrity tests */
+export const HARD_TO_START_SKILLS: Record<string, number> = {
   // Content creation - needs audience building (months)
   'TikTok/YouTube eco content creation': 1,
   'Popular science content creation': 2,
@@ -73,7 +74,8 @@ const HARD_TO_START_SKILLS: Record<string, number> = {
  * Skills that are EASY to start immediately.
  * These get a bonus in accessibility scoring.
  */
-const EASY_TO_START_SKILLS: Record<string, number> = {
+/** @internal Exported for data integrity tests */
+export const EASY_TO_START_SKILLS: Record<string, number> = {
   // Can start today
   'Online tutoring': 5,
   'Online science / math tutoring': 5,

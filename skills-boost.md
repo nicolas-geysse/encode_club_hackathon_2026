@@ -149,15 +149,15 @@ When field is `'other'`, the function returns `getAllSkills()` -- all 87 skills 
 - New: `frontend/src/lib/data/__tests__/skillDataIntegrity.test.ts` -- Regression guard
 
 **Changes:**
-| Field | Current (orphan) | Fix (registry match) |
-|-------|------------------|---------------------|
-| education | "Educational materials translation" | "Freelance translation / localization" |
-| engineering | "CAD/CAM support" | "3D modeling / CAD" |
-| health | "Medical document translation" | "Medical transcription" |
-| services | "Menu / tourism materials translation" | "Travel reviews / content writing" |
-| other | "General virtual assistant" | "Virtual assistant" |
-| social_sciences | "Online community moderation" | "Content moderation" |
-| sciences | "Data entry and cleaning" | "Data entry" |
+| Field | Current (orphan) | Fix (registry match) | Note |
+|-------|------------------|---------------------|------|
+| education | "Educational materials translation" | "Freelance translation / localization" | cross-dup w/ humanities OK |
+| engineering | "CAD/CAM support" | "Python" | only remaining eng skill in registry |
+| health | "Medical document translation" | "Support group / peer-to-peer support facilitation" | avoids dup w/ Medical transcription |
+| services | "Menu / tourism materials translation" | "Local tour guide / virtual tours" | avoids dup w/ Travel reviews |
+| other | "General virtual assistant" | "Virtual assistant" | alias fix |
+| social_sciences | "Online community moderation" | "Content moderation" | alias fix |
+| sciences | "Data entry and cleaning" | "Data entry" | alias fix |
 
 **Unit test** (prevents regression):
 ```typescript

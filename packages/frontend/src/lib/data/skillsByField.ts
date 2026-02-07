@@ -63,7 +63,7 @@ export const SKILLS_BY_FIELD: Record<string, string[]> = {
     'Academic proofreading / editing',
     'Academic guidance coaching',
     'Workshop / webinar facilitation',
-    'Educational materials translation',
+    'Freelance translation / localization',
   ],
 
   engineering: [
@@ -72,7 +72,7 @@ export const SKILLS_BY_FIELD: Record<string, string[]> = {
     'Electronics repair',
     'IoT / Arduino projects development',
     'Technical writing',
-    'CAD/CAM support',
+    'Python',
     'Smart home energy optimization',
   ],
 
@@ -82,7 +82,7 @@ export const SKILLS_BY_FIELD: Record<string, string[]> = {
     'Amateur nutrition coaching',
     'Online fitness/yoga classes',
     'Medical office admin support',
-    'Medical document translation',
+    'Support group / peer-to-peer support facilitation',
     'Social media content for health professionals',
   ],
 
@@ -100,7 +100,7 @@ export const SKILLS_BY_FIELD: Record<string, string[]> = {
     'Online science / math tutoring',
     'Basic data analysis',
     'Popular science content creation',
-    'Data entry and cleaning',
+    'Data entry',
     'Academic research assistance',
     'Scientific proofreading',
     'Online simulator/calculator creation',
@@ -113,11 +113,11 @@ export const SKILLS_BY_FIELD: Record<string, string[]> = {
     'Travel reviews / content writing',
     'Food photography',
     'Mystery shopping / service quality evaluations',
-    'Menu / tourism materials translation',
+    'Local tour guide / virtual tours',
   ],
 
   social_sciences: [
-    'Online community moderation',
+    'Content moderation',
     'UX research / user testing',
     'Psychology / personal development content writing',
     'Qualitative interview transcription',
@@ -127,7 +127,7 @@ export const SKILLS_BY_FIELD: Record<string, string[]> = {
   ],
 
   other: [
-    'General virtual assistant',
+    'Virtual assistant',
     'Data entry',
     'Content moderation',
     'Customer service / support',
