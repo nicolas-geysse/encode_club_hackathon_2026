@@ -48,6 +48,7 @@ import {
   calculateTotalProgress,
   getEmptyOneTimeGains,
 } from '~/lib/progressCalculator';
+import { enqueueMessage } from '~/lib/chat/proactiveQueue';
 // Note: checkAutoCredit replaced by inline multi-month logic in Sprint 13.9
 
 const logger = createLogger('ProgressPage');
@@ -1100,6 +1101,40 @@ export default function ProgressPage() {
       previousState: {
         hoursCompleted: mission.hoursCompleted,
         earningsCollected: mission.earningsCollected,
+      },
+    });
+
+    // Phase 5: Enqueue proactive chat message for mission completion
+    enqueueMessage({
+      content: `Mission **${mission.title}** completed! +${formatCurrency(mission.weeklyEarnings || 0, 'EUR' as Currency)} earned.`,
+      priority: 'medium',
+      ttlHours: 48,
+      dedupeKey: `mission_complete_${mission.id}`,
+      uiResource: {
+        type: 'grid',
+        params: {
+          columns: 2,
+          children: [
+            {
+              type: 'action',
+              params: {
+                type: 'button',
+                label: 'See Progress',
+                action: 'navigate',
+                params: { to: '/progress' },
+              },
+            },
+            {
+              type: 'action',
+              params: {
+                type: 'button',
+                label: 'Charts',
+                action: 'show_chart',
+                params: { chartType: 'budget_breakdown' },
+              },
+            },
+          ],
+        },
       },
     });
   };

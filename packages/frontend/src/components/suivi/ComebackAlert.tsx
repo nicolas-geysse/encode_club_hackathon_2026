@@ -16,6 +16,7 @@ import { Rocket, Sparkles, Trophy } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 import { ACHIEVEMENTS, onAchievementUnlock } from '~/lib/achievements';
 import { toast } from '~/lib/notificationStore';
+import { enqueueMessage } from '~/lib/chat/proactiveQueue';
 // P1-Health: Import unified algorithms from lib
 import {
   detectComebackWindow,
@@ -57,6 +58,25 @@ export function ComebackAlert(props: ComebackAlertProps) {
   createEffect(() => {
     if (comebackWindow() && !hasShownCelebration()) {
       setHasShownCelebration(true);
+
+      // Phase 5: Proactive queue — notify chat about comeback window
+      const w = comebackWindow()!;
+      enqueueMessage({
+        content: `Comeback mode activated! Energy recovered after ${w.deficitWeeks} tough weeks. A catch-up plan is ready on your Progress page.`,
+        priority: 'high',
+        ttlHours: 72,
+        dedupeKey: `comeback_${w.deficitWeeks}w`,
+        uiResource: {
+          type: 'action',
+          params: {
+            type: 'button',
+            label: 'View Catch-up Plan',
+            action: 'navigate',
+            params: { to: '/progress' },
+          },
+        },
+      });
+
       // Delay content reveal for dramatic effect
       setTimeout(() => {
         celebrateComeback();

@@ -48,6 +48,7 @@ import { setGoalAchieved } from '~/lib/goalAchievementStore';
 import { onboardingIsComplete, persistOnboardingComplete } from '~/lib/onboardingStateStore';
 import { addDays, now } from '~/lib/dateUtils';
 import { normalizeSubscriptionName } from '~/lib/chat/extraction/patterns';
+import { drainQueue } from '~/lib/chat/proactiveQueue';
 
 // Message type imported from ~/types/chat
 
@@ -495,6 +496,19 @@ export function OnboardingChat() {
     if (lastInjectedPid === pid) return;
     lastInjectedPid = pid;
 
+    // Phase 5: Drain proactive queue and inject messages
+    const drainAndInjectQueue = () => {
+      const queued = drainQueue();
+      if (queued.length === 0) return;
+      const proactiveMessages: Message[] = queued.map((m) => ({
+        id: m.id,
+        role: 'assistant' as const,
+        content: `**Bruno noticed:** ${m.content}`,
+        uiResource: m.uiResource,
+      }));
+      setMessages((prev) => [...prev, ...proactiveMessages]);
+    };
+
     // 2.1 Welcome message (one-time per profile)
     const welcomeKey = `stride_welcome_shown_${pid}`;
     if (!localStorage.getItem(welcomeKey)) {
@@ -556,13 +570,17 @@ export function OnboardingChat() {
       };
       setMessages((prev) => [...prev, welcomeMsg]);
       saveMessageToDb(welcomeMsg);
+      drainAndInjectQueue();
       return; // Skip briefing on the same session as welcome
     }
 
     // 2.2 Daily briefing (once per day per profile)
     const briefingKey = `stride_last_briefing_${pid}`;
     const today = new Date().toISOString().split('T')[0];
-    if (localStorage.getItem(briefingKey) === today) return;
+    if (localStorage.getItem(briefingKey) === today) {
+      drainAndInjectQueue();
+      return;
+    }
     localStorage.setItem(briefingKey, today);
 
     // Fetch budget + goals for briefing (non-blocking)
@@ -620,9 +638,11 @@ export function OnboardingChat() {
         };
         setMessages((prev) => [...prev, briefingMsg]);
         saveMessageToDb(briefingMsg);
+        drainAndInjectQueue();
       })
       .catch((err) => {
         logger.debug('Failed to fetch briefing data', { error: err });
+        drainAndInjectQueue(); // Still drain on fetch failure
       });
   });
 

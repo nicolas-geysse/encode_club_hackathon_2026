@@ -7,7 +7,7 @@
  * P1-Health: Now uses unified algorithms from API routes
  */
 
-import { For, Show, createMemo } from 'solid-js';
+import { For, Show, createMemo, createEffect } from 'solid-js';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Zap, AlertTriangle, Info, TrendingDown, TrendingUp } from 'lucide-solid';
@@ -19,6 +19,7 @@ import {
   type EnergyEntry,
   type EnergyDebt,
 } from '~/lib/algorithms';
+import { enqueueMessage } from '~/lib/chat/proactiveQueue';
 
 interface EnergyHistoryProps {
   history: EnergyEntry[];
@@ -45,6 +46,18 @@ export function EnergyHistory(props: EnergyHistoryProps) {
     return result.detected ? result : null;
   });
   const isComeback = createMemo(() => detectComeback(props.history, threshold()));
+
+  // Phase 5: Proactive queue — notify chat when energy debt is detected
+  createEffect(() => {
+    const d = debt();
+    if (!d) return;
+    enqueueMessage({
+      content: `Energy debt detected: ${d.consecutiveLowWeeks} weeks below ${threshold()}%. Consider reducing your weekly targets.`,
+      priority: 'high',
+      ttlHours: 72,
+      dedupeKey: `energy_debt_w${d.consecutiveLowWeeks}`,
+    });
+  });
 
   // Energy trend insight (comparing last 2 weeks) - prefixed with _ as it's for future use
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
