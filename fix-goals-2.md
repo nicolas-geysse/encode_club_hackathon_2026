@@ -671,18 +671,80 @@ try {
 
 ---
 
-## Files Affected
+## Implementation Report
+
+All 6 phases implemented and committed on `main`. Each commit passed typecheck + lint + prettier via pre-commit hooks.
+
+### Commits
+
+| Phase | Commit | Description |
+|-------|--------|-------------|
+| 1 | `ca83dc6` | Subscription duplication fix |
+| 2 | `ba6299f` | Confirmation dialogs |
+| 3 | `89cf6f7` | Goal-centric switcher UX |
+| 4 | `31dcecd` | Goal deletion cleanup (Strategy B) + DELETE cascade fix |
+| 5 | `36c911b` | Copy academic_events + commitments during duplication |
+| 6 | `e8965ec` | Remove duplicate schema + wire create_goal action |
+
+### Files Modified (8 total)
+
+| File | Phase | What Changed |
+|------|-------|-------------|
+| `lib/chat/stepForms.ts` | 1 | `currentCost`: `required: true`, `min: 1` |
+| `components/chat/OnboardingChat.tsx` | 1 | Removed eager `lifestyleService.createItem()` during LLM confirm flow (kept signal-only merge). Fixed `\|\| 10` → `?? 10`, `\|\| 0` → `?? 0`. Removed unused `lifestyleService` import. |
+| `components/tabs/GoalsTab.tsx` | 2, 4 | **Phase 2**: Added `deleteConfirm`/`completeConfirm` signals + 2 ConfirmDialogs. **Phase 4**: Rewrote `confirmDelete` with Strategy B — clone: `switchProfile()` → DELETE → reload; main: null goal fields + followupData, surgical `planData.setup` clear via `as any` cast for null serialization. |
+| `components/ProfileSelector.tsx` | 2, 3 | **Phase 2**: Replaced native `confirm()` with `deleteProfileConfirm` signal + ConfirmDialog. **Phase 3**: Goal name primary in header (`Target` icon), "My Goals" dropdown header, goal name primary / `$amount · profile name` secondary in list, removed "New profile" button + `handleNewFreshProfile`, separated simulations into own section, removed `Dynamic`, `User`, `UserPlus`, `getProfileIcon`. Updated New Goal modal description. |
+| `routes/api/profiles.ts` | 4 | DELETE cascade: expanded from `['goals', 'skills', 'inventory_items', 'lifestyle_items', 'trades']` to 16 tables (added `income_items`, `leads`, `chat_messages`, `energy_logs`, `job_exclusions`, `academic_events`, `commitments`, `goal_achievements`, `retroplans`, `goal_progress`, `goal_actions`). |
+| `routes/api/profiles/duplicate.ts` | 5 | Added steps 8 (academic_events) and 9 (commitments) copying with `INSERT...SELECT`, `COUNT(*)` check (bigint-safe), `gen_random_uuid()` for new IDs, try/catch for table-not-exist safety. |
+| `lib/api/schemaManager.ts` | 6 | Removed `SCHEMAS.goals` (unused, was duplicate of `routes/api/goals.ts`). Replaced with comment pointing to authoritative schema. |
+| `lib/chat/ActionExecutor.ts` | 6 | Wired `create_goal` case to new `executeCreateGoal()` method (validates name + amount, calls `goalService.createGoal()`, returns success message). Added `goalService` import. |
+
+### Deviations from Analysis
+
+| Item | Doc Proposed | Actual Implementation | Reason |
+|------|-------------|----------------------|--------|
+| Commitments columns | `commitment_type`, `commitment_name` (Bug 5 SQL snippet) | `type`, `name` | Doc SQL snippet used wrong column names. Actual schema (`schemaManager.ts:181-193`) uses `name VARCHAR` and `type VARCHAR`. Implementation matches schema. |
+| GoalsTab `confirmDelete` context | `const profile = activeProfile()` | `const p = profile()` | GoalsTab gets profile from `useProfile()` context (not a local `activeProfile` signal). The `profile()` accessor is the correct one in this component. |
+| planData nulling | `planData: cleanedPlanData` (doc) | `planData: cleanedPlanData ?? null` with `as any` | TypeScript `Partial<FullProfile>` doesn't allow `null`. Using `as any` cast ensures `null` passes through `JSON.stringify` so the PATCH handler detects the key and sets SQL NULL. `undefined` would be stripped by JSON.stringify, making the PATCH handler ignore the field. |
+| Phase 5 item 2 | "Replace native `confirm()` for Reset all data with ConfirmDialog" | Already done in Phase 2 | The "Reset all data" button already used a two-step `ConfirmDialog` (showResetConfirm1 → showResetConfirm2). No change needed. |
+| Phase 6 deprecation comments | "Add deprecation comments to legacy JSON columns in onboardingPersistence.ts" | Not added | `onboardingPersistence.ts` doesn't write to the legacy `income_sources`/`expenses` profile columns — it writes to `lifestyle_items` table. The legacy columns are already set to NULL in `duplicate.ts`. No comment needed. |
+
+### Verification Checklist
+
+- [x] `pnpm typecheck` passes (all 6 commits)
+- [x] Pre-commit hooks (eslint + prettier) pass (all 6 commits)
+- [x] No `console.log` introduced
+- [x] ProfileSelector: goal name shown in header, simulations separated
+- [x] GoalsTab: ConfirmDialog blocks delete + complete
+- [x] GoalsTab: confirmDelete implements Strategy B (clone vs main paths)
+- [x] DELETE cascade covers 16 tables
+- [x] duplicate.ts copies academic_events + commitments with correct column names
+- [x] schemaManager.ts no longer has duplicate goals schema
+- [x] ActionExecutor.create_goal wired to goalService
+
+### Manual Testing Still Needed
+
+1. Fresh onboarding → Netflix subscription → verify no duplicate in Budget tab
+2. Switch between goals in dropdown → correct profile loads
+3. Delete goal on clone profile → redirects to parent, clone gone from dropdown
+4. Delete goal on main profile → fields cleared, energy_logs preserved, swipe preferences preserved
+5. Create new goal → verify academic_events and commitments copied, inventory NOT copied
+6. Chat action `create_goal` → verify goal appears in Goals tab
+
+---
+
+## Files Affected (Summary)
 
 | File | Changes |
 |------|---------|
 | `lib/chat/stepForms.ts` | Make currentCost required, min=1 |
 | `components/chat/OnboardingChat.tsx` | Remove eager createItem in confirm flow |
-| `components/tabs/GoalsTab.tsx` | Add ConfirmDialog for delete/complete |
-| `components/ProfileSelector.tsx` | Refactor to goal-centric UX, replace confirm() |
-| `components/tabs/GoalsTab.tsx` | Goal deletion → clone: switch+delete / main: null fields+followupData+planData.setup |
-| `routes/api/profiles.ts` | Fix DELETE cascade (add 9 missing tables to cleanup list) |
+| `components/tabs/GoalsTab.tsx` | ConfirmDialog for delete/complete + Strategy B goal deletion cleanup |
+| `components/ProfileSelector.tsx` | Goal-centric UX refactor + ConfirmDialog for delete |
+| `routes/api/profiles.ts` | Fix DELETE cascade (5 → 16 tables) |
 | `routes/api/profiles/duplicate.ts` | Add academic_events + commitments copy |
 | `lib/api/schemaManager.ts` | Remove duplicate goals schema |
+| `lib/chat/ActionExecutor.ts` | Wire create_goal to goalService |
 
 ---
 
