@@ -899,6 +899,9 @@ export function OnboardingChat() {
             projection: 'show_projection_chart',
             energy: 'show_energy_chart',
             comparison: 'show_comparison_chart',
+            skills: 'show_skills_chart',
+            missions: 'show_missions_chart',
+            capacity: 'show_capacity_chart',
           };
 
           const action = chartActionMap[chartType] || 'show_chart_gallery';

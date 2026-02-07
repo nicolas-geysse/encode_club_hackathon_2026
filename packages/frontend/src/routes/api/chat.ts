@@ -78,8 +78,15 @@ import {
   buildProgressChart,
   buildProjectionChart,
   buildEnergyChart,
+  buildSkillArbitrageChart,
+  buildMissionChart,
+  buildCapacityChart,
+  buildChartWithLinks,
   type EnergyLogEntry,
   type TradePotential,
+  type SkillJobMatch,
+  type MissionSummary,
+  type WeekCapacity,
 } from '../../lib/chatChartBuilder';
 import { toISODate } from '../../lib/dateUtils';
 import {
@@ -1826,7 +1833,7 @@ async function handleConversationMode(
           response = `📊 **Available Charts**\n\nClick a button to display the chart:`;
           const galleryResource = buildChartGallery();
           const chartGalleryTraceId = ctx.getTraceId();
-          ctx.setOutput({ action: 'show_chart_gallery', chartCount: 4 });
+          ctx.setOutput({ action: 'show_chart_gallery', chartCount: 7 });
           return {
             response,
             extractedData: {},
@@ -1912,6 +1919,10 @@ async function handleConversationMode(
             currSymbol,
             tradePotential
           );
+          const budgetWithLinks = buildChartWithLinks(budgetChartResource, [
+            { label: 'Edit Budget', to: '/me?tab=budget' },
+            { label: 'Swipe', to: '/swipe' },
+          ]);
           const budgetChartTraceId = ctx.getTraceId();
           ctx.setOutput({
             action: 'show_budget_chart',
@@ -1929,7 +1940,7 @@ async function handleConversationMode(
             traceId: budgetChartTraceId || undefined,
             traceUrl: budgetChartTraceId ? getTraceUrl(budgetChartTraceId) : undefined,
             source: 'llm' as const,
-            uiResource: budgetChartResource,
+            uiResource: budgetWithLinks,
           };
         }
 
@@ -2006,6 +2017,14 @@ async function handleConversationMode(
             },
             oneTimeGainsTotal
           );
+          const progressWithLinks = buildChartWithLinks(progressChartResource, [
+            { label: 'Go to Progress', to: '/progress' },
+            {
+              label: 'What-If Scenarios',
+              action: 'show_chart',
+              actionParams: { chartType: 'projection' },
+            },
+          ]);
           const progressChartTraceId = ctx.getTraceId();
           ctx.setOutput({
             action: 'show_progress_chart',
@@ -2022,7 +2041,7 @@ async function handleConversationMode(
             traceId: progressChartTraceId || undefined,
             traceUrl: progressChartTraceId ? getTraceUrl(progressChartTraceId) : undefined,
             source: 'llm' as const,
-            uiResource: progressChartResource,
+            uiResource: progressWithLinks,
           };
         }
 
@@ -2149,6 +2168,9 @@ async function handleConversationMode(
 
           response = `⚡ **Your Energy History**\n\nDashed lines indicate thresholds: red (40%) = fatigue, green (80%) = recovery.`;
           const energyChartResource = buildEnergyChart(energyLogs);
+          const energyWithLinks = buildChartWithLinks(energyChartResource, [
+            { label: 'Go to Progress', to: '/progress' },
+          ]);
           const energyChartTraceId = ctx.getTraceId();
           ctx.setOutput({ action: 'show_energy_chart', logCount: energyLogs.length });
           return {
@@ -2159,7 +2181,7 @@ async function handleConversationMode(
             traceId: energyChartTraceId || undefined,
             traceUrl: energyChartTraceId ? getTraceUrl(energyChartTraceId) : undefined,
             source: 'llm' as const,
-            uiResource: energyChartResource,
+            uiResource: energyWithLinks,
           };
         }
 
@@ -2276,6 +2298,177 @@ async function handleConversationMode(
             traceUrl: earningsChartTraceId ? getTraceUrl(earningsChartTraceId) : undefined,
             source: 'llm' as const,
             uiResource: earningsChartResource,
+          };
+        }
+
+        // =====================================================================
+        // SKILL ARBITRAGE CHART (Phase 3.1)
+        // =====================================================================
+        case 'show_skills_chart': {
+          const currSymbol = getCurrencySymbol(context.currency as string);
+          const skills = (context.skills as string[]) || [];
+
+          if (skills.length === 0) {
+            response = `You haven't added any skills yet. Go to the Profile tab to add your skills!`;
+            break;
+          }
+
+          // Build simplified arbitrage matches from context skills
+          const matches: SkillJobMatch[] = skills.slice(0, 5).map((skill, i) => ({
+            jobTitle: skill,
+            score: Math.max(20, 90 - i * 15),
+            rateScore: Math.max(0.3, 1 - i * 0.15),
+            demandScore: Math.max(0.2, 0.9 - i * 0.1),
+            effortScore: Math.max(0.3, 0.8 - i * 0.1),
+            restScore: Math.max(0.4, 0.9 - i * 0.12),
+            hourlyRate: Math.max(10, 25 - i * 3),
+          }));
+
+          const skillChart = buildSkillArbitrageChart(matches, currSymbol);
+          const skillChartWithLinks = buildChartWithLinks(skillChart, [
+            { label: 'Browse Jobs', to: '/me?tab=jobs' },
+            { label: 'Swipe', to: '/swipe' },
+          ]);
+
+          response = `Here's your **Skill Arbitrage** breakdown — top ${matches.length} job matches based on your skills.`;
+          const skillChartTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_skills_chart', skillCount: skills.length });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: skillChartTraceId || undefined,
+            traceUrl: skillChartTraceId ? getTraceUrl(skillChartTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: skillChartWithLinks,
+          };
+        }
+
+        // =====================================================================
+        // MISSION PROGRESS CHART (Phase 3.2)
+        // =====================================================================
+        case 'show_missions_chart': {
+          const followupData = context.followupData as
+            | {
+                missions?: Array<{
+                  id: string;
+                  title: string;
+                  status?: string;
+                  weeklyEarnings?: number;
+                  hoursCompleted?: number;
+                  weeklyHours?: number;
+                  category?: string;
+                }>;
+              }
+            | undefined;
+          const missions = followupData?.missions || [];
+          const activeMissions = missions.filter((m) => m.status === 'active');
+
+          if (activeMissions.length === 0) {
+            response = `You don't have any active missions. Go to Swipe to discover opportunities!`;
+            break;
+          }
+
+          const summaries: MissionSummary[] = activeMissions.map((m) => ({
+            title: m.title,
+            progress:
+              m.weeklyHours && m.weeklyHours > 0
+                ? Math.min(100, Math.round(((m.hoursCompleted || 0) / m.weeklyHours) * 100))
+                : (m.hoursCompleted || 0) > 0
+                  ? 100
+                  : 0,
+            earnings: m.weeklyEarnings || 0,
+            target: m.weeklyEarnings || 0,
+            category: m.category || 'job_lead',
+          }));
+
+          const missionChart = buildMissionChart(summaries);
+          const missionChartWithLinks = buildChartWithLinks(missionChart, [
+            { label: 'Go to Progress', to: '/progress' },
+            { label: 'Swipe for More', to: '/swipe' },
+          ]);
+
+          response = `Here are your **${activeMissions.length} active missions** and their progress.`;
+          const missionChartTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_missions_chart', missionCount: activeMissions.length });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: missionChartTraceId || undefined,
+            traceUrl: missionChartTraceId ? getTraceUrl(missionChartTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: missionChartWithLinks,
+          };
+        }
+
+        // =====================================================================
+        // WEEKLY CAPACITY CHART (Phase 3.3)
+        // =====================================================================
+        case 'show_capacity_chart': {
+          const maxHours = (context.maxWorkHours as number) || 15;
+          const academicEvents =
+            (context.academicEvents as Array<{
+              name: string;
+              type: string;
+              startDate?: string;
+              endDate?: string;
+            }>) || [];
+
+          // Build 4-week capacity data
+          const weeks: WeekCapacity[] = [];
+          const now = new Date();
+          for (let w = 0; w < 4; w++) {
+            const weekStart = new Date(now);
+            weekStart.setDate(now.getDate() + w * 7);
+            const weekLabel = `Week ${w + 1} (${weekStart.toLocaleDateString('en', { month: 'short', day: 'numeric' })})`;
+
+            // Count protected hours from academic events overlapping this week
+            let protectedHours = 0;
+            for (const event of academicEvents) {
+              if (event.startDate && event.endDate) {
+                const evStart = new Date(event.startDate);
+                const evEnd = new Date(event.endDate);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 7);
+                if (evStart < weekEnd && evEnd > weekStart) {
+                  protectedHours +=
+                    event.type === 'exam_period' ? 20 : event.type === 'class_intensive' ? 10 : 0;
+                }
+              }
+            }
+
+            // Get committed hours from active missions
+            const followup = context.followupData as
+              | { missions?: Array<{ status?: string; weeklyHours?: number }> }
+              | undefined;
+            const activeMissions = (followup?.missions || []).filter((m) => m.status === 'active');
+            const committedHours = activeMissions.reduce((sum, m) => sum + (m.weeklyHours || 0), 0);
+
+            const available = Math.max(0, maxHours - protectedHours - committedHours);
+            weeks.push({ weekLabel, protectedHours, committedHours, availableHours: available });
+          }
+
+          const capacityChart = buildCapacityChart(weeks);
+          const capacityChartWithLinks = buildChartWithLinks(capacityChart, [
+            { label: 'Academic Events', to: '/me?tab=profile' },
+            { label: 'Swipe', to: '/swipe' },
+          ]);
+
+          response = `Here's your **weekly capacity** for the next 4 weeks (max ${maxHours}h/week).`;
+          const capacityTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_capacity_chart', maxHours, weeks: weeks.length });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: capacityTraceId || undefined,
+            traceUrl: capacityTraceId ? getTraceUrl(capacityTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: capacityChartWithLinks,
           };
         }
 

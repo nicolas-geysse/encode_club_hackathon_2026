@@ -14,7 +14,15 @@ import type { ProjectionResult } from './budgetEngine';
 // Chart Type Definitions
 // =============================================================================
 
-export type ChartType = 'budget_breakdown' | 'progress' | 'projection' | 'comparison' | 'energy';
+export type ChartType =
+  | 'budget_breakdown'
+  | 'progress'
+  | 'projection'
+  | 'comparison'
+  | 'energy'
+  | 'skills'
+  | 'missions'
+  | 'capacity';
 
 /**
  * Simulation context for charts - shows when data is from a simulated future date
@@ -60,6 +68,24 @@ export const AVAILABLE_CHARTS: ChartGalleryItem[] = [
     label: 'Energy Timeline',
     description: 'Your energy levels over time',
     icon: '⚡',
+  },
+  {
+    id: 'skills',
+    label: 'Skill Match',
+    description: 'Jobs ranked by arbitrage score',
+    icon: '💼',
+  },
+  {
+    id: 'missions',
+    label: 'Mission Progress',
+    description: 'Active missions status',
+    icon: '✅',
+  },
+  {
+    id: 'capacity',
+    label: 'Weekly Capacity',
+    description: 'Available hours next 4 weeks',
+    icon: '📅',
   },
 ];
 
@@ -394,5 +420,212 @@ export function buildEnergyChart(
         ],
       },
     },
+  };
+}
+
+// =============================================================================
+// Skill Arbitrage Chart Builder (Phase 3.1)
+// =============================================================================
+
+export interface SkillJobMatch {
+  jobTitle: string;
+  score: number;
+  rateScore: number;
+  demandScore: number;
+  effortScore: number;
+  restScore: number;
+  hourlyRate: number;
+}
+
+export function buildSkillArbitrageChart(
+  matches: SkillJobMatch[],
+  currencySymbol: string
+): UIResource {
+  const top5 = matches.slice(0, 5);
+
+  if (top5.length === 0) {
+    return {
+      type: 'metric',
+      params: {
+        title: 'No Job Matches',
+        value: '-',
+        subtitle: 'Add skills to see job matches',
+      },
+    };
+  }
+
+  return {
+    type: 'chart',
+    params: {
+      type: 'bar',
+      title: 'Top 5 Job Matches (Skill Arbitrage)',
+      data: {
+        labels: top5.map((m) => `${m.jobTitle} (${currencySymbol}${m.hourlyRate}/h)`),
+        datasets: [
+          {
+            label: 'Rate (30%)',
+            data: top5.map((m) => m.rateScore * 30),
+            backgroundColor: 'rgba(34,197,94,0.6)',
+          },
+          {
+            label: 'Demand (25%)',
+            data: top5.map((m) => m.demandScore * 25),
+            backgroundColor: 'rgba(59,130,246,0.6)',
+          },
+          {
+            label: 'Low Effort (25%)',
+            data: top5.map((m) => m.effortScore * 25),
+            backgroundColor: 'rgba(251,191,36,0.6)',
+          },
+          {
+            label: 'Rest Impact (20%)',
+            data: top5.map((m) => m.restScore * 20),
+            backgroundColor: 'rgba(168,85,247,0.6)',
+          },
+        ],
+      },
+    },
+  };
+}
+
+// =============================================================================
+// Mission Progress Chart Builder (Phase 3.2)
+// =============================================================================
+
+export interface MissionSummary {
+  title: string;
+  progress: number;
+  earnings: number;
+  target: number;
+  category: string;
+}
+
+export function buildMissionChart(missions: MissionSummary[]): UIResource {
+  if (missions.length === 0) {
+    return {
+      type: 'metric',
+      params: {
+        title: 'No Active Missions',
+        value: '-',
+        subtitle: 'Go to Swipe to discover opportunities',
+      },
+    };
+  }
+
+  return {
+    type: 'chart',
+    params: {
+      type: 'bar',
+      title: 'Active Missions',
+      data: {
+        labels: missions.map((m) => m.title),
+        datasets: [
+          {
+            label: 'Progress',
+            data: missions.map((m) => m.progress),
+            backgroundColor: missions.map((m) =>
+              m.progress > 75
+                ? 'rgba(34,197,94,0.6)'
+                : m.progress > 25
+                  ? 'rgba(251,191,36,0.6)'
+                  : 'rgba(239,68,68,0.6)'
+            ),
+          },
+        ],
+      },
+    },
+  };
+}
+
+// =============================================================================
+// Weekly Capacity Chart Builder (Phase 3.3)
+// =============================================================================
+
+export interface WeekCapacity {
+  weekLabel: string;
+  protectedHours: number;
+  committedHours: number;
+  availableHours: number;
+}
+
+export function buildCapacityChart(weeks: WeekCapacity[]): UIResource {
+  if (weeks.length === 0) {
+    return {
+      type: 'metric',
+      params: {
+        title: 'No Capacity Data',
+        value: '-',
+        subtitle: 'Set your max weekly hours and academic events',
+      },
+    };
+  }
+
+  return {
+    type: 'chart',
+    params: {
+      type: 'bar',
+      title: 'Weekly Capacity (next 4 weeks)',
+      data: {
+        labels: weeks.map((w) => w.weekLabel),
+        datasets: [
+          {
+            label: 'Protected',
+            data: weeks.map((w) => w.protectedHours),
+            backgroundColor: 'rgba(239,68,68,0.6)',
+          },
+          {
+            label: 'Committed',
+            data: weeks.map((w) => w.committedHours),
+            backgroundColor: 'rgba(59,130,246,0.6)',
+          },
+          {
+            label: 'Available',
+            data: weeks.map((w) => w.availableHours),
+            backgroundColor: 'rgba(34,197,94,0.6)',
+          },
+        ],
+      },
+    },
+  };
+}
+
+// =============================================================================
+// Deep Links Helper (Phase 3.4)
+// =============================================================================
+
+/**
+ * Wrap a chart UIResource with action buttons as a composite
+ */
+export function buildChartWithLinks(
+  chart: UIResource,
+  links: Array<{
+    label: string;
+    to?: string;
+    action?: string;
+    actionParams?: Record<string, unknown>;
+  }>
+): UIResource {
+  return {
+    type: 'composite',
+    components: [
+      chart,
+      {
+        type: 'grid',
+        params: {
+          columns: Math.min(links.length, 3),
+          children: links.map((l) => ({
+            type: 'action' as const,
+            params: l.to
+              ? { type: 'button', label: l.label, action: 'navigate', params: { to: l.to } }
+              : {
+                  type: 'button',
+                  label: l.label,
+                  action: l.action || '',
+                  params: l.actionParams,
+                },
+          })),
+        },
+      },
+    ],
   };
 }

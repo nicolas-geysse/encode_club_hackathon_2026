@@ -16,7 +16,15 @@
 /**
  * Available chart types for the gallery
  */
-export type ChartType = 'budget_breakdown' | 'progress' | 'projection' | 'comparison' | 'energy';
+export type ChartType =
+  | 'budget_breakdown'
+  | 'progress'
+  | 'projection'
+  | 'comparison'
+  | 'energy'
+  | 'skills'
+  | 'missions'
+  | 'capacity';
 
 /**
  * Action params for UI actions (buttons, links, etc.)

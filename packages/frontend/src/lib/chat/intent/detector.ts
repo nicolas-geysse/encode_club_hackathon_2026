@@ -110,6 +110,27 @@ const CHART_SPECIFIC_PATTERNS = {
     // "mon énergie/historique" followed by "graphique"
     /\b(?:mon\s+|my\s+)(?:energy|énergie|historique\s+d['']?énergie)\b.*\b(?:graphique|chart|graph)\b/i,
   ],
+  // Skill arbitrage chart (Phase 3.1)
+  skills: [
+    /\b(?:skill|compétence)s?\s+(?:chart|graph|graphique|match|arbitrage)\b/i,
+    /\b(?:chart|graph|graphique)\s+(?:de\s+|des?\s+)?(?:skill|compétence)s?\b/i,
+    /\b(?:montre|show|affiche)(?:-moi)?\s+(?:mes?\s+)?(?:skills?|compétences?)\b/i,
+    /\b(?:job|emploi)s?\s+(?:match|correspondance|arbitrage)\b/i,
+    /\barbitrage\b/i,
+  ],
+  // Mission progress chart (Phase 3.2)
+  missions: [
+    /\b(?:mission|missions)\s+(?:chart|graph|graphique|progress|progression)\b/i,
+    /\b(?:montre|show|affiche)(?:-moi)?\s+(?:mes?\s+)?missions?\b/i,
+    /\b(?:chart|graph|graphique)\s+(?:de\s+|des?\s+)?(?:mes?\s+)?missions?\b/i,
+    /\bmission\s+progress\b/i,
+  ],
+  // Weekly capacity chart (Phase 3.3)
+  capacity: [
+    /\b(?:capacit[ée]|disponibilit[ée]|weekly\s+capacity|heures?\s+disponibles?)\b/i,
+    /\b(?:montre|show|affiche)(?:-moi)?\s+(?:ma\s+|my\s+)?(?:capacit[ée]|disponibilit[ée])\b/i,
+    /\b(?:combien|how\s+many)\s+(?:d['']?)?heures?\s+(?:je\s+)?(?:ai|have|dispo)/i,
+  ],
 };
 
 // =============================================================================
