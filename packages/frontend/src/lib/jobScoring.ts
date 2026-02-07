@@ -22,6 +22,7 @@ import {
   calculateCertificationBonus,
   type CertificationDefinition,
 } from './data/certificationMapping';
+import { matchSkillsToProspectionCategory } from './data/skillCategoryBridge';
 
 export interface JobScoreBreakdown {
   distance: number; // 0-1 normalized
@@ -322,31 +323,12 @@ function calculateProfileMatch(job: ProspectionCard, profile?: UserProfile): Pro
  * Match user skills to job category
  * Returns 0-1 based on skill relevance
  * Exported for use in SwipeTab job_lead scenarios
+ *
+ * Uses the skill registry bridge to match actual skill names
+ * (not generic keywords) to prospection categories.
  */
 export function matchSkillsToCategory(skills: string[], categoryId: string): number {
-  // Skill-to-category mapping
-  const categorySkillMap: Record<string, string[]> = {
-    service: ['communication', 'customer service', 'hospitality', 'food service', 'teamwork'],
-    retail: ['sales', 'customer service', 'inventory', 'communication', 'cash handling'],
-    cleaning: ['attention to detail', 'time management', 'physical fitness'],
-    handyman: ['construction', 'repair', 'tools', 'physical fitness', 'problem solving'],
-    childcare: ['childcare', 'patience', 'communication', 'first aid', 'creativity'],
-    tutoring: ['teaching', 'math', 'science', 'languages', 'patience', 'communication'],
-    events: ['communication', 'customer service', 'appearance', 'stamina'],
-    interim: ['flexibility', 'adaptability', 'physical fitness', 'teamwork'],
-    digital: ['computer', 'typing', 'social media', 'writing', 'design', 'programming'],
-    campus: ['organization', 'computer', 'customer service', 'time management'],
-  };
-
-  const relevantSkills = categorySkillMap[categoryId] || [];
-  if (relevantSkills.length === 0) return 0;
-
-  const normalizedSkills = skills.map((s) => s.toLowerCase());
-  const matches = relevantSkills.filter((rs) =>
-    normalizedSkills.some((us) => us.includes(rs) || rs.includes(us))
-  );
-
-  return matches.length / relevantSkills.length;
+  return matchSkillsToProspectionCategory(skills, categoryId);
 }
 
 /**
