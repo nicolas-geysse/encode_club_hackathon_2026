@@ -142,7 +142,19 @@ export async function persistGoal(profileId: string, goalData: GoalData): Promis
         });
       }
 
-      // Reactivate the identical goal (update deadline if different)
+      // Build planData with academicEvents (same logic as new goal creation)
+      const reactivatePlanData: Record<string, unknown> = {};
+      if (goalData.academicEvents && goalData.academicEvents.length > 0) {
+        reactivatePlanData.academicEvents = goalData.academicEvents.map((event) => ({
+          id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: event.type || 'exam_period',
+          name: event.name || 'Exam',
+          startDate: event.startDate,
+          endDate: event.endDate || event.startDate,
+        }));
+      }
+
+      // Reactivate the identical goal (update deadline + planData with academicEvents)
       await fetch('/api/goals', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -150,6 +162,7 @@ export async function persistGoal(profileId: string, goalData: GoalData): Promis
           id: identicalGoal.id,
           status: 'active',
           deadline: goalData.deadline || null,
+          ...(Object.keys(reactivatePlanData).length > 0 ? { planData: reactivatePlanData } : {}),
         }),
       });
 
@@ -437,6 +450,41 @@ export async function persistTrades(
 }
 
 /**
+ * Persist academic events to the dedicated academic_events DB table.
+ * This ensures retroplan and other features can read events from the table,
+ * not just from the goal's planData JSON field.
+ */
+export async function persistAcademicEvents(
+  profileId: string,
+  events: AcademicEvent[]
+): Promise<boolean> {
+  if (!events || events.length === 0) return true;
+
+  try {
+    for (const event of events) {
+      if (!event.name || !event.startDate) continue;
+      await fetch('/api/retroplan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_academic_event',
+          userId: profileId,
+          type: event.type || 'exam_period',
+          name: event.name,
+          startDate: event.startDate,
+          endDate: event.endDate || event.startDate,
+        }),
+      });
+    }
+    logger.info('Academic events persisted to DB table', { count: events.length });
+    return true;
+  } catch (error) {
+    logger.error('Failed to persist academic events', { error });
+    return false;
+  }
+}
+
+/**
  * Persist all onboarding data in parallel.
  * Returns a result indicating success and any failures.
  */
@@ -460,6 +508,14 @@ export async function persistAllOnboardingData(
     tasks.push({
       name: 'goal',
       promise: persistGoal(profileId, data.goal),
+    });
+  }
+
+  // Academic Events → dedicated table (separate from goal.planData)
+  if (data.goal?.academicEvents && data.goal.academicEvents.length > 0) {
+    tasks.push({
+      name: 'academicEvents',
+      promise: persistAcademicEvents(profileId, data.goal.academicEvents),
     });
   }
 

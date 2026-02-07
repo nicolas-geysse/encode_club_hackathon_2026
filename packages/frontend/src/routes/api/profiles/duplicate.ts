@@ -195,11 +195,47 @@ export async function POST(event: APIEvent) {
       logger.warn('Failed to duplicate commitments (table may not exist)', { error: err });
     }
 
-    // 10. Create goal in goals table
+    // 10. Build planData for new goal from academic_events + commitments tables
+    let goalPlanData: string = 'NULL';
+    try {
+      const [aeRows, cmtRows] = await Promise.all([
+        query<{ name: string; type: string; start_date: string; end_date: string }>(
+          `SELECT name, type, start_date, end_date FROM academic_events WHERE profile_id = ${escapedNewId}`
+        ),
+        query<{ name: string; type: string; hours_per_week: number }>(
+          `SELECT name, type, hours_per_week FROM commitments WHERE profile_id = ${escapedNewId}`
+        ),
+      ]);
+      const planData: Record<string, unknown> = {};
+      if (aeRows.length > 0) {
+        planData.academicEvents = aeRows.map((r) => ({
+          id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: r.type || 'exam_period',
+          name: r.name,
+          startDate: r.start_date,
+          endDate: r.end_date || r.start_date,
+        }));
+      }
+      if (cmtRows.length > 0) {
+        planData.commitments = cmtRows.map((r) => ({
+          id: `cmt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          type: r.type || 'class',
+          name: r.name,
+          hoursPerWeek: r.hours_per_week || 2,
+        }));
+      }
+      if (Object.keys(planData).length > 0) {
+        goalPlanData = escapeJSON(planData);
+      }
+    } catch (err) {
+      logger.warn('Failed to build goal planData from events/commitments', { error: err });
+    }
+
+    // 11. Create goal in goals table (with planData from events/commitments)
     const goalId = crypto.randomUUID();
     try {
       await execute(`
-        INSERT INTO goals (id, profile_id, name, amount, deadline, priority, status, progress, created_at, updated_at)
+        INSERT INTO goals (id, profile_id, name, amount, deadline, priority, status, progress, plan_data, created_at, updated_at)
         VALUES (
           ${escapeSQL(goalId)},
           ${escapedNewId},
@@ -209,11 +245,16 @@ export async function POST(event: APIEvent) {
           1,
           'active',
           0,
+          ${goalPlanData},
           CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
         )
       `);
-      logger.info('Created goal for new profile', { goalId, goalName });
+      logger.info('Created goal for new profile', {
+        goalId,
+        goalName,
+        hasPlanData: goalPlanData !== 'NULL',
+      });
     } catch (err) {
       logger.warn('Failed to create goal (table may not exist yet)', { error: err });
     }
