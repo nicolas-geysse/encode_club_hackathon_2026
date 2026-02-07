@@ -155,7 +155,47 @@ export async function POST(event: APIEvent) {
       logger.warn('Failed to duplicate trades (table may not exist)', { error: err });
     }
 
-    // 8. Create goal in goals table
+    // 8. Copy academic_events (exam/vacation schedule — user-level, needed by retroplanning)
+    try {
+      const aeCount = await query<{ cnt: bigint }>(
+        `SELECT COUNT(*) as cnt FROM academic_events WHERE profile_id = ${escapedSourceId}`
+      );
+      if (Number(aeCount[0]?.cnt) > 0) {
+        await execute(`
+          INSERT INTO academic_events (id, profile_id, name, type, start_date, end_date,
+            capacity_impact, priority, is_recurring, recurrence_pattern, created_at)
+          SELECT
+            gen_random_uuid()::VARCHAR, ${escapedNewId}, name, type, start_date, end_date,
+            capacity_impact, priority, is_recurring, recurrence_pattern, CURRENT_TIMESTAMP
+          FROM academic_events WHERE profile_id = ${escapedSourceId}
+        `);
+        logger.info('Duplicated academic events', { count: Number(aeCount[0]?.cnt) });
+      }
+    } catch (err) {
+      logger.warn('Failed to duplicate academic_events (table may not exist)', { error: err });
+    }
+
+    // 9. Copy commitments (classes, sports, family — user-level schedule constraints)
+    try {
+      const cmtCount = await query<{ cnt: bigint }>(
+        `SELECT COUNT(*) as cnt FROM commitments WHERE profile_id = ${escapedSourceId}`
+      );
+      if (Number(cmtCount[0]?.cnt) > 0) {
+        await execute(`
+          INSERT INTO commitments (id, profile_id, name, type, hours_per_week,
+            flexible_hours, day_preferences, start_date, end_date, priority, created_at)
+          SELECT
+            gen_random_uuid()::VARCHAR, ${escapedNewId}, name, type, hours_per_week,
+            flexible_hours, day_preferences, start_date, end_date, priority, CURRENT_TIMESTAMP
+          FROM commitments WHERE profile_id = ${escapedSourceId}
+        `);
+        logger.info('Duplicated commitments', { count: Number(cmtCount[0]?.cnt) });
+      }
+    } catch (err) {
+      logger.warn('Failed to duplicate commitments (table may not exist)', { error: err });
+    }
+
+    // 10. Create goal in goals table
     const goalId = crypto.randomUUID();
     try {
       await execute(`
