@@ -646,28 +646,28 @@ try {
 5. ~~Clean up dead code~~ — Removed `getProfileIcon`, `User` icon, `Dynamic` import, `handleNewFreshProfile`
 6. Test: switch between goals → correct profile loads
 
-### Phase 4: Goal Deletion Cleanup (45 min)
+### Phase 4: Goal Deletion Cleanup (45 min) — DONE (commit `31dcecd`)
 
-1. In `confirmDelete` (GoalsTab.tsx): after deleting goal, detect profile type
-2. If goal-clone: `switchProfile(parentProfileId)` → DELETE clone via API → `window.location.reload()`
-3. If main profile: `patchProfile` to null goalName/goalAmount/goalDeadline + followupData + planData.setup (keep selectedScenarios, completedTabs)
-4. **Fix DELETE cascade** in `routes/api/profiles.ts`: extend table list to include income_items, leads, chat_messages, energy_logs, job_exclusions, academic_events, commitments, goal_achievements, retroplans, goal_progress, goal_actions
+1. ~~In `confirmDelete` (GoalsTab.tsx): after deleting goal, detect profile type~~ — Strategy B implemented
+2. ~~If goal-clone: `switchProfile(parentProfileId)` → DELETE clone via API → `window.location.reload()`~~ — With try/catch fallback to field-clearing
+3. ~~If main profile: `patchProfile` to null goalName/goalAmount/goalDeadline + followupData + planData.setup (keep selectedScenarios, completedTabs)~~ — Surgical planData.setup clear, null via `as any` cast for JSON serialization
+4. ~~**Fix DELETE cascade** in `routes/api/profiles.ts`~~ — Expanded from 5 to 16 tables (added income_items, leads, chat_messages, energy_logs, job_exclusions, academic_events, commitments, goal_achievements, retroplans, goal_progress, goal_actions)
 5. Test: delete goal on clone → lands on parent profile, clone fully cleaned
 6. Test: delete goal on main → goal fields + followupData cleared, energy_logs preserved, planData.selectedScenarios preserved
 
-### Phase 5: Duplication Data Integrity (20 min)
+### Phase 5: Duplication Data Integrity (20 min) — DONE (commit `36c911b`)
 
-1. Update `duplicate.ts`:
-   - **COPY**: `academic_events`, `commitments` (INSERT...SELECT with new IDs, try/catch)
+1. ~~Update `duplicate.ts`~~ — Added steps 8 (academic_events) and 9 (commitments) with INSERT...SELECT, COUNT check, try/catch
+   - **COPY**: `academic_events`, `commitments` (with new UUIDs)
    - **SKIP**: `inventory_items`, `achievements`, `job_exclusions` (per-goal context)
-2. Update `ProfileSelector.tsx`: replace native `confirm()` for "Reset all data" with ConfirmDialog
+2. ~~"Reset all data" already uses ConfirmDialog~~ (done in Phase 2)
 3. Test: add academic event + inventory item → create new goal → verify event copied, inventory NOT copied
 
-### Phase 6: Dead Code Cleanup (15 min)
+### Phase 6: Dead Code Cleanup (15 min) — DONE (commit `e8965ec`)
 
-1. Remove stale goals schema from schemaManager.ts
-2. Add deprecation comments to legacy JSON columns
-3. Wire ActionExecutor `create_goal` stub to `goalService.createGoal()` or remove it
+1. ~~Remove stale goals schema from schemaManager.ts~~ — Removed unused `SCHEMAS.goals`, replaced with comment pointing to authoritative schema
+2. Legacy JSON columns (`income_sources`, `expenses`) — already set to NULL in `duplicate.ts`; no additional comments needed
+3. ~~Wire ActionExecutor `create_goal` stub to `goalService.createGoal()`~~ — Implemented `executeCreateGoal` method with validation
 
 ---
 
