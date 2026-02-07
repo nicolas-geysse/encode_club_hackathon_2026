@@ -53,6 +53,10 @@ export function ProfileSelector(props: Props) {
   const [showNewGoalModal, setShowNewGoalModal] = createSignal(false);
   const [showResetConfirm1, setShowResetConfirm1] = createSignal(false);
   const [showResetConfirm2, setShowResetConfirm2] = createSignal(false);
+  const [deleteProfileConfirm, setDeleteProfileConfirm] = createSignal<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [newGoalForm, setNewGoalForm] = createSignal({
     name: '',
     amount: 500,
@@ -142,16 +146,18 @@ export function ProfileSelector(props: Props) {
     return profile?.profileType === 'simulation';
   };
 
-  const handleDelete = async (profileId: string, profileName: string, e: Event) => {
+  const handleDelete = (profileId: string, profileName: string, e: Event) => {
     e.stopPropagation(); // Prevent triggering switch
+    setDeleteProfileConfirm({ id: profileId, name: profileName });
+  };
 
-    // Confirmation
-    if (!confirm(`Delete profile "${profileName}"? This cannot be undone.`)) {
-      return;
-    }
+  const confirmDeleteProfile = async () => {
+    const target = deleteProfileConfirm();
+    if (!target) return;
+    setDeleteProfileConfirm(null);
 
     try {
-      const response = await fetch(`/api/profiles?id=${profileId}`, {
+      const response = await fetch(`/api/profiles?id=${target.id}`, {
         method: 'DELETE',
       });
 
@@ -494,6 +500,17 @@ export function ProfileSelector(props: Props) {
         variant="danger"
         onConfirm={executeReset}
         onCancel={() => setShowResetConfirm2(false)}
+      />
+
+      {/* Profile Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteProfileConfirm()}
+        title="Delete Profile"
+        message={`Delete profile "${deleteProfileConfirm()?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={confirmDeleteProfile}
+        onCancel={() => setDeleteProfileConfirm(null)}
       />
     </div>
   );

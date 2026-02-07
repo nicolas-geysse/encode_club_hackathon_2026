@@ -166,6 +166,10 @@ export function GoalsTab(props: GoalsTabProps) {
   const [replaceGoalConfirm, setReplaceGoalConfirm] = createSignal<Goal | null>(null);
   const [pendingSavePayload, setPendingSavePayload] = createSignal<any>(null);
 
+  // Confirmation dialogs for destructive actions
+  const [deleteConfirm, setDeleteConfirm] = createSignal<Goal | null>(null);
+  const [completeConfirm, setCompleteConfirm] = createSignal<Goal | null>(null);
+
   // Fresh Goal Workspace (profile-clone flow when active goal exists)
   const [showFreshGoalDialog, setShowFreshGoalDialog] = createSignal(false);
   const [freshGoalForm, setFreshGoalForm] = createSignal({
@@ -226,18 +230,36 @@ export function GoalsTab(props: GoalsTabProps) {
     setShowNewGoalForm(true);
   };
 
-  const handleDelete = async (goalId: string) => {
-    await goalService.deleteGoal(goalId);
+  const handleDelete = (goalId: string) => {
+    const goal = goals().find((g) => g.id === goalId);
+    if (goal) setDeleteConfirm(goal);
   };
 
-  const handleToggleStatus = async (goal: Goal) => {
-    let newStatus: 'active' | 'completed' | 'paused';
-    if (goal.status === 'active') {
-      newStatus = 'completed';
-    } else {
-      newStatus = 'active';
-    }
+  const confirmDelete = async () => {
+    const goal = deleteConfirm();
+    if (!goal) return;
+    await goalService.deleteGoal(goal.id);
+    setDeleteConfirm(null);
+  };
 
+  const handleToggleStatus = (goal: Goal) => {
+    if (goal.status === 'active') {
+      // Completion needs confirmation
+      setCompleteConfirm(goal);
+      return;
+    }
+    // Reactivation doesn't need confirmation
+    performToggleStatus(goal, 'active');
+  };
+
+  const confirmComplete = () => {
+    const goal = completeConfirm();
+    if (!goal) return;
+    performToggleStatus(goal, 'completed');
+    setCompleteConfirm(null);
+  };
+
+  const performToggleStatus = async (goal: Goal, newStatus: 'active' | 'completed') => {
     if (newStatus === 'active') {
       const activeGoals = goals().filter((g) => g.status === 'active');
       for (const oldGoal of activeGoals) {
@@ -659,6 +681,26 @@ export function GoalsTab(props: GoalsTabProps) {
           setReplaceGoalConfirm(null);
           setPendingSavePayload(null);
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirm()}
+        title="Delete Goal"
+        message={`Delete "${deleteConfirm()?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!completeConfirm()}
+        title="Mark Complete"
+        message={`Mark "${completeConfirm()?.name}" as complete? Progress will be archived.`}
+        confirmLabel="Complete"
+        variant="warning"
+        onConfirm={confirmComplete}
+        onCancel={() => setCompleteConfirm(null)}
       />
 
       {/* Fresh Goal Workspace Dialog */}
