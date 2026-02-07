@@ -140,17 +140,20 @@ When field is `'other'`, the function returns `getAllSkills()` -- all 87 skills 
 
 ## Improvement Plan
 
-### Phase 1: Fix orphan skill names + add regression guard
+### Phase 1: Fix orphan skill names + add regression guard -- DONE
+
+**Status:** DONE (commit `5169bbc`)
 
 **Goal:** All skill names in field mappings must match SKILL_REGISTRY entries exactly. Add a unit test to prevent orphans from ever returning.
 
-**Files:**
-- `skillsByField.ts` -- Fix 7 orphan names
-- New: `frontend/src/lib/data/__tests__/skillDataIntegrity.test.ts` -- Regression guard
+**Files modified:**
+- `skillsByField.ts` -- Fixed 7 orphan names
+- `skillSuggestionEngine.ts` -- Exported `HARD_TO_START_SKILLS` and `EASY_TO_START_SKILLS` for test
+- New: `frontend/src/lib/data/__tests__/skillDataIntegrity.test.ts` -- 334 assertions
 
-**Changes:**
-| Field | Current (orphan) | Fix (registry match) | Note |
-|-------|------------------|---------------------|------|
+**Changes applied:**
+| Field | Old (orphan) | New (registry match) | Note |
+|-------|-------------|---------------------|------|
 | education | "Educational materials translation" | "Freelance translation / localization" | cross-dup w/ humanities OK |
 | engineering | "CAD/CAM support" | "Python" | only remaining eng skill in registry |
 | health | "Medical document translation" | "Support group / peer-to-peer support facilitation" | avoids dup w/ Medical transcription |
@@ -159,117 +162,116 @@ When field is `'other'`, the function returns `getAllSkills()` -- all 87 skills 
 | social_sciences | "Online community moderation" | "Content moderation" | alias fix |
 | sciences | "Data entry and cleaning" | "Data entry" | alias fix |
 
-**Unit test** (prevents regression):
-```typescript
-import { SKILLS_BY_FIELD } from '../skillsByField';
-import { SKILL_REGISTRY } from '../skillRegistry';
+**Test coverage (334 assertions):**
+- Every SKILLS_BY_FIELD name exists in SKILL_REGISTRY
+- No intra-field duplicates
+- All SKILL_REGISTRY.fields reference valid field keys
+- All FIELD_CONNECTIONS reference valid fields
+- All HARD/EASY_TO_START_SKILLS reference valid registry names
 
-test('every name in SKILLS_BY_FIELD exists in SKILL_REGISTRY', () => {
-  const registryNames = new Set(SKILL_REGISTRY.map(s => s.name));
-  for (const [field, skills] of Object.entries(SKILLS_BY_FIELD)) {
-    for (const skill of skills) {
-      expect(registryNames.has(skill)).toBe(true);
-      // ↑ Fails fast with: "Urban gardening..." not found in registry
-    }
-  }
-});
-```
+**Deviation from plan:** 3 replacements changed from original plan because they would have created intra-field duplicates (engineering already had "3D modeling / CAD", health already had "Medical transcription", services already had "Travel reviews / content writing").
 
-**Estimate:** Small
+### Phase 2: Always show metadata in SkillMultiSelect -- DONE
 
-### Phase 2: Always show metadata in SkillMultiSelect
+**Status:** DONE (commit `e7baaed`)
 
 **Goal:** Remove compact mode -- always show stars, hourly rate, and field match badge for all skills.
 
-**Files:**
-- `SkillMultiSelect.tsx` -- Remove `compact` prop usage in rest group, always render metadata row
+**Files modified:**
+- `SkillMultiSelect.tsx` -- Removed `compact` prop entirely
 
-**Changes:**
-1. Remove `compact` prop from SkillChip in the "Autres options" group
-2. Add star header for "Autres options" section (show range, e.g. "1-3 stars")
-3. Use 2-col grid for rest group (same as 4-star/5-star)
+**Changes applied:**
+1. Removed `compact` prop from `SkillChipProps` interface
+2. Removed `<Show when={!props.compact}>` wrapper around metadata row -- stars, hourly rate, and field match badge now always render
+3. Removed dead ternary `props.compact ? 'text-sm' : 'text-sm'` (was a no-op)
+4. "Autres options" section already had 2-col grid and star header from first edit pass
 
-**Estimate:** Small
+### Phase 3: Bridge skills registry to prospection categories -- DONE
 
-### Phase 3: Bridge skills registry to prospection categories
+**Status:** DONE (commit `fe251fe`)
 
 **Goal:** Replace the generic `categorySkillMap` in `jobScoring.ts` with a mapping derived from the actual skill registry.
 
-**Files:**
-- `jobScoring.ts` -- Rewrite `matchSkillsToCategory()` to use skill registry
-- New: `frontend/src/lib/data/skillCategoryBridge.ts` -- Mapping table
+**Files modified:**
+- `jobScoring.ts` -- Rewrote `matchSkillsToCategory()` to delegate to bridge
+- New: `frontend/src/lib/data/skillCategoryBridge.ts` -- Category bridge + utilities
 
-**Approach:**
-1. Create a mapping from registry skill categories to prospection category IDs
-2. Each registry category maps to 1-2 prospection categories:
-   - `tech` → `digital`, `campus`
-   - `creative` → `digital`, `events`
-   - `teaching` → `tutoring`, `campus`
-   - `writing` → `digital`
-   - `services` → `service`, `events`, `campus`
-   - `physical` → `childcare`, `cleaning`, `handyman`
-   - `business` → `digital`, `events`, `interim`
-   - `health` → `cleaning`, `childcare` (wellness focus)
-3. `matchSkillsToCategory` now:
-   - Looks up each user skill name in `SKILL_REGISTRY` to get its `category`
-   - Checks if that category maps to the prospection category being scored
-   - Returns a match ratio based on how many of the user's skills are relevant
-4. Bonus: surface "Recommended for you" badge on prospection categories that match user skills
+**Changes applied:**
+1. Created `CATEGORY_BRIDGE` mapping 9 registry categories → 12 prospection IDs
+2. Added `SKILL_OVERRIDES` for 15 individual skill exceptions (e.g. SQL Coaching → tutoring)
+3. Built lazy-init `Map<skillName, Set<prospectionCategoryId>>` from SKILL_REGISTRY
+4. Scoring: 0 matches = 0, 1 match = 0.4, 2 matches = 0.7, 3+ = 1.0
+5. Exported `getMatchingProspectionCategories()` for future "Recommended for you" badges
+6. `matchSkillsToCategory` in jobScoring.ts now delegates to bridge (was hardcoded generic keywords)
 
-**Estimate:** Medium
+### Phase 4: Enrich Services and Other field connections -- DONE
 
-### Phase 4: Enrich Services and Other field connections
+**Status:** DONE (commit `e3a8c75`)
 
 **Goal:** No field should have zero strong connections in the knowledge graph. Fix `getSkillSuggestions('other')` to stop dumping all 87 skills.
 
-**Files:**
-- `skillsByField.ts` -- Update FIELD_CONNECTIONS + fix `getSkillSuggestions`
+**Files modified:**
+- `skillsByField.ts` -- Updated FIELD_CONNECTIONS + fixed `getSkillSuggestions`
+- `skillSuggestionEngine.ts` -- Fixed `getFieldMatch` and `getEnhancedSkillSuggestions` to treat `'other'` as a real field
 
-**Changes:**
-```typescript
-services: { strong: ['business'], medium: ['arts', 'humanities', 'social_sciences'] }
-other:    { strong: [], medium: ['business', 'services'] }
-```
+**Changes applied:**
+1. `services` connections: `strong: [] → ['business']`, added `social_sciences` to medium
+2. `other` connections: `medium: [] → ['business', 'services']`
+3. `getSkillSuggestions('other')`: now uses primary (8 skills) + medium connections (~4) instead of all 87
+4. `getEnhancedSkillSuggestions('other')`: removed `field !== 'other'` guard -- now adds primary skills + connections + universal = ~16 curated skills
+5. `getFieldMatch('other')`: removed `field === 'other'` early return -- skills in the `other` list now get `primary` match (score 5) instead of `general` (score 2)
 
-Fix `getSkillSuggestions('other')` to use medium connections + universal skills instead of `getAllSkills()`:
-```typescript
-// Before: if (!field || field === 'other') return getAllSkills();
-// After:  if (field === 'other') use medium connections like any other field
-//         if (!field) return getAllSkills();  // only for truly undefined
-```
+### Phase 5: Expand MCP job-matcher database + fix bugs -- DONE
 
-**Estimate:** Small
+**Status:** DONE (commit `becdc79`)
 
-### Phase 5: Expand MCP job-matcher database + fix bugs
+**Goal:** Align the MCP job-matcher with the 87-skill registry and 12 prospection categories so Bruno's chat advice is relevant. Fix scoring bugs.
 
-**Goal:** Align the MCP job-matcher with the 87-skill registry and 12 prospection categories so Bruno's chat advice is relevant. Fix the `'fort'` vs `'high'` networking bug.
+**Files modified:**
+- `mcp-server/src/agents/job-matcher.ts` -- Expanded database + fixed 4 bugs
+- `frontend/src/lib/jobScoring.ts` -- Aligned MAX_HOURLY_RATE
 
-**Files:**
-- `mcp-server/src/agents/job-matcher.ts` -- Expand JOB_DATABASE, fix networking comparison
+**Changes applied:**
+1. **Bug fixes:**
+   - `job.networking === 'fort'` → `'high'` (networking boost never fired)
+   - `job.cvImpact === 'fort'`/`'moyen'` → `'high'`/`'medium'` (compare tool scoring broken)
+   - `mcdo` reference → `fastfood` (actual job ID in database)
+   - Frontend `MAX_HOURLY_RATE`: 25 → 30 (aligned with MCP's `MAX_HOURLY_RATE_EUROS = 30`)
+2. **JOB_DATABASE expanded:** 8 → 20 jobs covering all 12 prospection categories:
+   - Digital: freelance_dev, social_media, data_entry, content_creator, graphic_design, translator
+   - Tutoring: tutoring, music_lessons
+   - Campus: campus_it, research_assistant
+   - Physical: waiter, babysitting, pet_sitting, cleaning, handyman, delivery
+   - Events: events
+   - Beauty/wellness: fitness_coach
+   - Retail: mystery_shopping
+   - Reference: fastfood
+3. **Skills arrays use registry names** (e.g. `'Freelance web development'` instead of `'web'`)
+4. **Skill matching improved**: exact + partial name comparison (was strict `toLowerCase().includes()`)
+5. **Each job tagged with `category`** matching prospection category IDs
 
-**Approach:**
-1. **Bug fix:** Change `job.networking === 'fort'` to `job.networking === 'high'` (line 166)
-2. Add jobs for each prospection category (12 categories = ~15-20 jobs total)
-3. Use skill names from the registry in `skills` arrays (not generic terms like `'web'`)
-4. Add proper arbitrage metrics (marketDemand, cognitiveEffort, restNeeded)
-5. Include platform suggestions from prospection categories
-6. Normalize `MAX_HOURLY_RATE` to 30/h (align with skill-arbitrage.ts, not 25/h)
+### Phase 6: Improve accessibility scoring coverage -- DONE
 
-**Estimate:** Medium
-
-### Phase 6: Improve accessibility scoring coverage
+**Status:** DONE (commit `86e30d7`)
 
 **Goal:** Cover at least 80% of skills with explicit accessibility scores.
 
-**Files:**
-- `skillSuggestionEngine.ts` -- Expand HARD_TO_START_SKILLS and EASY_TO_START_SKILLS
+**Files modified:**
+- `skillSuggestionEngine.ts` -- Expanded both maps from 34 → 74 skills (85% coverage)
 
-**Approach:**
-1. Audit remaining 50 unscored skills
-2. Add explicit scores for skills where the formula gives wrong results
-3. Particularly: all physical skills should be easy (4-5), most consulting should be hard (2-3)
-
-**Estimate:** Small
+**Changes applied:**
+- HARD_TO_START_SKILLS: 15 → 31 entries (+16)
+  - Portfolio-dependent: Python, JavaScript, Video editing, Basic data analysis, Digital illustration, Chatbot creation
+  - Equipment barrier: On-demand 3D printing
+  - Expertise/credibility: UX research, Technical writing, Scientific proofreading, Lead generation, Smart home, Medical transcription, Cultural content writing, Support groups, Online simulator
+  - Moderate barrier (explicit confirmation of computed score): Electronics repair, Voice-over, Food photography, Academic coaching, Workshop facilitation, Competitive analysis, Virtual event organization
+- EASY_TO_START_SKILLS: 19 → 33 entries (+14)
+  - Can start today: Cleaning, Mystery shopping
+  - Teaching: Guitar, Piano, Online fitness/yoga
+  - Services: Canva templates, Social media (organic brands), Travel itinerary, Airbnb management
+  - Platform-based: Interview transcription, Surveys
+  - Moderate barrier (explicit confirmation): Social media (SMEs), Community management, Debugging/QA, Task automation, Excel, SQL Coaching
+- Remaining 13 uncovered skills all compute reasonable scores via the formula
 
 ### Phase 7: Chat integration -- Bruno uses skill context
 
