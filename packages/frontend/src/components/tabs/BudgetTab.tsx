@@ -496,7 +496,7 @@ export function BudgetTab(props: BudgetTabProps) {
       />
 
       {/* Summary Cards */}
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 md:items-start gap-4">
         {/* Total Income */}
         <Card class="border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 shadow-sm">
           <CardContent class="p-6">
@@ -511,8 +511,20 @@ export function BudgetTab(props: BudgetTabProps) {
             <div class="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
               {formatCurrency(totalIncome(), currency(), { showSign: true })}
             </div>
-            <div class="text-xs text-emerald-600/80 dark:text-emerald-400/60 mt-1 font-medium">
-              {incomeItems().length} source{incomeItems().length !== 1 ? 's' : ''} active
+            <div class="flex items-center justify-between mt-1">
+              <div class="text-xs text-emerald-600/80 dark:text-emerald-400/60 font-medium">
+                {incomeItems().length} source{incomeItems().length !== 1 ? 's' : ''} active
+              </div>
+              <Show when={netMargin() > 0}>
+                <div class="text-xs text-emerald-600/60 dark:text-emerald-400/40 flex items-center gap-1">
+                  <PiggyBank class="h-3 w-3" />
+                  {incomeDay() <= 5
+                    ? 'Beginning of month'
+                    : incomeDay() <= 15
+                      ? 'Mid-month'
+                      : 'End of month'}
+                </div>
+              </Show>
             </div>
           </CardContent>
         </Card>
@@ -542,198 +554,161 @@ export function BudgetTab(props: BudgetTabProps) {
           </CardContent>
         </Card>
 
-        {/* Net Margin */}
-        <Card
-          class={cn(
-            'shadow-sm transition-colors duration-300',
-            netMargin() >= 0
-              ? 'border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-900/10'
-              : 'border-amber-200/50 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-900/10'
-          )}
-        >
-          <CardContent class="p-6">
-            <div class="flex items-center justify-between mb-2">
-              <span
-                class={cn(
-                  'text-sm font-medium',
-                  netMargin() >= 0
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-amber-600 dark:text-amber-400'
-                )}
-              >
-                Net Margin
-              </span>
-              <div
-                class={cn(
-                  'h-8 w-8 rounded-full flex items-center justify-center',
-                  netMargin() >= 0
-                    ? 'bg-emerald-100 dark:bg-emerald-900/50'
-                    : 'bg-amber-100 dark:bg-amber-900/50'
-                )}
-              >
-                <TrendingUp
+        {/* Net Margin + Savings (stacked in 3rd column) */}
+        <div class="space-y-3">
+          {/* Net Margin */}
+          <Card
+            class={cn(
+              'shadow-sm transition-colors duration-300',
+              netMargin() >= 0
+                ? 'border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-900/10'
+                : 'border-amber-200/50 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-900/10'
+            )}
+          >
+            <CardContent class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <span
                   class={cn(
-                    'h-4 w-4',
+                    'text-sm font-medium',
                     netMargin() >= 0
                       ? 'text-emerald-600 dark:text-emerald-400'
                       : 'text-amber-600 dark:text-amber-400'
                   )}
-                />
-              </div>
-            </div>
-            <div
-              class={cn(
-                'text-2xl font-bold',
-                netMargin() >= 0
-                  ? 'text-emerald-900 dark:text-emerald-100'
-                  : 'text-amber-900 dark:text-amber-100'
-              )}
-            >
-              {formatCurrency(netMargin(), currency(), { showSign: true })}
-            </div>
-            <div
-              class={cn(
-                'text-xs mt-1 font-medium',
-                netMargin() >= 0
-                  ? 'text-emerald-600/80 dark:text-emerald-400/60'
-                  : 'text-amber-600/80 dark:text-amber-400/60'
-              )}
-            >
-              Available per month
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Income Day Selector - when savings are added to progress */}
-      <Show when={netMargin() > 0}>
-        <Card class="border-green-500/20 bg-green-500/5">
-          <CardContent class="p-4">
-            <div class="flex items-center justify-between flex-wrap gap-3">
-              <div class="flex items-center gap-3">
-                <PiggyBank class="h-5 w-5 text-green-600" />
-                <span class="text-sm text-green-700 dark:text-green-300">
-                  <strong>Savings arrive on:</strong>
+                >
+                  Net Margin
                 </span>
-              </div>
-              <span class="px-3 py-1.5 text-sm rounded-lg border border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-300">
-                {incomeDay() <= 5
-                  ? 'Beginning of month (1st-5th)'
-                  : incomeDay() <= 15
-                    ? 'Mid-month (15th)'
-                    : 'End of month (25th-31st)'}
-              </span>
-            </div>
-            <p class="text-xs text-green-600/80 dark:text-green-400/80 mt-2">
-              Your monthly savings of {formatCurrency(netMargin(), currency())} will be
-              automatically added to your progress on this date.
-              <span class="italic"> (Set during onboarding)</span>
-            </p>
-          </CardContent>
-        </Card>
-      </Show>
-
-      {/* Feature M: Cumulative Savings From Net Margin */}
-      <Show when={cumulativeSavingsFromMargin() > 0}>
-        <Card class="border-emerald-500/20 bg-emerald-500/5">
-          <CardContent class="p-4 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <TrendingUp class="h-5 w-5 text-emerald-600" />
-                <span class="text-sm text-emerald-700 dark:text-emerald-300">
-                  <strong>Projected Savings</strong>
-                </span>
-              </div>
-              <div class="text-lg font-bold text-emerald-700 dark:text-emerald-300">
-                {formatCurrency(cumulativeSavingsFromMargin(), currency(), { showSign: true })}
-              </div>
-            </div>
-
-            {/* Calculation breakdown */}
-            <div class="text-xs text-emerald-600/80 dark:text-emerald-400/80">
-              {formatCurrency(netMargin(), currency())} × {maxPauseMonths()} months until deadline
-            </div>
-
-            {/* Progress toward goal */}
-            <Show when={marginGoalProgress() !== null}>
-              <div class="pt-2 border-t border-emerald-500/20">
-                <div class="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 mb-1">
-                  <span>Progress toward goal</span>
-                  <span class="font-medium">
-                    {Math.round(marginGoalProgress()!)}% of{' '}
-                    {formatCurrency(goalAmount(), currency())}
-                  </span>
-                </div>
-                <div class="w-full h-2 bg-emerald-200 dark:bg-emerald-900/50 rounded-full overflow-hidden">
-                  <div
-                    class="h-full bg-emerald-600 dark:bg-emerald-500 rounded-full transition-all"
-                    style={{ width: `${Math.min(100, marginGoalProgress()!)}%` }}
+                <div
+                  class={cn(
+                    'h-8 w-8 rounded-full flex items-center justify-center',
+                    netMargin() >= 0
+                      ? 'bg-emerald-100 dark:bg-emerald-900/50'
+                      : 'bg-amber-100 dark:bg-amber-900/50'
+                  )}
+                >
+                  <TrendingUp
+                    class={cn(
+                      'h-4 w-4',
+                      netMargin() >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    )}
                   />
                 </div>
               </div>
-            </Show>
-          </CardContent>
-        </Card>
-      </Show>
-
-      {/* Pause Savings Panel */}
-      <Show when={totalPauseSavings() > 0}>
-        <Card class="bg-green-500/10 border-green-500/20">
-          <CardContent class="p-4 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <PiggyBank class="h-5 w-5 text-green-600" />
-                <span class="text-sm text-green-700 dark:text-green-300">
-                  <strong>Savings until deadline</strong>
-                </span>
+              <div
+                class={cn(
+                  'text-2xl font-bold',
+                  netMargin() >= 0
+                    ? 'text-emerald-900 dark:text-emerald-100'
+                    : 'text-amber-900 dark:text-amber-100'
+                )}
+              >
+                {formatCurrency(netMargin(), currency(), { showSign: true })}
               </div>
-              <div class="text-lg font-bold text-green-700 dark:text-green-300">
-                {formatCurrency(totalPauseSavings(), currency(), { showSign: true })}
+              <div
+                class={cn(
+                  'text-xs mt-1 font-medium',
+                  netMargin() >= 0
+                    ? 'text-emerald-600/80 dark:text-emerald-400/60'
+                    : 'text-amber-600/80 dark:text-amber-400/60'
+                )}
+              >
+                Available per month
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Show breakdown by paused items */}
-            <Show when={pausedItemsCount() > 0}>
-              <div class="text-xs text-green-600/80 dark:text-green-400/80 space-y-1">
-                <For each={items().filter((i) => i.pausedMonths > 0)}>
-                  {(item) => (
-                    <div class="flex justify-between">
-                      <span>
-                        {item.name}: {formatCurrency(item.currentCost, currency())}/mo ×{' '}
-                        {item.pausedMonths} mo
-                      </span>
+          {/* Projected Savings (compact, under Net Margin) */}
+          <Show when={cumulativeSavingsFromMargin() > 0}>
+            <Card class="border-emerald-500/20 bg-emerald-500/5">
+              <CardContent class="p-3 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <TrendingUp class="h-4 w-4 text-emerald-600" />
+                    <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                      Projected Savings
+                    </span>
+                  </div>
+                  <div class="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                    {formatCurrency(cumulativeSavingsFromMargin(), currency(), { showSign: true })}
+                  </div>
+                </div>
+                <div class="text-xs text-emerald-600/80 dark:text-emerald-400/80">
+                  {formatCurrency(netMargin(), currency())} × {maxPauseMonths()} mo
+                </div>
+                <Show when={marginGoalProgress() !== null}>
+                  <div class="pt-1.5 border-t border-emerald-500/20">
+                    <div class="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 mb-1">
+                      <span>Goal progress</span>
+                      <span class="font-medium">{Math.round(marginGoalProgress()!)}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-emerald-200 dark:bg-emerald-900/50 rounded-full overflow-hidden">
+                      <div
+                        class="h-full bg-emerald-600 dark:bg-emerald-500 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, marginGoalProgress()!)}%` }}
+                      />
+                    </div>
+                  </div>
+                </Show>
+              </CardContent>
+            </Card>
+          </Show>
+
+          {/* Savings until deadline (compact, under Net Margin) */}
+          <Show when={totalPauseSavings() > 0}>
+            <Card class="bg-green-500/10 border-green-500/20">
+              <CardContent class="p-3 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <PiggyBank class="h-4 w-4 text-green-600" />
+                    <span class="text-xs font-semibold text-green-700 dark:text-green-300">
+                      Pause savings
+                    </span>
+                  </div>
+                  <div class="text-sm font-bold text-green-700 dark:text-green-300">
+                    {formatCurrency(totalPauseSavings(), currency(), { showSign: true })}
+                  </div>
+                </div>
+                <Show when={pausedItemsCount() > 0}>
+                  <div class="text-xs text-green-600/80 dark:text-green-400/80 space-y-0.5">
+                    <For each={items().filter((i) => i.pausedMonths > 0)}>
+                      {(item) => (
+                        <div class="flex justify-between">
+                          <span>
+                            {item.name}: {formatCurrency(item.currentCost, currency())}/mo ×{' '}
+                            {item.pausedMonths} mo
+                          </span>
+                          <span class="font-medium">
+                            {formatCurrency(item.currentCost * item.pausedMonths, currency())}
+                          </span>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+                <Show when={goalAmount() > 0}>
+                  <div class="pt-1.5 border-t border-green-500/20">
+                    <div class="flex items-center justify-between text-xs text-green-600 dark:text-green-400 mb-1">
+                      <span>Goal contribution</span>
                       <span class="font-medium">
-                        {formatCurrency(item.currentCost * item.pausedMonths, currency())}
+                        {Math.round((totalPauseSavings() / goalAmount()) * 100)}%
                       </span>
                     </div>
-                  )}
-                </For>
-              </div>
-            </Show>
-
-            {/* Show progress toward goal */}
-            <Show when={goalAmount() > 0}>
-              <div class="pt-2 border-t border-green-500/20">
-                <div class="flex items-center justify-between text-xs text-green-600 dark:text-green-400 mb-1">
-                  <span>Contribution to goal</span>
-                  <span class="font-medium">
-                    {Math.round((totalPauseSavings() / goalAmount()) * 100)}% of{' '}
-                    {formatCurrency(goalAmount(), currency())}
-                  </span>
-                </div>
-                <div class="w-full h-2 bg-green-200 dark:bg-green-900/50 rounded-full overflow-hidden">
-                  <div
-                    class="h-full bg-green-600 dark:bg-green-500 rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(100, (totalPauseSavings() / goalAmount()) * 100)}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </Show>
-          </CardContent>
-        </Card>
-      </Show>
+                    <div class="w-full h-1.5 bg-green-200 dark:bg-green-900/50 rounded-full overflow-hidden">
+                      <div
+                        class="h-full bg-green-600 dark:bg-green-500 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, (totalPauseSavings() / goalAmount()) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </Show>
+              </CardContent>
+            </Card>
+          </Show>
+        </div>
+      </div>
 
       {/* Deadline Info */}
       <Show when={maxPauseMonths() > 0 && !isIncomeCategory()}>

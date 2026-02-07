@@ -565,7 +565,7 @@ export function TradeTab(props: TradeTabProps) {
 
       <Show when={!isLoading()} fallback={<TradeSkeleton />}>
         {/* Summary Cards */}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 md:items-start gap-4">
           {/* Sales */}
           <Card class="border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 shadow-sm transition-all hover:shadow-md">
             <CardContent class="p-6">
