@@ -7,16 +7,18 @@
 
 import type { APIEvent } from '@solidjs/start/server';
 import { createLogger } from '~/lib/logger';
+import { getSetting } from '~/lib/settingsStore';
 
 const logger = createLogger('Voice');
 
 // Speech-to-text configuration (provider-agnostic)
 // Supports Groq Whisper, Mistral Voxtral, or any OpenAI-compatible transcription endpoint.
-// Note: Read env vars at request time, not module load time (Vite SSR compatibility)
-const getSTTApiKey = () => process.env.STT_API_KEY || process.env.GROQ_API_KEY;
-const getSTTBaseUrl = () => process.env.STT_BASE_URL || 'https://api.groq.com/openai/v1';
-const getSTTModel = () =>
-  process.env.STT_MODEL || process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3-turbo';
+// Uses settingsStore for runtime overrides (falls back to process.env).
+// STT key resolution: explicit STT key > LLM key (for Mistral Voxtral) > Groq key (legacy)
+const getSTTApiKey = () =>
+  getSetting('STT_API_KEY') || getSetting('LLM_API_KEY') || getSetting('GROQ_API_KEY');
+const getSTTBaseUrl = () => getSetting('STT_BASE_URL') || 'https://api.groq.com/openai/v1';
+const getSTTModel = () => getSetting('STT_MODEL') || 'whisper-large-v3-turbo';
 
 interface TranscribeRequest {
   action: 'transcribe';
@@ -62,16 +64,32 @@ export async function POST(event: APIEvent) {
     const audioBuffer = Buffer.from(body.audio_base64, 'base64');
     const format = body.format || 'webm';
     const language = body.language || 'fr';
+    const sttModel = getSTTModel();
+    const isMistral = getSTTBaseUrl().includes('mistral.ai');
 
-    // Create FormData for Groq API
+    // Mistral Voxtral only supports: mp3, wav, m4a, flac, ogg (NOT webm)
+    // If recording is webm and provider is Mistral, re-wrap as ogg (webm/opus is ogg-compatible)
+    const effectiveFormat = isMistral && format === 'webm' ? 'ogg' : format;
+    const mimeTypes: Record<string, string> = {
+      webm: 'audio/webm',
+      wav: 'audio/wav',
+      ogg: 'audio/ogg',
+      mp3: 'audio/mpeg',
+      m4a: 'audio/mp4',
+      flac: 'audio/flac',
+    };
+
     const formData = new FormData();
     const audioBlob = new Blob([audioBuffer], {
-      type: format === 'webm' ? 'audio/webm' : 'audio/wav',
+      type: mimeTypes[effectiveFormat] || 'audio/webm',
     });
-    formData.append('file', audioBlob, `recording.${format}`);
-    formData.append('model', getSTTModel());
+    formData.append('file', audioBlob, `recording.${effectiveFormat}`);
+    formData.append('model', sttModel);
     formData.append('language', language);
-    formData.append('response_format', 'verbose_json');
+    // response_format=verbose_json is Whisper-specific, Mistral doesn't support it
+    if (!isMistral) {
+      formData.append('response_format', 'verbose_json');
+    }
 
     // Call STT provider API (Groq Whisper, Mistral Voxtral, etc.)
     const sttBaseUrl = getSTTBaseUrl();

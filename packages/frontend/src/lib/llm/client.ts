@@ -4,49 +4,46 @@
  * Uses the OpenAI SDK with configurable base URL to support any OpenAI-compatible provider:
  * - Groq: https://api.groq.com/openai/v1
  * - Mistral: https://api.mistral.ai/v1
+ * - Google Gemini: https://generativelanguage.googleapis.com/v1beta/openai/
  * - OpenAI: https://api.openai.com/v1
  * - OpenRouter: https://openrouter.ai/api/v1
  *
- * Configure via environment variables:
- * - LLM_API_KEY: API key for the provider
- * - LLM_BASE_URL: Base URL for the provider (defaults to Groq)
- * - LLM_MODEL: Model to use (defaults to llama-3.1-8b-instant)
- *
- * Legacy support: Falls back to GROQ_API_KEY/GROQ_MODEL if LLM_ vars not set.
+ * All configuration is read lazily via settingsStore (runtime overrides > process.env).
+ * Call resetLLMClient() after changing settings to force re-creation.
  */
-
-// Load .env from monorepo root (for SSR context where Vite envDir doesn't apply)
-import { config } from 'dotenv';
-import { resolve } from 'path';
-
-config({ path: resolve(process.cwd(), '.env') }); // Try current dir first
-config({ path: resolve(process.cwd(), '../../.env') }); // Then monorepo root
 
 import OpenAI from 'openai';
 import { createLogger } from '../logger';
+import { getSetting } from '../settingsStore';
 
 const logger = createLogger('LLMClient');
 
 // =============================================================================
-// Configuration
+// Lazy Configuration Getters
 // =============================================================================
 
-// Support both new LLM_ prefix and legacy GROQ_ prefix
-const LLM_API_KEY = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
-const LLM_BASE_URL = process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1';
-const LLM_MODEL = process.env.LLM_MODEL || process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
+function getLLMApiKey(): string | undefined {
+  return getSetting('LLM_API_KEY') || getSetting('GROQ_API_KEY');
+}
+
+function getLLMBaseUrl(): string {
+  return getSetting('LLM_BASE_URL') || 'https://api.groq.com/openai/v1';
+}
+
+function getLLMModelName(): string {
+  return getSetting('LLM_MODEL') || getSetting('GROQ_MODEL') || 'llama-3.1-8b-instant';
+}
 
 // Detect provider from base URL for logging/tracing
 function detectProvider(baseUrl: string): string {
   if (baseUrl.includes('groq.com')) return 'groq';
   if (baseUrl.includes('mistral.ai')) return 'mistral';
+  if (baseUrl.includes('generativelanguage.googleapis.com')) return 'gemini';
   if (baseUrl.includes('openai.com')) return 'openai';
   if (baseUrl.includes('openrouter.ai')) return 'openrouter';
   if (baseUrl.includes('together.xyz')) return 'together';
   return 'custom';
 }
-
-export const LLM_PROVIDER = detectProvider(LLM_BASE_URL);
 
 // =============================================================================
 // Pricing (for cost estimation in traces)
@@ -61,12 +58,18 @@ const PRICING: Record<string, Record<string, { input: number; output: number }>>
     default: { input: 0.15, output: 0.6 },
   },
   mistral: {
+    'ministral-3b-2512': { input: 0.04, output: 0.04 },
     'mistral-small-latest': { input: 0.1, output: 0.3 },
     'mistral-medium-latest': { input: 0.27, output: 0.81 },
     'mistral-large-latest': { input: 2.0, output: 6.0 },
     'codestral-latest': { input: 0.3, output: 0.9 },
     'open-mistral-nemo': { input: 0.15, output: 0.15 },
     default: { input: 0.15, output: 0.45 },
+  },
+  gemini: {
+    'gemini-2.5-flash': { input: 0.15, output: 0.6 },
+    'gemini-2.0-flash': { input: 0.1, output: 0.4 },
+    default: { input: 0.15, output: 0.6 },
   },
   openai: {
     'gpt-4o': { input: 2.5, output: 10.0 },
@@ -83,56 +86,87 @@ const PRICING: Record<string, Record<string, { input: number; output: number }>>
  * Calculate estimated cost based on token usage
  */
 export function calculateCost(promptTokens: number, completionTokens: number): number {
-  const providerPricing = PRICING[LLM_PROVIDER] || PRICING['default'];
-  const modelPricing = providerPricing[LLM_MODEL] || providerPricing['default'];
+  const provider = getProvider();
+  const model = getModel();
+  const providerPricing = PRICING[provider] || PRICING['default'];
+  const modelPricing = providerPricing[model] || providerPricing['default'];
   const inputCost = (promptTokens / 1_000_000) * modelPricing.input;
   const outputCost = (completionTokens / 1_000_000) * modelPricing.output;
   return inputCost + outputCost;
 }
 
 // =============================================================================
-// Client Singleton
+// Client Singleton (auto-recreated when config changes)
 // =============================================================================
 
 let client: OpenAI | null = null;
+let clientConfig: { apiKey: string; baseUrl: string } | null = null;
 
 /**
- * Get or create the LLM client singleton
+ * Get or create the LLM client singleton.
+ * Auto-recreates the client if apiKey or baseUrl have changed since last creation.
  */
 export function getLLMClient(): OpenAI | null {
-  if (!client && LLM_API_KEY) {
-    client = new OpenAI({
-      apiKey: LLM_API_KEY,
-      baseURL: LLM_BASE_URL,
+  const apiKey = getLLMApiKey();
+  if (!apiKey) return null;
+
+  const baseUrl = getLLMBaseUrl();
+
+  // Auto-recreate if config changed
+  if (
+    client &&
+    clientConfig &&
+    (clientConfig.apiKey !== apiKey || clientConfig.baseUrl !== baseUrl)
+  ) {
+    logger.info('LLM config changed, recreating client', {
+      oldProvider: detectProvider(clientConfig.baseUrl),
+      newProvider: detectProvider(baseUrl),
     });
+    client = null;
+    clientConfig = null;
+  }
+
+  if (!client) {
+    client = new OpenAI({ apiKey, baseURL: baseUrl });
+    clientConfig = { apiKey, baseUrl };
     logger.info('LLM client initialized', {
-      provider: LLM_PROVIDER,
-      model: LLM_MODEL,
-      baseUrl: LLM_BASE_URL.replace(/\/v1$/, ''),
+      provider: detectProvider(baseUrl),
+      model: getLLMModelName(),
+      baseUrl: baseUrl.replace(/\/v1\/?$/, ''),
     });
   }
+
   return client;
+}
+
+/**
+ * Force-reset the LLM client. Call after applySettings() so the next
+ * getLLMClient() call creates a fresh client with updated config.
+ */
+export function resetLLMClient(): void {
+  client = null;
+  clientConfig = null;
 }
 
 /**
  * Get the current model name
  */
 export function getModel(): string {
-  return LLM_MODEL;
+  return getLLMModelName();
 }
 
 /**
  * Get the current provider name
  */
 export function getProvider(): string {
-  return LLM_PROVIDER;
+  return detectProvider(getLLMBaseUrl());
 }
 
 /**
  * Check if LLM is configured
  */
 export function isConfigured(): boolean {
-  return !!LLM_API_KEY;
+  return !!getLLMApiKey();
 }
 
 // =============================================================================
@@ -176,8 +210,9 @@ export async function chat(
     throw new Error('LLM client not initialized. Set LLM_API_KEY environment variable.');
   }
 
+  const model = getLLMModelName();
   const response = await llm.chat.completions.create({
-    model: LLM_MODEL,
+    model,
     messages,
     temperature: options.temperature ?? 0.5,
     max_tokens: options.maxTokens || 1024,

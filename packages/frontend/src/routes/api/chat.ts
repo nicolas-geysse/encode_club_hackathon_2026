@@ -83,6 +83,7 @@ import {
   buildMissionChart,
   buildCapacityChart,
   buildChartWithLinks,
+  buildCapabilitiesUI,
   type EnergyLogEntry,
   type TradePotential,
   type SkillJobMatch,
@@ -505,6 +506,14 @@ export async function POST(event: APIEvent) {
       conversationHistory,
       timeContext,
     } = body;
+
+    logger.info('Chat API Request', {
+      profileId,
+      mode,
+      step,
+      hasContext: !!context,
+      messageLength: message?.length,
+    });
 
     if (!message || !step) {
       return new Response(
@@ -1080,6 +1089,7 @@ function buildFollowUpSuggestions(
     'show_missions_chart',
     'show_capacity_chart',
     'show_chart_gallery',
+    'show_capabilities',
     'get_advice',
     'search_jobs',
     'search_remote_jobs',
@@ -1316,6 +1326,7 @@ async function handleConversationMode(
 
       // Generate response based on intent
       let response = '';
+      let uiResource: UIResource | undefined;
       const extractedData: Record<string, unknown> = {};
 
       // -----------------------------------------------------------------------
@@ -1325,8 +1336,9 @@ async function handleConversationMode(
         try {
           const actionStats = ActionDispatcher.dispatch(
             intent.action,
-            { ...context, ...(intent.field ? { [intent.field]: intent.extractedValue } : {}) },
-            traceIdForFeedback || 'unknown-trace'
+            intent.field ? { [intent.field]: intent.extractedValue } : {},
+            traceIdForFeedback || 'unknown-trace',
+            context
           );
 
           if (actionStats.status === 'missing_info' && actionStats.uiResource) {
@@ -1347,6 +1359,22 @@ async function handleConversationMode(
               intent,
               traceId: actionTraceId || undefined,
               traceUrl: actionTraceId ? getTraceUrl(actionTraceId) : undefined,
+              source: 'llm' as const,
+              uiResource: actionStats.uiResource,
+            };
+          }
+
+          // For goal actions, always show confirmation form (HITL) instead of auto-executing
+          const ALWAYS_CONFIRM_ACTIONS: string[] = ['create_goal', 'update_goal'];
+          if (actionStats.status === 'ready' && ALWAYS_CONFIRM_ACTIONS.includes(intent.action)) {
+            response = `Here are your current goal details. Update what you need:`;
+            return {
+              response,
+              extractedData: {},
+              nextStep: 'complete' as OnboardingStep,
+              intent,
+              traceId: traceIdForFeedback || undefined,
+              traceUrl: traceIdForFeedback ? getTraceUrl(traceIdForFeedback) : undefined,
               source: 'llm' as const,
               uiResource: actionStats.uiResource,
             };
@@ -1585,20 +1613,72 @@ async function handleConversationMode(
               }
             }
 
-            // Build response based on what was detected
+            // Build prefilled confirmation forms instead of saving directly
+            const sym = getCurrencySymbol(context.currency as string);
+
             if (detectedIncome !== null && detectedExpense !== null) {
+              // Both detected → composite with 2 forms
+              const incomeResult = ActionDispatcher.dispatch(
+                'update_income',
+                { amount: detectedIncome, _context: context },
+                `inc_${Date.now()}`
+              );
+              const expenseResult = ActionDispatcher.dispatch(
+                'update_expenses',
+                { amount: detectedExpense, _context: context },
+                `exp_${Date.now()}`
+              );
+
+              response = `I detected income **${sym}${detectedIncome}** and expenses **${sym}${detectedExpense}**. Please confirm:`;
+              uiResource = {
+                type: 'composite',
+                components: [incomeResult.uiResource!, expenseResult.uiResource!].filter(
+                  Boolean
+                ) as UIResource[],
+              };
+              // Also set extractedData as fallback
               extractedData.income = detectedIncome;
               extractedData.expenses = detectedExpense;
-              response = `Done! I've updated your budget: income **${detectedIncome}**, expenses **${detectedExpense}**. 💰\n\nYou can see this change in the **Profile** tab.`;
             } else if (detectedIncome !== null) {
+              const dispatchResult = ActionDispatcher.dispatch(
+                'update_income',
+                { amount: detectedIncome, _context: context },
+                `inc_${Date.now()}`
+              );
+              response = `I detected income **${sym}${detectedIncome}/month**. Please confirm:`;
+              uiResource = dispatchResult.uiResource;
               extractedData.income = detectedIncome;
-              response = `Done! I've updated your monthly income to **${detectedIncome}**. 💰\n\nYou can see this change in the **Profile** tab.`;
             } else if (detectedExpense !== null) {
+              const dispatchResult = ActionDispatcher.dispatch(
+                'update_expenses',
+                { amount: detectedExpense, _context: context },
+                `exp_${Date.now()}`
+              );
+              response = `I detected expenses **${sym}${detectedExpense}/month**. Please confirm:`;
+              uiResource = dispatchResult.uiResource;
               extractedData.expenses = detectedExpense;
-              response = `Done! I've updated your monthly expenses to **${detectedExpense}**. 💸\n\nYou can see this change in the **Profile** tab.`;
             } else {
               response = `Sure, I can help you update your budget. What's your new monthly income (and expenses if you want)?`;
             }
+          } else if (intent.field === 'skills') {
+            // Extract skill name from message
+            const skillMatch = message.match(
+              /(?:add|learned?|know|appris|ajout(?:er)?)\s+(?:a\s+)?(?:new\s+)?(?:skill\s+)?(?:in\s+)?([A-Za-z0-9#+.]+(?:\s+[A-Za-z0-9#+.]+)?)/i
+            );
+            const skillName = skillMatch?.[1] || intent.extractedValue;
+
+            const dispatchResult = ActionDispatcher.dispatch(
+              'add_skill',
+              { skill: skillName || undefined, _context: context },
+              `skill_${Date.now()}`
+            );
+
+            if (skillName) {
+              response = `Adding **${skillName}** to your skills. Confirm below:`;
+            } else {
+              response = `What skill would you like to add?`;
+            }
+            uiResource = dispatchResult.uiResource;
           } else if (intent.field === 'work_preferences') {
             // Extract work hours and hourly rate
             const hoursMatch = message.match(/(\d+)\s*h(?:ours?)?/i);
@@ -1732,7 +1812,11 @@ async function handleConversationMode(
           const projection = calculateProjection(financialData, timeCtx, modifications);
 
           // Build response with projection summary
-          const summary = buildProjectionSummary(projection, currencySymbol);
+          const summary = buildProjectionSummary(
+            projection,
+            currencySymbol,
+            financialData.goalAmount
+          );
           const extraMonthly = hours * rate * 4.33;
 
           if (projection.scenarioPath?.success && !projection.currentPath.success) {
@@ -1809,7 +1893,11 @@ async function handleConversationMode(
           };
 
           const projection = calculateProjection(financialData, timeCtx, modifications);
-          const summary = buildProjectionSummary(projection, currencySymbol);
+          const summary = buildProjectionSummary(
+            projection,
+            currencySymbol,
+            financialData.goalAmount
+          );
 
           if (projection.scenarioPath?.success && !projection.currentPath.success) {
             response = `Selling **${item}** for **${currencySymbol}${amount}** would give your savings a nice boost!\n\n${summary}`;
@@ -1844,7 +1932,11 @@ async function handleConversationMode(
           };
 
           const projection = calculateProjection(financialData, timeCtx, modifications);
-          const summary = buildProjectionSummary(projection, currencySymbol);
+          const summary = buildProjectionSummary(
+            projection,
+            currencySymbol,
+            financialData.goalAmount
+          );
 
           response = `Cutting **${service}** (saving **${currencySymbol}${amount}/month**) would help!\n\n${summary}`;
           break;
@@ -1868,7 +1960,11 @@ async function handleConversationMode(
           };
 
           const projection = calculateProjection(financialData, timeCtx);
-          const summary = buildProjectionSummary(projection, currencySymbol);
+          const summary = buildProjectionSummary(
+            projection,
+            currencySymbol,
+            financialData.goalAmount
+          );
 
           // Add time-aware context
           const timeRemaining = formatTimeRemaining(goalDeadline, timeCtx);
@@ -1908,6 +2004,27 @@ async function handleConversationMode(
             traceUrl: swipeTraceId ? getTraceUrl(swipeTraceId) : undefined,
             source: 'llm' as const,
             uiResource: swipeResource,
+          };
+        }
+
+        // =====================================================================
+        // CAPABILITIES DISCOVERY
+        // =====================================================================
+
+        case 'show_capabilities': {
+          response = `Here's everything I can help you with:`;
+          const capabilitiesResource = buildCapabilitiesUI();
+          const capabilitiesTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'show_capabilities' });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: capabilitiesTraceId || undefined,
+            traceUrl: capabilitiesTraceId ? getTraceUrl(capabilitiesTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: capabilitiesResource,
           };
         }
 
@@ -2104,7 +2221,7 @@ async function handleConversationMode(
             oneTimeGainsTotal
           );
           const progressWithLinks = buildChartWithLinks(progressChartResource, [
-            { label: 'Go to Progress', to: '/progress' },
+            { label: 'Go to Goals', to: '/me?tab=goals' },
             {
               label: 'What-If Scenarios',
               action: 'show_chart',
@@ -2174,16 +2291,28 @@ async function handleConversationMode(
           };
 
           const projectionForChart = calculateProjection(financialDataForChart, timeCtx);
-          const summaryText = buildProjectionSummary(projectionForChart, currSymbol);
+          const summaryText = buildProjectionSummary(
+            projectionForChart,
+            currSymbol,
+            financialDataForChart.goalAmount
+          );
           const simNote = timeCtx.isSimulating
             ? `\n\n⏰ *Note: This projection is calculated from the simulated date (+${timeCtx.offsetDays} days)*`
             : '';
           response = `🎯 **Projection Towards Your Goal**\n\n${summaryText}${simNote}`;
-          const projectionChartResource = buildProjectionChart(projectionForChart, currSymbol, {
-            isSimulating: timeCtx.isSimulating,
-            offsetDays: timeCtx.offsetDays,
-            simulatedDate: timeCtx.simulatedDate,
-          });
+          const projectionChartResource = buildProjectionChart(
+            projectionForChart,
+            currSymbol,
+            {
+              isSimulating: timeCtx.isSimulating,
+              offsetDays: timeCtx.offsetDays,
+              simulatedDate: timeCtx.simulatedDate,
+            },
+            {
+              currentSaved: financialDataForChart.currentSaved,
+              goalAmount: financialDataForChart.goalAmount,
+            }
+          );
           const projectionChartTraceId = ctx.getTraceId();
           ctx.setOutput({
             action: 'show_projection_chart',
@@ -3287,6 +3416,9 @@ Use this data for personalized, concrete advice.`,
       });
       ctx.setOutput({ response: response.substring(0, 300), intent });
 
+      // Prefer handler-specific uiResource (e.g. confirmation forms) over follow-up suggestions
+      const finalUiResource = uiResource || followUpSuggestions;
+
       return {
         response,
         extractedData,
@@ -3295,7 +3427,7 @@ Use this data for personalized, concrete advice.`,
         traceId: traceId || undefined,
         traceUrl,
         source: 'llm' as const,
-        ...(followUpSuggestions ? { uiResource: followUpSuggestions } : {}),
+        ...(finalUiResource ? { uiResource: finalUiResource } : {}),
       };
     },
     traceOptions

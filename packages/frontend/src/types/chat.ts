@@ -62,6 +62,7 @@ export type UIResource =
       params: {
         actionId: string;
         actionType: string;
+        uiComponent?: string;
         fields: {
           name: string;
           label: string;

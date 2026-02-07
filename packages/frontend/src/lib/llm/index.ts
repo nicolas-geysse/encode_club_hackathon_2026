@@ -6,13 +6,13 @@
 
 export {
   getLLMClient,
+  resetLLMClient,
   getModel,
   getProvider,
   isConfigured,
   chat,
   chatJson,
   calculateCost,
-  LLM_PROVIDER,
   OpenAI,
   type ChatMessage,
   type ChatOptions,

@@ -1,4 +1,12 @@
-export type ActionType = 'pause_subscription' | 'add_expense' | 'update_budget' | 'create_goal';
+export type ActionType =
+  | 'pause_subscription'
+  | 'add_expense'
+  | 'update_budget'
+  | 'create_goal'
+  | 'update_goal'
+  | 'update_income'
+  | 'update_expenses'
+  | 'add_skill';
 
 export interface ActionField {
   name: string;
@@ -70,13 +78,53 @@ export const ACTIONS: Record<ActionType, ActionDefinition> = {
   },
   create_goal: {
     intent: 'create_goal',
-    description: 'Create a new savings goal',
+    description: 'Manage savings goal',
     fields: [
       { name: 'name', label: 'Goal Name', type: 'text', required: true },
       { name: 'amount', label: 'Target Amount', type: 'number', required: true },
-      { name: 'deadline', label: 'Deadline', type: 'date', required: false },
+      { name: 'deadline', label: 'Deadline', type: 'date', required: true },
     ],
     uiComponent: 'GoalForm',
+  },
+  update_goal: {
+    intent: 'update_goal',
+    description: 'Update existing goal',
+    fields: [
+      { name: 'name', label: 'Goal Name', type: 'text', required: false },
+      { name: 'amount', label: 'New Target', type: 'number', required: false },
+      { name: 'deadline', label: 'New Deadline', type: 'date', required: false },
+    ],
+    uiComponent: 'GoalForm',
+  },
+  update_income: {
+    intent: 'update_income',
+    description: 'Update monthly income',
+    fields: [
+      { name: 'source', label: 'Source', type: 'text', required: false },
+      { name: 'amount', label: 'Monthly Amount', type: 'number', required: true },
+    ],
+    uiComponent: 'IncomeForm',
+  },
+  update_expenses: {
+    intent: 'update_expenses',
+    description: 'Update monthly expenses',
+    fields: [
+      {
+        name: 'category',
+        label: 'Category',
+        type: 'select',
+        options: ['housing', 'food', 'transport', 'subscriptions', 'other'],
+        required: false,
+      },
+      { name: 'amount', label: 'Monthly Amount', type: 'number', required: true },
+    ],
+    uiComponent: 'ExpenseForm',
+  },
+  add_skill: {
+    intent: 'add_skill',
+    description: 'Add a new skill to profile',
+    fields: [{ name: 'skill', label: 'Skill Name', type: 'text', required: true }],
+    uiComponent: 'SkillForm',
   },
 };
 

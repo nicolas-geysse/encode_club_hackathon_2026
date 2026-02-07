@@ -21,27 +21,31 @@ export async function handleUpdateEnergy(hCtx: ChatHandlerContext): Promise<Chat
       const level = intent.extractedEnergy ?? 50;
       const today = getReferenceDate(timeCtx).toISOString().split('T')[0];
 
+      // Convert 0-100 percentage to 1-5 scale (DB CHECK constraint: BETWEEN 1 AND 5)
+      const energyLevel1to5 = Math.max(1, Math.min(5, Math.ceil(level / 20)));
+      const stressLevel1to5 = 6 - energyLevel1to5; // Inverse: high energy = low stress
+
       span.setAttributes({
         profileId: profileId || 'anonymous',
         'input.energy_level': level,
+        'input.energy_1to5': energyLevel1to5,
         'input.date': today,
       });
 
       // Log via retroplan API
+      // API reads { userId, action, date, energyLevel, ... } from body (flat, not nested)
       if (profileId) {
         try {
           const resp = await fetch(`${BASE_URL()}/api/retroplan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              profileId,
+              userId: profileId,
               action: 'log_energy',
-              data: {
-                date: today,
-                energyLevel: level,
-                moodScore: level, // Use same value as reasonable default
-                stressLevel: level < 40 ? 70 : level > 70 ? 30 : 50,
-              },
+              date: today,
+              energyLevel: energyLevel1to5,
+              moodScore: energyLevel1to5,
+              stressLevel: stressLevel1to5,
             }),
           });
           if (!resp.ok) {

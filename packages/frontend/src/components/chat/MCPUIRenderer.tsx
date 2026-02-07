@@ -11,8 +11,20 @@
  * - Actions (buttons, callbacks)
  */
 
-import { Show, createSignal, createMemo, For, Switch, Match, onMount, onCleanup } from 'solid-js';
+import {
+  Show,
+  createSignal,
+  createMemo,
+  For,
+  Switch,
+  Match,
+  onMount,
+  onCleanup,
+  lazy,
+} from 'solid-js';
 import { createLogger } from '~/lib/logger';
+import OnboardingFormStep from './OnboardingFormStep';
+import { OnboardingFormStepWrapper } from './OnboardingFormStepWrapper';
 import {
   Chart,
   Title,
@@ -388,6 +400,43 @@ function CompositeResource(props: { components?: UIResource[]; onAction?: Action
  */
 function FormResource(props: { params?: Record<string, unknown>; onAction?: ActionCallback }) {
   const title = () => (props.params?.title as string) || '';
+  const uiComponent = () => (props.params?.uiComponent as string) || '';
+
+  // Special handling for GoalForm using the Onboarding component
+  if (uiComponent() === 'GoalForm') {
+    // Import dynamically or use closure if available.
+    // Since we are in MCPUIRenderer which is inside OnboardingChat likely, we might have access or need to import.
+    // However, OnboardingFormStep is a default export. MCPUIRenderer is invalid if it imports a component that imports it (cycle).
+    // OnboardingFormStep imports stepForms, not MCPUIRenderer. Safe.
+
+    // We need to verify if we can use OnboardingFormStep here.
+    // It requires 'step', 'onSubmit', etc.
+    // We'll wrap it.
+
+    return (
+      <div class="bg-card border border-border rounded-lg p-4 max-w-sm">
+        <h4 class="font-medium text-sm text-foreground mb-3">Update Goal</h4>
+        {/* We need to lazy load or pass OnboardingFormStep from parent to avoid circular deps if any. 
+            MCPUIRenderer is imported by OnboardingChat. OnboardingFormStep is imported by OnboardingChat.
+            MCPUIRenderer -> OnboardingFormStep is fine.
+        */}
+        <OnboardingFormStepWrapper
+          step="goal"
+          initialData={
+            props.params?.fields
+              ? (props.params.fields as any[]).reduce(
+                  (acc, f) => ({ ...acc, [f.name]: f.currentValue ?? f.value }),
+                  {}
+                )
+              : {}
+          }
+          onAction={props.onAction}
+          submitLabel="Save Goal"
+        />
+      </div>
+    );
+  }
+
   const fields = () =>
     (props.params?.fields as Array<{
       name: string;
@@ -403,8 +452,9 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
   const getInitialData = () => {
     const initial: Record<string, unknown> = {};
     for (const field of fields()) {
-      // Initialize with field.value or empty string for required fields
-      initial[field.name] = field.value !== undefined && field.value !== '' ? field.value : '';
+      // Initialize with field.value, currentValue (from ActionDispatcher), or empty string
+      const prefill = (field as Record<string, unknown>).currentValue ?? field.value;
+      initial[field.name] = prefill !== undefined && prefill !== '' ? prefill : '';
     }
     return initial;
   };
@@ -444,6 +494,11 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
       } else {
         processedData[field.name] = value;
       }
+    }
+
+    // Include actionType from params so handlers can route by action
+    if (props.params?.actionType) {
+      processedData.actionType = props.params.actionType;
     }
 
     logger.info('Form submit', { data: processedData });

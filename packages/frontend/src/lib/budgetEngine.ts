@@ -223,10 +223,13 @@ function hasModifications(mods: ScenarioModifications): boolean {
  */
 export function buildProjectionSummary(
   projection: ProjectionResult,
-  currencySymbol: string = '$'
+  currencySymbol: string = '$',
+  goalAmount?: number
 ): string {
   const { currentPath, scenarioPath, delta, timeInfo } = projection;
   const lines: string[] = [];
+  const sym = currencySymbol;
+  const weeklyContribution = Math.round(currentPath.monthlyMargin / 4.33);
 
   // Time info
   if (timeInfo.deadlinePassed) {
@@ -237,22 +240,67 @@ export function buildProjectionSummary(
     );
   }
 
-  // Current path
+  // Current path — encouraging framing
   lines.push('');
   lines.push('**Current Path:**');
-  lines.push(`- Monthly margin: ${currencySymbol}${currentPath.monthlyMargin.toFixed(0)}`);
-  lines.push(`- Projected at deadline: ${currencySymbol}${currentPath.projectedTotal.toFixed(0)}`);
-  lines.push(`- Goal reachable: ${currentPath.success ? 'Yes' : 'No'}`);
+  lines.push(
+    `- Monthly margin: ${sym}${currentPath.monthlyMargin.toFixed(0)}/month (${sym}${weeklyContribution}/week)`
+  );
+
+  if (goalAmount != null && goalAmount > 0) {
+    lines.push(
+      `- Projected at deadline: ${sym}${currentPath.projectedTotal.toFixed(0)} of ${sym}${goalAmount}`
+    );
+  } else {
+    lines.push(`- Projected at deadline: ${sym}${currentPath.projectedTotal.toFixed(0)}`);
+  }
+
+  if (currentPath.success) {
+    // On track
+    const weeksToSpare =
+      currentPath.weeksToGoal != null ? timeInfo.weeksRemaining - currentPath.weeksToGoal : 0;
+    if (weeksToSpare > 0) {
+      lines.push(`- **On track!** You could reach your goal with ~${weeksToSpare} weeks to spare`);
+    } else {
+      lines.push('- **On track** to reach your goal by the deadline');
+    }
+  } else if (goalAmount != null && goalAmount > 0 && !timeInfo.deadlinePassed) {
+    // Not on track — show gap + concrete action
+    const gap = goalAmount - currentPath.projectedTotal;
+    const extraWeekly =
+      timeInfo.weeksRemaining > 0 ? Math.ceil(gap / timeInfo.weeksRemaining) : gap;
+    lines.push(
+      `- Gap: ${sym}${Math.round(gap)} — you'd need ~${sym}${extraWeekly} extra/week to close it`
+    );
+    lines.push('');
+    lines.push(`Try "what if I work 5 more hours?" or check the Swipe tab for new opportunities!`);
+  } else {
+    lines.push(`- Goal not yet reachable at current pace`);
+  }
 
   // Scenario comparison
   if (scenarioPath && delta) {
     lines.push('');
     lines.push('**With Changes:**');
-    lines.push(`- New monthly margin: ${currencySymbol}${scenarioPath.monthlyMargin.toFixed(0)}`);
+    const scenarioWeekly = Math.round(scenarioPath.monthlyMargin / 4.33);
     lines.push(
-      `- Projected at deadline: ${currencySymbol}${scenarioPath.projectedTotal.toFixed(0)}`
+      `- New monthly margin: ${sym}${scenarioPath.monthlyMargin.toFixed(0)}/month (${sym}${scenarioWeekly}/week)`
     );
-    lines.push(`- Goal reachable: ${scenarioPath.success ? 'Yes' : 'No'}`);
+
+    if (goalAmount != null && goalAmount > 0) {
+      lines.push(
+        `- Projected at deadline: ${sym}${scenarioPath.projectedTotal.toFixed(0)} of ${sym}${goalAmount}`
+      );
+    } else {
+      lines.push(`- Projected at deadline: ${sym}${scenarioPath.projectedTotal.toFixed(0)}`);
+    }
+
+    if (scenarioPath.success) {
+      lines.push('- **Goal reachable!**');
+    } else if (goalAmount != null && goalAmount > 0) {
+      const scenarioGap = goalAmount - scenarioPath.projectedTotal;
+      lines.push(`- Still short by ${sym}${Math.round(scenarioGap)}, but getting closer`);
+    }
 
     lines.push('');
     lines.push('**Impact:**');
@@ -260,10 +308,10 @@ export function buildProjectionSummary(
       lines.push(`- Reach goal **${delta.weeks} weeks faster**`);
     }
     if (delta.amount > 0) {
-      lines.push(`- Extra ${currencySymbol}${delta.amount.toFixed(0)} by deadline`);
+      lines.push(`- Extra ${sym}${delta.amount.toFixed(0)} by deadline`);
     }
     if (delta.monthlyMarginDiff > 0) {
-      lines.push(`- +${currencySymbol}${delta.monthlyMarginDiff.toFixed(0)}/month margin`);
+      lines.push(`- +${sym}${delta.monthlyMarginDiff.toFixed(0)}/month margin`);
     }
   }
 

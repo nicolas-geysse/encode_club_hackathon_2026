@@ -33,6 +33,7 @@ import PlasmaAvatar from '~/components/chat/PlasmaAvatar';
 import { createLogger } from '~/lib/logger';
 import { todayISO } from '~/lib/dateUtils';
 import { eventBus } from '~/lib/eventBus';
+import { useProfile } from '~/lib/profileContext';
 
 const logger = createLogger('SimulationControls');
 
@@ -92,6 +93,7 @@ interface DailyTip {
 }
 
 export function SimulationControls(props: Props) {
+  const { profile: contextProfile } = useProfile();
   const [state, setState] = createSignal<SimulationState>({
     simulatedDate: todayISO(),
     realDate: todayISO(),
@@ -215,31 +217,46 @@ export function SimulationControls(props: Props) {
 
     // Log energy via API with all required fields
     // The mood emoji maps to: energyLevel, moodScore (same value), stressLevel (inverse)
-    try {
-      const profileData = localStorage.getItem('studentProfile');
-      if (profileData) {
-        const profile = JSON.parse(profileData);
-        const profileId = profile.id || 'default';
-        await fetch('/api/retroplan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'log_energy',
-            userId: profileId,
-            energyLevel: level, // 1-5 scale
-            moodScore: level, // Same as energy for simplicity
-            stressLevel: 6 - level, // Inverse: happy=low stress, exhausted=high stress
-            date: currentDateStr,
-          }),
-        });
-        logger.info('Energy logged', { level, date: currentDateStr });
+    // Use ProfileContext (always in sync) with localStorage fallback
+    const pid =
+      contextProfile()?.id ||
+      (() => {
+        try {
+          const d = localStorage.getItem('studentProfile');
+          return d ? JSON.parse(d).id : null;
+        } catch {
+          return null;
+        }
+      })();
 
-        // Emit event so other components (e.g., ProfileTab) can refresh
-        eventBus.emit('MOOD_UPDATED');
+    if (!pid) {
+      logger.warn('No profileId available, skipping energy log');
+      return;
+    }
+
+    try {
+      const resp = await fetch('/api/retroplan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'log_energy',
+          userId: pid,
+          energyLevel: level, // 1-5 scale
+          moodScore: level, // Same as energy for simplicity
+          stressLevel: 6 - level, // Inverse: happy=low stress, exhausted=high stress
+          date: currentDateStr,
+        }),
+      });
+      if (!resp.ok) {
+        logger.error('Energy log API error', { status: resp.status });
+      } else {
+        logger.info('Energy logged', { level, date: currentDateStr, profileId: pid });
       }
+
+      // Emit event so other components (e.g., ProfileTab) can refresh
+      eventBus.emit('MOOD_UPDATED');
     } catch (err) {
       logger.error('Failed to log energy', { error: err });
-      // Local storage already saved, so user experience is preserved
     }
   };
 
@@ -271,8 +288,17 @@ export function SimulationControls(props: Props) {
     setFeedbackGiven(null);
     setShowAgentDetails(false);
     try {
-      const profileData = localStorage.getItem('studentProfile');
-      if (!profileData) {
+      const profileId =
+        contextProfile()?.id ||
+        (() => {
+          try {
+            const d = localStorage.getItem('studentProfile');
+            return d ? JSON.parse(d).id : null;
+          } catch {
+            return null;
+          }
+        })();
+      if (!profileId) {
         setDailyTip({
           title: 'Welcome!',
           message: 'Set up your profile to get personalized tips.',
@@ -280,9 +306,6 @@ export function SimulationControls(props: Props) {
         });
         return;
       }
-
-      const profile = JSON.parse(profileData);
-      const profileId = profile.id || 'default';
 
       // Read followupData from localStorage as fallback
       const followupDataStr = localStorage.getItem('followupData');
@@ -366,8 +389,9 @@ export function SimulationControls(props: Props) {
       }
 
       // Get skills from profile's planData
-      const planData = profile.planData || {};
-      const skills = (planData.skills || [])
+      const planData = (contextProfile()?.planData as Record<string, unknown>) || {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const skills = ((planData.skills as any[]) || [])
         .map((s: { name: string; hourlyRate?: number; effortLevel?: number }) => ({
           name: s.name,
           hourlyRate: s.hourlyRate || 15,
@@ -427,8 +451,10 @@ export function SimulationControls(props: Props) {
         energyLevel,
       });
 
-      // Get missions from profile if available
-      const activeMissions = (profile.missions || [])
+      // Get missions from followupData if available
+      const followup = (contextProfile()?.followupData as Record<string, unknown>) || {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const activeMissions = ((followup.missions as any[]) || [])
         .filter((m: { status?: string }) => m.status === 'active')
         .map(
           (m: {
@@ -466,8 +492,8 @@ export function SimulationControls(props: Props) {
           activeMissions,
           sellableItems,
           skills,
-          upcomingDeadlines: profile.upcomingDeadlines || [],
-          recentAchievements: profile.recentAchievements || [],
+          upcomingDeadlines: [],
+          recentAchievements: [],
           currentDate: simulatedDate,
         }),
       });

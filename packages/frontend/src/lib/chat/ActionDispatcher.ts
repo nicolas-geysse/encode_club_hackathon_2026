@@ -17,7 +17,8 @@ export class ActionDispatcher {
   static dispatch(
     intent: string,
     extractedData: Record<string, any>,
-    contextId: string
+    contextId: string,
+    context: Record<string, any> = {}
   ): DispatchResult {
     // 1. Validate Intent
     const actionType = intent as ActionType;
@@ -33,21 +34,12 @@ export class ActionDispatcher {
     const missingFields: string[] = [];
     const fieldsToCollect: ActionField[] = [];
 
-    // Context for hydration (Profile, Goal)
-    // We assume extractedData includes context if passed from chat.ts, allows access to profile props
-    // Ideally we should pass context explicitly to dispatch, but for now we might rely on it being merged or passed separately
-    // Let's assume extractedData MIGHT have hidden context or we pass it via a separate argument in future refactor.
-    // CURRENT HACK: We expect context to be passed in extractedData._context for now, or access global/closure if possible.
-    // WAIT: The user request implies we SHOULD pass context.
-    // Let's update the signature of `dispatch` slightly or assume `extractedData` contains profile info if updated in chat.ts
-    const context = extractedData._context || {};
-
     for (const fieldDefinition of definition.fields) {
       // Hydrate field (options, etc)
       const field = this.hydrateFields(fieldDefinition, context);
 
       // Hydrate default values if missing
-      this.hydrateDefaultValues(field, extractedData, context);
+      this.hydrateDefaultValues(field, extractedData, context, actionType);
 
       if (
         field.required &&
@@ -58,24 +50,39 @@ export class ActionDispatcher {
       }
     }
 
-    // 3. Result Construction
-    if (missingFields.length > 0) {
-      // Create Input Form UI
-      const uiResource: UIResource = {
-        type: 'input_form', // This is a new type we need to add to UIResource definition
-        params: {
-          actionId: contextId, // Correlation ID
-          actionType: actionType,
-          fields: fieldsToCollect.map((f) => ({
-            name: f.name,
-            label: f.label,
-            type: f.type,
-            options: f.options,
-            currentValue: extractedData[f.name],
-          })),
-        },
+    // 3. Result Construction — Always generate a form for HITL confirmation
+    // When fields are missing: form collects them. When all provided: prefilled confirmation.
+    const allFields = definition.fields.map((fd) => {
+      const field = this.hydrateFields(fd, context);
+      return {
+        name: field.name,
+        label: field.label,
+        type: field.type,
+        options: field.options,
+        currentValue: extractedData[field.name],
       };
+    });
 
+    const uiResource: UIResource = {
+      type: 'input_form',
+      params: {
+        actionId: contextId,
+        actionType: actionType,
+        uiComponent: definition.uiComponent,
+        fields:
+          missingFields.length > 0
+            ? fieldsToCollect.map((f) => ({
+                name: f.name,
+                label: f.label,
+                type: f.type,
+                options: f.options,
+                currentValue: extractedData[f.name],
+              }))
+            : allFields,
+      },
+    };
+
+    if (missingFields.length > 0) {
       return {
         status: 'missing_info',
         actionType,
@@ -85,11 +92,12 @@ export class ActionDispatcher {
       };
     }
 
-    // 4. Ready to Execute
+    // 4. Ready — all fields provided, form is prefilled for confirmation
     return {
       status: 'ready',
       actionType,
       data: extractedData,
+      uiResource,
     };
   }
 
@@ -124,7 +132,8 @@ export class ActionDispatcher {
   private static hydrateDefaultValues(
     field: ActionField,
     extractedData: Record<string, any>,
-    context: Record<string, any>
+    context: Record<string, any>,
+    actionType?: ActionType
   ): void {
     // Logic for "Smart Duration" (Pause until goal deadline)
     if (field.name === 'durationMonths' && !extractedData['durationMonths']) {
@@ -140,6 +149,24 @@ export class ActionDispatcher {
           extractedData['durationMonths'] = months;
         }
       }
+    }
+
+    // Goal Pre-filling — ONLY for goal-related actions (create_goal, update_goal)
+    // Do NOT pre-fill income/expense amount from goalAmount (different semantics!)
+    const isGoalAction = actionType === 'create_goal' || actionType === 'update_goal';
+    if (isGoalAction && field.name === 'name' && !extractedData['name'] && context.goalName) {
+      extractedData['name'] = context.goalName;
+    }
+    if (isGoalAction && field.name === 'amount' && !extractedData['amount'] && context.goalAmount) {
+      extractedData['amount'] = context.goalAmount;
+    }
+    if (
+      isGoalAction &&
+      field.name === 'deadline' &&
+      !extractedData['deadline'] &&
+      context.goalDeadline
+    ) {
+      extractedData['deadline'] = context.goalDeadline;
     }
   }
 }

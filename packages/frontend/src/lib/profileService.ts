@@ -543,7 +543,7 @@ export async function deleteProfile(profileId: string): Promise<boolean> {
 /**
  * Sync localStorage data to DuckDB (migration helper)
  */
-export async function syncLocalToDb(): Promise<boolean> {
+export async function syncLocalToDb(): Promise<string | boolean> {
   try {
     // Load data from localStorage
     const storedProfile = localStorage.getItem('studentProfile');
@@ -563,7 +563,9 @@ export async function syncLocalToDb(): Promise<boolean> {
     const existing = await listProfiles();
     if (existing.length > 0) {
       logger.info('Profiles already exist in DB, skipping sync');
-      return true;
+      // Try to find a match by name, otherwise fallback to the first profile
+      const match = existing.find((p) => p.name === localProfile.name) || existing[0];
+      return match.id;
     }
 
     // Create profile in DuckDB
@@ -594,9 +596,9 @@ export async function syncLocalToDb(): Promise<boolean> {
 
     const result = await saveProfile(profile, { immediate: true, setActive: true });
     if (result.success) {
-      logger.info('Successfully synced localStorage to DuckDB');
+      logger.info('Successfully synced localStorage to DuckDB', { profileId: result.profileId });
       eventBus.emit('DATA_CHANGED');
-      return true;
+      return result.profileId || true;
     }
 
     return false;

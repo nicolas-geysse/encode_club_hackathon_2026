@@ -30,6 +30,10 @@ export const SUPPORTED_ACTIONS = [
   'check_progress',
   'get_advice',
   'continue_onboarding',
+  'update_income',
+  'update_expenses',
+  'add_skill',
+  'show_capabilities',
   'conversation', // fallback for general chat
 ] as const;
 
@@ -71,6 +75,10 @@ AVAILABLE ACTIONS:
 - check_progress: User wants to know their current progress (without chart)
 - get_advice: User asks for financial advice
 - continue_onboarding: User wants to continue/resume onboarding (ONLY if mode=onboarding)
+- update_income: User mentions a new income amount or salary change ("I got a raise", "making $2000 now", "my income is 1500")
+- update_expenses: User mentions new expense amounts ("rent is now $800", "paying $50 for gym", "my expenses are 900")
+- add_skill: User mentions learning or having a skill ("I learned React", "I know Python", "add TypeScript")
+- show_capabilities: User asks what the app can do, help, features ("what can you do", "help me", "que peux-tu faire")
 - conversation: General conversation without specific action (greetings, thanks, general questions)
 
 IMPORTANT RULES:
@@ -241,6 +249,9 @@ export function getIntentModeFromAction(
 ): 'onboarding' | 'conversation' | 'profile-edit' {
   if (action === 'continue_onboarding') {
     return 'onboarding';
+  }
+  if (action === 'update_income' || action === 'update_expenses' || action === 'add_skill') {
+    return 'profile-edit';
   }
   return 'conversation';
 }

@@ -124,7 +124,8 @@ export function buildChartGallery(): UIResource {
 export function buildProjectionChart(
   projection: ProjectionResult,
   currencySymbol: string = '$',
-  simulationInfo?: SimulationInfo
+  simulationInfo?: SimulationInfo,
+  financialContext?: { currentSaved: number; goalAmount: number }
 ): UIResource {
   // Add simulation indicator to title if simulating
   const simSuffix = simulationInfo?.isSimulating
@@ -132,14 +133,59 @@ export function buildProjectionChart(
     : '';
 
   if (!projection.scenarioPath) {
-    // No scenario to compare - return simple metric instead
+    // No scenario — build a 3-dataset line chart (like buildProgressChart but richer)
+    const currentSaved = financialContext?.currentSaved ?? 0;
+    const goalAmount =
+      financialContext?.goalAmount ?? Math.round(projection.currentPath.projectedTotal * 1.2);
+    const weeksRemaining = projection.timeInfo.weeksRemaining;
+    const weeklyContribution = projection.currentPath.monthlyMargin / 4.33;
+
+    const numPoints = Math.min(Math.max(weeksRemaining, 4), 16);
+    const labels: string[] = [];
+    const projectedData: number[] = [];
+    const goalLine: number[] = [];
+    const requiredPaceData: number[] = [];
+
+    // Required pace: linear from currentSaved → goalAmount over weeksRemaining
+    const weeklyPaceNeeded = weeksRemaining > 0 ? (goalAmount - currentSaved) / weeksRemaining : 0;
+
+    let accumulated = currentSaved;
+    for (let i = 0; i <= numPoints; i++) {
+      labels.push(i === 0 ? 'Now' : `W${i}`);
+      projectedData.push(Math.round(accumulated));
+      goalLine.push(goalAmount);
+      requiredPaceData.push(Math.round(currentSaved + weeklyPaceNeeded * i));
+      accumulated += weeklyContribution;
+    }
+
     return {
-      type: 'metric',
+      type: 'chart',
       params: {
-        title: `Current Projection${simSuffix}`,
-        value: Math.round(projection.currentPath.projectedTotal),
-        unit: currencySymbol,
-        subtitle: projection.currentPath.success ? 'Goal achievable' : 'Need more savings',
+        type: 'line',
+        title: `Goal Projection${simSuffix}`,
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Projected Savings',
+              data: projectedData,
+              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+              borderColor: 'rgb(59, 130, 246)',
+            },
+            {
+              label: 'Goal',
+              data: goalLine,
+              backgroundColor: 'transparent',
+              borderColor: 'rgba(34, 197, 94, 0.6)',
+            },
+            {
+              label: 'Required Pace',
+              data: requiredPaceData,
+              backgroundColor: 'transparent',
+              borderColor: 'rgba(251, 191, 36, 0.6)',
+            },
+          ],
+        },
       },
     };
   }
@@ -199,14 +245,20 @@ export function buildProgressChart(
   const labels: string[] = [];
   const data: number[] = [];
   const goalLine: number[] = [];
+  const requiredPaceData: number[] = [];
+
+  // Required pace: linear from current position → goalAmount over weeksRemaining
+  const startingPoint = currentSaved + oneTimeGains;
+  const weeklyPaceNeeded = weeksRemaining > 0 ? (goalAmount - startingPoint) / weeksRemaining : 0;
 
   // oneTimeGains is a CONSTANT addition to the starting point.
   // It represents already-realized gains (completed trades, current borrow savings).
-  let accumulated = currentSaved + oneTimeGains;
+  let accumulated = startingPoint;
   for (let i = 0; i <= numPoints; i++) {
     labels.push(i === 0 ? 'Now' : `Week ${i}`);
     data.push(Math.round(accumulated));
     goalLine.push(goalAmount);
+    requiredPaceData.push(Math.round(startingPoint + weeklyPaceNeeded * i));
     accumulated += weeklyContribution;
   }
 
@@ -236,6 +288,12 @@ export function buildProgressChart(
             data: goalLine,
             backgroundColor: 'transparent',
             borderColor: 'rgba(34, 197, 94, 0.5)',
+          },
+          {
+            label: 'Required Pace',
+            data: requiredPaceData,
+            backgroundColor: 'transparent',
+            borderColor: 'rgba(251, 191, 36, 0.6)',
           },
         ],
       },
@@ -586,6 +644,158 @@ export function buildCapacityChart(weeks: WeekCapacity[]): UIResource {
         ],
       },
     },
+  };
+}
+
+// =============================================================================
+// Capabilities Discovery UI
+// =============================================================================
+
+/**
+ * Build a capabilities discovery UI showing all available features
+ * Organized in 3 sections: Profile & Budget, What-If Scenarios, Charts
+ */
+export function buildCapabilitiesUI(): UIResource {
+  // Section 1: Profile & Budget actions
+  const profileButtons: UIResource[] = [
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Update Income',
+        variant: 'outline',
+        action: 'send_message',
+        params: { message: 'update my income' },
+      },
+    },
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Update Expenses',
+        variant: 'outline',
+        action: 'send_message',
+        params: { message: 'update my expenses' },
+      },
+    },
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Update Goal',
+        variant: 'outline',
+        action: 'send_message',
+        params: { message: 'update my goal' },
+      },
+    },
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Add Skill',
+        variant: 'outline',
+        action: 'send_message',
+        params: { message: 'add a skill' },
+      },
+    },
+  ];
+
+  // Section 2: What-If Scenarios
+  const scenarioButtons: UIResource[] = [
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Work Extra Hours',
+        variant: 'outline',
+        action: 'send_message',
+        params: { message: 'what if I work 5 hours per week' },
+      },
+    },
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Sell Something',
+        variant: 'outline',
+        action: 'send_message',
+        params: { message: 'what if I sell my old laptop' },
+      },
+    },
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Cut Subscription',
+        variant: 'outline',
+        action: 'send_message',
+        params: { message: 'what if I cancel a subscription' },
+      },
+    },
+    {
+      type: 'action',
+      params: {
+        type: 'button',
+        label: 'Swipe Strategies',
+        variant: 'outline',
+        action: 'navigate',
+        params: { to: '/swipe' },
+      },
+    },
+  ];
+
+  // Section 3: Charts (reuse AVAILABLE_CHARTS)
+  const chartButtons: UIResource[] = AVAILABLE_CHARTS.map((chart) => ({
+    type: 'action',
+    params: {
+      type: 'button',
+      label: `${chart.icon} ${chart.label}`,
+      variant: 'outline',
+      action: 'show_chart',
+      params: { chartType: chart.id },
+    },
+  }));
+
+  return {
+    type: 'composite',
+    components: [
+      {
+        type: 'metric',
+        params: {
+          title: 'Profile & Budget',
+          value: '',
+          subtitle: 'Update your financial info',
+        },
+      },
+      {
+        type: 'grid',
+        params: { columns: 2, children: profileButtons },
+      },
+      {
+        type: 'metric',
+        params: {
+          title: 'What-If Scenarios',
+          value: '',
+          subtitle: 'Simulate changes to your plan',
+        },
+      },
+      {
+        type: 'grid',
+        params: { columns: 2, children: scenarioButtons },
+      },
+      {
+        type: 'metric',
+        params: {
+          title: 'Charts & Visualizations',
+          value: '',
+          subtitle: 'See your data visually',
+        },
+      },
+      {
+        type: 'grid',
+        params: { columns: 2, children: chartButtons },
+      },
+    ],
   };
 }
 

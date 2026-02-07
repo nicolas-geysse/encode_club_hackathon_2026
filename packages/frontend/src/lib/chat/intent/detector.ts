@@ -134,6 +134,22 @@ const CHART_SPECIFIC_PATTERNS = {
 };
 
 // =============================================================================
+// CAPABILITIES DISCOVERY PATTERNS
+// =============================================================================
+
+/**
+ * Patterns for asking what the app can do, help, features
+ * Matches: "what can you do", "help", "features", "que peux-tu faire"
+ */
+const CAPABILITIES_PATTERNS = [
+  /\b(?:what\s+can\s+you\s+do|what\s+(?:are\s+)?(?:your|the)\s+(?:features?|capabilities|commands?))\b/i,
+  /\b(?:help\s+me|what\s+(?:do\s+you\s+offer|features?))\b/i,
+  /^(?:help|aide|capabilities|features)[\s?!.]*$/i,
+  /\b(?:que\s+(?:sais|peux)[- ]?tu\s+faire|qu['']est[- ]?ce\s+que\s+tu\s+(?:sais|peux)\s+faire)\b/i,
+  /\b(?:quelles?\s+(?:sont\s+tes\s+)?(?:fonctionnalit[ée]s?|capacit[ée]s?))\b/i,
+];
+
+// =============================================================================
 // EARNINGS/GOAL PROGRESS PATTERNS (C.2)
 // =============================================================================
 
@@ -254,6 +270,60 @@ export async function detectIntent(
   options?: DetectIntentOptions
 ): Promise<DetectedIntent> {
   const lower = message.toLowerCase();
+
+  // ==========================================================================
+  // EXPLICIT ACTION TRIGGERS (Sprint 15 Forms)
+  // ==========================================================================
+
+  // Explicit Income Update
+  if (
+    lower.match(
+      /\b(update|change|set|modify|nouveau|nouvel|changer|modifier)\b.*\b(incomes?|revenus?|salaires?|salary|salaries|gains?|pay)\b/i
+    )
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'update_income',
+      _matchedPattern: 'explicit_update_income',
+    };
+  }
+
+  // Explicit Goal Update
+  if (
+    lower.match(
+      /\b(update|change|set|modify|changer|modifier)\b.*\b(goal|objectifs?|saving|epargne)\b/i
+    )
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'update_goal',
+      _matchedPattern: 'explicit_update_goal',
+    };
+  }
+
+  // Explicit Expenses Update
+  if (
+    lower.match(
+      /\b(update|change|set|modify|nouveau|nouvel|changer|modifier)\b.*\b(expenses?|dépenses?|frais|charges?|couts?|costs?)\b/i
+    )
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'update_expenses',
+      _matchedPattern: 'explicit_update_expenses',
+    };
+  }
+
+  // Explicit Create/New Goal → routes to update_goal (creates if none exists)
+  if (
+    lower.match(/\b(create|add|new|definir|creer|ajouter)\b.*\b(goal|objectifs?|saving|epargne)\b/i)
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'update_goal',
+      _matchedPattern: 'explicit_create_goal_trigger',
+    };
+  }
 
   // ==========================================================================
   // CONTINUE/COMPLETE ONBOARDING
@@ -426,9 +496,6 @@ export async function detectIntent(
     };
   }
 
-  // ==========================================================================
-  // PROFILE EDIT INTENTS
-  // ==========================================================================
   if (lower.match(/\b(change|update|edit|modify)\b.*\b(my|the)\b/i)) {
     if (lower.match(/\b(city|location|live|move)\b/i)) {
       const cityMatch = lower.match(/(?:to|in)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+)?)/i);
@@ -785,6 +852,19 @@ export async function detectIntent(
         mode: 'conversation',
         action: 'show_chart_gallery',
         _matchedPattern: 'chart_generic',
+      };
+    }
+  }
+
+  // ==========================================================================
+  // CAPABILITIES DISCOVERY
+  // ==========================================================================
+  for (const pattern of CAPABILITIES_PATTERNS) {
+    if (pattern.test(lower)) {
+      return {
+        mode: 'conversation',
+        action: 'show_capabilities',
+        _matchedPattern: 'capabilities',
       };
     }
   }

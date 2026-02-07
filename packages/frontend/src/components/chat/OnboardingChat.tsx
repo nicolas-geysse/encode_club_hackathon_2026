@@ -11,7 +11,7 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { MCPUIRenderer, type ActionCallback } from './MCPUIRenderer';
 import type { ChatMessage as Message, UIResource } from '~/types/chat';
-import { Repeat, Wallet, Target, Zap, PiggyBank } from 'lucide-solid';
+import { Repeat, Wallet, Target, Zap, PiggyBank, HelpCircle } from 'lucide-solid';
 import type { Component } from 'solid-js';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { createLogger } from '~/lib/logger';
@@ -657,6 +657,187 @@ export function OnboardingChat() {
       case 'form-submit': {
         // Handle form submissions from MCP-UI forms
         const formData = data as Record<string, unknown>;
+        const actionType = (formData._actionType || formData.actionType) as string | undefined;
+
+        // Route by actionType for profile-edit confirmation forms
+        if (actionType) {
+          const currentProfileId = profileId() || contextProfile()?.id;
+          const currSym = getCurrencySymbolForForm();
+
+          switch (actionType) {
+            case 'update_income': {
+              const amount = Number(formData.amount);
+              if (amount > 0) {
+                setProfile((prev) => ({
+                  ...prev,
+                  incomes: [
+                    { source: formData.source ? String(formData.source) : 'total', amount },
+                  ],
+                }));
+                if (currentProfileId) {
+                  const updatedProfile = profile();
+                  profileService
+                    .saveProfile(
+                      {
+                        id: currentProfileId,
+                        name: updatedProfile.name || 'User',
+                        monthlyIncome: amount,
+                        incomeSources: [
+                          {
+                            source: formData.source ? String(formData.source) : 'total',
+                            amount,
+                          },
+                        ],
+                      },
+                      { immediate: true }
+                    )
+                    .then(() => refreshProfile())
+                    .catch((err) => logger.error('Failed to save income update', { error: err }));
+                }
+                const confirmMsg: Message = {
+                  id: `confirm-income-${Date.now()}`,
+                  role: 'assistant',
+                  content: `Income updated to **${currSym}${amount}/month**. Your projections have been recalculated.`,
+                  source: 'fallback',
+                };
+                setMessages((prev) => [...prev, confirmMsg]);
+                saveMessageToDb(confirmMsg);
+              }
+              break;
+            }
+            case 'update_expenses': {
+              const amount = Number(formData.amount);
+              if (amount > 0) {
+                const category = formData.category ? String(formData.category) : 'other';
+                setProfile((prev) => ({
+                  ...prev,
+                  expenses: [{ category, amount }],
+                }));
+                if (currentProfileId) {
+                  const updatedProfile = profile();
+                  profileService
+                    .saveProfile(
+                      {
+                        id: currentProfileId,
+                        name: updatedProfile.name || 'User',
+                        monthlyExpenses: amount,
+                        expenses: [{ category, amount }],
+                      },
+                      { immediate: true }
+                    )
+                    .then(() => refreshProfile())
+                    .catch((err) => logger.error('Failed to save expenses update', { error: err }));
+                }
+                const currentIncome = profile().incomes?.reduce((sum, i) => sum + i.amount, 0) || 0;
+                const margin = currentIncome - amount;
+                const confirmMsg: Message = {
+                  id: `confirm-expenses-${Date.now()}`,
+                  role: 'assistant',
+                  content: `Expenses updated to **${currSym}${amount}/month**. Margin: **${currSym}${margin}/month**.`,
+                  source: 'fallback',
+                };
+                setMessages((prev) => [...prev, confirmMsg]);
+                saveMessageToDb(confirmMsg);
+              }
+              break;
+            }
+            case 'add_skill': {
+              const skill = String(formData.skill || '').trim();
+              if (skill) {
+                setProfile((prev) => ({
+                  ...prev,
+                  skills: [...(prev.skills || []), skill],
+                }));
+                if (currentProfileId) {
+                  const updatedProfile = profile();
+                  profileService
+                    .saveProfile(
+                      {
+                        id: currentProfileId,
+                        name: updatedProfile.name || 'User',
+                        skills: updatedProfile.skills,
+                      },
+                      { immediate: true }
+                    )
+                    .then(() => refreshProfile())
+                    .catch((err) => logger.error('Failed to save skill update', { error: err }));
+                }
+                const confirmMsg: Message = {
+                  id: `confirm-skill-${Date.now()}`,
+                  role: 'assistant',
+                  content: `Skill **${skill}** added! Check the Jobs tab for updated matches.`,
+                  source: 'fallback',
+                };
+                setMessages((prev) => [...prev, confirmMsg]);
+                saveMessageToDb(confirmMsg);
+              }
+              break;
+            }
+            case 'create_goal':
+            case 'update_goal': {
+              const goalName = String(formData.name || '').trim();
+              const goalAmount = Number(formData.amount);
+              const goalDeadline = formData.deadline ? String(formData.deadline) : undefined;
+
+              if (goalName && goalAmount > 0) {
+                // Update local state
+                setProfile((prev) => ({
+                  ...prev,
+                  goalName,
+                  goalAmount,
+                  goalDeadline: goalDeadline || prev.goalDeadline,
+                }));
+
+                if (currentProfileId) {
+                  // Use goalService to create/update
+                  (async () => {
+                    try {
+                      const existingGoals = await goalService.listGoals(currentProfileId, {
+                        status: 'active',
+                      });
+                      if (existingGoals.length > 0) {
+                        // Update existing goal
+                        const target = existingGoals[0];
+                        await goalService.updateGoal({
+                          id: target.id,
+                          name: goalName,
+                          amount: goalAmount,
+                          deadline: goalDeadline,
+                        });
+                        logger.info('Goal updated via form', { goalId: target.id });
+                      } else {
+                        // Create new goal
+                        await goalService.createGoal({
+                          profileId: currentProfileId,
+                          name: goalName,
+                          amount: goalAmount,
+                          deadline: goalDeadline,
+                          status: 'active',
+                        });
+                        logger.info('Goal created via form');
+                      }
+                      refreshGoals();
+                    } catch (err) {
+                      logger.error('Failed to save goal from form', { error: err });
+                    }
+                  })();
+                }
+
+                const confirmMsg: Message = {
+                  id: `confirm-goal-${Date.now()}`,
+                  role: 'assistant',
+                  content: `Goal **${goalName}** updated: target **${currSym}${goalAmount}**${goalDeadline ? ` by ${goalDeadline}` : ''}. Your projections have been recalculated.`,
+                  source: 'fallback',
+                };
+                setMessages((prev) => [...prev, confirmMsg]);
+                saveMessageToDb(confirmMsg);
+              }
+              break;
+            }
+          }
+          break; // Exit form-submit case after actionType routing
+        }
+
         if (formData.goalName && formData.goalAmount) {
           // 1. Update local state (always do this)
           setProfile((prev) => ({
@@ -902,6 +1083,15 @@ export function OnboardingChat() {
             source: 'fallback',
           },
         ]);
+        break;
+      }
+
+      case 'send_message': {
+        // Handle capabilities buttons that inject a message into chat
+        const msgData = data as { message?: string };
+        if (msgData?.message) {
+          handleSend(msgData.message);
+        }
         break;
       }
 
@@ -1544,6 +1734,10 @@ export function OnboardingChat() {
         const existingProfile = JSON.parse(stored);
         setProfile(existingProfile);
 
+        if (existingProfile.id) {
+          setProfileId(existingProfile.id);
+        }
+
         if (isProfileComplete(existingProfile)) {
           // Complete profile -> conversation mode
           setChatMode('conversation');
@@ -1581,9 +1775,17 @@ export function OnboardingChat() {
         }
 
         // Try to sync localStorage to DB in background
-        profileService.syncLocalToDb().catch((err) => {
-          logger.warn('Background sync failed', { error: err });
-        });
+        profileService
+          .syncLocalToDb()
+          .then((syncedProfileId) => {
+            if (syncedProfileId && typeof syncedProfileId === 'string') {
+              logger.info('Background sync successful, updating profileId', { syncedProfileId });
+              setProfileId(syncedProfileId);
+            }
+          })
+          .catch((err) => {
+            logger.warn('Background sync failed', { error: err });
+          });
         return;
       } catch {
         logger.warn('localStorage parse failed');
@@ -1733,7 +1935,7 @@ export function OnboardingChat() {
           mode, // NEW: Include chat mode for intent detection
           context,
           threadId: threadId(), // For Opik conversation grouping
-          profileId: profileId(), // For trace metadata
+          profileId: profileId() || contextProfile()?.id, // For trace metadata
           conversationHistory: recentHistory, // For context awareness in LLM
           timeContext, // NEW: Time context for simulation support
         }),
@@ -3301,6 +3503,15 @@ export function OnboardingChat() {
               >
                 <Repeat class="h-6 w-6 text-muted-foreground group-hover:text-primary group-hover:rotate-180 transition-all duration-500" />
               </GlassButton>
+              <Show when={isComplete()}>
+                <GlassButton
+                  class="icon-mode group transform-gpu"
+                  title="What can I do?"
+                  onClick={() => handleUIAction('send_message', { message: 'help' })}
+                >
+                  <HelpCircle class="h-6 w-6 text-muted-foreground group-hover:text-primary transition-all duration-300" />
+                </GlassButton>
+              </Show>
             </div>
           </div>
 

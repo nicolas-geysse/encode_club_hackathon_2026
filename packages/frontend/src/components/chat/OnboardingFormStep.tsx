@@ -51,6 +51,8 @@ interface OnboardingFormStepProps {
   onTextInput?: (text: string) => void;
   /** Called when user submits an empty form on a skippable step */
   onSubmitEmpty?: (step: OnboardingStep) => void;
+  /** Label for the submit button (default: "Continue") */
+  submitLabel?: string;
 }
 
 /** Steps that can be skipped (empty submission advances to next step) */
@@ -1084,7 +1086,7 @@ export default function OnboardingFormStep(props: OnboardingFormStepProps) {
             type="submit"
             class="w-full px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg transition-colors"
           >
-            Continue
+            {props.submitLabel || 'Continue'}
           </button>
         </form>
       )}

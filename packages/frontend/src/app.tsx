@@ -15,6 +15,33 @@ import { notifications, addNotification } from '~/lib/notificationStore';
 import { eventBus } from '~/lib/eventBus';
 import { initOnboardingState } from '~/lib/onboardingStateStore';
 import { todayISO } from '~/lib/dateUtils';
+import { computeSettingsFromConfig, type ProviderConfig } from '~/lib/providerPresets';
+
+/**
+ * Auto-apply saved provider settings to the server on startup.
+ * This restores runtime config after a server restart.
+ */
+async function autoApplySettings() {
+  try {
+    const configStr = localStorage.getItem('stride_provider_config');
+    const keysStr = localStorage.getItem('stride_api_keys');
+    if (!configStr) return;
+
+    const config: ProviderConfig = JSON.parse(configStr);
+    const keys: Record<string, string> = keysStr ? JSON.parse(keysStr) : {};
+    const settings = computeSettingsFromConfig(config, keys);
+
+    if (Object.keys(settings).length === 0) return;
+
+    await fetch('/api/settings/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings }),
+    });
+  } catch {
+    // Silently ignore - server might not be ready yet
+  }
+}
 
 export default function App() {
   // Simulation state (managed by SimulationControls, shared with app)
@@ -37,6 +64,9 @@ export default function App() {
     // Initialize onboarding state from localStorage AFTER hydration
     // This must happen after mount() to avoid SSR mismatch
     initOnboardingState();
+
+    // Auto-apply saved provider settings to server (restores config after server restart)
+    autoApplySettings();
 
     // Only add welcome notification if no notifications exist yet
     if (notifications().length === 0) {

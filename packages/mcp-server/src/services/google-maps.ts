@@ -10,8 +10,8 @@
 
 import { trace, createSpan, getCurrentTraceHandle, type SpanOptions } from './opik.js';
 
-// Configuration
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+// Configuration - lazy getter so runtime changes to process.env (via settingsStore) are picked up
+const getApiKey = () => process.env.GOOGLE_MAPS_API_KEY;
 
 // =============================================================================
 // Types
@@ -100,7 +100,7 @@ let initialized = false;
  * Initialize Google Maps service
  */
 export async function initGoogleMaps(): Promise<void> {
-  if (!GOOGLE_MAPS_API_KEY) {
+  if (!getApiKey()) {
     console.error('Warning: GOOGLE_MAPS_API_KEY not set, location features disabled');
     return;
   }
@@ -113,7 +113,7 @@ export async function initGoogleMaps(): Promise<void> {
  * Check if Google Maps is available
  */
 export function isGoogleMapsAvailable(): boolean {
-  return initialized && !!GOOGLE_MAPS_API_KEY;
+  return initialized && !!getApiKey();
 }
 
 // =============================================================================
@@ -173,7 +173,7 @@ export async function findNearbyPlaces(
       'places.keyword': options?.keyword || null,
     });
 
-    if (!GOOGLE_MAPS_API_KEY) {
+    if (!getApiKey()) {
       span.setAttributes({ error: 'API key not configured' });
       return [];
     }
@@ -182,7 +182,7 @@ export async function findNearbyPlaces(
     url.searchParams.set('location', `${location.lat},${location.lng}`);
     url.searchParams.set('radius', String(radius));
     url.searchParams.set('type', type);
-    url.searchParams.set('key', GOOGLE_MAPS_API_KEY);
+    url.searchParams.set('key', getApiKey()!);
     if (options?.keyword) {
       url.searchParams.set('keyword', options.keyword);
     }
@@ -215,7 +215,7 @@ export async function findNearbyPlaces(
       // Photo URLs are only included if explicitly requested (billed at ~$0.007/photo)
       photoUrl:
         options?.includePhotos && p.photos?.[0]?.photo_reference
-          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${GOOGLE_MAPS_API_KEY}`
+          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photos[0].photo_reference}&key=${getApiKey()}`
           : undefined,
     }));
 
@@ -308,14 +308,14 @@ export async function textSearchPlaces(
       'places.language': options?.language || 'fr',
     });
 
-    if (!GOOGLE_MAPS_API_KEY) {
+    if (!getApiKey()) {
       span.setAttributes({ error: 'API key not configured' });
       return [];
     }
 
     const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
     url.searchParams.set('query', query);
-    url.searchParams.set('key', GOOGLE_MAPS_API_KEY);
+    url.searchParams.set('key', getApiKey()!);
     url.searchParams.set('language', options?.language || 'fr');
 
     // Optional location bias
@@ -420,7 +420,7 @@ export async function getDistanceMatrix(
       'distance.destinations_count': destinations.length,
     });
 
-    if (!GOOGLE_MAPS_API_KEY) {
+    if (!getApiKey()) {
       span.setAttributes({ error: 'API key not configured' });
       return [];
     }
@@ -433,7 +433,7 @@ export async function getDistanceMatrix(
     url.searchParams.set('origins', `${origin.lat},${origin.lng}`);
     url.searchParams.set('destinations', destString);
     url.searchParams.set('mode', mode);
-    url.searchParams.set('key', GOOGLE_MAPS_API_KEY);
+    url.searchParams.set('key', getApiKey()!);
 
     const response = await fetch(url.toString());
     const data = (await response.json()) as DistanceMatrixApiResponse;
