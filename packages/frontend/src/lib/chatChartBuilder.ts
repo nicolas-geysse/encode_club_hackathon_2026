@@ -719,7 +719,7 @@ export function buildCapabilitiesUI(): UIResource {
         label: 'Sell Something',
         variant: 'outline',
         action: 'send_message',
-        params: { message: 'what if I sell my old laptop' },
+        params: { message: 'sell an item' },
       },
     },
     {
@@ -729,7 +729,7 @@ export function buildCapabilitiesUI(): UIResource {
         label: 'Cut Subscription',
         variant: 'outline',
         action: 'send_message',
-        params: { message: 'what if I cancel a subscription' },
+        params: { message: 'pause a subscription' },
       },
     },
     {

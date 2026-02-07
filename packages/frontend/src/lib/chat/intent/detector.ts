@@ -325,6 +325,35 @@ export async function detectIntent(
     };
   }
 
+  // Explicit Sell Item
+  if (
+    lower.match(
+      /\b(sell|vendre|vends?|add.*sell|ajouter.*vente)\b.*\b(item|something|objet|truc|chose|quelque)\b/i
+    ) ||
+    lower.match(/^(?:sell|vendre)\s/i) ||
+    lower.match(/\b(?:sell|vendre)\s+(?:an?|un|une|des|my|mon|ma|mes)\b/i)
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'sell_item',
+      _matchedPattern: 'explicit_sell_item',
+    };
+  }
+
+  // Explicit Pause/Cut Subscription
+  if (
+    lower.match(
+      /\b(pause|cut|couper|réduire|cancel|annuler)\b.*\b(subscription|abonnement|sub)\b/i
+    ) ||
+    lower.match(/\b(subscription|abonnement)s?\s+(pause|cut|cancel|annul)/i)
+  ) {
+    return {
+      mode: 'conversation',
+      action: 'pause_subscription',
+      _matchedPattern: 'explicit_pause_subscription_shortcut',
+    };
+  }
+
   // ==========================================================================
   // CONTINUE/COMPLETE ONBOARDING
   // ==========================================================================

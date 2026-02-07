@@ -773,6 +773,67 @@ export function OnboardingChat() {
               }
               break;
             }
+            case 'sell_item': {
+              const itemName = String(formData.name || '').trim();
+              const estimatedValue = Number(formData.estimatedValue);
+              const itemCategory = String(formData.category || 'other');
+              if (itemName && estimatedValue > 0 && currentProfileId) {
+                fetch('/api/inventory', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    profileId: currentProfileId,
+                    name: itemName,
+                    estimatedValue,
+                    category: itemCategory,
+                  }),
+                })
+                  .then(() => {
+                    const confirmMsg: Message = {
+                      id: `confirm-sell-${Date.now()}`,
+                      role: 'assistant',
+                      content: `Item **${itemName}** listed for sale at **${currSym}${estimatedValue}**! Check the Trade tab to manage it.`,
+                      source: 'fallback',
+                    };
+                    setMessages((prev) => [...prev, confirmMsg]);
+                    saveMessageToDb(confirmMsg);
+                  })
+                  .catch((err) => logger.error('Failed to create inventory item', { error: err }));
+              }
+              break;
+            }
+            case 'pause_subscription': {
+              const resourceName = String(formData.resourceName || '').trim();
+              const durationMonths = Number(formData.durationMonths);
+              if (resourceName && durationMonths > 0 && currentProfileId) {
+                // Call chat API to execute the pause action server-side
+                fetch('/api/chat', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: `__action:pause_subscription`,
+                    step: 'complete',
+                    mode: 'conversation',
+                    context: { resourceName, durationMonths },
+                    profileId: currentProfileId,
+                  }),
+                })
+                  .then((res) => res.json())
+                  .then((data) => {
+                    const confirmMsg: Message = {
+                      id: `confirm-pause-${Date.now()}`,
+                      role: 'assistant',
+                      content:
+                        data.response || `**${resourceName}** paused for ${durationMonths} months.`,
+                      source: 'fallback',
+                    };
+                    setMessages((prev) => [...prev, confirmMsg]);
+                    saveMessageToDb(confirmMsg);
+                  })
+                  .catch((err) => logger.error('Failed to pause subscription', { error: err }));
+              }
+              break;
+            }
             case 'create_goal':
             case 'update_goal': {
               const goalName = String(formData.name || '').trim();

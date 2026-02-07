@@ -1,6 +1,7 @@
 import type { ActionType } from '~/types/actions';
 import * as lifestyleService from '~/lib/lifestyleService';
 import * as profileService from '~/lib/profileService';
+import * as inventoryService from '~/lib/inventoryService';
 import { goalService } from '~/lib/goalService';
 import { createLogger } from '~/lib/logger';
 
@@ -43,6 +44,9 @@ export class ActionExecutor {
 
         case 'update_goal':
           return await this.executeUpdateGoal(data, profileId);
+
+        case 'sell_item':
+          return await this.executeSellItem(data, profileId);
 
         case 'add_skill':
           // TODO: Implement generic add skill
@@ -283,6 +287,32 @@ export class ActionExecutor {
     return {
       success: true,
       message: `Expenses updated to ${amount}€! \uD83D\uDCC9`,
+    };
+  }
+
+  private static async executeSellItem(
+    data: Record<string, any>,
+    profileId: string
+  ): Promise<ExecutionResult> {
+    const { name, estimatedValue, category } = data;
+    if (!name || !estimatedValue) {
+      return { success: false, message: 'Missing item name or estimated value.' };
+    }
+
+    const item = await inventoryService.createItem({
+      profileId,
+      name,
+      estimatedValue: Number(estimatedValue),
+      category: category || 'other',
+    });
+
+    if (!item) {
+      return { success: false, message: 'Failed to add item.' };
+    }
+
+    return {
+      success: true,
+      message: `Item **${name}** added for sale at **${estimatedValue}\u20AC**! Check the Trade tab to manage it.`,
     };
   }
 }

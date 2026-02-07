@@ -37,6 +37,7 @@ import { ActionDispatcher } from '../../lib/chat/ActionDispatcher';
 import { ActionExecutor } from '../../lib/chat/ActionExecutor';
 import { ACTIONS, type ActionType } from '../../types/actions';
 import type { UIResource } from '../../types/chat';
+import * as lifestyleService from '../../lib/lifestyleService';
 
 // Import from refactored modules
 import { type OnboardingStep, type ChatMode, type DetectedIntent } from '../../lib/chat/types';
@@ -1334,6 +1335,18 @@ async function handleConversationMode(
       // -----------------------------------------------------------------------
       if (intent.action && intent.action in ACTIONS) {
         try {
+          // Enrich context with subscriptions for pause_subscription action
+          if (intent.action === 'pause_subscription' && profileId && !context.subscriptions) {
+            try {
+              const items = await lifestyleService.listItems(profileId, {
+                category: 'subscriptions',
+              });
+              context.subscriptions = items.map((i) => ({ name: i.name, cost: i.currentCost }));
+            } catch (e) {
+              logger.warn('Failed to load subscriptions for context', { error: e });
+            }
+          }
+
           const actionStats = ActionDispatcher.dispatch(
             intent.action,
             intent.field ? { [intent.field]: intent.extractedValue } : {},

@@ -6,7 +6,8 @@ export type ActionType =
   | 'update_goal'
   | 'update_income'
   | 'update_expenses'
-  | 'add_skill';
+  | 'add_skill'
+  | 'sell_item';
 
 export interface ActionField {
   name: string;
@@ -125,6 +126,22 @@ export const ACTIONS: Record<ActionType, ActionDefinition> = {
     description: 'Add a new skill to profile',
     fields: [{ name: 'skill', label: 'Skill Name', type: 'text', required: true }],
     uiComponent: 'SkillForm',
+  },
+  sell_item: {
+    intent: 'sell_item',
+    description: 'Add an item to sell',
+    fields: [
+      { name: 'name', label: 'Item Name', type: 'text', required: true },
+      { name: 'estimatedValue', label: 'Estimated Price', type: 'number', required: true },
+      {
+        name: 'category',
+        label: 'Category',
+        type: 'select',
+        options: ['electronics', 'clothing', 'books', 'furniture', 'sports', 'other'],
+        required: false,
+      },
+    ],
+    uiComponent: 'InventoryForm',
   },
 };
 
