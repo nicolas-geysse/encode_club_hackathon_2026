@@ -64,6 +64,7 @@ import {
   getReferenceDate,
   isDeadlinePassed,
   formatTimeRemaining,
+  getWeeksUntil,
   type TimeContext,
 } from '../../lib/timeAwareDate';
 import {
@@ -1054,6 +1055,90 @@ function getFallbackResponse(
 // =============================================================================
 
 /**
+ * Build contextual follow-up suggestion buttons based on user state (Phase 4.3)
+ * Returns null if the current action already includes its own action buttons.
+ */
+function buildFollowUpSuggestions(
+  context: Record<string, unknown>,
+  currentAction: string
+): UIResource | null {
+  // Actions that already return rich UI with buttons
+  const actionsWithOwnButtons = [
+    'progress_summary',
+    'check_progress',
+    'recommend_focus',
+    'complete_mission',
+    'skip_mission',
+    'update_energy',
+    'show_budget_chart',
+    'show_progress_chart',
+    'show_energy_chart',
+    'show_earnings_chart',
+    'show_projection_chart',
+    'show_comparison_chart',
+    'show_skills_chart',
+    'show_missions_chart',
+    'show_capacity_chart',
+    'show_chart_gallery',
+    'get_advice',
+    'search_jobs',
+    'search_remote_jobs',
+    'show_sellable_items',
+    'show_swipe_embed',
+    'new_goal',
+    'pause_subscription',
+  ];
+  if (actionsWithOwnButtons.includes(currentAction)) return null;
+
+  const suggestions: Array<{
+    label: string;
+    to?: string;
+    action?: string;
+    actionParams?: Record<string, unknown>;
+  }> = [];
+  const hasGoal = Boolean(context.goalName);
+  const goalProgress = (context._goalProgress as number) || 0;
+
+  if (!hasGoal) {
+    suggestions.push({ label: 'Create Goal', action: 'navigate', to: '/me?tab=goals' });
+    suggestions.push({
+      label: 'See Budget',
+      action: 'show_chart',
+      actionParams: { chartType: 'budget_breakdown' },
+    });
+  } else if (goalProgress >= 100) {
+    suggestions.push({ label: 'New Goal', action: 'navigate', to: '/me?tab=goals' });
+    suggestions.push({
+      label: 'Final Stats',
+      action: 'show_chart',
+      actionParams: { chartType: 'progress' },
+    });
+  } else if (goalProgress < 50) {
+    suggestions.push({ label: 'Swipe', to: '/swipe' });
+    suggestions.push({
+      label: 'What If...',
+      action: 'show_chart',
+      actionParams: { chartType: 'projection' },
+    });
+  }
+
+  if (suggestions.length === 0) return null;
+
+  return {
+    type: 'grid',
+    params: {
+      columns: suggestions.length,
+      children: suggestions.map((s) => ({
+        type: 'action' as const,
+        params: s.to
+          ? { type: 'button', label: s.label, action: 'navigate', params: { to: s.to } }
+          : { type: 'button', label: s.label, action: s.action || '', params: s.actionParams },
+      })),
+    },
+  };
+}
+
+/**
  * Handle conversation mode chat (after onboarding)
  * @param providedIntent - Optional intent to skip detection (used by direct action routing)
  */
@@ -1304,6 +1389,7 @@ async function handleConversationMode(
       // Phase 2.3: Proactive detection — prefix response if notable state detected
       let proactivePrefix = '';
       const goalProgress = budgetContext?.goalProgress || 0;
+      context._goalProgress = goalProgress; // Expose for follow-up suggestions
       if (goalProgress >= 100 && !context._goalCelebrated) {
         proactivePrefix = `**Goal Achieved!** You reached your target for ${context.goalName || 'your goal'}!\n\n`;
         context._goalCelebrated = true;
@@ -2696,36 +2782,230 @@ async function handleConversationMode(
         }
 
         case 'check_progress': {
-          const goalName = context.goalName as string | undefined;
-          const goalAmount = context.goalAmount as number | undefined;
-          const currencySymbol = getCurrencySymbol(context.currency as string);
-          const goalDeadline = context.goalDeadline as string;
+          const goalNameCP = (context.goalName as string) || 'your goal';
+          const goalAmountCP = (context.goalAmount as number) || 0;
+          const currentSavedCP = (context.currentSaved as number) || 0;
+          const currSymbolCP = getCurrencySymbol(context.currency as string);
+          const marginCP = budgetContext?.adjustedMargin || budgetContext?.netMargin || 0;
+          const progressCP =
+            goalAmountCP > 0 ? Math.round((currentSavedCP / goalAmountCP) * 100) : 0;
 
-          // Check if user has a goal set
-          if (!goalName || !goalAmount) {
+          if (!context.goalName || !goalAmountCP) {
             response = `You don't have a savings goal set yet! Head to **Me** to create one, or tell me what you're saving for.`;
             break;
           }
 
-          // Time-aware progress check
-          if (goalDeadline) {
-            const deadlinePassed = isDeadlinePassed(goalDeadline, timeCtx);
-            const timeRemaining = formatTimeRemaining(goalDeadline, timeCtx);
+          // Count active missions
+          const followupCP = context.followupData as
+            | { missions?: Array<{ status?: string }> }
+            | undefined;
+          const missionsCP = followupCP?.missions || [];
+          const activeMissionsCP = missionsCP.filter((m) => m.status === 'active').length;
 
-            if (deadlinePassed) {
-              response = `Your deadline for **${goalName}** (${currencySymbol}${goalAmount}) has **passed**. Consider setting a new timeline or adjusting your goal in **Me**!`;
-            } else {
-              response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\n**${timeRemaining}** remaining until your deadline.\n\nHead to **Me** for detailed progress!`;
-            }
-          } else {
-            response = `You're working towards **${goalName}** with a target of **${currencySymbol}${goalAmount}**.\n\nHead to **Me** to see your detailed progress, timeline, and weekly targets!`;
-          }
-          break;
+          // Build inline progress chart
+          const weeklySavingsCP =
+            Math.max(0, (budgetContext?.totalIncome || 0) - (budgetContext?.activeExpenses || 0)) /
+            4.33;
+          const goalDeadlineCP = context.goalDeadline as string;
+          const weeksRemainingCP = goalDeadlineCP ? getWeeksUntil(goalDeadlineCP, timeCtx) : 12;
+          const progressChartCP = buildProgressChart(
+            currentSavedCP,
+            goalAmountCP,
+            Math.max(1, weeksRemainingCP),
+            weeklySavingsCP,
+            currSymbolCP
+          );
+
+          response = `Goal: **${goalNameCP}** — ${progressCP}% complete (${currSymbolCP}${currentSavedCP} / ${currSymbolCP}${goalAmountCP})`;
+
+          const checkProgressResource: UIResource = {
+            type: 'composite',
+            components: [
+              {
+                type: 'grid',
+                params: {
+                  columns: 3,
+                  children: [
+                    { type: 'metric', params: { title: 'Progress', value: `${progressCP}%` } },
+                    { type: 'metric', params: { title: 'Missions', value: `${activeMissionsCP}` } },
+                    {
+                      type: 'metric',
+                      params: { title: 'Margin', value: `${currSymbolCP}${marginCP}/mo` },
+                    },
+                  ],
+                },
+              },
+              progressChartCP,
+              {
+                type: 'grid',
+                params: {
+                  columns: 3,
+                  children: [
+                    {
+                      type: 'action',
+                      params: {
+                        type: 'button',
+                        label: 'Budget',
+                        action: 'show_chart',
+                        params: { chartType: 'budget_breakdown' },
+                      },
+                    },
+                    {
+                      type: 'action',
+                      params: {
+                        type: 'button',
+                        label: 'Energy',
+                        action: 'show_chart',
+                        params: { chartType: 'energy' },
+                      },
+                    },
+                    {
+                      type: 'action',
+                      params: {
+                        type: 'button',
+                        label: 'Progress',
+                        action: 'navigate',
+                        params: { to: '/progress' },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          };
+
+          const cpTraceId = ctx.getTraceId();
+          ctx.setOutput({
+            action: 'check_progress',
+            progress: progressCP,
+            activeMissions: activeMissionsCP,
+          });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: cpTraceId || undefined,
+            traceUrl: cpTraceId ? getTraceUrl(cpTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: checkProgressResource,
+          };
         }
 
-        case 'get_advice':
-          response = `Here are some tips to save more:\n\n- **Track expenses** - Small purchases add up\n- **Cook at home** - Campus cafeteria is cheaper than restaurants\n- **Sell unused items** - Textbooks, electronics, clothes\n- **Freelance your skills** - Even a few hours/week helps\n\nWant me to analyze your specific situation?`;
-          break;
+        case 'get_advice': {
+          const currAdv = getCurrencySymbol(context.currency as string);
+          const skillsAdv = (context.skills as string[]) || [];
+          const inventoryAdv =
+            (context.inventoryItems as Array<{ name: string; estimatedValue?: number }>) || [];
+
+          const tips: Array<{ icon: string; text: string; impact: number }> = [];
+
+          // 1. Budget optimization — top pausable subscription
+          if (budgetContext && budgetContext.activeExpenses > 0) {
+            const expenses =
+              (context.expenses as Array<{ category: string; amount: number }>) || [];
+            const topExpense = [...expenses].sort((a, b) => b.amount - a.amount)[0];
+            if (topExpense && topExpense.amount > 0) {
+              tips.push({
+                icon: '💸',
+                text: `Review **${topExpense.category}** — ${currAdv}${topExpense.amount}/month is your biggest expense`,
+                impact: topExpense.amount,
+              });
+            }
+          }
+
+          // 2. Top skill opportunity
+          if (skillsAdv.length > 0) {
+            tips.push({
+              icon: '💼',
+              text: `Leverage your **${skillsAdv[0]}** skill — check Jobs tab for matching opportunities`,
+              impact: 15 * 10, // estimated hourly rate * hours
+            });
+          }
+
+          // 3. Top sellable item
+          if (inventoryAdv.length > 0) {
+            const topItem = [...inventoryAdv].sort(
+              (a, b) => (b.estimatedValue || 0) - (a.estimatedValue || 0)
+            )[0];
+            if (topItem && (topItem.estimatedValue || 0) > 0) {
+              tips.push({
+                icon: '📦',
+                text: `Sell **${topItem.name}** — ~${currAdv}${topItem.estimatedValue}`,
+                impact: topItem.estimatedValue || 0,
+              });
+            }
+          }
+
+          // 4. Generic tip if no data-driven tips
+          if (tips.length === 0) {
+            tips.push(
+              {
+                icon: '📊',
+                text: 'Complete your **Budget** tab to get personalized tips',
+                impact: 0,
+              },
+              { icon: '🃏', text: 'Try **Swipe** to discover savings opportunities', impact: 0 }
+            );
+          }
+
+          tips.sort((a, b) => b.impact - a.impact);
+
+          response =
+            tips.length > 0
+              ? `Top opportunities ranked by impact:\n\n` +
+                tips.map((t, i) => `${i + 1}. ${t.icon} ${t.text}`).join('\n')
+              : `Complete your profile in **Me** for personalized advice!`;
+
+          const adviceResource: UIResource = {
+            type: 'grid',
+            params: {
+              columns: 3,
+              children: [
+                {
+                  type: 'action',
+                  params: {
+                    type: 'button',
+                    label: 'Jobs',
+                    action: 'navigate',
+                    params: { to: '/me?tab=jobs' },
+                  },
+                },
+                {
+                  type: 'action',
+                  params: {
+                    type: 'button',
+                    label: 'My Items',
+                    action: 'show_chart',
+                    params: { chartType: 'budget_breakdown' },
+                  },
+                },
+                {
+                  type: 'action',
+                  params: {
+                    type: 'button',
+                    label: 'Swipe',
+                    action: 'navigate',
+                    params: { to: '/swipe' },
+                  },
+                },
+              ],
+            },
+          };
+
+          const advTraceId = ctx.getTraceId();
+          ctx.setOutput({ action: 'get_advice', tipCount: tips.length });
+          return {
+            response,
+            extractedData: {},
+            nextStep: 'complete' as OnboardingStep,
+            intent,
+            traceId: advTraceId || undefined,
+            traceUrl: advTraceId ? getTraceUrl(advTraceId) : undefined,
+            source: 'llm' as const,
+            uiResource: adviceResource,
+          };
+        }
 
         case 'view_plan':
           response = `Your plan is ready in **Me**! There you can:\n\n- View your savings timeline\n- Track weekly progress\n- See job recommendations\n- Explore "what if" scenarios\n\nClick on "Me" to get started!`;
@@ -2996,10 +3276,14 @@ Use this data for personalized, concrete advice.`,
         response = proactivePrefix + response;
       }
 
+      // Phase 4.3: Contextual follow-up suggestions for responses without their own buttons
+      const followUpSuggestions = buildFollowUpSuggestions(context, intent.action || '');
+
       ctx.setAttributes({
         'chat.response_length': response.length,
         'chat.extracted_fields': Object.keys(extractedData).length,
         'chat.proactive_prefix': Boolean(proactivePrefix),
+        'chat.has_followup': Boolean(followUpSuggestions),
       });
       ctx.setOutput({ response: response.substring(0, 300), intent });
 
@@ -3011,6 +3295,7 @@ Use this data for personalized, concrete advice.`,
         traceId: traceId || undefined,
         traceUrl,
         source: 'llm' as const,
+        ...(followUpSuggestions ? { uiResource: followUpSuggestions } : {}),
       };
     },
     traceOptions
