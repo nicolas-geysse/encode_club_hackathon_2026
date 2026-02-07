@@ -74,15 +74,11 @@ export function CategoryExplorer(props: CategoryExplorerProps) {
 
   return (
     <div class="space-y-4">
-      <div class="text-center mb-4">
-        <h2 class="text-2xl font-bold text-foreground mb-1">Explore Job Categories</h2>
-        <p class="text-sm text-muted-foreground">Tap a category to find opportunities near you</p>
-        <Show when={excludedCount() > 0}>
-          <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-            {excludedCount()} {excludedCount() === 1 ? 'category' : 'categories'} excluded
-          </p>
-        </Show>
-      </div>
+      <Show when={excludedCount() > 0}>
+        <p class="text-xs text-amber-600 dark:text-amber-400 text-center">
+          {excludedCount()} {excludedCount() === 1 ? 'category' : 'categories'} excluded
+        </p>
+      </Show>
 
       {/* Category Grid — flat, clickable chips */}
       <div class="grid grid-cols-2 gap-2">
