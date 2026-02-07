@@ -3,6 +3,7 @@
  *
  * FERPA/GDPR-compliant consent screen for location access.
  * Shows before requesting browser geolocation.
+ * Includes a Stride teaser to introduce the app.
  *
  * User choices:
  * 1. Allow location access - triggers browser geolocation API
@@ -10,6 +11,7 @@
  */
 
 import { GlassButton } from '~/components/ui/GlassButton';
+import { MapPin, Shield } from 'lucide-solid';
 
 // =============================================================================
 // Types
@@ -29,70 +31,78 @@ export interface LocationConsentProps {
 /**
  * Location consent screen for privacy-first onboarding.
  *
- * Displays a brief explanation of why location is needed,
+ * Displays a Stride introduction teaser, explains why location is needed,
  * privacy assurances, and two clear action buttons.
  */
 export function LocationConsent(props: LocationConsentProps) {
   return (
-    <div class="flex flex-col items-center justify-center p-6 text-center">
-      {/* Main content card */}
-      <div class="max-w-md rounded-2xl bg-black/5 p-8 backdrop-blur-lg dark:bg-white/5">
-        {/* Location icon */}
-        <div class="mb-6 flex justify-center">
-          <div class="flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/20">
-            <svg
-              class="h-8 w-8 text-purple-500 dark:text-purple-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-              />
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </div>
+    <div class="flex flex-col items-center justify-center p-4 md:p-6">
+      <div class="max-w-md w-full space-y-6">
+        {/* Stride teaser */}
+        <div class="text-center space-y-3">
+          <h1 class="text-3xl font-extrabold tracking-tight">
+            Stri<span class="text-primary">d</span>e
+          </h1>
+          <p class="text-lg font-medium text-foreground/90">
+            Navigate student life, one smart step at a time.
+          </p>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Tell Bruno your goal, and he'll find the right jobs, protect your energy, and adapt your
+            plan when life gets tough.
+          </p>
         </div>
 
-        {/* Explanation */}
-        <h2 class="mb-3 text-xl font-semibold text-foreground">Find jobs near you</h2>
-        <p class="mb-4 text-muted-foreground">
-          We use your location to show you part-time jobs near you. You can refuse and just enter
-          your city instead.
-        </p>
+        {/* Divider */}
+        <div class="flex items-center gap-3">
+          <div class="flex-1 h-px bg-border" />
+          <span class="text-xs text-muted-foreground/60 uppercase tracking-wider">
+            Before we start
+          </span>
+          <div class="flex-1 h-px bg-border" />
+        </div>
 
-        {/* Privacy note */}
-        <p class="mb-8 text-sm text-muted-foreground/70">
-          Your location is used to find jobs near you. We store a neighborhood-level precision for
-          commute calculations.
-        </p>
+        {/* Location card */}
+        <div class="rounded-2xl border border-border/50 bg-card/50 p-6 backdrop-blur-lg space-y-4">
+          {/* Icon + title */}
+          <div class="flex items-center gap-3">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 shrink-0">
+              <MapPin class="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 class="text-base font-semibold text-foreground">Find jobs near you</h2>
+              <p class="text-sm text-muted-foreground">
+                We use your location to match part-time jobs nearby.
+              </p>
+            </div>
+          </div>
 
-        {/* Action buttons */}
-        <div class="flex flex-col items-center gap-3">
-          <GlassButton
-            onClick={() => props.onAllow()}
-            class="w-full"
-            aria-label="Allow location access to find nearby jobs"
-          >
-            Allow location access
-          </GlassButton>
+          {/* Privacy note */}
+          <div class="flex items-start gap-2 rounded-lg bg-muted/40 p-3">
+            <Shield class="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <p class="text-xs text-muted-foreground leading-relaxed">
+              Only neighborhood-level precision is stored for commute estimates. You can skip this
+              and type your city instead.
+            </p>
+          </div>
 
-          <button
-            onClick={() => props.onDecline()}
-            class="w-full rounded-lg px-4 py-3 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500/50 dark:hover:bg-white/5"
-            aria-label="Enter city manually instead of using location"
-          >
-            Enter my city instead
-          </button>
+          {/* Action buttons */}
+          <div class="flex flex-col gap-2 pt-1">
+            <GlassButton
+              onClick={() => props.onAllow()}
+              class="w-full"
+              aria-label="Allow location access to find nearby jobs"
+            >
+              Allow location access
+            </GlassButton>
+
+            <button
+              onClick={() => props.onDecline()}
+              class="w-full rounded-lg px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              aria-label="Enter city manually instead of using location"
+            >
+              Enter my city instead
+            </button>
+          </div>
         </div>
       </div>
     </div>

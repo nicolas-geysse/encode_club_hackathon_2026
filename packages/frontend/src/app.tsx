@@ -1,14 +1,14 @@
-import { Router, useLocation } from '@solidjs/router';
+import { Router, useLocation, A } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
 import { Show, Suspense, createSignal, onMount } from 'solid-js';
 import './app.css';
-import { ProfileSelector } from '~/components/ProfileSelector';
 import { SimulationControls, type SimulationState } from '~/components/SimulationControls';
 
 import { ThemeProvider } from '~/lib/themeContext';
 import { ProfileProvider } from '~/lib/profileContext';
 import { SimulationProvider } from '~/lib/simulationContext';
 import { ThemeToggle } from '~/components/ThemeToggle';
+import { Settings } from 'lucide-solid';
 import { AppLayout } from '~/components/layout/AppLayout';
 import { ToastContainer } from '~/components/ui/Toast';
 import { notifications, addNotification } from '~/lib/notificationStore';
@@ -113,14 +113,6 @@ export default function App() {
     }
   };
 
-  // Update progress based on profile changes
-  const handleProfileChange = () => {
-    // Progress will be updated when we have actual goal data
-    // For now, base it on simulation offset
-    const dayProgress = (simulationState().offsetDays / 56) * 100;
-    _setProgressPercent(Math.min(100, dayProgress));
-  };
-
   return (
     <ThemeProvider>
       <SimulationProvider>
@@ -152,7 +144,13 @@ export default function App() {
                           compact={true}
                           onSimulationChange={handleSimulationChange}
                         />
-                        <ProfileSelector onProfileChange={handleProfileChange} />
+                        <A
+                          href="/settings"
+                          class="inline-flex items-center justify-center rounded-full h-9 w-9 hover:bg-muted transition-colors"
+                          title="API Settings"
+                        >
+                          <Settings class="h-5 w-5 text-muted-foreground" />
+                        </A>
                         <ThemeToggle />
                       </>
                     }

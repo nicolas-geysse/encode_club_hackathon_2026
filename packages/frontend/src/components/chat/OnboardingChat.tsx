@@ -3347,27 +3347,50 @@ export function OnboardingChat() {
         advanceFormStep(certs.length > 0 ? certs.join(', ') : 'none');
         return;
       }
-      case 'budget':
-        message = `income ${data.income || 0}, expenses ${data.expenses || 0}`;
-        break;
+      case 'budget': {
+        const inc = Number(data.income) || 0;
+        const exp = Number(data.expenses) || 0;
+        setProfile((prev) => ({ ...prev, monthlyIncome: inc, monthlyExpenses: exp }));
+        advanceFormStep(
+          `income ${getCurrencySymbolForForm()}${inc}, expenses ${getCurrencySymbolForForm()}${exp}`
+        );
+        return;
+      }
       case 'income_timing': {
-        // Directly update profile with incomeDay and advance
         const parsedIncomeDay = parseInt(data.incomeDay as string) || 15;
         setProfile((prev) => ({ ...prev, incomeDay: parsedIncomeDay }));
-        message =
+        const label =
           parsedIncomeDay <= 5
             ? 'beginning of month'
             : parsedIncomeDay >= 25
               ? 'end of month'
               : 'mid-month';
-        break;
+        advanceFormStep(label);
+        return;
       }
-      case 'work_preferences':
-        message = `${data.maxWorkHours || 15} hours per week, minimum ${data.minHourlyRate || 12}/h`;
-        break;
-      case 'goal':
-        message = `${data.goalName} - ${data.goalAmount} by ${data.goalDeadline}`;
-        break;
+      case 'work_preferences': {
+        const maxHours = Number(data.maxWorkHours) || 15;
+        const minRate = Number(data.minHourlyRate) || 12;
+        setProfile((prev) => ({ ...prev, maxWorkHours: maxHours, minHourlyRate: minRate }));
+        advanceFormStep(`${maxHours} hours/week, min ${getCurrencySymbolForForm()}${minRate}/h`);
+        return;
+      }
+      case 'goal': {
+        const gName = String(data.goalName || '').trim();
+        const gAmount = Number(data.goalAmount) || 0;
+        const gDeadline = data.goalDeadline ? String(data.goalDeadline) : undefined;
+        if (gName && gAmount > 0) {
+          setProfile((prev) => ({
+            ...prev,
+            goalName: gName,
+            goalAmount: gAmount,
+            goalDeadline: gDeadline || prev.goalDeadline,
+          }));
+        }
+        const deadlineDisplay = gDeadline || 'no deadline';
+        advanceFormStep(`${gName} — ${getCurrencySymbolForForm()}${gAmount} by ${deadlineDisplay}`);
+        return;
+      }
       case 'lifestyle': {
         const rawSubs = data.subscriptions as Array<{ name: string; currentCost?: number }>;
         const subItems: Subscription[] = Array.isArray(rawSubs)

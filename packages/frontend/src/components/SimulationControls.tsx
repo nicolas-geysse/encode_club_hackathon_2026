@@ -652,6 +652,7 @@ export function SimulationControls(props: Props) {
               variant="ghost"
               size="sm"
               onClick={() => setExpanded(!expanded())}
+              title="Time travel to test how the app evolves over time. For judges/demo only — would not appear in a production release."
               class={`flex items-center gap-2 h-9 px-3 rounded-full text-sm transition-colors ${
                 state().isSimulating
                   ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70'
