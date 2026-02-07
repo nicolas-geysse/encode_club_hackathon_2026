@@ -637,13 +637,14 @@ try {
 3. ~~Replace `confirm()` in ProfileSelector.tsx with ConfirmDialog~~ — Added `deleteProfileConfirm` signal + dialog
 4. Test: delete goal → see dialog → confirm → goal deleted
 
-### Phase 3: Goal Switcher UX (45 min)
+### Phase 3: Goal Switcher UX (45 min) — DONE (commit `89cf6f7`)
 
-1. Refactor `ProfileSelector.tsx` → show goals instead of profiles
-2. Show active goal name prominently, profile name secondary
-3. Keep "New Goal" button, remove "New Profile" button
-4. Add goal status indicator (active/paused/completed) in dropdown
-5. Test: switch between goals → correct profile loads
+1. ~~Refactor `ProfileSelector.tsx` → show goals instead of profiles~~ — Header shows goal name (Target icon), dropdown says "My Goals"
+2. ~~Show active goal name prominently, profile name secondary~~ — Goal name primary, `$amount · profile name` secondary
+3. ~~Keep "New Goal" button, remove "New Profile" button~~ — Removed `handleNewFreshProfile`, `UserPlus` import, `Dynamic` import
+4. ~~Separate simulations from goals in dropdown~~ — Goals (main + clones) in main section, simulations in separate "Simulations" section
+5. ~~Clean up dead code~~ — Removed `getProfileIcon`, `User` icon, `Dynamic` import, `handleNewFreshProfile`
+6. Test: switch between goals → correct profile loads
 
 ### Phase 4: Goal Deletion Cleanup (45 min)
 
