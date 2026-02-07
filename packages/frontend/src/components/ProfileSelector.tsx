@@ -1,13 +1,13 @@
 /**
- * ProfileSelector Component
+ * ProfileSelector Component (Goal Switcher)
  *
- * Dropdown in header to select/switch profiles.
- * Shows active profile name + goal icon.
+ * Dropdown in header to switch between goal workspaces.
+ * Each goal maps to a profile (main or goal-clone).
+ * Shows active goal name prominently; profile name is secondary.
  * Uses ProfileContext for shared state across the app.
  */
 
 import { createSignal, Show, For, onMount } from 'solid-js';
-import { Dynamic } from 'solid-js/web';
 import { useNavigate } from '@solidjs/router';
 import { profileService, type ProfileSummary, type FullProfile } from '~/lib/profileService';
 import { useProfile } from '~/lib/profileContext';
@@ -26,13 +26,11 @@ import {
 } from '~/components/ui/Card';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
-  User,
   Target,
   ChevronDown,
   Plus,
   Trash2,
   Check,
-  UserPlus,
   RotateCcw,
   FlaskConical,
   Settings,
@@ -65,6 +63,10 @@ export function ProfileSelector(props: Props) {
 
   // Combined loading state
   const loading = () => contextLoading() || localLoading();
+
+  // Split profiles: goals (main + goal-clones) vs simulations
+  const goalProfiles = () => profiles().filter((p) => p.profileType !== 'simulation');
+  const simProfiles = () => profiles().filter((p) => p.profileType === 'simulation');
 
   // Load profiles on mount
   onMount(async () => {
@@ -135,13 +137,6 @@ export function ProfileSelector(props: Props) {
     setNewGoalForm({ name: '', amount: 500, deadline: '' });
   };
 
-  const getProfileIcon = (profile: ProfileSummary | FullProfile | null) => {
-    if (!profile) return User;
-    if (profile.profileType === 'simulation') return FlaskConical;
-    if (profile.profileType === 'goal-clone') return Target;
-    return User;
-  };
-
   const isSimulation = (profile: ProfileSummary | FullProfile | null) => {
     return profile?.profileType === 'simulation';
   };
@@ -174,22 +169,6 @@ export function ProfileSelector(props: Props) {
         error instanceof Error ? error.message : 'Failed to delete profile.'
       );
     }
-  };
-
-  const handleNewFreshProfile = () => {
-    // Clear localStorage to trigger fresh onboarding
-    localStorage.removeItem('studentProfile');
-    localStorage.removeItem('planData');
-    localStorage.removeItem('activeProfileId');
-    localStorage.removeItem('followupData');
-    localStorage.removeItem('achievements');
-    localStorage.removeItem('onboardingComplete');
-    localStorage.removeItem('stride_chat_onboarding_temp'); // Temp chat messages
-    // Set flag to force fresh onboarding (skip API profile loading)
-    localStorage.setItem('forceNewProfile', 'true');
-    setIsOpen(false);
-    // Navigate to onboarding - new profile will auto-generate UUID on first save
-    navigate('/');
   };
 
   const handleResetAll = () => {
@@ -254,21 +233,23 @@ export function ProfileSelector(props: Props) {
         disabled={loading()}
       >
         <Show when={!loading()} fallback={<span class="animate-pulse">...</span>}>
-          <Dynamic
-            component={getProfileIcon(activeProfile())}
-            class={`h-4 w-4 ${isSimulation(activeProfile()) ? 'text-purple-500' : ''}`}
-          />
-          <span class="font-medium max-w-[120px] truncate hidden sm:inline">
-            {activeProfile()?.name || 'No profile'}
-          </span>
-          <Show when={isSimulation(activeProfile())}>
-            <span class="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded hidden sm:inline">
-              SIM
-            </span>
-          </Show>
-          <Show when={activeProfile()?.goalName && !isSimulation(activeProfile())}>
-            <span class="text-xs text-muted-foreground max-w-[80px] truncate hidden md:inline">
-              ({activeProfile()?.goalName})
+          <Show
+            when={!isSimulation(activeProfile())}
+            fallback={
+              <>
+                <FlaskConical class="h-4 w-4 text-purple-500" />
+                <span class="font-medium max-w-[120px] truncate hidden sm:inline">
+                  {activeProfile()?.name || 'No profile'}
+                </span>
+                <span class="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded hidden sm:inline">
+                  SIM
+                </span>
+              </>
+            }
+          >
+            <Target class="h-4 w-4 text-primary" />
+            <span class="font-medium max-w-[140px] truncate hidden sm:inline">
+              {activeProfile()?.goalName || 'No goal'}
             </span>
           </Show>
           <ChevronDown
@@ -282,22 +263,22 @@ export function ProfileSelector(props: Props) {
         <div class="absolute right-0 mt-2 w-72 bg-popover rounded-md shadow-md border border-border z-50 animate-in fade-in zoom-in-95 duration-200">
           <div class="py-2">
             <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              My Profiles
+              My Goals
             </div>
 
-            <Show when={profiles().length === 0}>
+            <Show when={goalProfiles().length === 0}>
               <a
                 href="/"
                 class="w-full flex items-center gap-3 px-3 py-2 text-primary hover:bg-accent hover:text-accent-foreground transition-colors"
                 onClick={() => setIsOpen(false)}
               >
                 <Plus class="h-4 w-4" />
-                <span class="text-sm font-medium">Create a profile</span>
+                <span class="text-sm font-medium">Create your first goal</span>
               </a>
             </Show>
 
             <div class="max-h-[300px] overflow-y-auto">
-              <For each={profiles()}>
+              <For each={goalProfiles()}>
                 {(profile) => (
                   <div
                     class={`group w-full flex items-center gap-2 px-3 py-2 hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer ${
@@ -305,35 +286,29 @@ export function ProfileSelector(props: Props) {
                     }`}
                     onClick={() => handleSwitch(profile.id)}
                   >
-                    <Dynamic
-                      component={getProfileIcon(profile)}
-                      class="h-4 w-4 text-muted-foreground"
-                    />
+                    <Target class="h-4 w-4 text-muted-foreground" />
                     <div class="flex-1 min-w-0">
-                      <div class="font-medium text-sm truncate flex items-center gap-1">
-                        {profile.name}
-                        <Show when={isSimulation(profile)}>
-                          <span class="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded">
-                            SIM
-                          </span>
-                        </Show>
+                      <div class="font-medium text-sm truncate">
+                        {profile.goalName || 'No goal set'}
                       </div>
-                      <Show when={profile.goalName}>
-                        <div class="text-xs text-muted-foreground truncate">
-                          {profile.goalName} - ${profile.goalAmount}
-                        </div>
-                      </Show>
+                      <div class="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <Show when={profile.goalAmount}>
+                          <span>${profile.goalAmount}</span>
+                          <span class="text-muted-foreground/50">·</span>
+                        </Show>
+                        <span>{profile.name}</span>
+                      </div>
                     </div>
                     <Show when={profile.isActive}>
                       <Check class="h-4 w-4 text-primary" />
                     </Show>
 
-                    {/* Delete button - only show if more than 1 profile */}
-                    <Show when={profiles().length > 1}>
+                    {/* Delete button - only show if more than 1 goal */}
+                    <Show when={goalProfiles().length > 1}>
                       <button
                         onClick={(e) => handleDelete(profile.id, profile.name, e)}
                         class="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
-                        title="Delete profile"
+                        title="Delete goal"
                       >
                         <Trash2 class="h-4 w-4" />
                       </button>
@@ -341,18 +316,46 @@ export function ProfileSelector(props: Props) {
                   </div>
                 )}
               </For>
+
+              {/* Simulation profiles (shown separately if any) */}
+              <Show when={simProfiles().length > 0}>
+                <div class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-t border-border mt-1 pt-2">
+                  Simulations
+                </div>
+                <For each={simProfiles()}>
+                  {(profile) => (
+                    <div
+                      class={`group w-full flex items-center gap-2 px-3 py-2 hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer ${
+                        profile.isActive ? 'bg-primary/5' : ''
+                      }`}
+                      onClick={() => handleSwitch(profile.id)}
+                    >
+                      <FlaskConical class="h-4 w-4 text-purple-500" />
+                      <div class="flex-1 min-w-0">
+                        <div class="font-medium text-sm truncate flex items-center gap-1">
+                          {profile.name}
+                          <span class="px-1.5 py-0.5 text-[10px] bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded">
+                            SIM
+                          </span>
+                        </div>
+                      </div>
+                      <Show when={profile.isActive}>
+                        <Check class="h-4 w-4 text-primary" />
+                      </Show>
+                      <button
+                        onClick={(e) => handleDelete(profile.id, profile.name, e)}
+                        class="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded transition-all"
+                        title="Delete simulation"
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </For>
+              </Show>
             </div>
 
             <div class="border-t border-border mt-2 pt-2 px-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleNewFreshProfile}
-                class="w-full justify-start gap-2 mb-1"
-              >
-                <UserPlus class="h-4 w-4" />
-                New profile
-              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -362,7 +365,7 @@ export function ProfileSelector(props: Props) {
                 }}
                 class="w-full justify-start gap-2 mb-1"
               >
-                <Target class="h-4 w-4" />
+                <Plus class="h-4 w-4" />
                 New goal
               </Button>
             </div>
@@ -410,7 +413,8 @@ export function ProfileSelector(props: Props) {
             <CardHeader>
               <CardTitle>New goal</CardTitle>
               <CardDescription>
-                Create a new profile based on "{activeProfile()?.name}" with a new goal.
+                Start a new savings goal. Your current data (budget, skills, schedule) will carry
+                over.
               </CardDescription>
             </CardHeader>
             <CardContent class="space-y-4">
