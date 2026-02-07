@@ -292,6 +292,35 @@ When field is `'other'`, the function returns `getAllSkills()` -- all 87 skills 
 
 **Note:** The MCP server doesn't import the frontend's skill registry, so category derivation uses keyword matching on skill names rather than the `skillCategoryBridge.ts` bridge. This is intentional to keep the packages decoupled.
 
+### Phase 8: Cross-file string integrity validation -- DONE
+
+**Status:** DONE (commit `9f216ad`)
+
+**Goal:** Close the critical risk identified by Gemini: 4 files using exact string matching need CI-level validation to prevent silent "ghost skills".
+
+**Files modified:**
+- `frontend/src/lib/data/__tests__/skillDataIntegrity.test.ts` -- Extended with 3 new test suites (+69 tests = 446 total)
+- `frontend/src/lib/data/skillCategoryBridge.ts` -- Exported `SKILL_OVERRIDES` and `CATEGORY_BRIDGE`
+- New: `scripts/verify-skills-data.ts` -- Cross-package validation script
+
+**Changes applied:**
+1. **Frontend vitest** (446 tests):
+   - `SKILL_OVERRIDES` keys → `SKILL_REGISTRY` (17 skill names validated)
+   - `SKILL_OVERRIDES` values → valid `PROSPECTION_CATEGORIES` IDs
+   - `CATEGORY_BRIDGE` values → valid `PROSPECTION_CATEGORIES` IDs
+2. **Cross-package script** (`npx tsx scripts/verify-skills-data.ts`):
+   - Validates `SKILLS_BY_FIELD`, `SKILL_OVERRIDES`, `HARD/EASY_TO_START_SKILLS`, and MCP `JOB_DATABASE` skills against the canonical `SKILL_REGISTRY`
+   - MCP skills are mirrored as constants (packages are decoupled)
+   - Exit code 1 on any orphan — ready for CI integration
+
+**Coverage:** All 4 files identified by Gemini are now validated:
+| File | Validation |
+|------|------------|
+| `skillRegistry.ts` | Source of truth (87 skills) |
+| `skillsByField.ts` | vitest (Phase 1) |
+| `skillCategoryBridge.ts` | vitest (Phase 8) |
+| `job-matcher.ts` | cross-package script (Phase 8) |
+
 ---
 
 ## Phase Dependencies
@@ -304,11 +333,12 @@ Phase 4 (field connections)  ←── standalone
 Phase 5 (MCP jobs + bugs)   ←── depends on Phase 1
 Phase 6 (accessibility)     ←── standalone
 Phase 7 (chat)              ←── depends on Phase 3 + 5
+Phase 8 (integrity)         ←── depends on Phase 3 + 5 (validates their output)
 ```
 
-**Execution order:** 1 → 2 → 4 → 6 → 3 → 5 → 7
+**Execution order:** 1 → 2 → 4 → 6 → 3 → 5 → 7 → 8
 
-Rationale: data integrity first (Phase 1), then UX (Phase 2), then standalone data fixes (4, 6), then the two medium-complexity phases that depend on clean data (3, 5), finally chat integration that depends on both (7).
+Rationale: data integrity first (Phase 1), then UX (Phase 2), then standalone data fixes (4, 6), then the two medium-complexity phases that depend on clean data (3, 5), chat integration (7), then cross-file integrity validation as safety net (8).
 
 ---
 
@@ -320,8 +350,11 @@ Rationale: data integrity first (Phase 1), then UX (Phase 2), then standalone da
 # After each phase
 pnpm typecheck && pnpm build:frontend && pnpm build:mcp
 
-# After Phase 1 specifically
-pnpm --filter @stride/frontend vitest run skillDataIntegrity
+# After Phase 1 / Phase 8
+cd packages/frontend && npx vitest run skillDataIntegrity  # 446 tests
+
+# Cross-package integrity (Phase 8)
+npx tsx scripts/verify-skills-data.ts  # validates all 4 files
 
 # After Phase 5
 pnpm --filter @stride/mcp-server test
@@ -338,6 +371,13 @@ After all phases:
 
 ### Regression guard
 
-The unit test from Phase 1 (`skillDataIntegrity.test.ts`) runs in CI and catches:
+The unit test (`skillDataIntegrity.test.ts`, 446 assertions) runs in CI and catches:
 - Any new skill added to `SKILLS_BY_FIELD` that doesn't exist in `SKILL_REGISTRY`
 - Any skill rename in registry that wasn't propagated to field mappings
+- Any `SKILL_OVERRIDES` key (bridge) that doesn't match a registry skill
+- Any prospection category ID in bridge or overrides that doesn't match `PROSPECTION_CATEGORIES`
+- Any `HARD/EASY_TO_START_SKILLS` referencing a non-existent skill
+
+The cross-package script (`scripts/verify-skills-data.ts`) additionally validates:
+- MCP `JOB_DATABASE` skill arrays against the frontend's `SKILL_REGISTRY`
+- Can be added to CI: `npx tsx scripts/verify-skills-data.ts`
