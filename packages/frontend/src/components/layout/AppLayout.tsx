@@ -28,7 +28,7 @@ export const AppLayout: ParentComponent<AppLayoutProps> = (props) => {
               </A>
               {headerLeftExtra()}
             </div>
-            <div class="flex items-center gap-4">{props.headerContent}</div>
+            <div class="flex items-center gap-4 md:ml-auto">{props.headerContent}</div>
           </div>
         </header>
 
