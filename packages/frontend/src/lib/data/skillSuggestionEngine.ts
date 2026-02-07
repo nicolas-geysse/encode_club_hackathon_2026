@@ -57,17 +57,42 @@ export const HARD_TO_START_SKILLS: Record<string, number> = {
   'Freelance graphic design': 3,
   'Motion design animation': 2,
   'Junior cybersecurity': 2,
+  Python: 3,
+  JavaScript: 3,
+  'Digital illustration / mockup creation': 2,
+  'Video editing': 3,
+  'Chatbot creation': 2,
+  'Basic data analysis': 3,
 
   // Need equipment/certification
   'Event photography': 3,
   'Nature / wildlife photography': 2,
   '3D modeling / CAD': 3,
   'IoT / Arduino projects development': 2,
+  'On-demand 3D printing': 2,
 
-  // Consulting requires credibility
+  // Consulting/expertise requires credibility or domain knowledge
   'Micro-business consulting': 2,
   'Amateur nutrition coaching': 3,
   'Student / productivity coaching': 3,
+  'UX research / user testing': 3,
+  'Technical writing': 2,
+  'Scientific proofreading': 2,
+  'Lead generation / B2B prospecting': 3,
+  'Smart home energy optimization': 2,
+  'Medical transcription': 2,
+  'Cultural content writing': 2,
+  'Support group / peer-to-peer support facilitation': 2,
+  'Online simulator/calculator creation': 2,
+
+  // Moderate barrier (computed score matches)
+  'Electronics repair': 3,
+  'Voice-over / narration': 3,
+  'Food photography': 3,
+  'Academic guidance coaching': 3,
+  'Workshop / webinar facilitation': 3,
+  'Quick competitive analysis': 3,
+  'Virtual event organization': 3,
 };
 
 /**
@@ -84,6 +109,8 @@ export const EASY_TO_START_SKILLS: Record<string, number> = {
   'Pet-sitting / dog-walking': 5,
   'Food delivery / courier': 5,
   'Data entry': 5,
+  Cleaning: 5,
+  'Mystery shopping / service quality evaluations': 4,
 
   // Low barrier
   'Virtual assistant': 4,
@@ -96,10 +123,31 @@ export const EASY_TO_START_SKILLS: Record<string, number> = {
   'Data labeling / AI annotation': 4,
   'Customer service / support': 4,
   'Technical support / IT helpdesk': 4,
+  'Qualitative interview transcription': 4,
+  'Surveys and field studies': 4,
 
   // Writing (if you can write)
   'Copywriting / commercial writing': 4,
   'Freelance translation / localization': 4,
+
+  // Teaching / coaching (low barrier if you have the skill)
+  Guitar: 4,
+  Piano: 4,
+  'Online fitness/yoga classes': 4,
+
+  // Services (sign up and go)
+  'Canva / Notion template creation': 4,
+  'Social media management for organic/local brands': 4,
+  'Custom travel itinerary creation': 4,
+  'Airbnb management / short-term concierge': 4,
+
+  // Moderate barrier but platforms exist (computed score matches)
+  'Social media management for SMEs': 4,
+  'Community management': 4,
+  'Debugging / QA testing': 4,
+  'Task automation (no-code/low-code)': 4,
+  Excel: 4,
+  'SQL Coaching': 4,
 };
 
 /**
