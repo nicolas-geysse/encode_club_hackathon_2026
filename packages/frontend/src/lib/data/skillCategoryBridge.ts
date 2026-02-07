@@ -15,7 +15,8 @@ import { SKILL_REGISTRY, type SkillCategory } from './skillRegistry';
  * Which prospection categories each skill registry category maps to.
  * A skill in category X is relevant for prospection categories listed here.
  */
-const CATEGORY_BRIDGE: Record<SkillCategory, string[]> = {
+/** @internal Exported for data integrity tests */
+export const CATEGORY_BRIDGE: Record<SkillCategory, string[]> = {
   tech: ['digital', 'campus'],
   creative: ['digital', 'events'],
   teaching: ['tutoring', 'campus'],
@@ -31,7 +32,8 @@ const CATEGORY_BRIDGE: Record<SkillCategory, string[]> = {
  * Individual skill overrides for cases where the category-level mapping
  * is too broad or misses a specific connection.
  */
-const SKILL_OVERRIDES: Record<string, string[]> = {
+/** @internal Exported for data integrity tests */
+export const SKILL_OVERRIDES: Record<string, string[]> = {
   // Tutoring skills that are in 'tech' category but match tutoring
   'SQL Coaching': ['tutoring', 'digital', 'campus'],
   'Online tutoring': ['tutoring', 'campus'],

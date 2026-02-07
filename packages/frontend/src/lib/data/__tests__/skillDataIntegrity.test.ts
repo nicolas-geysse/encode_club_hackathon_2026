@@ -1,19 +1,29 @@
 /**
  * Skill Data Integrity Tests
  *
- * Prevents orphan skill names from silently breaking the suggestion engine.
- * Every name in SKILLS_BY_FIELD must exist in SKILL_REGISTRY.
- * Every field referenced in SKILL_REGISTRY.fields must exist in SKILLS_BY_FIELD.
+ * Prevents orphan skill names from silently breaking the pipeline.
+ * Validates string matching across ALL files that reference skill names:
+ *
+ * 1. SKILLS_BY_FIELD → SKILL_REGISTRY
+ * 2. HARD/EASY_TO_START_SKILLS → SKILL_REGISTRY
+ * 3. SKILL_OVERRIDES (bridge) → SKILL_REGISTRY
+ * 4. CATEGORY_BRIDGE → valid prospection category IDs
+ * 5. FIELD_CONNECTIONS → valid field keys
+ *
+ * A single typo in any of these files silently breaks the skill→job pipeline.
  */
 
 import { describe, it, expect } from 'vitest';
 import { SKILL_REGISTRY } from '../skillRegistry';
 import { SKILLS_BY_FIELD, FIELD_CONNECTIONS } from '../skillsByField';
 import { HARD_TO_START_SKILLS, EASY_TO_START_SKILLS } from '../skillSuggestionEngine';
+import { SKILL_OVERRIDES, CATEGORY_BRIDGE } from '../skillCategoryBridge';
+import { PROSPECTION_CATEGORIES } from '../../../config/prospectionCategories';
 
 // Build lookup sets once
 const registryNames = new Set(SKILL_REGISTRY.map((s) => s.name));
 const fieldKeys = new Set(Object.keys(SKILLS_BY_FIELD));
+const validProspectionIds = new Set(PROSPECTION_CATEGORIES.map((c) => c.id));
 
 describe('SKILLS_BY_FIELD → SKILL_REGISTRY', () => {
   for (const [field, skills] of Object.entries(SKILLS_BY_FIELD)) {
@@ -77,5 +87,37 @@ describe('Accessibility maps reference valid skills', () => {
     it(`EASY_TO_START: "${skillName}" exists in SKILL_REGISTRY`, () => {
       expect(registryNames.has(skillName)).toBe(true);
     });
+  }
+});
+
+// =========================================================================
+// Phase 8: Cross-file bridge integrity
+// =========================================================================
+
+describe('SKILL_OVERRIDES (bridge) → SKILL_REGISTRY', () => {
+  for (const skillName of Object.keys(SKILL_OVERRIDES)) {
+    it(`SKILL_OVERRIDE: "${skillName}" exists in SKILL_REGISTRY`, () => {
+      expect(registryNames.has(skillName)).toBe(true);
+    });
+  }
+});
+
+describe('SKILL_OVERRIDES → valid prospection category IDs', () => {
+  for (const [skillName, categories] of Object.entries(SKILL_OVERRIDES)) {
+    for (const catId of categories) {
+      it(`"${skillName}" maps to valid category "${catId}"`, () => {
+        expect(validProspectionIds.has(catId)).toBe(true);
+      });
+    }
+  }
+});
+
+describe('CATEGORY_BRIDGE → valid prospection category IDs', () => {
+  for (const [skillCategory, categories] of Object.entries(CATEGORY_BRIDGE)) {
+    for (const catId of categories) {
+      it(`${skillCategory} maps to valid category "${catId}"`, () => {
+        expect(validProspectionIds.has(catId)).toBe(true);
+      });
+    }
   }
 });
