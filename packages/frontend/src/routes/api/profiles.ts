@@ -723,8 +723,25 @@ export async function DELETE(event: APIEvent) {
 
     const wasActive = profile[0].is_active;
 
-    // Cascade delete: remove all related data
-    const tables = ['goals', 'skills', 'inventory_items', 'lifestyle_items', 'trades'];
+    // Cascade delete: remove all related data from all profile-scoped tables
+    const tables = [
+      'goals',
+      'skills',
+      'inventory_items',
+      'lifestyle_items',
+      'trades',
+      'income_items',
+      'leads',
+      'chat_messages',
+      'energy_logs',
+      'job_exclusions',
+      'academic_events',
+      'commitments',
+      'goal_achievements',
+      'retroplans',
+      'goal_progress',
+      'goal_actions',
+    ];
     for (const table of tables) {
       try {
         await execute(`DELETE FROM ${table} WHERE profile_id = ${escapedProfileId}`);

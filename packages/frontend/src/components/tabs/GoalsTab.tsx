@@ -238,7 +238,50 @@ export function GoalsTab(props: GoalsTabProps) {
   const confirmDelete = async () => {
     const goal = deleteConfirm();
     if (!goal) return;
+
+    // 1. Delete the goal from goals table (+ child goals)
     await goalService.deleteGoal(goal.id);
+
+    // 2. Clean up profile based on type
+    const p = profile();
+
+    if (p?.profileType === 'goal-clone' && p?.parentProfileId) {
+      // CLONE: Switch to parent profile, then delete the orphaned clone entirely
+      const switched = await profileService.switchProfile(p.parentProfileId);
+      if (switched) {
+        try {
+          await fetch(`/api/profiles?id=${p.id}`, { method: 'DELETE' });
+        } catch (err) {
+          logger.warn('Failed to delete orphaned clone profile', { error: err });
+        }
+        localStorage.removeItem('followupData');
+        localStorage.removeItem('planData');
+        localStorage.removeItem('achievements');
+        window.location.reload();
+        return;
+      }
+      // If switch failed (parent gone), fall through to field-clearing
+    }
+
+    // MAIN PROFILE (or fallback): Reset to clean "no goal" state
+    if (p?.id) {
+      // Surgical planData clear: remove goal setup, keep user preferences
+      const currentPlanData = p.planData as Record<string, unknown> | undefined;
+      const cleanedPlanData = currentPlanData
+        ? { ...currentPlanData, setup: undefined }
+        : undefined;
+
+      // Use null so JSON.stringify includes keys; PATCH handler: escapeSQL(null) → 'NULL'
+      await profileService.patchProfile(p.id, {
+        goalName: null,
+        goalAmount: null,
+        goalDeadline: null,
+        followupData: null,
+        planData: cleanedPlanData ?? null,
+      } as any);
+      await refreshProfile();
+    }
+
     setDeleteConfirm(null);
   };
 
