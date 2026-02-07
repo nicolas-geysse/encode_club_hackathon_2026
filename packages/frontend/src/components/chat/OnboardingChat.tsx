@@ -11,8 +11,8 @@ import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { MCPUIRenderer, type ActionCallback } from './MCPUIRenderer';
 import type { ChatMessage as Message, UIResource } from '~/types/chat';
-import { Repeat, Wallet, Target, Zap, PiggyBank, HelpCircle } from 'lucide-solid';
-import type { Component } from 'solid-js';
+import { Repeat, HelpCircle } from 'lucide-solid';
+import { setHeaderLeftExtra } from '~/lib/headerStore';
 import { profileService, type FullProfile } from '~/lib/profileService';
 import { createLogger } from '~/lib/logger';
 
@@ -51,21 +51,6 @@ import { normalizeSubscriptionName } from '~/lib/chat/extraction/patterns';
 import { drainQueue } from '~/lib/chat/proactiveQueue';
 
 // Message type imported from ~/types/chat
-
-// Quick links shown after onboarding completion - trigger charts in chat
-const QUICK_LINKS = [
-  { label: 'Budget', chartType: 'budget_breakdown', icon: 'wallet' },
-  { label: 'Goals', chartType: 'projection', icon: 'target' },
-  { label: 'Energy', chartType: 'energy', icon: 'zap' },
-  { label: 'Savings', chartType: 'progress', icon: 'piggy-bank' },
-] as const;
-
-const quickLinkIcons: Record<string, Component<{ class?: string }>> = {
-  wallet: Wallet,
-  target: Target,
-  zap: Zap,
-  'piggy-bank': PiggyBank,
-};
 
 // Must match the retroplan API types
 type AcademicEventType =
@@ -1273,7 +1258,10 @@ export function OnboardingChat() {
       goalDeadline: newProfile.goalDeadline || '',
       academicEvents: [],
       inventoryItems: [],
-      subscriptions: [],
+      subscriptions: (newProfile.subscriptions || []).map((s) => ({
+        name: s.name,
+        currentCost: s.currentCost || 0,
+      })),
       // Sprint Graphiques: Include followupData for energy history
       followupData: newProfile.followupData,
     });
@@ -1517,6 +1505,7 @@ export function OnboardingChat() {
 
     onCleanup(() => {
       window.removeEventListener('message', handleSwipeMessage);
+      setHeaderLeftExtra(null);
     });
 
     // Check if user requested a completely fresh start
@@ -1562,6 +1551,10 @@ export function OnboardingChat() {
             goalName: apiProfile.goalName,
             goalAmount: apiProfile.goalAmount,
             goalDeadline: apiProfile.goalDeadline,
+            subscriptions: (apiProfile.subscriptions || []).map((s) => ({
+              name: s.name,
+              currentCost: s.currentCost || 0,
+            })),
             followupData: apiProfile.followupData,
           });
 
@@ -1955,6 +1948,31 @@ export function OnboardingChat() {
     onCleanup(() => {
       unsubDataReset();
     });
+  });
+
+  // Register restart/help buttons into the AppLayout header (mobile)
+  createEffect(() => {
+    const complete = isComplete();
+    setHeaderLeftExtra(
+      <>
+        <button
+          class="p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+          title="Restart Onboarding"
+          onClick={() => setShowRestartConfirm1(true)}
+        >
+          <Repeat class="h-4 w-4 text-muted-foreground" />
+        </button>
+        {complete && (
+          <button
+            class="p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+            title="What can I do?"
+            onClick={() => handleUIAction('send_message', { message: 'help' })}
+          >
+            <HelpCircle class="h-4 w-4 text-muted-foreground" />
+          </button>
+        )}
+      </>
+    );
   });
 
   // Call LLM API for chat
@@ -2791,9 +2809,12 @@ export function OnboardingChat() {
         field: currentProfile.field,
         city: currentProfile.city,
         skills: currentProfile.skills,
-        income: currentProfile.incomes?.[0]?.amount,
+        income: currentProfile.incomes?.[0]?.amount || (fullProfile.monthlyIncome as number) || 0,
         incomes: currentProfile.incomes, // Full array for chart handlers
-        expenses: currentProfile.expenses?.reduce((sum, e) => sum + e.amount, 0),
+        expenses:
+          currentProfile.expenses?.reduce((sum, e) => sum + e.amount, 0) ||
+          (fullProfile.monthlyExpenses as number) ||
+          0,
         maxWorkHours: currentProfile.maxWorkHours,
         minHourlyRate: currentProfile.minHourlyRate,
         // Goal data for conversation mode
@@ -2803,6 +2824,8 @@ export function OnboardingChat() {
         currentSaved: (fullProfile.currentSaved as number) || 0,
         // Currency for dynamic formatting
         currency: currentProfile.currency || 'USD',
+        // Subscriptions for pause_subscription action
+        subscriptions: currentProfile.subscriptions || [],
         // Energy history for energy chart (from Suivi page's followupData)
         energyHistory: (fullProfile.followupData as Record<string, unknown>)?.energyHistory || [],
         // Skipped onboarding steps for agent hints
@@ -3513,33 +3536,6 @@ export function OnboardingChat() {
                   />
                 </div>
               </Show>
-
-              {/* Quick Links - Show after onboarding, hidden when goal achieved */}
-              <Show when={isComplete() && !chatBlocked()}>
-                <div class="mt-6 flex flex-col gap-2 w-full max-w-[180px]">
-                  <For each={QUICK_LINKS}>
-                    {(link, i) => {
-                      const Icon = quickLinkIcons[link.icon];
-                      return (
-                        <button
-                          onClick={() =>
-                            handleUIAction('show_chart', { chartType: link.chartType })
-                          }
-                          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/30 shadow-sm hover:shadow text-sm text-muted-foreground hover:text-foreground transition-all duration-200"
-                          style={{
-                            animation: 'fade-in 0.3s ease-out forwards',
-                            'animation-delay': `${i() * 75}ms`,
-                            opacity: 0,
-                          }}
-                        >
-                          <Icon class="h-4 w-4" />
-                          <span>{link.label}</span>
-                        </button>
-                      );
-                    }}
-                  </For>
-                </div>
-              </Show>
             </div>
 
             <div
@@ -3578,8 +3574,6 @@ export function OnboardingChat() {
 
           {/* Right Chat Area */}
           <div class="flex flex-col h-full min-h-0 relative bg-background/50">
-            {/* Messages */}
-
             {/* Messages */}
             <ScrollArea
               class="flex-1 min-h-0"

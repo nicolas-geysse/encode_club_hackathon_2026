@@ -37,7 +37,7 @@ import { ActionDispatcher } from '../../lib/chat/ActionDispatcher';
 import { ActionExecutor } from '../../lib/chat/ActionExecutor';
 import { ACTIONS, type ActionType } from '../../types/actions';
 import type { UIResource } from '../../types/chat';
-import * as lifestyleService from '../../lib/lifestyleService';
+import { query, escapeSQL } from './_crud-helpers';
 
 // Import from refactored modules
 import { type OnboardingStep, type ChatMode, type DetectedIntent } from '../../lib/chat/types';
@@ -1335,15 +1335,58 @@ async function handleConversationMode(
       // -----------------------------------------------------------------------
       if (intent.action && intent.action in ACTIONS) {
         try {
-          // Enrich context with subscriptions for pause_subscription action
-          if (intent.action === 'pause_subscription' && profileId && !context.subscriptions) {
+          // Enrich context with fresh data from DB for action prefills
+          if (profileId) {
             try {
-              const items = await lifestyleService.listItems(profileId, {
-                category: 'subscriptions',
-              });
-              context.subscriptions = items.map((i) => ({ name: i.name, cost: i.currentCost }));
+              // Goal data: always fetch from goals table (profile fields may be stale)
+              const isGoalAction =
+                intent.action === 'update_goal' || intent.action === 'create_goal';
+              if (isGoalAction || !context.goalName || !context.goalAmount) {
+                const goalRows = await query(
+                  `SELECT name, amount, deadline FROM goals WHERE profile_id = '${escapeSQL(profileId)}' AND status = 'active' ORDER BY created_at DESC LIMIT 1`
+                );
+                if (goalRows.length > 0) {
+                  const g = goalRows[0] as Record<string, unknown>;
+                  context.goalName = g.name;
+                  context.goalAmount = Number(g.amount);
+                  context.goalDeadline = g.deadline ? String(g.deadline) : context.goalDeadline;
+                }
+              }
+
+              // Income/expenses: fetch from profiles table if missing from context
+              if (!context.income || !context.expenses) {
+                const profRows = await query(
+                  `SELECT monthly_income, monthly_expenses FROM profiles WHERE id = '${escapeSQL(profileId)}' LIMIT 1`
+                );
+                if (profRows.length > 0) {
+                  const p = profRows[0] as Record<string, unknown>;
+                  if (!context.income && p.monthly_income) {
+                    context.income = Number(p.monthly_income);
+                  }
+                  if (!context.expenses && p.monthly_expenses) {
+                    context.expenses = Number(p.monthly_expenses);
+                  }
+                }
+              }
+
+              // Subscriptions: fetch from lifestyle_items for pause_subscription
+              if (intent.action === 'pause_subscription') {
+                const hasSubs =
+                  Array.isArray(context.subscriptions) && context.subscriptions.length > 0;
+                if (!hasSubs) {
+                  const subRows = await query(
+                    `SELECT name, current_cost FROM lifestyle_items WHERE profile_id = '${escapeSQL(profileId)}' AND category = 'subscriptions'`
+                  );
+                  if (subRows.length > 0) {
+                    context.subscriptions = subRows.map((r: Record<string, unknown>) => ({
+                      name: r.name,
+                      cost: Number(r.current_cost),
+                    }));
+                  }
+                }
+              }
             } catch (e) {
-              logger.warn('Failed to load subscriptions for context', { error: e });
+              logger.warn('Failed to enrich action context from DB', { error: e });
             }
           }
 
@@ -1377,10 +1420,16 @@ async function handleConversationMode(
             };
           }
 
-          // For goal actions, always show confirmation form (HITL) instead of auto-executing
-          const ALWAYS_CONFIRM_ACTIONS: string[] = ['create_goal', 'update_goal'];
+          // For these actions, always show prefilled confirmation form (HITL) instead of auto-executing
+          const ALWAYS_CONFIRM_ACTIONS: string[] = [
+            'create_goal',
+            'update_goal',
+            'update_income',
+            'update_expenses',
+            'pause_subscription',
+          ];
           if (actionStats.status === 'ready' && ALWAYS_CONFIRM_ACTIONS.includes(intent.action)) {
-            response = `Here are your current goal details. Update what you need:`;
+            response = `Here are your current details. Update what you need:`;
             return {
               response,
               extractedData: {},

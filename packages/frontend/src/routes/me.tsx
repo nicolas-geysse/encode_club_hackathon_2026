@@ -523,7 +523,7 @@ export default function MePage() {
       <Show when={hasProfile()} fallback={<NoProfileView />}>
         <div class="flex flex-col h-full space-y-6">
           <Tabs value={activeTab()} onChange={handleTabChange} class="w-full">
-            <div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50">
+            <div class="sticky top-16 md:top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 bg-background/80 backdrop-blur-xl border-b border-border/50">
               {/* Desktop Tabs */}
               <div class="hidden md:block py-3">
                 <TabsList class="w-full justify-start h-auto bg-transparent p-0 pl-2 md:pl-4 gap-6 overflow-x-auto">
@@ -600,8 +600,9 @@ export default function MePage() {
                     </div>
                   </SheetContent>
                 </Sheet>
-                <div class="font-bold text-lg">Stride</div>
-                <div class="w-8" /> {/* Spacer to balance burger icon */}
+                <span class="text-sm font-medium text-muted-foreground">
+                  {TABS.find((t) => t.id === activeTab())?.label || 'Me'}
+                </span>
               </div>
             </div>
 

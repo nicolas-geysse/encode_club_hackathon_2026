@@ -59,6 +59,7 @@ export class ActionDispatcher {
         label: field.label,
         type: field.type,
         options: field.options,
+        max: field.max,
         currentValue: extractedData[field.name],
       };
     });
@@ -76,6 +77,7 @@ export class ActionDispatcher {
                 label: f.label,
                 type: f.type,
                 options: f.options,
+                max: f.max,
                 currentValue: extractedData[f.name],
               }))
             : allFields,
@@ -123,6 +125,17 @@ export class ActionDispatcher {
       }
     }
 
+    // Hydrate max for duration fields (months until goal deadline)
+    if (field.type === 'duration' && field.name === 'durationMonths' && context.goalDeadline) {
+      const now = new Date();
+      const deadline = new Date(context.goalDeadline);
+      const months =
+        (deadline.getFullYear() - now.getFullYear()) * 12 + (deadline.getMonth() - now.getMonth());
+      if (months > 0) {
+        hydrated.max = months;
+      }
+    }
+
     return hydrated;
   }
 
@@ -148,6 +161,20 @@ export class ActionDispatcher {
         if (months > 0) {
           extractedData['durationMonths'] = months;
         }
+      }
+    }
+
+    // Income pre-fill: use current income for update_income
+    if (actionType === 'update_income' && field.name === 'amount' && !extractedData['amount']) {
+      if (context.income) {
+        extractedData['amount'] = context.income;
+      }
+    }
+
+    // Expenses pre-fill: use current expenses for update_expenses
+    if (actionType === 'update_expenses' && field.name === 'amount' && !extractedData['amount']) {
+      if (context.expenses) {
+        extractedData['amount'] = context.expenses;
       }
     }
 

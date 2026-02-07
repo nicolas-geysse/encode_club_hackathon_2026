@@ -14,6 +14,7 @@ export interface ActionField {
   label: string;
   type: 'text' | 'number' | 'date' | 'select' | 'duration';
   options?: string[]; // For select type
+  max?: number; // For duration type (dynamic max months)
   required: boolean;
 }
 

@@ -445,6 +445,7 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
       required?: boolean;
       value?: unknown;
       options?: string[];
+      max?: number;
     }>) || [];
   const submitLabel = () => (props.params?.submitLabel as string) || 'Submit';
 
@@ -580,7 +581,7 @@ function FormResource(props: { params?: Record<string, unknown>; onAction?: Acti
                   <input
                     type="range"
                     min="1"
-                    max="12"
+                    max={field.max || 12}
                     step="1"
                     name={field.name}
                     value={getFieldValue(field.name) || '1'}
