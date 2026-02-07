@@ -187,7 +187,7 @@ function getFieldMatch(
   match: 'primary' | 'strong' | 'medium' | 'general';
   score: number;
 } {
-  if (!field || field === 'other') {
+  if (!field) {
     return { match: 'general', score: 2 };
   }
 
@@ -294,7 +294,7 @@ export function getEnhancedSkillSuggestions(
   };
 
   // 1. Add primary field skills
-  if (field && field !== 'other') {
+  if (field) {
     const primarySkills = SKILLS_BY_FIELD[field] || [];
     primarySkills.forEach(addSkill);
 

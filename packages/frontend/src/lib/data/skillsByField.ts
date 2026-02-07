@@ -201,13 +201,13 @@ export const FIELD_CONNECTIONS: Record<string, { strong: string[]; medium: strin
   },
 
   services: {
-    strong: [],
-    medium: ['business', 'arts', 'humanities'],
+    strong: ['business'],
+    medium: ['arts', 'humanities', 'social_sciences'],
   },
 
   other: {
     strong: [],
-    medium: [],
+    medium: ['business', 'services'],
   },
 };
 
@@ -223,8 +223,8 @@ export const FIELD_CONNECTIONS: Record<string, { strong: string[]; medium: strin
  * @returns Array of suggested skill names
  */
 export function getSkillSuggestions(field: string | undefined): string[] {
-  // Fallback to all skills if no field or 'other'
-  if (!field || field === 'other') {
+  // Only dump all skills if field is truly undefined
+  if (!field) {
     return getAllSkills();
   }
 
