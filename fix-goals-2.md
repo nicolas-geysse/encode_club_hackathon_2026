@@ -623,18 +623,18 @@ try {
 
 ## Execution Plan
 
-### Phase 1: Subscription Fix (30 min)
+### Phase 1: Subscription Fix (30 min) — DONE (commit `ca83dc6`)
 
-1. Make `currentCost` required in `stepForms.ts` subscription config
-2. Remove eager `createItem()` from OnboardingChat.tsx confirm flow (lines 666-679)
-3. Fix `|| 10` → `?? 10` in OnboardingChat.tsx:663,672
+1. ~~Make `currentCost` required in `stepForms.ts` subscription config~~ — `required: true, min: 1`
+2. ~~Remove eager `createItem()` from OnboardingChat.tsx confirm flow (lines 666-679)~~ — Replaced with signal-only merge, removed unused `lifestyleService` import
+3. ~~Fix `|| 10` → `?? 10` in OnboardingChat.tsx:663,672~~ — Also fixed `|| 0` → `?? 0` at line 2828
 4. Test: fresh onboarding → enter Netflix with amount → no duplicate
 
-### Phase 2: Confirmation Dialogs (30 min)
+### Phase 2: Confirmation Dialogs (30 min) — DONE (commit `ba6299f`)
 
-1. Add `deleteConfirm` / `completeConfirm` signals to GoalsTab.tsx
-2. Wire ConfirmDialog for delete and mark-complete
-3. Replace `confirm()` in ProfileSelector.tsx with ConfirmDialog
+1. ~~Add `deleteConfirm` / `completeConfirm` signals to GoalsTab.tsx~~
+2. ~~Wire ConfirmDialog for delete (danger) and mark-complete (warning)~~ — Reactivation fires immediately (low risk)
+3. ~~Replace `confirm()` in ProfileSelector.tsx with ConfirmDialog~~ — Added `deleteProfileConfirm` signal + dialog
 4. Test: delete goal → see dialog → confirm → goal deleted
 
 ### Phase 3: Goal Switcher UX (45 min)
