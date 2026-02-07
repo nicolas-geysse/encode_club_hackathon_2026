@@ -396,11 +396,15 @@ function generateScenarios(
       });
     });
 
-  // 3. Lifestyle items that can be paused (not already paused)
-  // Calculate months remaining (for goal impact calculation)
+  // 3. Lifestyle items that can be paused (subscriptions/other only — never essential expenses)
+  // Essential expenses (housing, food, transport) are non-negotiable and must never
+  // appear as swipe scenarios. Cost-reduction tips for these belong in the Budget tab.
+  const ESSENTIAL_CATEGORIES = new Set(['housing', 'food', 'transport']);
   const monthsRemaining = Math.ceil(daysToGoal / 30);
   lifestyle
-    ?.filter((l) => l.currentCost > 0 && !l.pausedMonths)
+    ?.filter(
+      (l) => l.currentCost > 0 && !l.pausedMonths && !ESSENTIAL_CATEGORIES.has(l.category || '')
+    )
     .forEach((item) => {
       const urgency = calculateLifestyleUrgency(item);
 

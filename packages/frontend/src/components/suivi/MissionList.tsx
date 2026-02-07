@@ -79,7 +79,9 @@ export function MissionList(props: MissionListProps) {
       active: active.length,
       completed: completed.length,
       totalEarnings: props.missions.reduce((sum, m) => sum + m.earningsCollected, 0),
-      totalHours: props.missions.reduce((sum, m) => sum + m.hoursCompleted, 0),
+      totalHours: props.missions
+        .filter((m) => m.category === 'job_lead' || m.category === 'freelance')
+        .reduce((sum, m) => sum + m.hoursCompleted, 0),
       weeklyPotential: active.reduce((sum, m) => sum + m.weeklyEarnings, 0),
     };
   });
@@ -93,7 +95,14 @@ export function MissionList(props: MissionListProps) {
 
     const newHours = mission.hoursCompleted + hours;
     const newEarnings = mission.earningsCollected + earnings;
-    const progress = Math.min(100, Math.round((newHours / mission.weeklyHours) * 100));
+    const progress =
+      mission.weeklyHours > 0
+        ? Math.min(100, Math.round((newHours / mission.weeklyHours) * 100))
+        : mission.weeklyEarnings > 0
+          ? Math.min(100, Math.round((newEarnings / mission.weeklyEarnings) * 100))
+          : newEarnings > 0
+            ? 100
+            : 0;
 
     props.onMissionUpdate?.(id, {
       hoursCompleted: newHours,

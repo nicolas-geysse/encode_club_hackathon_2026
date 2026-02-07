@@ -26,6 +26,10 @@ import {
 } from 'lucide-solid';
 import { cn } from '~/lib/cn';
 
+/** Mission types where incremental hour/earnings logging is meaningful */
+export const isLoggableMission = (category: string) =>
+  category === 'job_lead' || category === 'freelance';
+
 export interface Mission {
   id: string;
   title: string;
@@ -205,7 +209,9 @@ export function MissionCard(props: MissionCardProps) {
               </div>
             </Show>
 
-            <Show when={props.mission.hoursCompleted > 0}>
+            <Show
+              when={isLoggableMission(props.mission.category) && props.mission.hoursCompleted > 0}
+            >
               <span class="text-[10px] text-muted-foreground">
                 {props.mission.hoursCompleted}h worked
               </span>
@@ -224,15 +230,17 @@ export function MissionCard(props: MissionCardProps) {
               >
                 <CheckCircle2 class="h-4 w-4" />
               </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={props.onLogProgress}
-                title="Log Time"
-              >
-                <Clock class="h-4 w-4" />
-              </Button>
+              <Show when={isLoggableMission(props.mission.category)}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  class="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  onClick={props.onLogProgress}
+                  title="Log Time"
+                >
+                  <Clock class="h-4 w-4" />
+                </Button>
+              </Show>
               <Button
                 size="icon"
                 variant="ghost"
