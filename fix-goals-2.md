@@ -623,11 +623,11 @@ try {
 
 ## Execution Plan
 
-### Phase 1: Subscription Fix (30 min) — DONE (commit `ca83dc6`)
+### Phase 1: Subscription Fix (30 min) — DONE (commit `ca83dc6`, consolidated `0b2715e`)
 
 1. ~~Make `currentCost` required in `stepForms.ts` subscription config~~ — `required: true, min: 1`
 2. ~~Remove eager `createItem()` from OnboardingChat.tsx confirm flow (lines 666-679)~~ — Replaced with signal-only merge, removed unused `lifestyleService` import
-3. ~~Fix `|| 10` → `?? 10` in OnboardingChat.tsx:663,672~~ — Also fixed `|| 0` → `?? 0` at line 2828
+3. ~~Fix `|| 10` → `?? 10` in OnboardingChat.tsx:663,672~~ — Also fixed `|| 0` → `?? 10` at line 2827 (aligned all subscription cost fallbacks to `?? 10` — a $0 subscription makes no sense with `min: 1`)
 4. Test: fresh onboarding → enter Netflix with amount → no duplicate
 
 ### Phase 2: Confirmation Dialogs (30 min) — DONE (commit `ba6299f`)
@@ -679,7 +679,7 @@ All 6 phases implemented and committed on `main`. Each commit passed typecheck +
 
 | Phase | Commit | Description |
 |-------|--------|-------------|
-| 1 | `ca83dc6` | Subscription duplication fix |
+| 1 | `ca83dc6`, `0b2715e` | Subscription duplication fix + cost fallback alignment |
 | 2 | `ba6299f` | Confirmation dialogs |
 | 3 | `89cf6f7` | Goal-centric switcher UX |
 | 4 | `31dcecd` | Goal deletion cleanup (Strategy B) + DELETE cascade fix |
@@ -691,7 +691,7 @@ All 6 phases implemented and committed on `main`. Each commit passed typecheck +
 | File | Phase | What Changed |
 |------|-------|-------------|
 | `lib/chat/stepForms.ts` | 1 | `currentCost`: `required: true`, `min: 1` |
-| `components/chat/OnboardingChat.tsx` | 1 | Removed eager `lifestyleService.createItem()` during LLM confirm flow (kept signal-only merge). Fixed `\|\| 10` → `?? 10`, `\|\| 0` → `?? 0`. Removed unused `lifestyleService` import. |
+| `components/chat/OnboardingChat.tsx` | 1 | Removed eager `lifestyleService.createItem()` during LLM confirm flow (kept signal-only merge). Fixed all `\|\|` → `??` for null-safety. Aligned all subscription cost fallbacks to `?? 10` (a $0 subscription is invalid with `min: 1`). Removed unused `lifestyleService` import. |
 | `components/tabs/GoalsTab.tsx` | 2, 4 | **Phase 2**: Added `deleteConfirm`/`completeConfirm` signals + 2 ConfirmDialogs. **Phase 4**: Rewrote `confirmDelete` with Strategy B — clone: `switchProfile()` → DELETE → reload; main: null goal fields + followupData, surgical `planData.setup` clear via `as any` cast for null serialization. |
 | `components/ProfileSelector.tsx` | 2, 3 | **Phase 2**: Replaced native `confirm()` with `deleteProfileConfirm` signal + ConfirmDialog. **Phase 3**: Goal name primary in header (`Target` icon), "My Goals" dropdown header, goal name primary / `$amount · profile name` secondary in list, removed "New profile" button + `handleNewFreshProfile`, separated simulations into own section, removed `Dynamic`, `User`, `UserPlus`, `getProfileIcon`. Updated New Goal modal description. |
 | `routes/api/profiles.ts` | 4 | DELETE cascade: expanded from `['goals', 'skills', 'inventory_items', 'lifestyle_items', 'trades']` to 16 tables (added `income_items`, `leads`, `chat_messages`, `energy_logs`, `job_exclusions`, `academic_events`, `commitments`, `goal_achievements`, `retroplans`, `goal_progress`, `goal_actions`). |
@@ -721,6 +721,7 @@ All 6 phases implemented and committed on `main`. Each commit passed typecheck +
 - [x] duplicate.ts copies academic_events + commitments with correct column names
 - [x] schemaManager.ts no longer has duplicate goals schema
 - [x] ActionExecutor.create_goal wired to goalService
+- [x] All subscription cost fallbacks aligned to `?? 10` (no `?? 0` remaining)
 
 ### Manual Testing Still Needed
 
