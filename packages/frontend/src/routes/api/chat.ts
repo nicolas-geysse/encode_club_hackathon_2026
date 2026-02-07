@@ -82,6 +82,14 @@ import {
   type TradePotential,
 } from '../../lib/chatChartBuilder';
 import { toISODate } from '../../lib/dateUtils';
+import {
+  handleProgressSummary,
+  handleRecommendFocus,
+  handleCompleteMission,
+  handleSkipMission,
+  handleUpdateEnergy,
+  type ChatHandlerContext,
+} from '../../lib/chat/handlers';
 
 const logger = createLogger('ChatAPI');
 
@@ -1215,7 +1223,7 @@ async function handleConversationMode(
       });
 
       // Generate response based on intent
-      let response: string;
+      let response = '';
       const extractedData: Record<string, unknown> = {};
 
       // -----------------------------------------------------------------------
@@ -2437,6 +2445,51 @@ async function handleConversationMode(
             response = `I couldn't fetch your items right now. Check the **Trade** tab directly!`;
             break;
           }
+        }
+
+        // ----- Extracted handlers (Phase 1: chat-final sprint) -----
+        case 'progress_summary':
+        case 'recommend_focus':
+        case 'complete_mission':
+        case 'skip_mission':
+        case 'update_energy': {
+          const handlerCtx: ChatHandlerContext = {
+            profileId,
+            context,
+            budgetContext,
+            intent,
+            timeCtx,
+            ctx,
+          };
+
+          const handlerMap: Record<
+            string,
+            (c: ChatHandlerContext) => Promise<import('../../lib/chat/handlers').ChatHandlerResult>
+          > = {
+            progress_summary: handleProgressSummary,
+            recommend_focus: handleRecommendFocus,
+            complete_mission: handleCompleteMission,
+            skip_mission: handleSkipMission,
+            update_energy: handleUpdateEnergy,
+          };
+
+          const handler = handlerMap[intent.action!];
+          if (handler) {
+            const result = await handler(handlerCtx);
+            const handlerTraceId = ctx.getTraceId();
+            ctx.setOutput({ action: intent.action, handler: 'extracted' });
+            return {
+              response: result.response,
+              extractedData: result.extractedData || {},
+              nextStep: 'complete' as OnboardingStep,
+              intent,
+              traceId: handlerTraceId || undefined,
+              traceUrl: handlerTraceId ? getTraceUrl(handlerTraceId) : undefined,
+              source: 'llm' as const,
+              uiResource: result.uiResource,
+            };
+          }
+          break;
         }
 
         case 'check_progress': {
