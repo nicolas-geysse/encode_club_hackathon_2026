@@ -24,92 +24,322 @@ import {
 import { trace, setPromptAttributes } from '../services/opik.js';
 
 // Extended Job database with effort/rest metrics for arbitrage scoring
+// Skill names match the 87-skill registry in frontend/src/lib/data/skillRegistry.ts
 const JOB_DATABASE = [
+  // --- Digital & Remote ---
   {
     id: 'freelance_dev',
     name: 'Freelance Developer',
     hourlyRate: 25,
     flexibility: 0.9,
-    skills: ['python', 'javascript', 'sql', 'web'],
+    skills: ['Freelance web development', 'Mobile app development', 'Python', 'JavaScript'],
     coBenefit: 'Resume builder + portfolio',
     networking: 'medium',
     cvImpact: 'high',
-    platform: 'Upwork, Fiverr, Toptal',
-    // Arbitrage metrics
+    platform: 'Malt, Fiverr, Upwork',
+    category: 'digital',
     marketDemand: 5,
     cognitiveEffort: 4,
     restNeeded: 2,
   },
   {
-    id: 'tutoring',
-    name: 'Private Tutoring',
-    hourlyRate: 20,
+    id: 'social_media',
+    name: 'Social Media Manager',
+    hourlyRate: 16,
     flexibility: 0.8,
-    skills: ['python', 'math', 'english', 'writing'],
-    coBenefit: 'Reinforces learning',
+    skills: [
+      'Social media management for SMEs',
+      'Community management',
+      'Copywriting / commercial writing',
+    ],
+    coBenefit: 'Digital industry insights',
     networking: 'high',
     cvImpact: 'medium',
-    platform: 'Wyzant, Tutor.com',
-    marketDemand: 5,
-    cognitiveEffort: 3,
+    platform: 'Malt, LinkedIn, Indeed',
+    category: 'digital',
+    marketDemand: 4,
+    cognitiveEffort: 2,
     restNeeded: 1,
   },
   {
     id: 'data_entry',
-    name: 'Data Entry',
+    name: 'Data Entry & Admin',
     hourlyRate: 12,
     flexibility: 0.7,
-    skills: ['excel', 'sql'],
+    skills: ['Data entry', 'Virtual assistant', 'Excel'],
     coBenefit: 'Automation opportunity',
     networking: 'low',
     cvImpact: 'low',
-    platform: 'Indeed, LinkedIn',
+    platform: 'Indeed, Upwork, Comeup',
+    category: 'digital',
     marketDemand: 4,
     cognitiveEffort: 1,
     restNeeded: 0.5,
   },
   {
-    id: 'community_manager',
-    name: 'Community Manager',
-    hourlyRate: 15,
-    flexibility: 0.8,
-    skills: ['social_media', 'writing', 'design'],
-    coBenefit: 'Digital industry insights',
-    networking: 'high',
+    id: 'content_creator',
+    name: 'Content Creator / Writer',
+    hourlyRate: 18,
+    flexibility: 0.9,
+    skills: [
+      'Copywriting / commercial writing',
+      'Video editing',
+      'Canva / Notion template creation',
+    ],
+    coBenefit: 'Portfolio building',
+    networking: 'medium',
     cvImpact: 'medium',
-    platform: 'LinkedIn, Indeed',
+    platform: 'Fiverr, Comeup, Malt',
+    category: 'digital',
     marketDemand: 4,
-    cognitiveEffort: 2,
+    cognitiveEffort: 3,
     restNeeded: 1,
   },
   {
-    id: 'research_assistant',
-    name: 'Research Assistant',
-    hourlyRate: 12,
-    flexibility: 0.6,
-    skills: ['python', 'sql', 'writing'],
-    coBenefit: 'Academic network',
-    networking: 'high',
+    id: 'graphic_design',
+    name: 'Freelance Graphic Designer',
+    hourlyRate: 22,
+    flexibility: 0.9,
+    skills: [
+      'Freelance graphic design',
+      'Digital illustration / mockup creation',
+      'Motion design animation',
+    ],
+    coBenefit: 'Creative portfolio',
+    networking: 'medium',
     cvImpact: 'high',
-    platform: 'Universities, Labs',
-    marketDemand: 3,
-    cognitiveEffort: 4,
-    restNeeded: 1.5,
+    platform: 'Malt, Fiverr, 99designs',
+    category: 'digital',
+    marketDemand: 4,
+    cognitiveEffort: 3,
+    restNeeded: 1,
+  },
+  // --- Tutoring & Lessons ---
+  {
+    id: 'tutoring',
+    name: 'Private Tutoring',
+    hourlyRate: 20,
+    flexibility: 0.8,
+    skills: ['Online tutoring', 'Online science / math tutoring', 'Online language lessons'],
+    coBenefit: 'Reinforces learning',
+    networking: 'high',
+    cvImpact: 'medium',
+    platform: 'Superprof, Kelprof, Acadomia',
+    category: 'tutoring',
+    marketDemand: 5,
+    cognitiveEffort: 3,
+    restNeeded: 1,
   },
   {
-    id: 'translator',
-    name: 'Freelance Translator',
-    hourlyRate: 18,
-    flexibility: 0.9,
-    skills: ['languages', 'writing'],
-    coBenefit: 'International clients',
+    id: 'music_lessons',
+    name: 'Music Lessons',
+    hourlyRate: 22,
+    flexibility: 0.8,
+    skills: ['Guitar', 'Piano'],
+    coBenefit: 'Flexible scheduling',
     networking: 'medium',
+    cvImpact: 'low',
+    platform: 'Superprof, Allegro Musique',
+    category: 'tutoring',
+    marketDemand: 3,
+    cognitiveEffort: 2,
+    restNeeded: 1,
+  },
+  // --- Campus Jobs ---
+  {
+    id: 'campus_it',
+    name: 'Campus IT Helpdesk',
+    hourlyRate: 12,
+    flexibility: 0.5,
+    skills: [
+      'Technical support / IT helpdesk',
+      'Debugging / QA testing',
+      'Task automation (no-code/low-code)',
+    ],
+    coBenefit: 'University network',
+    networking: 'high',
     cvImpact: 'medium',
-    platform: 'Upwork, ProZ',
+    platform: 'University job board, Jobaviz',
+    category: 'campus',
     marketDemand: 3,
     cognitiveEffort: 2,
     restNeeded: 0.5,
   },
+  {
+    id: 'research_assistant',
+    name: 'Research Assistant',
+    hourlyRate: 13,
+    flexibility: 0.6,
+    skills: ['Basic data analysis', 'Academic research assistance', 'Python'],
+    coBenefit: 'Academic network + publications',
+    networking: 'high',
+    cvImpact: 'high',
+    platform: 'University labs, Jobaviz',
+    category: 'campus',
+    marketDemand: 3,
+    cognitiveEffort: 4,
+    restNeeded: 1.5,
+  },
+  // --- Service & Hospitality ---
+  {
+    id: 'waiter',
+    name: 'Waiter / Barista',
+    hourlyRate: 11.65,
+    flexibility: 0.4,
+    skills: ['Customer service / support'],
+    coBenefit: 'Tips + social skills',
+    networking: 'medium',
+    cvImpact: 'low',
+    platform: 'Indeed, StudentJob, HelloWork',
+    category: 'service',
+    marketDemand: 5,
+    cognitiveEffort: 2,
+    restNeeded: 2.5,
+  },
+  // --- Childcare & Pet sitting ---
+  {
+    id: 'babysitting',
+    name: 'Babysitting / Childcare',
+    hourlyRate: 12,
+    flexibility: 0.7,
+    skills: ['Babysitting / childcare'],
+    coBenefit: 'Flexible hours, cash payments',
+    networking: 'low',
+    cvImpact: 'low',
+    platform: 'Yoopies, Bsit, Nounou-Top',
+    category: 'childcare',
+    marketDemand: 5,
+    cognitiveEffort: 2,
+    restNeeded: 1.5,
+  },
+  {
+    id: 'pet_sitting',
+    name: 'Pet Sitting / Dog Walking',
+    hourlyRate: 12,
+    flexibility: 0.8,
+    skills: ['Pet-sitting / dog-walking'],
+    coBenefit: 'Outdoor activity + tips',
+    networking: 'low',
+    cvImpact: 'low',
+    platform: 'DogBuddy, Animaute',
+    category: 'childcare',
+    marketDemand: 4,
+    cognitiveEffort: 1,
+    restNeeded: 1,
+  },
+  // --- Cleaning & Maintenance ---
+  {
+    id: 'cleaning',
+    name: 'Cleaning / Housekeeping',
+    hourlyRate: 13,
+    flexibility: 0.5,
+    skills: ['Cleaning'],
+    coBenefit: 'Physical activity + flexibility',
+    networking: 'low',
+    cvImpact: 'low',
+    platform: 'O2, Shiva, Indeed',
+    category: 'cleaning',
+    marketDemand: 5,
+    cognitiveEffort: 1,
+    restNeeded: 2.5,
+  },
+  // --- Handyman & Moving ---
+  {
+    id: 'handyman',
+    name: 'Handyman / Moving Helper',
+    hourlyRate: 15,
+    flexibility: 0.6,
+    skills: ['Electronics repair'],
+    coBenefit: 'Physical work + good pay',
+    networking: 'low',
+    cvImpact: 'low',
+    platform: 'TaskRabbit, Frizbiz, YoupiJob',
+    category: 'handyman',
+    marketDemand: 4,
+    cognitiveEffort: 2,
+    restNeeded: 3,
+  },
+  // --- Events & Promo ---
+  {
+    id: 'events',
+    name: 'Event Staff / Promoter',
+    hourlyRate: 14,
+    flexibility: 0.5,
+    skills: ['Virtual event organization', 'Community management'],
+    coBenefit: 'Social skills + industry contacts',
+    networking: 'high',
+    cvImpact: 'medium',
+    platform: 'Student Pop, Jobbing',
+    category: 'events',
+    marketDemand: 4,
+    cognitiveEffort: 2,
+    restNeeded: 2,
+  },
+  // --- Delivery ---
+  {
+    id: 'delivery',
+    name: 'Food Delivery / Courier',
+    hourlyRate: 12,
+    flexibility: 0.9,
+    skills: ['Food delivery / courier'],
+    coBenefit: 'Total schedule freedom',
+    networking: 'low',
+    cvImpact: 'low',
+    platform: 'Uber Eats, Deliveroo, Stuart',
+    category: 'interim',
+    marketDemand: 5,
+    cognitiveEffort: 1,
+    restNeeded: 2,
+  },
+  // --- Translation ---
+  {
+    id: 'translator',
+    name: 'Freelance Translator',
+    hourlyRate: 20,
+    flexibility: 0.9,
+    skills: ['Freelance translation / localization', 'Video subtitling', 'Audio transcription'],
+    coBenefit: 'International clients',
+    networking: 'medium',
+    cvImpact: 'medium',
+    platform: 'Upwork, ProZ, Malt',
+    category: 'digital',
+    marketDemand: 3,
+    cognitiveEffort: 2,
+    restNeeded: 0.5,
+  },
+  // --- Fitness / Wellness ---
+  {
+    id: 'fitness_coach',
+    name: 'Fitness / Yoga Instructor',
+    hourlyRate: 22,
+    flexibility: 0.7,
+    skills: ['Online fitness/yoga classes', 'Amateur nutrition coaching'],
+    coBenefit: 'Health benefits + community',
+    networking: 'medium',
+    cvImpact: 'low',
+    platform: 'Superprof, MindBody, direct',
+    category: 'beauty',
+    marketDemand: 3,
+    cognitiveEffort: 2,
+    restNeeded: 2,
+  },
+  // --- Mystery Shopping ---
+  {
+    id: 'mystery_shopping',
+    name: 'Mystery Shopper',
+    hourlyRate: 12,
+    flexibility: 0.9,
+    skills: ['Mystery shopping / service quality evaluations'],
+    coBenefit: 'Free products + meals',
+    networking: 'low',
+    cvImpact: 'low',
+    platform: 'BVA, Qualimetrie',
+    category: 'retail',
+    marketDemand: 3,
+    cognitiveEffort: 1,
+    restNeeded: 0.5,
+  },
+  // --- Reference (fast-food) ---
   {
     id: 'fastfood',
     name: 'Fast-food (reference)',
@@ -120,6 +350,7 @@ const JOB_DATABASE = [
     networking: 'low',
     cvImpact: 'low',
     platform: 'Direct',
+    category: 'service',
     marketDemand: 5,
     cognitiveEffort: 2,
     restNeeded: 2,
@@ -149,26 +380,32 @@ export const matchJobsTool = createTool({
         'input.prioritize_networking': input.prioritizeNetworking ?? false,
       });
 
-      const skillsLower = input.skills.map((s) => s.toLowerCase());
+      const skillsLower = input.skills.map((s) => s.toLowerCase().trim());
       const minRate = input.minHourlyRate || 0;
 
       // Score and filter jobs
       const matches = JOB_DATABASE.filter((job) => job.hourlyRate >= minRate)
         .map((job) => {
-          // Calculate skill match score
-          const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
+          // Calculate skill match score using exact or partial name matching
+          const matchingSkills = job.skills.filter((s) => {
+            const jobSkillLower = s.toLowerCase();
+            return skillsLower.some(
+              (us) =>
+                us === jobSkillLower || jobSkillLower.includes(us) || us.includes(jobSkillLower)
+            );
+          });
           const skillScore = job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
 
           // Calculate composite score
           let score = skillScore * 0.4 + (job.hourlyRate / 30) * 0.3 + job.flexibility * 0.2;
 
           // Boost networking jobs if prioritized
-          if (input.prioritizeNetworking && job.networking === 'fort') {
+          if (input.prioritizeNetworking && job.networking === 'high') {
             score += 0.15;
           }
 
           // Boost CV impact
-          if (job.cvImpact === 'fort') {
+          if (job.cvImpact === 'high') {
             score += 0.1;
           }
 
@@ -183,7 +420,7 @@ export const matchJobsTool = createTool({
         .slice(0, 5);
 
       // Always include McDo as reference
-      const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
+      const mcdo = JOB_DATABASE.find((j) => j.id === 'fastfood');
 
       ctx.setAttributes({
         'output.matches_count': matches.length,
@@ -316,11 +553,11 @@ export const compareJobsTool = createTool({
           const scoreA =
             (a.monthlyIncome / bestIncome) * 0.4 +
             a.flexibility * 0.3 +
-            (a.cvImpact === 'fort' ? 1 : a.cvImpact === 'moyen' ? 0.5 : 0) * 0.3;
+            (a.cvImpact === 'high' ? 1 : a.cvImpact === 'medium' ? 0.5 : 0) * 0.3;
           const scoreB =
             (b.monthlyIncome / bestIncome) * 0.4 +
             b.flexibility * 0.3 +
-            (b.cvImpact === 'fort' ? 1 : b.cvImpact === 'moyen' ? 0.5 : 0) * 0.3;
+            (b.cvImpact === 'high' ? 1 : b.cvImpact === 'medium' ? 0.5 : 0) * 0.3;
           return scoreB - scoreA;
         })[0]?.name || 'No recommendation';
 
@@ -460,7 +697,7 @@ export const matchJobsWithArbitrageTool = createTool({
         'input.prioritize_low_effort': input.prioritizeLowEffort ?? false,
       });
 
-      const skillsLower = input.skills.map((s) => s.toLowerCase());
+      const skillsLower = input.skills.map((s) => s.toLowerCase().trim());
       const prioritizeLowEffort = input.prioritizeLowEffort || (input.energyLevel || 100) < 50;
 
       // Adjust weights if low energy
@@ -470,8 +707,13 @@ export const matchJobsWithArbitrageTool = createTool({
 
       // Score each job using arbitrage algorithm
       const scoredJobs = JOB_DATABASE.map((job) => {
-        // Calculate skill match
-        const matchingSkills = job.skills.filter((s) => skillsLower.includes(s.toLowerCase()));
+        // Calculate skill match using exact or partial name matching
+        const matchingSkills = job.skills.filter((s) => {
+          const jobSkillLower = s.toLowerCase();
+          return skillsLower.some(
+            (us) => us === jobSkillLower || jobSkillLower.includes(us) || us.includes(jobSkillLower)
+          );
+        });
         const skillMatchRatio =
           job.skills.length > 0 ? matchingSkills.length / job.skills.length : 0;
 
@@ -506,7 +748,7 @@ export const matchJobsWithArbitrageTool = createTool({
         .slice(0, 5);
 
       // Reference job (McDo)
-      const mcdo = JOB_DATABASE.find((j) => j.id === 'mcdo');
+      const mcdo = JOB_DATABASE.find((j) => j.id === 'fastfood');
 
       ctx.setAttributes({
         'output.matches_count': scoredJobs.length,

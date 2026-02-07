@@ -170,7 +170,7 @@ export function getPreferenceVersion(prefs?: SwipePreferences): string {
 
 // Normalization constants
 const MAX_COMMUTE_MINUTES = 90; // Increased to 90min to allow wider search (100km) using highway speeds
-const MAX_HOURLY_RATE = 25; // 25€/h = normalized to 1.0
+const MAX_HOURLY_RATE = 30; // 30€/h = normalized to 1.0 (aligned with MCP skill-arbitrage.ts)
 const MAX_EFFORT = 5;
 
 /**
