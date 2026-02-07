@@ -39,9 +39,12 @@ export class JobsStrategy extends BaseTabStrategy {
 
   getSystemPrompt(): string {
     return `You are Bruno, a caring financial coach for students.
-Analyze the student's skills and job search and give ONE short actionable tip.
-Focus on: matching a skill with an opportunity, suggesting a new lead, or optimizing hourly rate.
-Consider current energy - if it's low (<50%), favor low-effort jobs.
+Analyze the student's skills, their matching job categories, and arbitrage scores.
+Give ONE short actionable tip focused on:
+- Suggesting a specific prospection category that matches their top skills
+- Pointing out their best-scoring skill and which platforms to try
+- If they have low energy (<50%), suggesting low-effort categories (childcare, digital, campus)
+Reference actual skill names and categories from the context.
 Reply in 1-2 sentences max, in an encouraging tone.`;
   }
 
@@ -56,14 +59,26 @@ Reply in 1-2 sentences max, in an encouraging tone.`;
     const common = this.buildCommonContext(context);
     if (common) parts.push(common);
 
-    // Skills
+    // Skills with arbitrage scores
     if (context.jobs?.skills && context.jobs.skills.length > 0) {
-      parts.push(`Skills: ${context.jobs.skills.length}`);
-      context.jobs.skills.slice(0, 5).forEach((s) => {
+      const skills = context.jobs.skills;
+      parts.push(`Skills: ${skills.length}`);
+      // Show top 5 by arbitrage score (or all if ≤5)
+      const sorted = [...skills].sort((a, b) => (b.arbitrageScore ?? 0) - (a.arbitrageScore ?? 0));
+      sorted.slice(0, 5).forEach((s) => {
         const rate = s.hourlyRate ? `${s.hourlyRate}€/h` : '?€/h';
-        const score = s.arbitrageScore ? ` (score: ${s.arbitrageScore}/10)` : '';
+        const score = s.arbitrageScore ? ` (arbitrage: ${s.arbitrageScore}/10)` : '';
         parts.push(`- ${s.name}: ${rate}${score}`);
       });
+
+      // Derive matching prospection categories from skill categories
+      const categoryMap = this.deriveMatchingCategories(skills);
+      if (categoryMap.length > 0) {
+        parts.push(`\nMatching job categories:`);
+        categoryMap.forEach(({ category, matchingSkills }) => {
+          parts.push(`- ${category}: matches ${matchingSkills.join(', ')}`);
+        });
+      }
     } else {
       parts.push('Skills: none declared');
     }
@@ -88,5 +103,67 @@ Reply in 1-2 sentences max, in an encouraging tone.`;
     }
 
     return parts.join('\n') || 'No skills declared';
+  }
+
+  /**
+   * Derive matching prospection categories from user skills.
+   * Maps skill names to prospection categories using keyword matching.
+   */
+  private deriveMatchingCategories(
+    skills: Array<{ name: string }>
+  ): Array<{ category: string; matchingSkills: string[] }> {
+    // Skill name keywords → prospection category labels
+    const SKILL_TO_CATEGORY: Array<{ keywords: string[]; category: string }> = [
+      {
+        keywords: ['web', 'app', 'python', 'javascript', 'cyber', 'debug', 'automation', 'chatbot'],
+        category: 'Digital & Remote',
+      },
+      {
+        keywords: ['design', 'illustration', 'video', 'motion', 'canva', 'template'],
+        category: 'Digital & Remote',
+      },
+      {
+        keywords: ['social media', 'community', 'copywriting', 'content', 'writing'],
+        category: 'Digital & Remote',
+      },
+      {
+        keywords: ['data entry', 'virtual assistant', 'transcription', 'translation', 'subtitling'],
+        category: 'Digital & Remote',
+      },
+      {
+        keywords: ['tutor', 'lesson', 'coaching', 'course', 'guitar', 'piano'],
+        category: 'Tutoring & Lessons',
+      },
+      { keywords: ['helpdesk', 'support', 'lab', 'research'], category: 'Campus Jobs' },
+      {
+        keywords: ['babysit', 'childcare', 'pet-sitting', 'dog-walking'],
+        category: 'Childcare & Pet sitting',
+      },
+      { keywords: ['cleaning', 'housekeep'], category: 'Cleaning & Maintenance' },
+      { keywords: ['delivery', 'courier'], category: 'Temp Agencies' },
+      { keywords: ['event', 'promo'], category: 'Events & Promo' },
+      { keywords: ['fitness', 'yoga', 'nutrition', 'wellness'], category: 'Beauty & Wellness' },
+      { keywords: ['mystery', 'shopping', 'retail'], category: 'Retail & Sales' },
+      { keywords: ['repair', 'electronic', 'handyman', 'moving'], category: 'Handyman & Moving' },
+    ];
+
+    const categoryHits = new Map<string, string[]>();
+    for (const skill of skills) {
+      const nameLower = skill.name.toLowerCase();
+      for (const { keywords, category } of SKILL_TO_CATEGORY) {
+        if (keywords.some((kw) => nameLower.includes(kw))) {
+          const existing = categoryHits.get(category) || [];
+          if (!existing.includes(skill.name)) {
+            existing.push(skill.name);
+          }
+          categoryHits.set(category, existing);
+        }
+      }
+    }
+
+    return Array.from(categoryHits.entries())
+      .map(([category, matchingSkills]) => ({ category, matchingSkills }))
+      .sort((a, b) => b.matchingSkills.length - a.matchingSkills.length)
+      .slice(0, 4); // Top 4 categories
   }
 }
