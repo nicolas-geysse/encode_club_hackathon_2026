@@ -18,7 +18,7 @@
     "@ai-sdk/provider-v5": "npm:@ai-sdk/provider@^3.0.5",
     "@ark-ui/solid": "5.30.0",
     "@kobalte/core": "^0.13.11",
-    "@seed-ship/mcp-ui-solid": "^2.1.1",
+    "@seed-ship/mcp-ui-solid": "^2.1.2",
     "@seed-ship/mcp-ui-spec": "^2.0.0",
     "@solidjs/router": "^0.15.3",
     "@solidjs/start": "^1.1.0",

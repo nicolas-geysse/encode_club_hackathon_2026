@@ -80,8 +80,8 @@ importers:
         specifier: ^0.13.11
         version: 0.13.11(solid-js@1.9.11)
       '@seed-ship/mcp-ui-solid':
-        specifier: ^2.1.1
-        version: 2.1.1(chart.js@4.5.1)(solid-js@1.9.11)
+        specifier: ^2.1.2
+        version: 2.1.2(chart.js@4.5.1)(solid-js@1.9.11)
       '@seed-ship/mcp-ui-spec':
         specifier: ^2.0.0
         version: 2.0.0
@@ -1620,8 +1620,8 @@ packages:
     resolution: {integrity: sha512-TCeKQEc+gc77gXw8qvv0vns/AbhXIQPU6bxe0N0niH82ZqWDJ/Hk8DkJk4WMe2+61LkVMRzkZbQRaof3ij6MOg==}
     engines: {node: '>=20.0.0'}
 
-  '@seed-ship/mcp-ui-solid@2.1.1':
-    resolution: {integrity: sha512-PbAxErWIfzlvfutQOisWH+iVl4Nk/7o8Dsic4vzxkZbmk2ljuUUeEn+ZLcycYsPew6yHETnqRHlHPEFaQrp/rg==}
+  '@seed-ship/mcp-ui-solid@2.1.2':
+    resolution: {integrity: sha512-wzIwRiR7brSNc3E57PBssKYutTzx5hBkZebuwK3q9a5uaM6Bh77j9m+EDkMXyV14QBJ+M4O6MLe3+3t4qli0Zw==}
     peerDependencies:
       '@duckdb/duckdb-wasm': ^1.28.0
       '@tanstack/solid-virtual': ^3.0.0
@@ -6919,7 +6919,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@seed-ship/mcp-ui-solid@2.1.1(chart.js@4.5.1)(solid-js@1.9.11)':
+  '@seed-ship/mcp-ui-solid@2.1.2(chart.js@4.5.1)(solid-js@1.9.11)':
     dependencies:
       '@types/dompurify': 3.2.0
       dompurify: 3.3.1
