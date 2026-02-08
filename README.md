@@ -81,7 +81,9 @@ LLM/STT provider config, API keys, server status indicators. Switch providers at
 
 ### Time Machine (Demo Feature)
 
-Simulation controls let you fast-forward time to test energy debt triggers, comeback scenarios, and achievement unlocks without waiting weeks. Access via the clock icon in the Progress page header.
+Simulation controls let you fast-forward time (+1 day, +1 week, +1 month) to test energy debt triggers, comeback scenarios, and achievement unlocks without waiting weeks. Energy/mood is tracked **per week** — fast-forward at least 1 week to see changes. Access via the clock icon in the top-right corner.
+
+![Time Machine](docs/img/0-time-simulate.png)
 
 ---
 
