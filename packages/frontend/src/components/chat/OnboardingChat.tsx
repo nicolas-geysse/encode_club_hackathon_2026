@@ -481,7 +481,7 @@ export function OnboardingChat() {
     if (lastInjectedPid === pid) return;
     lastInjectedPid = pid;
 
-    // Phase 5: Drain proactive queue and inject messages
+    // Phase 5: Drain proactive queue and inject messages (persist to DB for navigation survival)
     const drainAndInjectQueue = () => {
       const queued = drainQueue();
       if (queued.length === 0) return;
@@ -492,6 +492,10 @@ export function OnboardingChat() {
         uiResource: m.uiResource,
       }));
       setMessages((prev) => [...prev, ...proactiveMessages]);
+      // Persist proactive messages to chat history DB so they survive page navigation
+      for (const msg of proactiveMessages) {
+        saveMessageToDb(msg);
+      }
     };
 
     // 2.1 Welcome message (one-time per profile)
@@ -1266,18 +1270,28 @@ export function OnboardingChat() {
       followupData: newProfile.followupData,
     });
 
-    // Check profile completeness - need key fields to skip onboarding
-    const isProfileComplete =
-      newProfile.name &&
-      newProfile.diploma &&
-      newProfile.city &&
-      newProfile.skills &&
-      newProfile.skills.length > 0 &&
-      newProfile.goalName &&
-      newProfile.goalAmount;
+    // Check profile completeness - only require identity fields (name, diploma, city)
+    // Skills and goal are optional — user can add them later via the interface
+    // This MUST match the isProfileComplete() function used in onMount (line ~1343)
+    const profileComplete = !!(newProfile.name && newProfile.diploma && newProfile.city);
 
-    // Reset chat state based on profile completeness
-    if (isProfileComplete) {
+    // GUARD: If onboarding was already completed, NEVER reset it from a profile switch
+    // Only explicit user actions (restart, DATA_RESET) should reset onboarding
+    if (!profileComplete && localStorage.getItem('onboardingComplete') === 'true') {
+      logger.info(
+        'handleProfileSwitch: profile appears incomplete but onboarding was completed, staying in conversation mode'
+      );
+      setChatMode('conversation');
+      setStep('complete');
+      setIsComplete(true);
+      setMessages([
+        {
+          id: `welcome-${Date.now()}`,
+          role: 'assistant',
+          content: getWelcomeBackMessage(newProfile.name || 'there'),
+        },
+      ]);
+    } else if (profileComplete) {
       // Complete profile -> conversation mode
       setChatMode('conversation');
       setStep('complete');
@@ -1290,7 +1304,7 @@ export function OnboardingChat() {
         },
       ]);
     } else {
-      // Incomplete or empty profile -> start full onboarding
+      // Incomplete or empty profile AND onboarding never completed -> start full onboarding
       setChatMode('onboarding');
       setStep('greeting'); // Start at greeting to collect name first
       setIsComplete(false);
@@ -1325,12 +1339,16 @@ export function OnboardingChat() {
       if (currentMode === 'onboarding' && !currentId) {
         return;
       }
-      // If we just completed onboarding and saved, the context refresh should not reset chat
-      // The profile IDs will match after setProfileId is called, but there's a brief window
-      // where the effect fires before the local state updates
-      if (complete && currentMode === 'conversation') {
-        // Already in conversation mode with complete profile - just update the ID silently
+      // If onboarding was already completed (signal or localStorage), don't reset
+      // Just silently update the profile ID to avoid desync
+      if (complete || localStorage.getItem('onboardingComplete') === 'true') {
         setProfileId(newProfile.id);
+        if (!complete) {
+          // Signal desynced from localStorage — re-sync
+          setIsComplete(true);
+          setChatMode('conversation');
+          setStep('complete');
+        }
         return;
       }
       handleProfileSwitch(newProfile);
