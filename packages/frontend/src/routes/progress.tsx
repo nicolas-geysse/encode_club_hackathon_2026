@@ -6,7 +6,16 @@
  * Renamed from suivi.tsx for clearer English naming.
  */
 
-import { createSignal, createMemo, createEffect, Show, onMount, onCleanup, on } from 'solid-js';
+import {
+  createSignal,
+  createMemo,
+  createEffect,
+  Show,
+  onMount,
+  onCleanup,
+  on,
+  For,
+} from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import { TimelineHero } from '~/components/suivi/TimelineHero';
 import { getCurrentWeekInfo } from '~/lib/weekCalculator';
@@ -42,6 +51,10 @@ import {
   Heart,
   ArrowRightLeft,
   Package,
+  PieChart,
+  TrendingDown,
+  TrendingUp,
+  Minus,
 } from 'lucide-solid';
 import {
   weeksBetween,
@@ -1417,6 +1430,170 @@ export default function ProgressPage() {
                         Trade
                       </Button>
                     </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </Show>
+
+          {/* Section 1c: Budget Insights */}
+          <Show when={contextLifestyle().length > 0 && contextIncome().length > 0}>
+            {(() => {
+              const lifestyleItems = contextLifestyle;
+              const incomeItems = contextIncome;
+
+              // Student benchmark thresholds (% of income)
+              const benchmarks: Record<string, { max: number; label: string; color: string }> = {
+                housing: { max: 35, label: 'Housing', color: 'bg-blue-500' },
+                food: { max: 20, label: 'Food', color: 'bg-green-500' },
+                transport: { max: 10, label: 'Transport', color: 'bg-amber-500' },
+                subscriptions: { max: 10, label: 'Subscriptions', color: 'bg-purple-500' },
+                other: { max: 25, label: 'Other', color: 'bg-gray-400' },
+              };
+
+              const totalIncome = createMemo(() => incomeItems().reduce((s, i) => s + i.amount, 0));
+              const activeExpenses = createMemo(() =>
+                lifestyleItems().filter((l) => l.pausedMonths === 0)
+              );
+              const totalExpenses = createMemo(() =>
+                activeExpenses().reduce((s, l) => s + l.currentCost, 0)
+              );
+              const margin = createMemo(() => totalIncome() - totalExpenses());
+
+              // Category breakdown
+              const categoryData = createMemo(() => {
+                const byCategory: Record<string, number> = {};
+                for (const item of activeExpenses()) {
+                  const cat = item.category || 'other';
+                  byCategory[cat] = (byCategory[cat] || 0) + item.currentCost;
+                }
+
+                const result: Array<{
+                  category: string;
+                  label: string;
+                  amount: number;
+                  pct: number;
+                  benchmark: number;
+                  status: 'over' | 'on_track' | 'under';
+                  color: string;
+                }> = [];
+
+                for (const [cat, info] of Object.entries(benchmarks)) {
+                  const amount = byCategory[cat] || 0;
+                  if (amount === 0) continue;
+                  const pct = totalIncome() > 0 ? Math.round((amount / totalIncome()) * 100) : 0;
+                  const delta = pct - info.max;
+                  const status: 'over' | 'on_track' | 'under' =
+                    delta > 5 ? 'over' : delta < -5 ? 'under' : 'on_track';
+                  result.push({
+                    category: cat,
+                    label: info.label,
+                    amount,
+                    pct,
+                    benchmark: info.max,
+                    status,
+                    color: info.color,
+                  });
+                }
+
+                return result.sort((a, b) => b.amount - a.amount);
+              });
+
+              const overCount = createMemo(
+                () => categoryData().filter((c) => c.status === 'over').length
+              );
+
+              return (
+                <Card class="border-sky-200/50 dark:border-sky-800/50 bg-gradient-to-br from-sky-50 to-sky-100/50 dark:from-sky-950/30 dark:to-sky-900/10 shadow-sm transition-all hover:shadow-md">
+                  <CardContent class="p-5">
+                    {/* Header */}
+                    <div class="flex items-center justify-between mb-3">
+                      <h3 class="text-base font-semibold text-foreground flex items-center gap-2">
+                        <PieChart class="h-4 w-4 text-sky-500" /> Budget Insights
+                      </h3>
+                      <Show
+                        when={overCount() > 0}
+                        fallback={
+                          <span class="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                            On track
+                          </span>
+                        }
+                      >
+                        <span class="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                          {overCount()} over benchmark
+                        </span>
+                      </Show>
+                    </div>
+
+                    {/* Margin summary */}
+                    <div class="flex items-center justify-between mb-4 p-3 rounded-lg bg-white/60 dark:bg-white/5">
+                      <div>
+                        <p class="text-xs text-muted-foreground">Monthly margin</p>
+                        <p
+                          class={`text-xl font-bold ${margin() >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                        >
+                          {formatCurrency(margin(), currency())}
+                        </p>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-xs text-muted-foreground">
+                          {formatCurrency(totalIncome(), currency())} in
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                          {formatCurrency(totalExpenses(), currency())} out
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Category bars */}
+                    <div class="space-y-2">
+                      <For each={categoryData()}>
+                        {(cat) => (
+                          <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-muted-foreground w-20 truncate">
+                              {cat.label}
+                            </span>
+                            <div class="flex-1 h-3 bg-secondary/50 rounded-full overflow-hidden relative">
+                              <div
+                                class={`h-full rounded-full transition-all duration-500 ${
+                                  cat.status === 'over'
+                                    ? 'bg-red-400'
+                                    : cat.status === 'under'
+                                      ? 'bg-green-400'
+                                      : 'bg-sky-400'
+                                }`}
+                                style={{
+                                  width: `${Math.min(100, (cat.pct / Math.max(cat.benchmark * 1.5, cat.pct)) * 100)}%`,
+                                }}
+                              />
+                              {/* Benchmark marker */}
+                              <div
+                                class="absolute top-0 h-full w-px bg-foreground/30"
+                                style={{
+                                  left: `${(cat.benchmark / Math.max(cat.benchmark * 1.5, cat.pct)) * 100}%`,
+                                }}
+                              />
+                            </div>
+                            <div class="flex items-center gap-1 w-16 justify-end">
+                              <span class="text-[10px] font-medium tabular-nums">{cat.pct}%</span>
+                              {cat.status === 'over' ? (
+                                <TrendingUp class="h-3 w-3 text-red-500" />
+                              ) : cat.status === 'under' ? (
+                                <TrendingDown class="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Minus class="h-3 w-3 text-muted-foreground" />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+
+                    {/* Benchmark legend */}
+                    <p class="text-[9px] text-muted-foreground/50 mt-3 text-center">
+                      Vertical lines = student benchmarks (housing &lt;35%, food &lt;20%, transport
+                      &lt;10%)
+                    </p>
                   </CardContent>
                 </Card>
               );
