@@ -684,7 +684,7 @@ export async function POST(event: APIEvent) {
           timeContext, // Pass time context for deadline normalization (simulation support)
         });
 
-        // Get trace ID for response
+        // Get trace ID from Groq extractor's trace (safe: read immediately after await, no async gap)
         const traceId = getCurrentTraceId();
 
         // Log automatic feedback scores based on extraction quality
@@ -821,9 +821,11 @@ export async function POST(event: APIEvent) {
 
         // Step 4: Hybrid evaluation (heuristics + G-Eval LLM-as-Judge)
         // Non-blocking: logs 10+ feedback scores to Opik dashboard
-        const currentTraceIdForEval = getCurrentTraceId();
-        if (currentTraceIdForEval) {
-          runHybridChatEvaluation(response, updatedContext, currentTraceIdForEval)
+        // Use span.getTraceId() (closure-captured) instead of getCurrentTraceId() (global singleton)
+        // to avoid logging scores to the wrong trace when nested traces (e.g. budget) overwrite the global
+        const legacyTraceId = span.getTraceId();
+        if (legacyTraceId) {
+          runHybridChatEvaluation(response, updatedContext, legacyTraceId)
             .then((evaluation) => {
               if (evaluation) {
                 span.setAttributes({
@@ -852,13 +854,10 @@ export async function POST(event: APIEvent) {
           'output.next_step': nextStep,
         });
 
-        // Get trace ID for feedback
-        const currentTraceId = getCurrentTraceId();
-
         // Log feedback scores for legacy path too
-        if (currentTraceId) {
+        if (legacyTraceId) {
           const extractedCount = Object.keys(extractedData).length;
-          logFeedbackScores(currentTraceId, [
+          logFeedbackScores(legacyTraceId, [
             {
               name: 'extraction_success',
               value: extractedCount > 0 ? 1 : 0,
@@ -885,7 +884,7 @@ export async function POST(event: APIEvent) {
           response,
           extractedData,
           nextStep,
-          traceId: currentTraceId || undefined,
+          traceId: legacyTraceId || undefined,
           source: 'llm_legacy',
           uiResource: legacyUiResource,
         } as ChatResponse;
@@ -3522,8 +3521,9 @@ Use this data for personalized, concrete advice.`,
         }
       }
 
-      const traceId = getCurrentTraceId();
-      const traceUrl = traceId ? getTraceUrl(traceId) : undefined;
+      // Use closure-captured trace ID (not global singleton which may be overwritten by nested traces)
+      const conversationTraceId = ctx.getTraceId();
+      const traceUrl = conversationTraceId ? getTraceUrl(conversationTraceId) : undefined;
 
       // Charts are now ONLY shown when explicitly requested via intent detection
       // (e.g., "show my progress", "projection chart", etc.)
@@ -3553,7 +3553,7 @@ Use this data for personalized, concrete advice.`,
         extractedData,
         nextStep: 'complete' as OnboardingStep,
         intent,
-        traceId: traceId || undefined,
+        traceId: conversationTraceId || undefined,
         traceUrl,
         source: 'llm' as const,
         ...(finalUiResource ? { uiResource: finalUiResource } : {}),
