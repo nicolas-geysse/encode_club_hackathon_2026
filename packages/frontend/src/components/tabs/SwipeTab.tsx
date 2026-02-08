@@ -4,7 +4,7 @@
  * Roll the Dice + Swipe Scenarios for preference learning.
  */
 
-import { createSignal, Show, For } from 'solid-js';
+import { createSignal, Show, For, onMount } from 'solid-js';
 import { RollDice } from '../swipe/RollDice';
 import { SwipeSession, updatePreferences } from '../swipe/SwipeSession';
 import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
@@ -15,7 +15,20 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
 import { Input } from '~/components/ui/Input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/Tooltip';
-import { ClipboardList, RotateCcw, Check, Dices, Trash2, Bot, Plus, X } from 'lucide-solid';
+import {
+  ClipboardList,
+  RotateCcw,
+  Check,
+  Dices,
+  Trash2,
+  Bot,
+  Plus,
+  X,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-solid';
 import { toastPopup } from '~/components/ui/Toast';
 import type { Lead } from '~/lib/prospectionTypes';
 import { matchSkillsToCategory } from '~/lib/jobScoring';
@@ -513,6 +526,11 @@ export function SwipeTab(props: SwipeTabProps) {
     hourlyRate: number;
   } | null>(null);
 
+  // Auto-start scenario generation on first mount (skip idle Roll Dice step)
+  onMount(() => {
+    handleRoll();
+  });
+
   const handleRoll = () => {
     setPhase('rolling');
 
@@ -688,11 +706,39 @@ export function SwipeTab(props: SwipeTabProps) {
         </div>
       </Show>
 
-      {/* Rolling Animation */}
+      {/* Rolling Animation + Swipe Instructions */}
       <Show when={phase() === 'rolling'}>
-        <div class="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <div class="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <Dices class="h-16 w-16 animate-bounce mb-6 text-primary" />
-          <p class="text-lg animate-pulse">Generating scenarios...</p>
+          <p class="text-lg animate-pulse mb-8">Generating scenarios...</p>
+
+          {/* Swipe gesture instructions */}
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm text-muted-foreground">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                <ArrowLeft class="h-4 w-4" />
+              </span>
+              <span>Not for me</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
+                <ArrowRight class="h-4 w-4" />
+              </span>
+              <span>I'll take it!</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <ArrowUp class="h-4 w-4" />
+              </span>
+              <span>Super like</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
+                <ArrowDown class="h-4 w-4" />
+              </span>
+              <span>Meh</span>
+            </div>
+          </div>
         </div>
       </Show>
 
