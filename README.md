@@ -2,7 +2,7 @@
 
 > Navigate student life, one smart step at a time
 
-<video src="docs/img/bruno.mp4" autoplay loop muted playsinline width="100%"></video>
+https://github.com/nicolas-geysse/encode_club_hackathon_2026/raw/main/docs/img/bruno.mp4
 
 **Live Demo**: [https://encodeclubhackathon2026-production.up.railway.app/](https://encodeclubhackathon2026-production.up.railway.app/)
 
