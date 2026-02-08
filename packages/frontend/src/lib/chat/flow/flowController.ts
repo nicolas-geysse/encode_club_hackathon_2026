@@ -135,7 +135,7 @@ export function getAdvanceMessage(nextStep: OnboardingStep, profile: ProfileData
     inventory: `🏷️ Items you could sell for extra cash? (or "none")`,
     trade: `🔄 Things you could borrow or trade with friends?\n📥 Borrow gear · 🔄 Trade skills\n(or "none")`,
     lifestyle: `📱 What subscriptions do you pay for? (or "none")`,
-    complete: `✅ All set${name ? `, ${name}` : ''}! Your profile is ready.\n\n👉 Click **"Me"** to see your personalized strategies.`,
+    complete: `✅ All set${name ? `, ${name}` : ''}! Your profile is ready.\n\nNow let's find the best opportunities around you.`,
   };
 
   return messages[nextStep] || `Great${name ? `, ${name}` : ''}! Let's continue.`;
@@ -148,7 +148,7 @@ export function generateCompletionMessage(context: Record<string, unknown>): str
   const name = context.name || '';
   return `✅ All set${name ? `, ${name}` : ''}! Your profile is ready.
 
-👉 Click **"Me"** to see your personalized strategies.`;
+Now let's find the best opportunities around you.`;
 }
 
 /**

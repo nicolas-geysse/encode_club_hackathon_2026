@@ -10,6 +10,7 @@
  */
 
 import { createSignal, Show, createEffect, on } from 'solid-js';
+import { useNavigate } from '@solidjs/router';
 import { Dynamic } from 'solid-js/web';
 import {
   CategoryExplorer,
@@ -105,6 +106,7 @@ function buildBalancedTop10(allJobs: ScoredJob[]): ScoredJob[] {
 }
 
 export function ProspectionTab(props: ProspectionTabProps) {
+  const navigate = useNavigate();
   const [phase, setPhase] = createSignal<Phase>('idle');
   const [viewMode, setViewMode] = createSignal<ViewMode>('list');
   const [_loadingCategory, setLoadingCategory] = createSignal<string | null>(null);
@@ -788,6 +790,36 @@ export function ProspectionTab(props: ProspectionTabProps) {
               </div>
             </button>
           </div>
+        </Show>
+
+        {/* CTA: Plan your missions — above My Selection */}
+        <Show when={leads().length > 0}>
+          <button
+            onClick={() => navigate('/swipe')}
+            class="w-full rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 shadow-sm hover:shadow-lg hover:border-emerald-400/50 hover:ring-2 hover:ring-emerald-500/20 transition-all duration-300 group overflow-hidden"
+          >
+            <div class="flex items-center justify-between p-5">
+              <div class="flex items-center gap-4">
+                <div class="relative h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center overflow-visible">
+                  <span class="text-2xl transition-transform duration-500 group-hover:-translate-y-2 group-hover:scale-110">
+                    🚀
+                  </span>
+                  <span class="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0 bg-gradient-to-t from-orange-500/80 via-yellow-400/60 to-transparent rounded-full blur-sm opacity-0 group-hover:h-5 group-hover:opacity-100 transition-all duration-500" />
+                </div>
+                <div class="text-left">
+                  <p class="text-base font-bold text-emerald-900 dark:text-emerald-100">
+                    Ready? Plan your missions
+                  </p>
+                  <p class="text-sm text-emerald-600/80 dark:text-emerald-400/60">
+                    Swipe to turn {leads().length} job{leads().length > 1 ? 's' : ''} into action
+                  </p>
+                </div>
+              </div>
+              <div class="h-10 w-10 rounded-full bg-emerald-500 dark:bg-emerald-600 flex items-center justify-center shadow-md group-hover:scale-110 group-hover:shadow-emerald-500/30 group-hover:shadow-lg transition-all duration-300">
+                <ChevronRight class="h-5 w-5 text-white group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </div>
+          </button>
         </Show>
 
         {/* Saved Jobs Inline Section */}

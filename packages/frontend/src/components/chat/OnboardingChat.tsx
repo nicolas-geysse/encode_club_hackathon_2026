@@ -1916,8 +1916,8 @@ export function OnboardingChat() {
       // Clear temp onboarding messages
       localStorage.removeItem(ONBOARDING_TEMP_KEY);
 
-      // Reset to initial state
-      setMessages([{ id: 'greeting', role: 'assistant', content: GREETING_MESSAGE }]);
+      // Reset to initial state — show location consent first
+      setMessages([]);
       setProfile({
         skills: [],
         certifications: [],
@@ -1943,6 +1943,7 @@ export function OnboardingChat() {
       setIsComplete(false);
       setProfileId(undefined);
       setThreadId(generateThreadId());
+      setShowLocationConsent(true);
     });
 
     onCleanup(() => {
@@ -2145,7 +2146,7 @@ export function OnboardingChat() {
       inventory: `Thanks for sharing!\n\nDo you have any items you could sell? (textbooks, electronics, etc.)`,
       trade: `Good to know!\n\nAre there things you could borrow instead of buying, or skills you could trade with friends? (or say 'none')`,
       lifestyle: `Thanks!\n\nWhat subscriptions do you have? (streaming, gym, phone plan...)`,
-      complete: `Perfect! I have everything I need.\n\nClick on "Me" to get started!`,
+      complete: `Perfect! I have everything I need.\n\nNow let's find the best opportunities around you.`,
     };
 
     return {
@@ -2341,7 +2342,8 @@ export function OnboardingChat() {
       setIsComplete(false);
       setChatMode('onboarding');
       setStep('greeting');
-      setMessages([{ id: 'restart', role: 'assistant', content: GREETING_MESSAGE }]);
+      setMessages([]); // Empty until location consent is given
+      setShowLocationConsent(true); // Show Stride teaser + location consent
 
       toast.success('Onboarding restarted', "All your data has been cleared. Let's start fresh!");
     } catch (error) {
@@ -3113,7 +3115,7 @@ export function OnboardingChat() {
   };
 
   const goToPlan = () => {
-    navigate('/me');
+    navigate('/me?tab=jobs');
   };
 
   /**
@@ -3485,7 +3487,7 @@ export function OnboardingChat() {
         description: 'Bartering can save you money without spending.',
       },
       lifestyle: { title: 'Subscriptions', description: 'Small recurring costs add up fast.' },
-      complete: { title: 'All Set!', description: "Your profile is ready. Let's make a plan." },
+      complete: { title: 'All Set!', description: "Let's find the best opportunities near you." },
     };
     return contextMap[s] || { title: 'Chat', description: 'Ask me anything about your finance.' };
   };
@@ -3626,7 +3628,7 @@ export function OnboardingChat() {
                       <Show when={msg.isCompletionCta}>
                         <div class="ml-12 mt-2">
                           <GlassButton onClick={goToPlan} class="w-fit">
-                            Let's Go
+                            Find jobs near me
                             <svg
                               class="animate-bounce-x ml-2"
                               xmlns="http://www.w3.org/2000/svg"
