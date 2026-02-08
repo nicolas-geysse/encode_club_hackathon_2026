@@ -8,6 +8,7 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { createLogger } from '~/lib/logger';
 import { getSetting } from '~/lib/settingsStore';
+import { trace } from '~/lib/opik';
 
 const logger = createLogger('Voice');
 
@@ -65,65 +66,77 @@ export async function POST(event: APIEvent) {
     const format = body.format || 'webm';
     const language = body.language || 'fr';
     const sttModel = getSTTModel();
-    const isMistral = getSTTBaseUrl().includes('mistral.ai');
-
-    // Mistral Voxtral only supports: mp3, wav, m4a, flac, ogg (NOT webm)
-    // If recording is webm and provider is Mistral, re-wrap as ogg (webm/opus is ogg-compatible)
-    const effectiveFormat = isMistral && format === 'webm' ? 'ogg' : format;
-    const mimeTypes: Record<string, string> = {
-      webm: 'audio/webm',
-      wav: 'audio/wav',
-      ogg: 'audio/ogg',
-      mp3: 'audio/mpeg',
-      m4a: 'audio/mp4',
-      flac: 'audio/flac',
-    };
-
-    const formData = new FormData();
-    const audioBlob = new Blob([audioBuffer], {
-      type: mimeTypes[effectiveFormat] || 'audio/webm',
-    });
-    formData.append('file', audioBlob, `recording.${effectiveFormat}`);
-    formData.append('model', sttModel);
-    formData.append('language', language);
-    // response_format=verbose_json is Whisper-specific, Mistral doesn't support it
-    if (!isMistral) {
-      formData.append('response_format', 'verbose_json');
-    }
-
-    // Call STT provider API (Groq Whisper, Mistral Voxtral, etc.)
     const sttBaseUrl = getSTTBaseUrl();
-    const sttResponse = await fetch(`${sttBaseUrl}/audio/transcriptions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: formData,
-    });
+    const isMistral = sttBaseUrl.includes('mistral.ai');
+    const provider = isMistral ? 'mistral' : sttBaseUrl.includes('groq.com') ? 'groq' : 'custom';
 
-    if (!sttResponse.ok) {
-      const errorText = await sttResponse.text();
-      logger.error('STT API error', { status: sttResponse.status, error: errorText });
-      return new Response(
-        JSON.stringify({ error: true, message: `STT API error: ${sttResponse.status}` }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
+    return trace(
+      'voice.transcription',
+      async (ctx) => {
+        ctx.setAttributes({
+          'stt.provider': provider,
+          'stt.model': sttModel,
+          'stt.language': language,
+          'stt.format': format,
+          'stt.audio_bytes': audioBuffer.length,
+        });
+
+        // Mistral Voxtral only supports: mp3, wav, m4a, flac, ogg (NOT webm)
+        const effectiveFormat = isMistral && format === 'webm' ? 'ogg' : format;
+        const mimeTypes: Record<string, string> = {
+          webm: 'audio/webm',
+          wav: 'audio/wav',
+          ogg: 'audio/ogg',
+          mp3: 'audio/mpeg',
+          m4a: 'audio/mp4',
+          flac: 'audio/flac',
+        };
+
+        const formData = new FormData();
+        const audioBlob = new Blob([audioBuffer], {
+          type: mimeTypes[effectiveFormat] || 'audio/webm',
+        });
+        formData.append('file', audioBlob, `recording.${effectiveFormat}`);
+        formData.append('model', sttModel);
+        formData.append('language', language);
+        if (!isMistral) {
+          formData.append('response_format', 'verbose_json');
         }
-      );
-    }
 
-    const transcription = await sttResponse.json();
+        const sttResponse = await fetch(`${sttBaseUrl}/audio/transcriptions`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: formData,
+        });
 
-    return new Response(
-      JSON.stringify({
-        text: transcription.text,
-        language: transcription.language || language,
-        duration: transcription.duration,
-      }),
+        if (!sttResponse.ok) {
+          const errorText = await sttResponse.text();
+          logger.error('STT API error', { status: sttResponse.status, error: errorText });
+          ctx.setAttributes({ 'stt.error': true, 'stt.status': sttResponse.status });
+          return new Response(
+            JSON.stringify({ error: true, message: `STT API error: ${sttResponse.status}` }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const transcription = await sttResponse.json();
+        ctx.setAttributes({
+          'stt.text_length': transcription.text?.length || 0,
+          'stt.duration_seconds': transcription.duration || 0,
+        });
+
+        return new Response(
+          JSON.stringify({
+            text: transcription.text,
+            language: transcription.language || language,
+            duration: transcription.duration,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      },
       {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        source: 'voice_api',
+        tags: ['voice', 'stt', `provider:${provider}`, `model:${sttModel}`],
       }
     );
   } catch (error) {
