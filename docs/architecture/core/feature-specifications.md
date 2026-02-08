@@ -24,58 +24,59 @@
 
 ---
 
-## Architecture Lean
+## Architecture
 
-### 4 Agents
+### 18 Agents Mastra
 
-| Agent | Role | Killer Feature |
-|-------|------|----------------|
-| **Budget Coach** | Analyse budget + conseils personnalises + chat onboarding | Foundation |
-| **Job Matcher** | Skill Arbitrage + multi-criteria scoring | #2 Skill Arbitrage |
-| **Guardian** | Validation simplifiee (2 layers) | Quality control |
-| **Energy Calculator** | Capacity tracking + Comeback detection + Energy Debt | #1 & #4 |
+| Agent | ID | Role | Category |
+|-------|----|------|----------|
+| **Budget Coach** | `budget-coach` | Analyse budget + conseils | Foundation |
+| **Job Matcher** | `job-matcher` | Skill Arbitrage + scoring | #2 Skill Arbitrage |
+| **Guardian** | `guardian` | Validation (2 layers) | Quality control |
+| **Projection ML** | `projection-ml` | Predict graduation balance | Projections |
+| **Money Maker** | `money-maker` | Side hustles, item selling | Trade |
+| **Strategy Comparator** | `strategy-comparator` | Compare options | Strategy |
+| **Onboarding Agent** | `onboarding-agent` | Chat conversationnel profil | Onboarding |
+| **Lifestyle Agent** | `lifestyle-agent` | Subscription optimization | Lifestyle |
+| **Swipe Orchestrator** | `swipe-orchestrator` | Scenario generation + ranking | #3 Swipe |
+| **Daily Briefing** | `daily-briefing` | Daily financial briefing | Tips |
+| **Tab Tips Orchestrator** | `tab-tips-orchestrator` | Tab-specific AI tips | Tips |
+| **Tips Orchestrator** | `tips-orchestrator` | General tips engine | Tips |
+| **Essential Guardian** | `essential-guardian` | Structural alternatives | Guardrail |
+| **Ghost Observer** | `ghost-observer` | Rejection pattern detection | Guardrail |
+| **Asset Pivot** | `asset-pivot` | Asset monetization | Guardrail |
+| **Cash Flow Smoother** | `cashflow-smoother` | Timing mismatch detection | Guardrail |
+| **Agent Executor** | `agent-executor` | Agent dispatch coordinator | Infra |
+| **Factory** | `factory` | Agent creation from config | Infra |
 
-**Supprime:**
-- ~~Money Maker~~ (merge dans conseils Budget Coach)
-- ~~Strategy Comparator~~ (merge dans Job Matcher)
-- ~~Projection ML~~ (renomme en Energy Calculator)
-
-### 3 Ecrans + 6 Tabs
+### 5 Ecrans + 5 Tabs
 
 | # | Ecran | Route | Purpose |
 |---|-------|-------|---------|
 | 0 | **Onboarding** | `/` | Chat conversationnel profil |
-| 1 | **Mon Plan** | `/plan` | 6 tabs configuration |
-| 2 | **Suivi** | `/suivi` | Dashboard unifie |
+| 1 | **Me** | `/me` | 5 tabs configuration |
+| 2 | **Swipe** | `/swipe` | Standalone swipe page |
+| 3 | **Progress** | `/progress` | Dashboard unifie |
+| 4 | **Settings** | `/settings` | Provider + API keys config |
 
-#### 6 Tabs (Mon Plan)
+> Legacy routes `/plan` et `/suivi` redirigent respectivement vers `/me` et `/progress`.
 
-| Tab | Contenu | Chat |
-|-----|---------|------|
-| Setup | Objectif, echeance, evenements | - |
-| Skills | Skill Arbitrage + scoring | addSkillChat |
-| A Vendre | Inventory objets | addItemChat |
-| Lifestyle | Logement, food, transport, abonnements | addLifestyleChat |
-| Trade | Emprunter/troquer | addTradeChat |
-| Swipe | Roll the Dice + Swipe Scenarios | - |
+#### 5 Tabs (Me)
 
-> **Note Design: Chats isolés par tab (intentionnel)**
-> Les chats sont isolés par tab sans mémoire partagée. C'est un **choix de design délibéré**:
-> - Contexte isolé = moins de confusion pour l'utilisateur
-> - Chaque tab a son propre sujet spécifique
-> - L'onboarding (Screen 0) EST conversationnel avec questions progressives
-> - Alternative rejetée: mémoire cross-tab ajouterait de la complexité sans valeur ajoutée
+| Tab | Component | Contenu |
+|-----|-----------|---------|
+| Profile | `ProfileTab` | Profil etudiant, skills embarques |
+| Goals | `GoalsTab` | Objectifs financiers, composants, academic events |
+| Budget | `BudgetTab` | Analyse budget, revenus, depenses |
+| Trade | `TradeTab` | Vente d'objets, inventaire |
+| Jobs | `ProspectionTab` | Recherche emploi, Google Maps, job listings |
 
 ### 2 Couches Evaluation
 
 | Layer | Role | Latence |
 |-------|------|---------|
-| **Heuristics** | Checks rapides (calculs, risques) | ~50ms |
-| **G-Eval LLM** | LLM-as-Judge scoring | ~500ms |
-
-**Simplifie:**
-- Aggregation = score pondere simple (60% heuristiques + 40% LLM)
-- Opik = monitoring separe, pas dans le path d'evaluation
+| **Heuristics** (60%) | Checks rapides (risk_keywords, tone, readability, disclaimers, length_quality) | ~50ms |
+| **G-Eval LLM** (40%) | LLM-as-Judge (appropriateness 30%, safety 35%, coherence 15%, actionability 20%) | ~500ms |
 
 ---
 
@@ -87,10 +88,7 @@
 
 ```typescript
 function detectComebackWindow(energyHistory: number[]): ComebackWindow | null {
-  // 1. Identifier les semaines "difficiles" (energie < 40%)
   const lowWeeks = energyHistory.filter(e => e < 40);
-
-  // 2. Detecter la recuperation (energie remonte > 80%)
   const currentEnergy = energyHistory[energyHistory.length - 1];
   const previousEnergy = energyHistory[energyHistory.length - 2];
 
@@ -104,19 +102,6 @@ function detectComebackWindow(energyHistory: number[]): ComebackWindow | null {
   }
   return null;
 }
-
-function generateCatchUpPlan(deficit: number, catchUpWeeks: number, capacities: number[]) {
-  // Distribution proportionnelle a la capacite
-  const totalCapacity = capacities.reduce((a, b) => a + b, 0);
-  return capacities.map(cap => (cap / totalCapacity) * deficit);
-}
-```
-
-**Exemple:**
-```
-Semaine 1-4: 50% of target (exams)     <- Protected
-Semaine 5:   Energy recovers to 90%    <- Comeback detected!
-Semaine 5-7: Aggressive catch-up       <- 50 + 45 + 31 = 126 euros recovered
 ```
 
 ### #2 Skill Arbitrage (Multi-Criteria Scoring)
@@ -124,118 +109,26 @@ Semaine 5-7: Aggressive catch-up       <- 50 + 45 + 31 = 126 euros recovered
 **Concept**: Le job qui paye le plus n'est pas forcement le meilleur. On equilibre 4 criteres.
 
 ```typescript
-interface JobScore {
-  hourlyRate: number;      // euros/h
-  marketDemand: number;    // 1-5 stars
-  cognitiveEffort: number; // 1-5 (1=low, 5=exhausting)
-  restNeeded: number;      // hours needed to recover
-}
-
-function calculateArbitrageScore(job: JobScore, weights: Weights): number {
-  const normalizedRate = job.hourlyRate / 30;  // Max 30 euros/h
-  const normalizedDemand = job.marketDemand / 5;
-  const normalizedEffort = 1 - (job.cognitiveEffort / 5);  // Inverse: low effort = good
-  const normalizedRest = 1 - (job.restNeeded / 8);  // Inverse: less rest needed = good
-
-  return (
-    weights.rate * normalizedRate +
-    weights.demand * normalizedDemand +
-    weights.effort * normalizedEffort +
-    weights.rest * normalizedRest
-  ) * 10;  // Score on 10
-}
-
-// Default weights
 const defaultWeights = {
-  rate: 0.30,
-  demand: 0.25,
-  effort: 0.25,
-  rest: 0.20
+  rate: 0.30,   // 30%
+  demand: 0.25, // 25%
+  effort: 0.25, // 25%
+  rest: 0.20    // 20%
 };
-```
-
-**Exemple:**
-```
-| Job | Rate | Demand | Effort | Rest | Score |
-|-----|------|--------|--------|------|-------|
-| Python Dev | 25 euros | 5 stars | Very High | Low | 6.2/10 |
-| SQL Coaching | 22 euros | 4 stars | Moderate | High | 8.7/10 |
-| Data Entry | 12 euros | 4 stars | Very Low | High | 7.1/10 |
 ```
 
 ### #3 Swipe Scenarios (Preference Learning)
 
 **Concept**: Chaque swipe met a jour les poids de preference de l'utilisateur.
 
-```typescript
-interface SwipeDecision {
-  scenarioId: string;
-  decision: 'left' | 'right';
-  timeSpent: number;  // ms
-}
-
-function updatePreferences(
-  currentWeights: Weights,
-  scenario: Scenario,
-  decision: SwipeDecision
-): Weights {
-  const learningRate = 0.1;
-  const multiplier = decision.decision === 'right' ? 1 : -1;
-
-  // Update weights based on scenario attributes
-  return {
-    effort_sensitivity: currentWeights.effort_sensitivity +
-      (learningRate * multiplier * scenario.effort_level),
-    hourly_rate_priority: currentWeights.hourly_rate_priority +
-      (learningRate * multiplier * (scenario.hourly_rate > 20 ? 1 : -1)),
-    time_flexibility: currentWeights.time_flexibility +
-      (learningRate * multiplier * scenario.flexibility_score)
-  };
-}
-```
-
 ### #4 Energy Debt Gamification
 
 **Concept**: 3 semaines consecutives a basse energie = on reduit automatiquement les cibles et on recompense le self-care.
 
 > **Note: Energy Debt et Comeback Mode sont mutuellement exclusifs.**
-> - **Energy Debt** = protection active (énergie basse → on réduit les objectifs)
-> - **Comeback Mode** = rattrapage actif (énergie remonte APRÈS récupération)
-> - Si l'utilisateur est en Energy Debt, pas de Comeback possible (il faut d'abord récupérer)
-
-```typescript
-interface EnergyDebt {
-  consecutiveLowWeeks: number;
-  severity: 'low' | 'medium' | 'high';
-  accumulatedDebt: number;
-}
-
-function detectEnergyDebt(energyHistory: number[], threshold = 40): EnergyDebt | null {
-  let consecutiveLow = 0;
-  for (let i = energyHistory.length - 1; i >= 0; i--) {
-    if (energyHistory[i] < threshold) consecutiveLow++;
-    else break;
-  }
-
-  if (consecutiveLow >= 3) {
-    return {
-      consecutiveLowWeeks: consecutiveLow,
-      severity: consecutiveLow >= 5 ? 'high' : consecutiveLow >= 4 ? 'medium' : 'low',
-      accumulatedDebt: consecutiveLow * 30  // Points de dette
-    };
-  }
-  return null;
-}
-
-function adjustTargetForDebt(originalTarget: number, debt: EnergyDebt): number {
-  const reductionFactors = {
-    'low': 0.5,     // 50% reduction
-    'medium': 0.75, // 75% reduction
-    'high': 0.85    // 85% reduction (only 15% of original target)
-  };
-  return originalTarget * (1 - reductionFactors[debt.severity]);
-}
-```
+> - **Energy Debt** = protection active (energie basse → on reduit les objectifs)
+> - **Comeback Mode** = rattrapage actif (energie remonte APRES recuperation)
+> - Si l'utilisateur est en Energy Debt, pas de Comeback possible
 
 ---
 
@@ -243,13 +136,14 @@ function adjustTargetForDebt(originalTarget: number, debt: EnergyDebt): number {
 
 | Composant | Technologie |
 |-----------|-------------|
-| **Frontend** | SolidStart + TailwindCSS |
-| **Backend** | MCP Server TypeScript |
-| **Orchestration** | Mastra agents |
-| **LLM** | Groq (llama-3.3-70b-versatile) |
-| **Voice** | Groq Whisper (distil-whisper-large-v3-en) |
+| **Frontend** | SolidStart + SolidJS + TailwindCSS |
+| **Backend** | MCP Server TypeScript (stdio transport) |
+| **Orchestration** | Mastra agents (`@mastra/core`) |
+| **LLM** | Provider-agnostic via OpenAI SDK (Mistral, Groq, Gemini, OpenAI...) |
+| **Default LLM** | Mistral (`ministral-3b-2512`) ou Groq (`llama-3.1-8b-instant`) |
+| **Voice** | Groq Whisper (`whisper-large-v3-turbo`) ou Mistral Voxtral |
 | **Storage** | DuckDB + DuckPGQ |
-| **Tracing** | Opik self-hosted |
+| **Tracing** | Opik Cloud |
 
 ---
 
@@ -259,128 +153,44 @@ function adjustTargetForDebt(originalTarget: number, debt: EnergyDebt): number {
 packages/
 ├── frontend/                      # SolidStart app
 │   └── src/
-│       ├── pages/
+│       ├── routes/
 │       │   ├── index.tsx          # Onboarding (chat conversationnel)
-│       │   ├── plan.tsx           # Mon Plan (6 tabs)
-│       │   └── suivi.tsx          # Suivi (dashboard unifie)
+│       │   ├── me.tsx             # Dashboard (5 tabs)
+│       │   ├── swipe.tsx          # Standalone swipe page
+│       │   ├── progress.tsx       # Progress dashboard
+│       │   ├── settings.tsx       # Provider settings
+│       │   ├── plan.tsx           # Redirect → /me
+│       │   ├── suivi.tsx          # Redirect → /progress
+│       │   └── api/               # 45 API endpoints
+│       │       ├── chat.ts        # Chat engine (3,564 lines)
+│       │       ├── goals.ts, profiles.ts, retroplan.ts...
+│       │       ├── budget/, opik/, profiles/, settings/
+│       │       └── ...
 │       ├── components/
-│       │   ├── chat/
-│       │   │   ├── OnboardingChat.tsx
-│       │   │   ├── SkillChat.tsx
-│       │   │   ├── ItemChat.tsx
-│       │   │   ├── LifestyleChat.tsx
-│       │   │   ├── TradeChat.tsx
-│       │   │   └── ChatInput.tsx
-│       │   ├── timeline/
-│       │   │   └── TimelineHero.tsx
-│       │   ├── swipe/
-│       │   │   ├── RollDice.tsx
-│       │   │   └── SwipeCard.tsx
-│       │   ├── suivi/
-│       │   │   ├── Retroplan.tsx
-│       │   │   ├── EnergyHistory.tsx
-│       │   │   ├── MissionList.tsx
-│       │   │   └── MissionCard.tsx
-│       │   ├── VoiceInput.tsx
-│       │   ├── GoalProgress.tsx
-│       │   └── AchievementBadge.tsx
-│       └── api/
-│           ├── chat.ts            # API chat (onboarding, skills, items, etc.)
-│           ├── goals.ts           # API goals
-│           ├── retroplan.ts       # API retroplanning
-│           ├── swipe.ts           # API swipe preferences
-│           ├── missions.ts        # API missions (validate/delete)
-│           └── voice.ts           # API transcription
+│       │   ├── chat/              # OnboardingChat, ChatInput, ChatMessage...
+│       │   ├── tabs/              # ProfileTab, GoalsTab, BudgetTab, TradeTab, ProspectionTab
+│       │   ├── suivi/             # TimelineHero, EnergyHistory, MissionList... (15 files)
+│       │   ├── swipe/             # SwipeCard, SwipeSession, RollDice
+│       │   ├── ui/                # Base primitives (20+ components)
+│       │   └── layout/, analytics/, debug/, onboarding/, prospection/
+│       └── lib/
+│           ├── chat/              # Modular chat system (33 files)
+│           ├── llm/               # Provider-agnostic LLM client
+│           └── ...                # 95 total lib files
 │
 └── mcp-server/                    # MCP Server
     └── src/
-        ├── agents/
-        │   ├── budget-coach.ts
-        │   ├── job-matcher.ts
-        │   ├── guardian.ts
-        │   └── energy-calculator.ts
-        ├── tools/
-        │   ├── chat.ts
-        │   ├── goal.ts
-        │   ├── voice.ts
-        │   ├── swipe.ts
-        │   ├── energy.ts
-        │   └── missions.ts
-        ├── workflows/
-        │   ├── student-analysis.ts
-        │   └── goal-planning.ts
-        ├── algorithms/
+        ├── agents/                # 18 agents + strategies + guardrails (31 files)
+        ├── tools/                 # MCP tool implementations
+        ├── workflows/             # Mastra workflows
+        ├── algorithms/            # Core algorithms
         │   ├── retroplanning.ts
         │   ├── skill-arbitrage.ts
         │   ├── comeback-detection.ts
         │   └── energy-debt.ts
-        ├── evaluation/
-        │   ├── heuristics/
-        │   └── geval/
-        └── services/
-            ├── duckdb.ts
-            ├── groq.ts
-            └── opik.ts
+        ├── evaluation/            # Hybrid eval (heuristics + G-Eval)
+        └── services/              # DuckDB, LLM, Opik, Whisper
 ```
-
----
-
-## Scenario Demo
-
-```
-Etudiant: "Je suis en L2 Info, j'ai 800 euros/mois, je veux economiser 500 euros pour les vacances"
-
--> SPAN 1: Onboarding Chat
-   Questions progressives, profil cree
-   Opik: onboarding_chat, profile_created
-
--> SPAN 2: Tab Skills - Skill Arbitrage (Killer #2)
-   Python -> 25 euros/h but HIGH effort (score: 6.2)
-   SQL Coaching -> 22 euros/h, MODERATE effort (score: 8.7) <- Recommended
-   Opik: skill_added, score_calculation
-
--> SPAN 3: Tab Swipe - Roll the Dice + Session (Killer #3)
-   [Roll the Dice] -> Compile all tabs, freeze
-   [Freelance] <- swipe left
-   [Tutoring] -> swipe right
-   [Selling items] -> swipe right
-   Learned: prioritizes flexibility, moderate effort
-   Opik: roll_the_dice, scenarios_compiled, swipe_decision, preference_learning
-
--> SPAN 4: Suivi - Energy Check (Killer #1 & #4)
-   Current energy: 85%
-   No debt detected
-   Comeback mode: not needed (all good!)
-   Opik: energy_debt_check, timeline_updated
-
--> SPAN 5: Guardian Validation
-   Heuristics: PASS (math valid)
-   G-Eval: 0.89 confidence
-   Final: APPROVED
-   Opik: guardian_validation
-
--> RESULT: "SQL Coaching 6h/week + sell 2 items = 500 euros in 7 weeks"
-```
-
----
-
-## Points Cles pour le Jury
-
-| Critere | Notre Reponse |
-|---------|---------------|
-| **Functionality** | 4 killer features, not just a chatbot |
-| **Real-world** | Student niche = concrete, immediate problems |
-| **LLM/Agents** | 4 Mastra agents with multi-criteria intelligence |
-| **Opik** | Full traceability for every recommendation |
-| **Goal Alignment** | Help students balance money, time, and wellness |
-
-### Differenciateurs
-
-1. **Crunch Intelligent** - Aucune app etudiante ne detecte les comeback windows
-2. **Skill Arbitrage** - Multi-criteria job scoring prevents burnout
-3. **Swipe Scenarios** - UX Tinder rend la planification fun
-4. **Energy Debt** - Psycho inversee recompense le self-care
-5. **Observability** - Traces completes visibles par l'utilisateur
 
 ---
 
@@ -388,115 +198,36 @@ Etudiant: "Je suis en L2 Info, j'ai 800 euros/mois, je veux economiser 500 euros
 
 ### 4 Killer Features
 
-- [x] **#1 Crunch Intelligent** ✅ COMPLETE
-  - [x] Comeback window detection algorithm (`algorithms/comeback-detection.ts`)
-  - [x] Catch-up plan generation (capacity-aware distribution)
-  - [x] "Comeback King" achievement (bronze/silver/gold tiers)
-  - [x] Opik traces for energy trend analysis
-
-- [x] **#2 Skill Arbitrage** ✅ COMPLETE
-  - [x] Multi-criteria scoring function (`algorithms/skill-arbitrage.ts`)
-  - [x] Graph query for skill -> job matching (DuckPGQ)
-  - [x] Score visualization in UI (SkillsTab component)
-  - [x] Opik traces for scoring breakdown
-
-- [x] **#3 Swipe Scenarios** ✅ COMPLETE
-  - [x] Roll the Dice button (compile + freeze)
-  - [x] SwipeCard component with animations
-  - [x] Preference learning algorithm
-  - [x] Recommendation reranking after swipes
-  - [x] Opik traces for preference updates
-
-- [x] **#4 Energy Debt Gamification** ✅ COMPLETE
-  - [x] Energy debt detection algorithm (`algorithms/energy-debt.ts`)
-  - [x] Automatic target reduction (50%/75%/85% by severity)
-  - [x] Self-care achievements (Debt Survivor, Fully Recharged, Resilient)
-  - [x] Recovery plan generation
-  - [x] Opik traces for debt calculations
+- [x] **#1 Crunch Intelligent** - Comeback window detection, catch-up plan generation, achievements
+- [x] **#2 Skill Arbitrage** - Multi-criteria scoring, graph matching (DuckPGQ), UI visualization
+- [x] **#3 Swipe Scenarios** - SwipeCard with animations, preference learning, reranking
+- [x] **#4 Energy Debt Gamification** - Detection, target reduction, self-care achievements
 
 ### Frontend
 
-- [x] **Screen 0: Onboarding** ✅ COMPLETE
-  - [x] OnboardingChat component
-  - [x] Chat conversationnel (texte + voix)
-  - [x] Questions progressives
-  - [x] Character avatar (Bruno)
-
-- [x] **Screen 1: Mon Plan** ✅ COMPLETE
-  - [x] Tab navigation (6 tabs)
-  - [x] Tab Setup - objectif, echeance, evenements
-  - [x] Tab Skills - Skill Arbitrage + addSkillChat
-  - [x] Tab A Vendre - Inventory + addItemChat
-  - [x] Tab Lifestyle - optimisations + addLifestyleChat
-  - [x] Tab Trade - emprunter/troquer + addTradeChat
-  - [x] Tab Swipe - Roll the Dice + SwipeCards
-
-- [x] **Screen 2: Suivi** ✅ COMPLETE
-  - [x] Timeline Hero (temps + charge de travail)
-  - [x] Retroplan + Comeback Alert
-  - [x] Energy History + Recovery mode
-  - [x] Missions du Swipe (valider/supprimer)
-  - [x] Achievements
-
-- [x] **Shared Components** ✅ COMPLETE
-  - [x] ChatInput (reutilisable)
-  - [x] VoiceInput
-  - [x] GoalProgress
-  - [x] AchievementBadge
-  - [x] MissionCard
+- [x] **Screen 0: Onboarding** (`/`) - OnboardingChat, voix, questions progressives, Bruno avatar
+- [x] **Screen 1: Me** (`/me`) - 5 tabs (Profile, Goals, Budget, Trade, Jobs)
+- [x] **Screen 2: Swipe** (`/swipe`) - Standalone swipe page
+- [x] **Screen 3: Progress** (`/progress`) - Timeline, retroplan, energy, missions, achievements
+- [x] **Screen 4: Settings** (`/settings`) - Provider switching, API keys, status indicators
 
 ### Backend
 
-- [x] 7 Agents Mastra configures (budget-coach, job-matcher, guardian, energy-calculator, money-maker, strategy-comparator, projection-ml)
-- [x] Hybrid Evaluation System (Heuristics + G-Eval)
-- [x] DuckDB avec tables:
-  - [x] profiles (with goals, expenses, income_sources)
-  - [x] energy_logs
-  - [x] simulation_state
-  - [x] user preferences (stored in profile.planData)
-- [x] DuckPGQ knowledge graph (31 nodes, 47 edges)
-- [x] Workflow student-analysis
-- [x] Workflow goal-planning avec retroplanning
-- [x] Tools: chat, voice, goal, swipe, energy, missions
-- [x] Opik integration (see OPIK.md) - with console fallback
+- [x] 18 Agents Mastra (including 4 guardrails, orchestrators, and infra agents)
+- [x] Hybrid Evaluation System (Heuristics 60% + G-Eval 40%)
+- [x] DuckDB shared database (frontend + MCP, profile_id standardized)
+- [x] DuckPGQ knowledge graph
+- [x] 45 API endpoints
+- [x] Opik tracing with prompt versioning
+- [x] Provider-agnostic LLM (runtime switching via /settings)
 
 ### Core Algorithms (MCP Server)
 
-- [x] `algorithms/retroplanning.ts` - 773 lines, capacity-aware
+- [x] `algorithms/retroplanning.ts` - Capacity-aware retroplanning
 - [x] `algorithms/skill-arbitrage.ts` - 4-criteria scoring (rate/demand/effort/rest)
 - [x] `algorithms/energy-debt.ts` - Consecutive week detection, severity levels
 - [x] `algorithms/comeback-detection.ts` - Recovery window detection, catch-up plans
 
-### API Endpoints
-
-- [x] `/api/chat` - onboarding, add_skill, add_item, add_lifestyle, add_trade
-- [x] `/api/goals` - create, update_progress
-- [x] `/api/profiles` - CRUD operations
-- [x] `/api/simulation` - time offset control
-- [x] `/api/health` - system health check
-- [ ] `/api/retroplan` - events, commitments, energy, comeback (uses frontend service)
-- [ ] `/api/swipe` - roll_dice, record_decision, get_preferences (uses frontend service)
-- [ ] `/api/missions` - validate, delete (uses frontend service)
-- [x] `/api/voice` - transcription
-
-### Documentation
-
-- [x] PLAN.md (ce fichier)
-- [x] SCREENS_AND_EVALS.md (ecrans + evaluations)
-- [x] OPIK.md (observability pour les 4 killer features)
-- [x] README.md (hero 4 killer features)
-- [x] CLAUDE.md (development instructions)
-- [x] roadmap.md (implementation status)
-
-### Known Issues / TODOs
-
-1. **Opik Cloud Configuration**: Current `.env` has incorrect `OPIK_BASE_URL=http://localhost:5173` (Vite port)
-   - For Opik Cloud: Remove `OPIK_BASE_URL`, ensure `OPIK_WORKSPACE` is set
-   - For self-hosted: Use `OPIK_BASE_URL=http://localhost:8085`
-2. **MCP Tests**: No test files yet for MCP server (`pnpm --filter @stride/mcp-server test` fails)
-3. **Dark Mode**: Not implemented yet
-
 ---
 
-*Document mis a jour - 16 Janvier 2026*
-*Algorithms backend consolidation complete*
+*Document mis a jour - 8 Fevrier 2026*

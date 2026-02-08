@@ -104,7 +104,7 @@ The `detectProvider(baseUrl)` function identifies the provider from the base URL
 - Cost estimation (per-provider pricing tables)
 - Logging
 
-Supported providers: `groq`, `mistral`, `openai`, `openrouter`, `together`, `custom`.
+Supported providers: `groq`, `mistral`, `gemini`, `openai`, `openrouter`, `together`, `custom`.
 
 ## DuckDB Path Resolution
 

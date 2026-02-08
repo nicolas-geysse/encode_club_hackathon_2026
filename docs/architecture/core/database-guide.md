@@ -435,8 +435,8 @@ await execute(`
 // Écriture avec retour (RETURNING)
 import { queryWrite } from './_db';
 const [inserted] = await queryWrite<{ id: string }>(
-  `INSERT INTO goals (id, user_id, goal_name, goal_amount, goal_deadline)
-   VALUES (${escapeSQL(id)}, ${escapeSQL(userId)}, ${escapeSQL(name)}, ${amount}, ${escapeSQL(deadline)})
+  `INSERT INTO goals (id, profile_id, name, amount, deadline)
+   VALUES (${escapeSQL(id)}, ${escapeSQL(profileId)}, ${escapeSQL(name)}, ${amount}, ${escapeSQL(deadline)})
    RETURNING id`
 );
 ```

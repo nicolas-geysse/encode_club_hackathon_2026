@@ -104,6 +104,25 @@ Pour les features d'apprentissage (Swipe) :
 
 ---
 
+## 3b. PII Sanitization (FERPA/GDPR)
+
+Le MCP Server sanitize automatiquement les donnees de localisation dans les traces Opik pour la conformite FERPA/GDPR.
+
+**Champs sanitizes** (`packages/mcp-server/src/services/opik.ts`) :
+- `latitude`, `longitude`, `lat`, `lon`, `coords`, `coordinates`
+- Remplace par `[LOCATION_REDACTED]`
+- S'applique recursivement aux objets imbriques
+
+```typescript
+// Exemple: Les donnees de localisation sont automatiquement masquees
+// Input trace: { latitude: 48.8566, longitude: 2.3522 }
+// Stored trace: { latitude: '[LOCATION_REDACTED]', longitude: '[LOCATION_REDACTED]' }
+```
+
+**Important** : Cette sanitization est transparente. Les traces Opik n'affichent jamais de coordonnees GPS reelles.
+
+---
+
 ## 4. Debugging : "Pourquoi ma trace est vide ?"
 
 Si vous voyez une trace brisée (durée 0ms, pas de spans enfants), voici les coupables habituels :

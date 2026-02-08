@@ -15,7 +15,7 @@ The living documentation of the current system.
 *   [chat-architecture.md](./core/chat-architecture.md): Design of the Agentic Chat and Action Pipeline.
 *   [agent-registry.md](./core/agent-registry.md): List of implemented Agents and their Tools.
 *   [swipe-agents.md](./core/swipe-agents.md): Comprehensive Agent Orchestration and Pull Architecture for Swipe.
-*   [ui-ux-design.md](./core/ui-ux-design.md): Detailed 3-Screen design, Agents, and Evaluation logic.
+*   [ui-ux-design.md](./core/ui-ux-design.md): 5-Screen design (Onboarding, Me, Swipe, Progress, Settings), 18 Agents, and Evaluation logic.
 *   [feature-specifications.md](./core/feature-specifications.md): Detailed logic for the 4 Killer Features (Crunch, Arbitrage, Swipe, Debt).
 *   [realtime-reactivity.md](./core/realtime-reactivity.md): Event Bus and Anti-Flickering architecture.
 *   [skills-engine.md](./core/skills-engine.md): The Knowledge Graph and Skill Arbitrage engine.
@@ -45,6 +45,8 @@ Design documents for features that were deferred or implemented differently.
 *   [report-railway-duplication.md](./legacy/report-railway-duplication.md): Incident report on Railway deployment issues (Jan 2026).
 
 ## 🔑 Key Constraints
-*   **Database**: Single-file DuckDB (`.db`).
-*   **State**: `profileService` is the source of truth, synced from `localStorage`.
+*   **Database**: Single-file DuckDB (`data/stride.duckdb`), shared between frontend and MCP server.
+*   **State**: `profileService` is the source of truth, persisted to DuckDB (no localStorage fallback).
+*   **LLM**: Provider-agnostic via OpenAI SDK. Supports Mistral, Groq, Gemini, OpenAI, and more.
 *   **Observability**: All LLM calls must be traced via **Opik**.
+*   **Identifiers**: Always use `profile_id` (never `user_id`) in all tables and queries.

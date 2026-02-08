@@ -8,7 +8,8 @@
 - **Frontend**: SolidJS + SolidStart + TailwindCSS
 - **Backend**: MCP Server + Mastra agents
 - **Database**: DuckDB (single file at `data/stride.duckdb`)
-- **LLM**: Groq (llama-3.1-70b-versatile)
+- **LLM**: Provider-agnostic via OpenAI SDK (Mistral, Groq, Gemini, OpenAI...)
+- **Default LLM**: Mistral (`ministral-3b-2512`) or Groq (`llama-3.1-8b-instant`)
 - **Observability**: Opik (traces all LLM calls)
 
 ---
@@ -117,7 +118,7 @@ components/
 
 | Service | Purpose |
 |---------|---------|
-| `profileService.ts` | Profile CRUD with localStorage fallback |
+| `profileService.ts` | Profile CRUD with DuckDB (no localStorage fallback) |
 | `skillService.ts` | Skills API client |
 | `lifestyleService.ts` | Lifestyle items API client |
 | `inventoryService.ts` | Inventory items API client |
@@ -162,7 +163,7 @@ import type { Skill, LifestyleItem, InventoryItem, Expense } from '~/types/entit
 
 ```bash
 pnpm install              # Install dependencies
-pnpm dev                  # Run frontend (localhost:3000)
+pnpm dev                  # Run frontend (localhost:3006)
 pnpm build                # Build all packages
 pnpm lint:fix             # Lint with auto-fix
 pnpm typecheck            # Type check all packages
@@ -174,9 +175,19 @@ pnpm typecheck            # Type check all packages
 
 Required:
 ```
-GROQ_API_KEY=xxx          # Groq LLM
+LLM_API_KEY=xxx           # LLM provider API key (Mistral, Groq, OpenAI, etc.)
+LLM_BASE_URL=xxx          # Provider base URL (e.g. https://api.mistral.ai/v1)
+LLM_MODEL=xxx             # Model name (e.g. ministral-3b-2512)
 OPIK_API_KEY=xxx          # Opik Cloud
 OPIK_WORKSPACE=xxx        # Opik workspace
+```
+
+Optional:
+```
+GEMINI_API_KEY=xxx        # Google Gemini
+GROQ_API_KEY=xxx          # Groq (LLM fallback + Whisper STT)
+STT_API_KEY=xxx           # STT provider override
+GOOGLE_MAPS_API_KEY=xxx   # Google Maps for Prospection tab
 ```
 
 ---

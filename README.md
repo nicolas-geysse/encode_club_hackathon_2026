@@ -24,7 +24,7 @@ Everything is traced in Opik - you can see exactly why we recommend that job.
 
 ## How It Works
 
-### Navigation (4 Screens)
+### Navigation (5 Screens)
 
 | Screen | Route | Icon | Description |
 |--------|-------|------|-------------|
@@ -32,6 +32,7 @@ Everything is traced in Opik - you can see exactly why we recommend that job.
 | **Me** | `/me` | 👤 | 5 tabs to manage your finances |
 | **Swipe** | `/swipe` | 🎲 | Tinder-style strategy selection |
 | **Progress** | `/progress` | 📈 | Dashboard with timeline and missions |
+| **Settings** | `/settings` | ⚙️ | LLM/STT provider config, API keys, server status |
 
 ### Me Page (5 Tabs)
 
@@ -146,7 +147,7 @@ Gamification layer with bronze/silver/gold tiers:
 
 ## Architecture
 
-### 10 Agents (MCP Server)
+### 18 Agents (Mastra Framework)
 
 **Core Agents (Factory):**
 
@@ -155,26 +156,39 @@ Gamification layer with bronze/silver/gold tiers:
 | **Budget Coach** | Budget analysis, personalized advice |
 | **Job Matcher** | Skill Arbitrage scoring, job recommendations |
 | **Guardian** | 2-layer validation of recommendations |
-| **Money Maker** | Income opportunity detection |
+| **Money Maker** | Income opportunity detection (sellable items, side hustles) |
 | **Strategy Comparator** | Scenario comparison and ranking |
 | **Projection ML** | Future earnings projections |
+| **Goal Planner** | Savings plan creation and progress tracking |
 
 **Specialized Agents:**
 
 | Agent | Role |
 |-------|------|
 | **Onboarding Agent** | Profile extraction from chat |
+| **Lifestyle Agent** | Subscription optimization |
+| **Swipe Orchestrator** | Scenario generation + preference learning |
 | **Daily Briefing** | Contextual daily tips generation |
 | **Tips Orchestrator** | Bruno tips prioritization and routing |
 | **Tab Tips Orchestrator** | Tab-specific tips with warmup and prefetch |
+| **Agent Executor** | Agent dispatch coordinator |
+
+**Guardrail Agents (Swipe Pipeline):**
+
+| Agent | Role |
+|-------|------|
+| **Essential Guardian** | Detect naive suggestions, propose structural alternatives |
+| **Ghost Observer** | Detect rejection patterns, filter by behavioral insights |
+| **Asset Pivot** | Detect productive assets, suggest monetization |
+| **Cash Flow Smoother** | Detect timing mismatches, suggest timing solutions |
 
 ### Tech Stack
 
 | Component | Technology |
 |-----------|------------|
 | **Tracing** | Opik Cloud (every recommendation traced) |
-| **LLM** | Any OpenAI-compatible provider (Groq, Mistral, OpenAI, etc.) |
-| **Voice** | Groq Whisper (whisper-large-v3-turbo) |
+| **LLM** | Any OpenAI-compatible provider (Groq, Mistral, Gemini, OpenAI, etc.) |
+| **Voice (STT)** | Groq Whisper (`whisper-large-v3-turbo`) or Mistral Voxtral (`voxtral-mini-2602`) |
 | **Embeddings** | [Turbov2](https://github.com/theseedship/deposium_embeddings-turbov2) (optional) |
 | **Agents** | Mastra Framework |
 | **Frontend** | SolidStart + SolidJS + TailwindCSS |
@@ -267,11 +281,27 @@ pnpm build
 |----------|----------|---------------|
 | **Groq** | `https://api.groq.com/openai/v1` | `llama-3.1-8b-instant` |
 | **Mistral** | `https://api.mistral.ai/v1` | `ministral-3b-2512` |
+| **Google Gemini** | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` |
 | **OpenAI** | `https://api.openai.com/v1` | `gpt-4o-mini` |
 | **OpenRouter** | `https://openrouter.ai/api/v1` | `anthropic/claude-3-haiku` |
 | **Together** | `https://api.together.xyz/v1` | `meta-llama/Llama-3-8b-chat-hf` |
 
 Just set `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` in your `.env` to switch providers.
+
+Providers can also be switched **at runtime** via the Settings page (`/settings`) without restarting the server.
+
+### Supported STT (Speech-to-Text) Providers
+
+| Provider | Base URL | Model |
+|----------|----------|-------|
+| **Groq Whisper** | `https://api.groq.com/openai/v1` | `whisper-large-v3-turbo` |
+| **Mistral Voxtral** | `https://api.mistral.ai/v1` | `voxtral-mini-2602` |
+
+STT is used for voice input in the onboarding chat. Configure via `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL` in `.env` or via `/settings`.
+
+### Deployment Note
+
+> **Vercel / Netlify / Cloudflare Pages won't work.** Stride uses DuckDB, a native C++ module that requires a persistent filesystem. Serverless platforms use ephemeral containers — the database file would be lost on every cold start. Use a **VM-based host** like Railway, Fly.io, Render, or a VPS (DigitalOcean, Hetzner).
 
 ### Full Stack (with RAG/Embeddings)
 
@@ -321,11 +351,12 @@ Access via the clock icon in the Progress page header.
 
 ## Future Development
 
-### Voice Input (Whisper) ✅ Integrated
+### Voice Input (STT) ✅ Integrated
 
 Voice input is fully implemented:
 - Microphone button in onboarding chat
-- Uses Groq Whisper API (`whisper-large-v3-turbo`)
+- Supports Groq Whisper (`whisper-large-v3-turbo`) or Mistral Voxtral (`voxtral-mini-2602`)
+- Provider switchable at runtime via Settings page
 - Real-time audio level visualization
 - French language support
 
@@ -352,7 +383,7 @@ Voice input is fully implemented:
 
 **Integration path:** Via existing Turbov2 embeddings service (Railway-ready, ~672MB model).
 
-See [docs/architecture/TabPFN-turbov2.md](docs/architecture/TabPFN-turbov2.md) for full implementation plan.
+See [docs/architecture/legacy/TabPFN-turbov2.md](docs/architecture/legacy/TabPFN-turbov2.md) for full implementation plan.
 
 ---
 

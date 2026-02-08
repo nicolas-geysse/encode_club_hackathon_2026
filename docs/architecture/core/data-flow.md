@@ -1,8 +1,8 @@
 # Data Flow Architecture
 
-**Last Updated**: 2026-01-21
+**Last Updated**: 2026-02-08
 
-This document describes how data flows through Stride's frontend architecture.
+This document describes how data flows through Stride's architecture.
 
 ## Request Flow Overview
 
@@ -12,14 +12,17 @@ This document describes how data flows through Stride's frontend architecture.
 │ (SolidJS)   │      │    (Vinxi)      │      │ routes/api/* │      │  (.db)  │
 └─────────────┘      └─────────────────┘      └──────────────┘      └─────────┘
                                                      │
-                                                     ▼
-                                              ┌──────────────┐
-                                              │   Groq LLM   │
-                                              │  + Opik      │
-                                              └──────────────┘
+                                                     ├──────────────────┐
+                                                     ▼                  ▼
+                                              ┌──────────────┐   ┌──────────────┐
+                                              │  LLM Provider │   │    Opik      │
+                                              │ (OpenAI SDK)  │   │  (Tracing)   │
+                                              └──────────────┘   └──────────────┘
 ```
 
-## Onboarding Chat Flow (Screen 0)
+LLM provider is configurable at runtime: Mistral, Groq, Gemini, OpenAI, or any OpenAI-compatible API.
+
+## Onboarding Chat Flow (Screen 0: `/`)
 
 ```
 User Message
@@ -29,40 +32,39 @@ User Message
 │                    POST /api/chat                           │
 ├─────────────────────────────────────────────────────────────┤
 │ 1. Parse request (message, step, context, threadId)         │
-│ 2. Check for slash commands (/budget, /goal, /help)         │
+│ 2. Detect intent (lib/chat/intent/detector.ts)              │
+│    ├─ Rule-based detection (37+ intent actions)             │
+│    └─ LLM fallback (lib/chat/intent/llmClassifier.ts)       │
 │ 3. If onboarding mode:                                      │
-│    ├─ Call processWithGroqExtractor()                       │
-│    │   ├─ Groq JSON mode extraction (primary)               │
-│    │   └─ Regex extraction (fallback)                       │
+│    ├─ Hybrid extraction (regex + LLM)                       │
+│    │   ├─ Regex patterns (lib/chat/extraction/patterns.ts)  │
+│    │   └─ LLM extraction (lib/chat/extraction/groqExtractor)│
 │    ├─ Merge extracted data with existing profile            │
-│    ├─ Determine next step in flow                           │
+│    ├─ Flow controller determines next step                  │
 │    └─ Generate response message                             │
-│ 4. Log feedback scores to Opik                              │
-│ 5. Return response + extractedData + nextStep               │
+│ 4. Hybrid evaluation (heuristics 60% + G-Eval 40%)         │
+│ 5. Log feedback scores to Opik                              │
+│ 6. Return response + extractedData + nextStep               │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
-OnboardingChat.tsx updates state & persists to DuckDB
+OnboardingChat.tsx updates state & persists to DuckDB via profileService
 ```
 
 ## Profile Data Flow
 
 ```
-┌─────────────────┐      ┌───────────────────────────┐
-│ OnboardingChat  │ ──── │ localStorage (persistence)│
-│  (UI Components)│      └─────────────┬─────────────┘
-└────────┬────────┘                    │
-         │                             ▼
-         │                 ┌───────────────────────┐
-         │                 │ syncLocalToDb()       │
-         │                 │ (Background Service)  │
-         │                 └───────────┬───────────┘
-         │                             │ profile_id (ensured)
-         ▼                             ▼
+┌─────────────────┐
+│ OnboardingChat  │
+│  (UI Component) │
+└────────┬────────┘
+         │ API calls (fetch)
+         ▼
 ┌─────────────────┐      ┌───────────────────────────┐
 │ profileService  │ ◄──► │         DuckDB            │
 │ (State Manager) │      │      profiles table       │
-└────────┬────────┘      └───────────────────────────┘
+│ debounce: 2000ms│      └───────────────────────────┘
+└────────┬────────┘
          │
          ▼
 ┌─────────────────────────────────────────┐
@@ -72,32 +74,65 @@ OnboardingChat.tsx updates state & persists to DuckDB
 │ • income_streams   • expenses           │
 │ • inventory_items  • subscriptions      │
 │ • leads            • academic_events    │
-└─────────────────────────────────────────┘
-```
-         │
-         ▼
-┌─────────────────────────────────────────┐
-│  Related Tables (foreign key: profile_id)│
-├─────────────────────────────────────────┤
-│ • skills           • goals              │
-│ • income_streams   • expenses           │
-│ • inventory_items  • subscriptions      │
-│ • academic_events  • trade_opportunities│
+│ • energy_logs      • retroplans         │
+│ • goal_achievements                     │
 └─────────────────────────────────────────┘
 ```
 
-## Tab Data Flow (Screen 1: /plan)
+**Note**: No localStorage fallback. Removed intentionally to prevent cross-profile data contamination (Sprint 2 Bug #8).
+
+## Tab Data Flow (Screen 1: `/me`)
 
 Each tab loads its data independently:
 
 | Tab | API Endpoint | Service | Notes |
 |-----|--------------|---------|-------|
-| Setup | /api/goals | goalService | Goals + components |
-| Skills | /api/skills | skillService | Skills + certifications |
-| Inventory | /api/inventory | inventoryService | Items to sell |
-| Lifestyle | /api/lifestyle | lifestyleService | Subscriptions |
-| Trade | /api/trades | tradeService | Borrow/lend/swap |
-| Swipe | /api/retroplan | - | Strategy scenarios |
+| Profile | /api/profiles | profileService | Profile + skills (embedded) |
+| Goals | /api/goals | goalService | Goals + components + achievements |
+| Budget | /api/budget | budgetEngine | Budget analysis + insights |
+| Trade | /api/trades, /api/inventory | tradeService, inventoryService | Items to sell/trade |
+| Jobs | /api/prospection, /api/job-listings | - | Google Maps + job search |
+
+## Swipe Flow (Screen 2: `/swipe`)
+
+```
+┌─────────────┐      ┌────────────────┐      ┌──────────────────┐
+│ SwipeSession │ ──── │ /api/retroplan │ ──── │ Swipe Orchestrator│
+│ (Component)  │      │ roll_dice      │      │ (MCP Agent)      │
+└──────┬───────┘      └────────────────┘      └──────┬───────────┘
+       │                                              │
+       │ swipe left/right                             ▼
+       ▼                                     ┌──────────────────┐
+┌──────────────┐                             │ Guardrail Agents │
+│/api/swipe-   │                             │ (4 agents)       │
+│  trace       │                             └──────────────────┘
+│ (+ Opik)     │
+└──────────────┘
+```
+
+## Mastra Agent Flow
+
+```
+┌─────────────┐      ┌─────────────────┐      ┌──────────────┐
+│   Browser   │ ──── │   API Routes    │ ──── │ Mastra Agent │
+└─────────────┘      │ /api/agent.ts   │      │   Factory    │
+                     │ /api/tab-tips   │      └──────┬───────┘
+                     │ /api/tips       │             │
+                     └─────────────────┘  ┌──────────┼──────────┐
+                                          ▼          ▼          ▼
+                                   ┌───────────┐ ┌────────┐ ┌────────┐
+                                   │ Budget    │ │ Job    │ │ Money  │
+                                   │ Coach    │ │ Matcher│ │ Maker  │
+                                   └───────────┘ └────────┘ └────────┘
+                                          │          │          │
+                                          └──────────┴──────────┘
+                                                     │
+                                              ┌──────┴──────┐
+                                              │ LLM + Opik  │
+                                              │(Provider-   │
+                                              │ agnostic)   │
+                                              └─────────────┘
+```
 
 ## Opik Tracing Flow
 
@@ -106,20 +141,26 @@ Each tab loads its data independently:
 │                     Opik Trace Hierarchy                     │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  agent.onboarding (parent trace)                            │
-│  ├── agent.llm_extraction (child span, type: llm)           │
-│  │   └── Groq API call with JSON mode                       │
-│  ├── agent.data_merge (child span, type: tool)              │
+│  chat.onboarding (parent trace)                             │
+│  ├── chat.extraction (child span, type: llm)                │
+│  │   └── LLM API call with JSON mode                       │
+│  ├── chat.data_merge (child span, type: tool)               │
 │  │   └── Profile merging logic                              │
-│  └── agent.response_generation (child span, type: general)  │
-│      └── Response construction                              │
+│  ├── chat.generation (child span, type: llm)                │
+│  │   └── Response generation                                │
+│  └── chat.evaluation (child span, type: general)            │
+│      └── Hybrid eval (heuristics + G-Eval)                  │
 │                                                              │
 │  Metadata attached to each span:                            │
-│  • user_id (profile_id)                                     │
+│  • profile_id (NOT user_id)                                 │
 │  • thread_id (conversation grouping)                        │
-│  • step name                                                 │
-│  • token usage + cost                                        │
+│  • step name                                                │
+│  • token usage + cost                                       │
+│  • prompt.name, prompt.version, prompt.hash                 │
 │  • extraction success/failure                               │
+│                                                              │
+│  PII Sanitization (MCP Server):                             │
+│  • Location data (lat, lon, coords) → [LOCATION_REDACTED]  │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -141,28 +182,4 @@ Status codes:
 • 200: Success
 • 400: Bad request (missing params)
 • 500: Server error (catch-all)
-```
-
-## Future: Mastra Agent Flow
-
-```
-┌─────────────┐      ┌─────────────────┐      ┌──────────────┐
-│   Browser   │ ──── │   API Routes    │ ──── │ Mastra Agent │
-└─────────────┘      └─────────────────┘      │   Factory    │
-                                               └──────┬───────┘
-                                                      │
-                                    ┌─────────────────┼─────────────────┐
-                                    ▼                 ▼                 ▼
-                            ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
-                            │ Onboarding  │   │ Budget      │   │ Job         │
-                            │ Agent       │   │ Coach       │   │ Matcher     │
-                            └─────────────┘   └─────────────┘   └─────────────┘
-                                    │                 │                 │
-                                    └─────────────────┴─────────────────┘
-                                                      │
-                                                      ▼
-                                              ┌─────────────┐
-                                              │   Groq +    │
-                                              │   Opik      │
-                                              └─────────────┘
 ```

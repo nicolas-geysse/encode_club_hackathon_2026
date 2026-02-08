@@ -1,133 +1,114 @@
 # File Inventory
 
-**Last Updated**: 2026-01-21
+**Last Updated**: 2026-02-08
 
-Complete listing of all backend files with line counts, concerns, and refactoring priority.
+Complete listing of all backend files with line counts.
 
-## Priority Legend
-
-- 🔴 **P0 (Critical)**: High complexity, blocks other work
-- 🟠 **P1 (High)**: Significant tech debt, frequent changes
-- 🟡 **P2 (Medium)**: Moderate complexity, stable
-- 🟢 **P3 (Low)**: Simple, well-structured
+> Note: The chat.ts monolith (originally 2,872 lines) was refactored into 33 modular files
+> in `lib/chat/` during Phase 5. `onboardingExtractor.ts` was split into `extraction/`,
+> `flow/`, and `prompts/` submodules. This inventory reflects the current state.
 
 ---
 
 ## API Routes (`routes/api/`)
 
-| Priority | File | Lines | Concerns | Issues | Action |
-|----------|------|-------|----------|--------|--------|
-| 🔴 P0 | `chat.ts` | 2,872 | 5 | Slash commands, extraction, prompts, flow control, evaluation all mixed | Split into 12 modules |
-| 🟠 P1 | `goals.ts` | 915 | 3 | Embedding triggers, validation, component management | Extract embedding logic |
-| 🟡 P2 | `profiles.ts` | 657 | 2 | Schema migration + CRUD | Extract migration helper |
-| 🟢 P3 | `retroplan.ts` | 502 | 1 | Algorithm mixed with API | Move algo to MCP |
-| 🟡 P2 | `skills.ts` | 433 | 1 | CRUD, similar pattern | Use shared utilities |
-| 🟡 P2 | `lifestyle.ts` | 431 | 1 | CRUD, similar pattern | Use shared utilities |
-| 🟡 P2 | `inventory.ts` | 394 | 1 | CRUD, similar pattern | Use shared utilities |
-| 🟡 P2 | `analytics.ts` | 385 | 1 | Query aggregation | OK |
-| 🟡 P2 | `goal-components.ts` | 371 | 1 | Goal component CRUD | Use shared utilities |
-| 🟡 P2 | `_db.ts` | 362 | 1 | Connection management | OK (core) |
-| 🟡 P2 | `income.ts` | 348 | 1 | CRUD, similar pattern | Use shared utilities |
-| 🟢 P3 | `trades.ts` | 293 | 1 | CRUD, similar pattern | Use shared utilities |
-| 🟢 P3 | `duckdb.ts` | 292 | 1 | Direct DuckDB access | OK |
-| 🟢 P3 | `agent.ts` | 259 | 1 | Agent proxy | OK |
-| 🟢 P3 | `simulation.ts` | 215 | 1 | Time simulation | OK |
-| 🟢 P3 | `rag.ts` | 211 | 1 | RAG context fetch | OK |
-| 🟢 P3 | `chat-history.ts` | 208 | 1 | History CRUD | OK |
-| 🟢 P3 | `embed.ts` | 139 | 1 | Embedding trigger | OK |
-| 🟢 P3 | `reset.ts` | ~100 | 1 | Reset functionality | OK |
-| 🟢 P3 | `voice.ts` | 112 | 1 | Voice transcription | OK |
+| File | Lines | Purpose |
+|------|-------|---------|
+| `chat.ts` | 3,564 | Chat engine (onboarding + conversation, delegates to lib/chat/) |
+| `retroplan.ts` | 1,285 | Retroplanning engine |
+| `goals.ts` | 660 | Goal management + embedding |
+| `profiles.ts` | 690 | Profile CRUD + migration |
+| `budget.ts` | 475 | Budget analysis |
+| `tab-tips.ts` | 475 | Tab-specific AI tips |
+| `prospection.ts` | 720 | Job search + Google Maps |
+| `analytics.ts` | 420 | Analytics tracking |
+| `job-listings.ts` | 365 | Job listing cache |
+| `skills.ts` | 290 | Skills CRUD |
+| `lifestyle.ts` | 225 | Lifestyle CRUD |
+| `inventory.ts` | 220 | Inventory CRUD |
+| `_db.ts` | 450 | DuckDB connection management (singleton, HMR-safe) |
+| `_crud-helpers.ts` | 430 | Shared CRUD utilities |
+| `_job-cache.ts` | 170 | Job cache with TTL |
+| `agent.ts` | 259 | Mastra agent proxy |
+| `goal-components.ts` | 225 | Goal components CRUD |
+| `income.ts` | 165 | Income sources CRUD |
+| `trades.ts` | 185 | Trade opportunities CRUD |
+| `chat-history.ts` | 163 | Chat history management |
+| `leads.ts` | 280 | Leads management |
+| `duckdb.ts` | 210 | Direct DuckDB access |
+| `embed.ts` | 140 | Embedding generation |
+| `voice.ts` | 140 | Voice transcription |
+| `simulation.ts` | 210 | Time simulation |
+| `rag.ts` | 145 | RAG context fetch |
+| `tips.ts` | 200 | General tips |
+| `daily-briefing.ts` | 145 | Daily briefing |
+| `comeback-detection.ts` | 135 | Comeback mode |
+| `energy-debt.ts` | 140 | Energy debt |
+| `energy-logs.ts` | 55 | Energy log CRUD |
+| `feedback.ts` | 55 | User feedback |
+| `suggestion-feedback.ts` | 170 | Suggestion feedback |
+| `swipe-trace.ts` | 170 | Swipe tracing |
+| `exclusions.ts` | 140 | Exclusion management |
+| `debug-state.ts` | 215 | Debug state |
+| `reset.ts` | 125 | Full reset |
+| `budget/insights.ts` | ~100 | Budget insights |
+| `opik/benchmark.ts` | ~200 | Safety benchmark |
+| `opik/metrics.ts` | ~100 | Opik metrics |
+| `profiles/duplicate.ts` | ~100 | Profile duplication |
+| `profiles/import.ts` | ~100 | Profile import |
+| `profiles/reset.ts` | ~80 | Profile reset |
+| `settings/apply.ts` | ~80 | Settings apply |
+| `settings/status.ts` | ~80 | Settings status |
 
-**Subtotal**: ~9,600 lines in 21 files
+**Subtotal**: ~18,000 lines in 45 files
 
 ---
 
 ## Library/Services (`lib/`)
 
-| Priority | File | Lines | Concerns | Issues | Action |
-|----------|------|-------|----------|--------|--------|
-| 🔴 P0 | `onboardingExtractor.ts` | 1,646 | 3 | Extraction + regex + tracing mixed | Merge with chat modules |
-| 🟠 P1 | `opikRest.ts` | 1,199 | 2 | Monolithic REST client | Simplify API |
-| 🟠 P1 | `opik.ts` | 700 | 2 | Complex trace wrapper | Simplify interface |
-| 🟡 P2 | `profileService.ts` | 542 | 2 | Auto-save + switching | OK (well-structured) |
-| 🟡 P2 | `onboardingPersistence.ts` | 462 | 1 | State persistence | OK |
-| 🟡 P2 | `goalService.ts` | 387 | 1 | Goal validation | OK |
-| 🟡 P2 | `dateUtils.ts` | 352 | 1 | Date parsing | OK |
-| 🟡 P2 | `achievements.ts` | 332 | 1 | Achievement logic | OK |
-| 🟡 P2 | `lifestyleService.ts` | 271 | 1 | Service wrapper | OK |
-| 🟡 P2 | `tradeService.ts` | 266 | 1 | Service wrapper | OK |
-| 🟡 P2 | `cityUtils.ts` | 263 | 1 | City data | OK |
-| 🟢 P3 | `inventoryService.ts` | 243 | 1 | Service wrapper | OK |
-| 🟢 P3 | `incomeService.ts` | 195 | 1 | Service wrapper | OK |
-| 🟢 P3 | `skillService.ts` | 191 | 1 | Service wrapper | OK |
-| 🟢 P3 | `arrayMergeUtils.ts` | 167 | 1 | Merge utilities | OK |
-| 🟢 P3 | `simulationService.ts` | 135 | 1 | Simulation state | OK |
-| 🟢 P3 | `expenseUtils.ts` | 133 | 1 | Expense calculations | OK |
-| 🟢 P3 | `notificationStore.ts` | 131 | 1 | UI notifications | OK |
-| 🟢 P3 | `confetti.ts` | 100 | 1 | Celebration effect | OK |
-| 🟢 P3 | `logger.ts` | 72 | 1 | Logging utility | OK |
-| 🟢 P3 | `eventBus.ts` | 64 | 1 | Event system | OK |
-| 🟢 P3 | `api.ts` | 60 | 1 | API helpers | OK |
-| 🟢 P3 | `config.ts` | 38 | 1 | Configuration | OK |
-| 🟢 P3 | `nativeModule.ts` | 33 | 1 | Native loading | OK |
-| 🟢 P3 | `cn.ts` | 6 | 1 | Class names | OK |
+### Chat Modules (`lib/chat/` — 33 files)
 
-**Subtotal**: ~7,600 lines in 25 files
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `chat/intent/` | 3 | Intent detection (detector.ts, llmClassifier.ts, index.ts) |
+| `chat/handlers/` | 7 | 5 handlers + types + index (updateEnergy, completeMission, progressSummary, recommendFocus, skipMission) |
+| `chat/extraction/` | 5 | Hybrid extraction (patterns, regex, groq, hybrid, index) |
+| `chat/evaluation/` | 3 | Hybrid eval (hybridEval.ts, feedback.ts, index.ts) |
+| `chat/prompts/` | 3 | System prompts (templates.ts, interpolator.ts, index.ts) |
+| `chat/flow/` | 2 | Flow controller (flowController.ts, index.ts) |
+| `chat/commands/` | 3 | Slash commands (definitions.ts, executor.ts, index.ts) |
+| `chat/` (root) | 7 | ActionDispatcher, ActionExecutor, fieldValidation, proactiveQueue, stepForms, types, index |
 
----
+### Core Libraries
 
-## Repeated Patterns (Technical Debt)
+| File | Lines | Purpose |
+|------|-------|---------|
+| `opik.ts` | ~800 | Opik trace wrapper + feedback |
+| `profileService.ts` | ~600 | Profile state management (debounce 2000ms) |
+| `goalService.ts` | ~390 | Goal validation |
+| `dateUtils.ts` | ~350 | Date parsing |
+| `achievements.ts` | ~330 | Achievement logic |
+| `settingsStore.ts` | ~100 | Runtime config override |
+| `providerPresets.ts` | ~100 | LLM/STT provider presets |
+| `llm/client.ts` | ~150 | Provider-agnostic LLM client |
+| And 50+ more utility files... | | |
 
-| Pattern | Occurrences | ~Lines Each | Total Waste |
-|---------|-------------|-------------|-------------|
-| Schema initialization (`ensureSchema`) | 13 files | 26 | ~338 lines |
-| Type conversions (row↔model) | 13 files | 15 | ~200 lines |
-| Response construction | 21 files | 14 | ~300 lines |
-| Error handling try/catch | 21 files | 19 | ~400 lines |
-| Embedding triggers | 3 files | 20 | ~60 lines |
-
-**Total duplicated code**: ~1,300 lines that could be consolidated
-
----
-
-## chat.ts Breakdown (2,872 lines)
-
-| Section | Lines | Purpose |
-|---------|-------|---------|
-| 1-100 | 100 | Imports, config, Groq client |
-| 100-420 | 320 | Slash commands (SLASH_COMMANDS) |
-| 420-610 | 190 | Step prompts (STEP_PROMPTS) |
-| 610-770 | 160 | Interfaces + UI resource generation |
-| 770-1040 | 270 | POST handler (main entry point) |
-| 1040-1110 | 70 | extractDataFromMessage |
-| 1110-1200 | 90 | generateStepResponse |
-| 1200-1260 | 60 | getNextStep |
-| 1260-1330 | 70 | Clarification messages |
-| 1330-2000 | 670 | extractDataWithRegex (massive!) |
-| 2000-2300 | 300 | Intent detection patterns |
-| 2300-2600 | 300 | Conversation mode handlers |
-| 2600-2872 | 272 | Evaluation + utilities |
-
-**Identified modules for extraction:**
-1. `extraction/patterns.ts` - All regex patterns (~700 lines)
-2. `extraction/regexExtractor.ts` - Extraction logic
-3. `extraction/hybridExtractor.ts` - LLM + regex combo
-4. `prompts/templates.ts` - SYSTEM_PROMPTS, STEP_PROMPTS (~200 lines)
-5. `prompts/interpolator.ts` - Placeholder replacement
-6. `intent/patterns.ts` - Intent detection patterns (~300 lines)
-7. `intent/detector.ts` - detectIntent function
-8. `flow/stepMetadata.ts` - Step requirements, next step logic
-9. `flow/flowController.ts` - getNextStep, flow progression
-10. `commands/definitions.ts` - SLASH_COMMANDS (~320 lines)
-11. `commands/executor.ts` - Command execution
-12. `evaluation/feedback.ts` - Response evaluation
+**Subtotal**: ~23,400 lines in 95 files
 
 ---
 
 ## Summary
 
-| Category | Files | Lines | P0 Files | Action Required |
-|----------|-------|-------|----------|-----------------|
-| API Routes | 21 | 9,600 | 1 | Split chat.ts, add shared utilities |
-| Libraries | 25 | 7,600 | 1 | Merge onboardingExtractor into chat modules |
-| **Total** | **46** | **17,200** | **2** | Focus on 2 critical files first |
+| Category | Files | Lines |
+|----------|-------|-------|
+| API Routes | 45 | ~18,000 |
+| Libraries | 95 | ~23,400 |
+| **Total** | **140** | **~41,400** |
+
+---
+
+## Refactoring Status
+
+The original P0 items have been addressed:
+- **chat.ts** (2,872→3,564 lines): Still the largest file but now delegates to 33 modular files in `lib/chat/`
+- **onboardingExtractor.ts** (1,646 lines): Split into `extraction/`, `flow/`, `prompts/` submodules — file no longer exists
