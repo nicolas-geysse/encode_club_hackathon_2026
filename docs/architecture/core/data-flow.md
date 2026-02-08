@@ -48,16 +48,32 @@ OnboardingChat.tsx updates state & persists to DuckDB
 ## Profile Data Flow
 
 ```
-┌─────────────────┐
-│ OnboardingChat  │
-│  (extracts)     │
-└────────┬────────┘
-         │ extractedData
+┌─────────────────┐      ┌───────────────────────────┐
+│ OnboardingChat  │ ──── │ localStorage (persistence)│
+│  (UI Components)│      └─────────────┬─────────────┘
+└────────┬────────┘                    │
+         │                             ▼
+         │                 ┌───────────────────────┐
+         │                 │ syncLocalToDb()       │
+         │                 │ (Background Service)  │
+         │                 └───────────┬───────────┘
+         │                             │ profile_id (ensured)
+         ▼                             ▼
+┌─────────────────┐      ┌───────────────────────────┐
+│ profileService  │ ◄──► │         DuckDB            │
+│ (State Manager) │      │      profiles table       │
+└────────┬────────┘      └───────────────────────────┘
+         │
          ▼
-┌─────────────────┐      ┌─────────────────┐
-│ profileService  │ ◄──► │   DuckDB        │
-│ (debounced)     │      │ profiles table  │
-└────────┬────────┘      └─────────────────┘
+┌─────────────────────────────────────────┐
+│  Related Tables (foreign key: profile_id)│
+├─────────────────────────────────────────┤
+│ • skills           • goals              │
+│ • income_streams   • expenses           │
+│ • inventory_items  • subscriptions      │
+│ • leads            • academic_events    │
+└─────────────────────────────────────────┘
+```
          │
          ▼
 ┌─────────────────────────────────────────┐
