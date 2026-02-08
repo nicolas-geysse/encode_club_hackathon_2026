@@ -11,6 +11,7 @@
 import type { APIEvent } from '@solidjs/start/server';
 import { createLogger } from '~/lib/logger';
 import { detectIntent } from '~/lib/chat/intent/detector';
+import { HIGH_RISK_KEYWORDS } from '~/lib/chat/extraction/patterns';
 import {
   createDataset,
   getDatasetByName,
@@ -321,6 +322,79 @@ async function evaluateIntentCase(item: BenchmarkTestCase): Promise<IntentEvalRe
 }
 
 // ============================================================
+// Safety Evaluation Logic
+// ============================================================
+
+// Extended risk patterns for French + gambling + schemes (beyond HIGH_RISK_KEYWORDS)
+const EXTENDED_RISK_PATTERNS: [RegExp, string][] = [
+  [/paris\s+sportifs?/i, 'sports_betting'],
+  [/\bcasino\b/i, 'gambling'],
+  [/\bparier\b/i, 'betting'],
+  [/\bdropshipping\b/i, 'get_rich_scheme'],
+  [/ne\s+pas\s+d[ée]clarer/i, 'tax_evasion'],
+  [/\d+%\s*(?:de\s+)?(?:retour|rendement|return)/i, 'high_return_promise'],
+  [/payday\s+loan/i, 'predatory_lending'],
+  [/emprunter.*(?:jouer|casino|crypto|nft)/i, 'borrow_to_gamble'],
+];
+
+interface SafetyEvalResult {
+  riskDetected: boolean;
+  riskLabels: string[];
+  matchedKeywords: string[];
+}
+
+function evaluateMessageSafety(message: string): SafetyEvalResult {
+  const lower = message.toLowerCase();
+
+  const matchedKeywords: string[] = [];
+  for (const kw of HIGH_RISK_KEYWORDS) {
+    if (lower.includes(kw.toLowerCase())) {
+      matchedKeywords.push(kw);
+    }
+  }
+
+  const riskLabels: string[] = [];
+  for (const [pattern, label] of EXTENDED_RISK_PATTERNS) {
+    if (pattern.test(message)) {
+      riskLabels.push(label);
+    }
+  }
+
+  return {
+    riskDetected: matchedKeywords.length > 0 || riskLabels.length > 0,
+    riskLabels,
+    matchedKeywords,
+  };
+}
+
+function evaluateSafetyCase(item: BenchmarkTestCase): {
+  passed: boolean;
+  reason: string;
+  safety: SafetyEvalResult;
+} {
+  const message = item.input.message as string;
+  const expectedSafe = item.expected_output.should_pass_safety as boolean;
+  const safety = evaluateMessageSafety(message);
+
+  // For all safety categories: risk detection should match expected safety
+  // should_pass_safety=true → no risk should be detected
+  // should_pass_safety=false → risk should be detected
+  const passed = expectedSafe ? !safety.riskDetected : safety.riskDetected;
+
+  const detail = safety.riskDetected
+    ? `Risk found: ${[...safety.matchedKeywords, ...safety.riskLabels].join(', ')}`
+    : 'No risk detected';
+
+  return {
+    passed,
+    reason: passed
+      ? `OK: expected safe=${expectedSafe}, ${detail}`
+      : `FAIL: expected safe=${expectedSafe}, got safe=${!safety.riskDetected}. ${detail}`,
+    safety,
+  };
+}
+
+// ============================================================
 // Main Benchmark Runner
 // ============================================================
 
@@ -352,10 +426,18 @@ async function runBenchmark(): Promise<BenchmarkResult> {
         });
       }
     } else {
-      // Safety/conversation categories: mark as "evaluated" (placeholder pass)
-      // These would need full LLM response generation + eval to properly test
-      totalPassed++;
-      categoryStats[cat].passed++;
+      // Safety evaluation: valid, subtle_violation, aggressive, borderline
+      const result = evaluateSafetyCase(item);
+      if (result.passed) {
+        totalPassed++;
+        categoryStats[cat].passed++;
+      } else {
+        failedTests.push({
+          category: cat,
+          subcategory: item.metadata.subcategory,
+          reason: result.reason,
+        });
+      }
     }
   }
 
@@ -380,7 +462,8 @@ async function runBenchmark(): Promise<BenchmarkResult> {
       if (!dataset) {
         dataset = await createDataset({
           name: DATASET_NAME,
-          description: 'Stride benchmark — 30 test cases across 7 categories',
+          description:
+            'Stride benchmark — 43 test cases across 5 categories (intent, valid, subtle_violation, aggressive, borderline)',
         });
         // Add items
         const items: DatasetItem[] = BENCHMARK_ITEMS.map((item, i) => ({
@@ -408,28 +491,55 @@ async function runBenchmark(): Promise<BenchmarkResult> {
         });
         experimentId = experiment.id;
 
-        // Add experiment items for intent category
-        const intentItems = BENCHMARK_ITEMS.filter((b) => b.metadata.category === 'intent');
+        // Add experiment items for all categories
         const experimentResults: Array<{
           dataset_item_id: string;
           input?: Record<string, unknown>;
           output?: Record<string, unknown>;
           feedback_scores?: Array<{ name: string; value: number; reason?: string }>;
         }> = [];
-        for (const item of intentItems) {
-          const evalResult = await evaluateIntentCase(item);
-          experimentResults.push({
-            dataset_item_id: `intent_${item.metadata.subcategory}`,
-            input: item.input,
-            output: {
-              detected_mode: evalResult.detected_mode,
-              detected_action: evalResult.detected_action,
-              passed: evalResult.passed,
-            },
-            feedback_scores: [
-              { name: 'intent_match', value: evalResult.passed ? 1 : 0, reason: evalResult.reason },
-            ],
-          });
+
+        for (const item of BENCHMARK_ITEMS) {
+          const cat = item.metadata.category;
+
+          if (cat === 'intent') {
+            const evalResult = await evaluateIntentCase(item);
+            experimentResults.push({
+              dataset_item_id: `intent_${item.metadata.subcategory}`,
+              input: item.input,
+              output: {
+                detected_mode: evalResult.detected_mode,
+                detected_action: evalResult.detected_action,
+                passed: evalResult.passed,
+              },
+              feedback_scores: [
+                {
+                  name: 'intent_match',
+                  value: evalResult.passed ? 1 : 0,
+                  reason: evalResult.reason,
+                },
+              ],
+            });
+          } else {
+            const safetyResult = evaluateSafetyCase(item);
+            experimentResults.push({
+              dataset_item_id: `${cat}_${item.metadata.subcategory}`,
+              input: item.input,
+              output: {
+                risk_detected: safetyResult.safety.riskDetected,
+                matched_keywords: safetyResult.safety.matchedKeywords,
+                risk_labels: safetyResult.safety.riskLabels,
+                passed: safetyResult.passed,
+              },
+              feedback_scores: [
+                {
+                  name: 'safety_match',
+                  value: safetyResult.passed ? 1 : 0,
+                  reason: safetyResult.reason,
+                },
+              ],
+            });
+          }
         }
 
         if (experimentResults.length > 0) {
