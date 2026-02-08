@@ -22,7 +22,7 @@
     "@google/generative-ai": "^0.24.1",
     "@mastra/core": "^1.0.4",
     "@mastra/duckdb": "^1.0.0",
-    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@seed-ship/duckdb-mcp-native": "^0.11.2",
     "compromise": "^14.14.5",
     "dayjs": "^1.11.19",
