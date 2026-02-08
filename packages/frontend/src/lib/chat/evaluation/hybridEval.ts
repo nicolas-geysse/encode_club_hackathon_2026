@@ -378,7 +378,10 @@ async function runGEval(
   context: EvalContext
 ): Promise<GEvalCriterionResult[] | null> {
   const client = getLLMClient();
-  if (!client) return null;
+  if (!client) {
+    logger.debug('G-Eval skipped: LLM client not available');
+    return null;
+  }
 
   const situationMap: Record<string, string> = {
     deficit: 'en deficit',
@@ -439,12 +442,27 @@ Reponds en JSON:
     // Extract JSON from response
     const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || raw.match(/\{[\s\S]*\}/);
     const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]).trim() : null;
-    if (!jsonStr) return null;
+    if (!jsonStr) {
+      logger.warn('G-Eval: no JSON found in LLM response', {
+        model: getModel(),
+        rawLength: raw.length,
+        rawPreview: raw.substring(0, 200),
+      });
+      return null;
+    }
 
     const parsed = JSON.parse(jsonStr);
     const evals = parsed.evaluations || parsed;
 
-    if (!Array.isArray(evals)) return null;
+    if (!Array.isArray(evals)) {
+      logger.warn('G-Eval: LLM returned non-array evaluations', {
+        model: getModel(),
+        keys: Object.keys(parsed),
+      });
+      return null;
+    }
+
+    logger.debug('G-Eval completed', { model: getModel(), criteriaCount: evals.length });
 
     return GEVAL_CRITERIA.map((criterion) => {
       const found = evals.find((e: Record<string, unknown>) => e.criterion === criterion.name);
@@ -467,7 +485,10 @@ Reponds en JSON:
       };
     });
   } catch (err) {
-    logger.warn('G-Eval LLM call failed', { error: err });
+    logger.warn('G-Eval LLM call failed', {
+      model: getModel(),
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
