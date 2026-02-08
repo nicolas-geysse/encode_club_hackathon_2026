@@ -441,10 +441,10 @@ Reponds en JSON:
 
     const raw = completion.choices[0]?.message?.content || '';
 
-    // Extract JSON from response
-    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || raw.match(/\{[\s\S]*\}/);
-    const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]).trim() : null;
-    if (!jsonStr) {
+    // Extract JSON from response (small models like ministral-3b inject markdown in JSON values)
+    const cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '');
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
       const reason = `No JSON in ${getModel()} response (${raw.length} chars)`;
       logger.warn('G-Eval: no JSON found in LLM response', {
         model: getModel(),
@@ -454,7 +454,30 @@ Reponds en JSON:
       return { results: null, skipReason: reason };
     }
 
-    const parsed = JSON.parse(jsonStr);
+    // Try parsing as-is, then sanitize markdown artifacts and retry
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      const sanitized = jsonMatch[0]
+        .replace(/\*\*([^*]*?)\*\*/g, '$1') // **bold** → bold
+        .replace(/\*([^*]*?)\*/g, '$1') // *italic* → italic
+        .replace(/`([^`]*?)`/g, '$1') // `code` → code
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ') // control chars
+        .replace(/,\s*}/g, '}') // trailing comma
+        .replace(/,\s*]/g, ']'); // trailing comma in arrays
+      try {
+        parsed = JSON.parse(sanitized);
+      } catch (sanitizeErr) {
+        const reason = `${getModel()} JSON parse failed after sanitize: ${sanitizeErr instanceof Error ? sanitizeErr.message : String(sanitizeErr)}`;
+        logger.warn('G-Eval: JSON parse failed even after sanitization', {
+          model: getModel(),
+          rawPreview: raw.substring(0, 300),
+        });
+        return { results: null, skipReason: reason };
+      }
+    }
     const evals = parsed.evaluations || parsed;
 
     if (!Array.isArray(evals)) {
