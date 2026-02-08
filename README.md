@@ -18,14 +18,16 @@
 
 ## 30 Second Pitch
 
-Stride helps students manage their budget with 4 intelligent features:
+You set a **savings goal** — say, $800 for a new laptop by June. Stride then proactively helps you reach it by surfacing income opportunities you might overlook: side jobs that match your skills, items you could sell, strategies you haven't considered — especially useful when you're new to a city or campus and don't know what's available yet.
 
-1. **Skill Arbitrage** - Finds the job that won't burn you out (SQL at $22/h beats Python at $25/h when you factor in effort and demand)
-2. **Swipe Scenarios** - Choose your strategies like on Tinder, the app learns your preferences
-3. **Comeback Mode** - Detects when you recover after exams and creates a catch-up plan
-4. **Energy Debt** - Reduces your goals when exhausted and rewards self-care with achievements
+4 intelligent features make this work:
 
-Everything is traced in Opik - you can see exactly why we recommend that job.
+1. **Skill Arbitrage** — Finds the job that won't burn you out. A $22/h SQL gig can beat $25/h Python when you factor in effort, demand, and rest.
+2. **Swipe Scenarios** — Swipe through AI-generated strategies like on Tinder. The app learns your preferences and adapts.
+3. **Comeback Mode** — Detects when you recover after exams and creates a realistic catch-up plan.
+4. **Energy Debt** — Automatically reduces your targets when you're exhausted, and rewards self-care with achievements.
+
+Every recommendation is traced in [Opik](https://www.comet.com/opik) — you can see exactly why the AI suggested that job, that strategy, or that adjustment.
 
 ---
 
