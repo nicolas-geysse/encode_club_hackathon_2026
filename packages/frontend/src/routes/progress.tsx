@@ -32,15 +32,7 @@ import { celebrateGoalAchieved, celebrateGoldAchievement, celebrateComeback } fr
 import { toastPopup } from '~/components/ui/Toast';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import {
-  ClipboardList,
-  Target,
-  Rocket,
-  PartyPopper,
-  Briefcase,
-  Dices,
-  ShoppingBag,
-} from 'lucide-solid';
+import { ClipboardList, Target, PartyPopper, Briefcase, Dices, ShoppingBag } from 'lucide-solid';
 import {
   weeksBetween,
   addWeeks,
@@ -1379,32 +1371,44 @@ export default function ProgressPage() {
               <Target class="h-5 w-5 text-primary" /> Missions
             </h3>
 
-            {/* Welcome banner — first arrival with fresh missions */}
-            <Show
-              when={
-                missionStats().active > 0 &&
-                missionStats().completed === 0 &&
-                missionStats().total > 0
-              }
-            >
-              <div class="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 dark:from-primary/10 dark:via-primary/15 dark:to-primary/10 p-5 mb-6">
+            {/* Progress banner — stays visible while missions are active */}
+            <Show when={missionStats().active > 0 && missionStats().total > 0}>
+              <div class="rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 shadow-sm hover:shadow-lg hover:border-emerald-400/50 transition-all duration-300 group overflow-hidden p-5 mb-6">
                 <div class="flex items-center gap-4">
-                  <div class="relative h-12 w-12 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Rocket class="h-6 w-6 text-primary" />
+                  {/* Rocket with fire hover */}
+                  <div class="relative h-12 w-12 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center overflow-visible">
+                    <span class="text-2xl transition-transform duration-500 group-hover:-translate-y-2 group-hover:scale-110">
+                      🚀
+                    </span>
+                    <span class="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0 bg-gradient-to-t from-orange-500/80 via-yellow-400/60 to-transparent rounded-full blur-sm opacity-0 group-hover:h-5 group-hover:opacity-100 transition-all duration-500" />
                   </div>
+
+                  {/* Text + progress bar */}
                   <div class="flex-1 min-w-0">
-                    <p class="font-bold text-foreground">Your plan is ready!</p>
-                    <p class="text-sm text-muted-foreground">
-                      {missionStats().active} mission{missionStats().active > 1 ? 's' : ''} worth{' '}
-                      {formatCurrency(missionStats().weeklyPotential, currency())} — complete them
-                      to reach your goal.
+                    <p class="text-base font-bold text-emerald-900 dark:text-emerald-100">
+                      {missionStats().completed === 0
+                        ? 'Your plan is ready!'
+                        : `${missionStats().active} mission${missionStats().active > 1 ? 's' : ''} to go`}
                     </p>
-                  </div>
-                  <div class="text-right shrink-0">
-                    <p class="text-2xl font-bold text-primary tabular-nums">
-                      0/{missionStats().total}
+                    <p class="text-sm text-emerald-600/80 dark:text-emerald-400/60 mb-2">
+                      {missionStats().completed === 0
+                        ? `${missionStats().total} mission${missionStats().total > 1 ? 's' : ''} worth ${formatCurrency(missionStats().weeklyPotential, currency())}`
+                        : `${formatCurrency(missionStats().totalEarned, currency())} earned so far — keep going!`}
                     </p>
-                    <p class="text-xs text-muted-foreground">completed</p>
+                    {/* Progress bar */}
+                    <div class="flex items-center gap-3">
+                      <div class="flex-1 h-2 rounded-full bg-emerald-200/60 dark:bg-emerald-900/40 overflow-hidden">
+                        <div
+                          class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500 transition-all duration-700"
+                          style={{
+                            width: `${Math.round((missionStats().completed / missionStats().total) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <span class="text-sm font-bold text-emerald-700 dark:text-emerald-300 tabular-nums shrink-0">
+                        {missionStats().completed}/{missionStats().total}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
