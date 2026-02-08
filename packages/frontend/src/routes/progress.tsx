@@ -32,7 +32,17 @@ import { celebrateGoalAchieved, celebrateGoldAchievement, celebrateComeback } fr
 import { toastPopup } from '~/components/ui/Toast';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { ClipboardList, Target, PartyPopper, Briefcase, Dices, ShoppingBag } from 'lucide-solid';
+import {
+  ClipboardList,
+  Target,
+  PartyPopper,
+  Briefcase,
+  Dices,
+  ShoppingBag,
+  Heart,
+  ArrowRightLeft,
+  Package,
+} from 'lucide-solid';
 import {
   weeksBetween,
   addWeeks,
@@ -1299,6 +1309,118 @@ export default function ProgressPage() {
               oneTimeGains={oneTimeGains()}
               karmaScore={karmaResult().score}
             />
+          </Show>
+
+          {/* Section 1b: Community Impact / Karma Wallet */}
+          <Show when={karmaResult().score > 0 || contextTrades().length > 0}>
+            {(() => {
+              const kr = karmaResult;
+              const trades = contextTrades;
+              const savedByBorrowing = createMemo(() =>
+                trades()
+                  .filter((t) => t.type === 'borrow' && t.status === 'completed')
+                  .reduce((sum, t) => sum + (t.value || 0), 0)
+              );
+              const savedForOthers = createMemo(() =>
+                trades()
+                  .filter((t) => t.type === 'lend' && t.status === 'completed')
+                  .reduce((sum, t) => sum + (t.value || 0), 0)
+              );
+              const totalCommunitySavings = createMemo(() => savedByBorrowing() + savedForOthers());
+
+              return (
+                <Card class="border-purple-200/50 dark:border-purple-800/50 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/10 shadow-sm transition-all hover:shadow-md">
+                  <CardContent class="p-5">
+                    {/* Header */}
+                    <div class="flex items-center justify-between mb-4">
+                      <h3 class="text-base font-semibold text-foreground flex items-center gap-2">
+                        <Heart class="h-4 w-4 text-purple-500" /> Community Impact
+                      </h3>
+                      <div class="flex items-center gap-2">
+                        <span class="text-lg">{kr().tierInfo.emoji}</span>
+                        <span class={`text-sm font-semibold ${kr().tierInfo.colorClass}`}>
+                          {kr().tierInfo.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                      <div class="text-center p-2 rounded-lg bg-white/60 dark:bg-white/5">
+                        <Package class="h-4 w-4 mx-auto mb-1 text-blue-500" />
+                        <p class="text-lg font-bold text-foreground">{kr().lendCount}</p>
+                        <p class="text-[10px] text-muted-foreground">items lent</p>
+                      </div>
+                      <div class="text-center p-2 rounded-lg bg-white/60 dark:bg-white/5">
+                        <ArrowRightLeft class="h-4 w-4 mx-auto mb-1 text-green-500" />
+                        <p class="text-lg font-bold text-foreground">{kr().tradeCount}</p>
+                        <p class="text-[10px] text-muted-foreground">trades done</p>
+                      </div>
+                      <div class="text-center p-2 rounded-lg bg-white/60 dark:bg-white/5">
+                        <ShoppingBag class="h-4 w-4 mx-auto mb-1 text-amber-500" />
+                        <p class="text-lg font-bold text-foreground">{kr().borrowCount}</p>
+                        <p class="text-[10px] text-muted-foreground">borrowed</p>
+                      </div>
+                    </div>
+
+                    {/* Community Savings */}
+                    <Show when={totalCommunitySavings() > 0}>
+                      <div class="bg-purple-100/60 dark:bg-purple-900/20 rounded-lg p-3 mb-4 text-center">
+                        <p class="text-xs text-purple-600 dark:text-purple-400 mb-0.5">
+                          Total community savings
+                        </p>
+                        <p class="text-xl font-bold text-purple-700 dark:text-purple-300">
+                          {formatCurrency(totalCommunitySavings(), currency())}
+                        </p>
+                        <div class="flex justify-center gap-4 mt-1 text-[10px] text-purple-500 dark:text-purple-400">
+                          <Show when={savedByBorrowing() > 0}>
+                            <span>You saved {formatCurrency(savedByBorrowing(), currency())}</span>
+                          </Show>
+                          <Show when={savedForOthers() > 0}>
+                            <span>
+                              Helped others save {formatCurrency(savedForOthers(), currency())}
+                            </span>
+                          </Show>
+                        </div>
+                      </div>
+                    </Show>
+
+                    {/* Karma Score + Progress Bar */}
+                    <div class="flex items-center gap-3">
+                      <div class="flex-1">
+                        <div class="flex justify-between text-xs text-muted-foreground mb-1">
+                          <span>
+                            {kr().score} karma pts
+                            <Show when={kr().energyBonus > 0}>
+                              <span class="text-green-600 dark:text-green-400 ml-1">
+                                (+{kr().energyBonus}% energy)
+                              </span>
+                            </Show>
+                          </span>
+                          <Show when={kr().tierInfo.nextTierAt}>
+                            <span>{kr().tierInfo.nextTierAt! - kr().score} pts to next tier</span>
+                          </Show>
+                        </div>
+                        <div class="h-2 bg-purple-200/60 dark:bg-purple-900/40 rounded-full overflow-hidden">
+                          <div
+                            class="h-full bg-gradient-to-r from-purple-400 to-purple-500 rounded-full transition-all duration-500"
+                            style={{ width: `${kr().tierInfo.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        class="text-purple-600 hover:text-purple-700 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-900/30 text-xs"
+                        onClick={() => navigate('/me?tab=trade')}
+                      >
+                        Trade
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </Show>
 
           {/* Sprint 13: Weekly Progress Timeline - HIDDEN FOR SIMPLIFICATION

@@ -316,40 +316,57 @@ export function EnergyHistory(props: EnergyHistoryProps) {
           {(debtInfo) => {
             const severity = getSeverityClasses(debtInfo().severity);
             return (
-              <div
-                class={cn(
-                  'mt-6 p-4 rounded-lg border flex items-center gap-3',
-                  severity.bg,
-                  severity.border
-                )}
-              >
-                <div class={cn('p-2 rounded-full bg-white/50 dark:bg-black/20', severity.text)}>
-                  <AlertTriangle class="h-5 w-5" />
-                </div>
-                <div class="flex-1">
-                  <div class="flex items-center gap-2">
-                    <span class={cn('font-bold', severity.text)}>
-                      Energy Debt ({severity.label})
+              <div class={cn('mt-6 p-4 rounded-lg border', severity.bg, severity.border)}>
+                <div class="flex items-center gap-3">
+                  <div class={cn('p-2 rounded-full bg-white/50 dark:bg-black/20', severity.text)}>
+                    <AlertTriangle class="h-5 w-5" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class={cn('font-bold', severity.text)}>
+                        Energy Debt ({severity.label})
+                      </span>
+                    </div>
+                    <span class={cn('text-sm block mt-0.5', severity.text)}>
+                      {debtInfo().consecutiveLowWeeks} weeks below {threshold()}%
                     </span>
                   </div>
-                  <span class={cn('text-sm block mt-0.5', severity.text)}>
-                    {debtInfo().consecutiveLowWeeks} weeks below {threshold()}%
-                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    class={cn(
+                      'bg-background/50 border-transparent hover:bg-background/80',
+                      severity.text
+                    )}
+                  >
+                    Self-Care
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  class={cn(
-                    'bg-background/50 border-transparent hover:bg-background/80',
-                    severity.text
-                  )}
-                >
-                  Self-Care
-                </Button>
+
+                {/* Crisis resources for high severity */}
+                <Show when={debtInfo().severity === 'high'}>
+                  <div class="mt-3 pt-3 border-t border-red-200/50 dark:border-red-700/50">
+                    <p class="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
+                      If you need support, please reach out:
+                    </p>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-red-600 dark:text-red-400">
+                      <span>FR: 3114</span>
+                      <span>UK: 116 123</span>
+                      <span>US: 988</span>
+                      <span>EU: 112</span>
+                    </div>
+                  </div>
+                </Show>
               </div>
             );
           }}
         </Show>
+
+        {/* Wellness disclaimer */}
+        <div class="mt-4 text-[10px] text-muted-foreground/60 text-center leading-tight">
+          Energy tracking is an educational self-assessment tool, not a medical diagnosis. If you
+          experience persistent low energy or distress, please consult a healthcare professional.
+        </div>
 
         {/* Inline Comeback Alert */}
         <Show when={isComeback() && !debt()}>

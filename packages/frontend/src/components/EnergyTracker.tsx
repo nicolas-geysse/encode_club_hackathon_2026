@@ -290,6 +290,13 @@ export function EnergyTracker(props: EnergyTrackerProps) {
           <button class="w-full btn-primary" onClick={handleSubmit} disabled={loading()}>
             {loading() ? 'Saving...' : 'Save my check-in'}
           </button>
+
+          {/* Medical Disclaimer */}
+          <p class="text-[10px] text-slate-400 text-center leading-tight mt-2">
+            Stride is not a medical tool. Energy scores are self-reported estimates, not clinical
+            assessments. If you experience persistent distress, please contact a healthcare
+            professional.
+          </p>
         </div>
       </Show>
 
