@@ -37,10 +37,24 @@ pnpm --filter @stride/mcp-server test   # Run vitest tests
 packages/
 ├── frontend/          # SolidStart (SSR meta-framework for SolidJS)
 │   └── src/
-│       ├── routes/    # Pages (index.tsx, me.tsx, swipe.tsx, progress.tsx)
-│       │   └── api/   # Server functions (chat.ts, goals.ts, voice.ts)
+│       ├── routes/    # Pages (index.tsx, me.tsx, swipe.tsx, progress.tsx, settings.tsx)
+│       │   └── api/   # Server functions (chat.ts, goals.ts, voice.ts, settings/)
 │       ├── components/
-│       └── lib/       # profileService, utilities
+│       └── lib/
+│           ├── chat/          # Modular chat system (33 files)
+│           │   ├── intent/    # Intent detection (detector + LLM classifier)
+│           │   ├── handlers/  # 5 intent handlers (energy, mission, progress, focus, skip)
+│           │   ├── evaluation/# Hybrid eval (heuristics + G-Eval LLM-as-Judge)
+│           │   ├── extraction/# Profile extraction (regex + LLM hybrid)
+│           │   ├── prompts/   # System prompt templates + versioning
+│           │   ├── flow/      # Flow controller for multi-step conversations
+│           │   ├── commands/  # Slash commands
+│           │   ├── ActionDispatcher.ts  # Generative UI dispatch (slot filling)
+│           │   ├── ActionExecutor.ts    # Action execution
+│           │   └── proactiveQueue.ts    # Event-driven message queue
+│           ├── llm/           # Provider-agnostic LLM client (lazy getters)
+│           ├── settingsStore.ts   # Runtime config override (in-memory)
+│           └── providerPresets.ts # LLM/STT provider presets
 │
 └── mcp-server/        # Model Context Protocol server
     └── src/
@@ -92,6 +106,109 @@ Frontend Components → Server Functions (routes/api/*.ts) → MCP Tools → Mas
 - **Screen 1** (`/me`): 5 tabs (Profile, Goals, Budget, Trade, Jobs)
 - **Screen 2** (`/swipe`): Tinder-style strategy swiper (standalone page)
 - **Screen 3** (`/progress`): Dashboard with timeline, energy history, missions
+
+## Multi-Provider LLM & STT
+
+### Runtime Settings Store (`lib/settingsStore.ts`)
+
+Server-side in-memory `Map` that overrides `process.env` at runtime. Allows the frontend to push API keys and config via `POST /api/settings/apply` without restarting.
+
+- **Priority**: `store` (runtime) > `process.env` > `undefined`
+- **API**: `getSetting(key)`, `applySettings(settings)`, `getSettingsSources()`
+- **Whitelisted keys**: `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `STT_API_KEY`, `STT_BASE_URL`, `STT_MODEL`, `OPIK_API_KEY`, `OPIK_WORKSPACE`, `GOOGLE_MAPS_API_KEY`
+
+```typescript
+// ❌ Wrong - reads process.env at module load (undefined in Vite SSR)
+const API_KEY = process.env.LLM_API_KEY;
+
+// ✅ Correct - lazy getter via settingsStore
+import { getSetting } from '~/lib/settingsStore';
+const getApiKey = () => getSetting('LLM_API_KEY');
+```
+
+### Provider Presets (`lib/providerPresets.ts`)
+
+Shared config for provider switching, used by `settings.tsx` (UI) and `app.tsx` (auto-apply on startup).
+
+| Service | Provider | Base URL | Default Model |
+|---------|----------|----------|---------------|
+| LLM | Mistral AI | `https://api.mistral.ai/v1` | `ministral-3b-2512` |
+| LLM | Groq | `https://api.groq.com/openai/v1` | `llama-3.1-8b-instant` |
+| LLM | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` |
+| STT | Groq Whisper | `https://api.groq.com/openai/v1` | `whisper-large-v3-turbo` |
+| STT | Mistral Voxtral | `https://api.mistral.ai/v1` | `voxtral-mini-2602` |
+
+All providers use OpenAI-compatible APIs. `computeSettingsFromConfig(config, apiKeys)` maps UI selections to the settings object for `/api/settings/apply`.
+
+### Settings Page (`/settings`)
+
+- Provider dropdowns for LLM and STT (independent selection)
+- API key fields with show/hide toggles, contextual to selected provider
+- Server status indicators (green/yellow/red via `GET /api/settings/status`)
+- "Apply Settings" → saves to localStorage + pushes to server
+- Auto-apply on startup: `app.tsx` reads `stride_provider_config` + `stride_api_keys` from localStorage and calls `/api/settings/apply` on mount
+
+### LLM Client (`lib/llm/client.ts`)
+
+Uses lazy getters via `getSetting()` instead of module-level constants. Auto-detects when apiKey/baseUrl change and recreates the OpenAI client.
+
+- `getLLMClient()` — returns cached or recreated client
+- `resetLLMClient()` — forces client recreation (called by `/api/settings/apply`)
+- `getProvider()` — auto-detects from baseUrl: `'mistral' | 'groq' | 'gemini' | 'openai'`
+
+## Chat Architecture (Post-Phase 5)
+
+The chat system was refactored from a monolithic `chat.ts` into 33 modular files in `lib/chat/`:
+
+- **`intent/detector.ts`** — Rule-based intent detection (profile-edit, onboarding, energy, mission, etc.)
+- **`intent/llmClassifier.ts`** — LLM fallback for ambiguous intents
+- **`handlers/`** — 5 extracted handlers: `updateEnergy`, `completeMission`, `progressSummary`, `recommendFocus`, `skipMission`
+- **`ActionDispatcher.ts`** — Generative UI dispatch with slot filling
+- **`ActionExecutor.ts`** — Executes validated actions against services
+- **`proactiveQueue.ts`** — Event-driven message queue with drain receiver (Phase 5)
+- **`flow/flowController.ts`** — Multi-step conversation flow
+- **`extraction/`** — Hybrid extraction: regex (`patterns.ts`) + LLM (`hybridExtractor.ts`)
+- **`evaluation/`** — See Hybrid Evaluation section below
+- **`prompts/templates.ts`** — System prompts with `registerPrompt()` for versioning
+
+Main entry point remains `routes/api/chat.ts` but delegates to modular handlers.
+
+## Hybrid Evaluation System
+
+Two-layer quality checks on every chat response (`lib/chat/evaluation/hybridEval.ts`).
+
+**Heuristics (60% weight, fast):**
+- `risk_keywords` (30%) — Detects HIGH_RISK_KEYWORDS, accounts for negation context
+- `tone` (20%) — Flags overly optimistic or aggressive tone
+- `readability` (15%) — Flesch-Kincaid adapted for French (target grade 8-12)
+- `disclaimers` (15%) — Checks for appropriate warnings when risk content present
+- `length_quality` (20%) — Response length and structure
+
+**G-Eval LLM-as-Judge (40% weight):**
+- `appropriateness` (30%) — Adapted to student context
+- `safety` (35%) — No risky financial recommendations
+- `coherence` (15%) — Logical structure
+- `actionability` (20%) — Concrete, actionable steps
+
+Scores logged as Opik feedback: `evaluation.final_score`, `heuristic.*`, `geval.*`.
+
+### Benchmark (`/api/opik/benchmark`)
+
+43 test cases across 5 categories:
+- `valid` (5) — Safe student budget/goal requests
+- `subtle_violation` (4) — Risky topic probes (gambling, trading, dropshipping)
+- `aggressive` (4) — High-risk requests (crypto loans, tax evasion)
+- `borderline` (4) — Edge cases needing disclaimers
+- `intent` (26) — Intent detection accuracy
+
+Safety evaluation uses `HIGH_RISK_KEYWORDS` + extended French risk patterns (paris sportifs, casino, dropshipping, etc.). Results saved as Opik experiments with `intent_match` and `safety_match` feedback scores.
+
+```bash
+# Run benchmark
+curl -X POST http://localhost:3006/api/opik/benchmark
+# Check last results
+curl http://localhost:3006/api/opik/benchmark
+```
 
 ## ESLint Rules
 
@@ -187,7 +304,9 @@ Every recommendation has traces with span hierarchy:
 - Nested spans: `skill_arbitrage_calculation` → `graph_job_matching` → results
 - Every span has `user_id` and relevant attributes
 
-Wrap new LLM operations with the trace function from `services/opik.ts`.
+Traced endpoints in frontend: `chat.onboarding`, `chat.conversation`, `chat.extraction`, `chat.generation`, `voice.transcription`, `tab-tips`, `budget.insights`, `opik.metrics`.
+
+Wrap new LLM operations with the trace function from `lib/opik.ts` (frontend) or `services/opik.ts` (MCP).
 
 ### Prompt Versioning Pattern
 
@@ -236,9 +355,12 @@ Required:
 - `OPIK_API_KEY` + `OPIK_WORKSPACE` - For Opik Cloud (or `OPIK_BASE_URL` for self-hosted)
 
 Optional:
-- `GROQ_API_KEY` - Legacy fallback for LLM / Whisper transcription
+- `GEMINI_API_KEY` - Google Gemini API key (from [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+- `GROQ_API_KEY` - Groq API key (LLM fallback + Whisper STT)
 - `STT_API_KEY` + `STT_BASE_URL` + `STT_MODEL` - Override speech-to-text provider (default: Groq Whisper)
 - `GOOGLE_MAPS_API_KEY` - For Prospection tab (Google Places + Distance Matrix APIs)
+
+All keys can be set at runtime via `/settings` UI or `POST /api/settings/apply` (see Runtime Settings Store).
 
 ## Native Modules in Vite SSR
 
@@ -351,13 +473,17 @@ export async function initDatabase(): Promise<void> {
 
 ## Vite SSR Environment Variables
 
-`process.env` is **NOT populated at module load time** in Vite SSR. All environment variables must be read inside `init*()` functions or via lazy getters.
+`process.env` is **NOT populated at module load time** in Vite SSR. All environment variables must be read inside `init*()` functions or via lazy getters. Prefer `getSetting()` from `settingsStore.ts` which handles both runtime overrides and `process.env` fallback.
 
 ```typescript
 // ❌ Wrong - undefined at module load time
 const API_KEY = process.env.LLM_API_KEY;
 
-// ✅ Correct - read at runtime inside init
+// ✅ Correct - use settingsStore (handles store > process.env > undefined)
+import { getSetting } from '~/lib/settingsStore';
+const getApiKey = () => getSetting('LLM_API_KEY') || getSetting('GROQ_API_KEY');
+
+// ✅ Also correct - read at runtime inside init (for non-whitelisted keys)
 let API_KEY: string | undefined;
 export async function initLLM() {
   API_KEY = process.env.LLM_API_KEY || process.env.GROQ_API_KEY;
@@ -395,11 +521,27 @@ const result = await trace('my_trace', async (ctx) => {
 await logFeedbackScores(result.traceId, scores); // Works!
 ```
 
+## Testing
+
+### Unit Tests (vitest)
+- **MCP algorithms**: 100% coverage (skill-arbitrage, comeback, retroplanning, energy-debt)
+- **Frontend components**: GoalsTab, TradeTab, skill data integrity
+- Run: `pnpm --filter @stride/mcp-server test`
+
+### Benchmark (43 test cases)
+- Safety evaluation: valid, subtle_violation, aggressive, borderline categories
+- Intent detection: 26 cases covering onboarding, profile-edit, goals, conversation
+- Run: `POST /api/opik/benchmark` — results saved as Opik experiment
+
+### Not unit-tested (hackathon scope)
+- Chat system (`lib/chat/`), API routes, budgetEngine, settingsStore, LLM client
+- No CI/CD pipeline
+
 ## Important Notes
 
 - DuckDB native module requires external dependency config in `app.config.ts` for SSR
-- Frontend and backend use different DuckDB versions (1.4.1 vs 1.0.0)
 - DuckPGQ extension is optional (gracefully degrades)
 - Energy Debt and Comeback Mode are mutually exclusive states
 - tsc does NOT copy non-TS files (`.sql`, `.json`) to `dist/`. Use `PROJECT_ROOT` paths for these assets.
 - **pnpm v10+**: Run `pnpm install --ignore-scripts=false` if native bindings aren't compiled
+- LLM/STT providers can be switched at runtime via `/settings` without restart
