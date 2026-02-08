@@ -32,7 +32,15 @@ import { celebrateGoalAchieved, celebrateGoldAchievement, celebrateComeback } fr
 import { toastPopup } from '~/components/ui/Toast';
 import { Card, CardContent } from '~/components/ui/Card';
 import { Button } from '~/components/ui/Button';
-import { ClipboardList, Target } from 'lucide-solid';
+import {
+  ClipboardList,
+  Target,
+  Rocket,
+  PartyPopper,
+  Briefcase,
+  Dices,
+  ShoppingBag,
+} from 'lucide-solid';
 import {
   weeksBetween,
   addWeeks,
@@ -253,6 +261,28 @@ export default function ProgressPage() {
 
   // Get currency from profile
   const currency = (): Currency => (activeProfile()?.currency as Currency) || 'USD';
+
+  // Mission stats for contextual banners (welcome + all-done)
+  const missionStats = createMemo(() => {
+    const missions = followup().missions;
+    const active = missions.filter((m) => m.status === 'active').length;
+    const completed = missions.filter((m) => m.status === 'completed').length;
+    const totalEarned = missions.reduce((sum, m) => sum + m.earningsCollected, 0);
+    const totalHoursWorked = missions
+      .filter((m) => m.category === 'job_lead' || m.category === 'freelance')
+      .reduce((sum, m) => sum + m.hoursCompleted, 0);
+    const weeklyPotential = missions
+      .filter((m) => m.status === 'active')
+      .reduce((sum, m) => sum + m.weeklyEarnings, 0);
+    return {
+      active,
+      completed,
+      total: missions.length,
+      totalEarned,
+      totalHoursWorked,
+      weeklyPotential,
+    };
+  });
 
   // Compute total hours from missions
   const totalHours = () => {
@@ -1348,6 +1378,94 @@ export default function ProgressPage() {
             <h3 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <Target class="h-5 w-5 text-primary" /> Missions
             </h3>
+
+            {/* Welcome banner — first arrival with fresh missions */}
+            <Show
+              when={
+                missionStats().active > 0 &&
+                missionStats().completed === 0 &&
+                missionStats().total > 0
+              }
+            >
+              <div class="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 dark:from-primary/10 dark:via-primary/15 dark:to-primary/10 p-5 mb-6">
+                <div class="flex items-center gap-4">
+                  <div class="relative h-12 w-12 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Rocket class="h-6 w-6 text-primary" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-bold text-foreground">Your plan is ready!</p>
+                    <p class="text-sm text-muted-foreground">
+                      {missionStats().active} mission{missionStats().active > 1 ? 's' : ''} worth{' '}
+                      {formatCurrency(missionStats().weeklyPotential, currency())} — complete them
+                      to reach your goal.
+                    </p>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <p class="text-2xl font-bold text-primary tabular-nums">
+                      0/{missionStats().total}
+                    </p>
+                    <p class="text-xs text-muted-foreground">completed</p>
+                  </div>
+                </div>
+              </div>
+            </Show>
+
+            {/* All-done banner — celebrate + re-engage CTAs */}
+            <Show when={missionStats().active === 0 && missionStats().completed > 0}>
+              <div class="rounded-xl border border-emerald-200/50 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/30 dark:to-emerald-900/10 p-6 mb-6">
+                <div class="flex flex-col items-center text-center gap-4">
+                  <div class="flex items-center gap-2">
+                    <PartyPopper class="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                    <h3 class="text-lg font-bold text-emerald-900 dark:text-emerald-100">
+                      All missions completed!
+                    </h3>
+                    <PartyPopper class="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+
+                  <div class="flex items-center gap-8">
+                    <div>
+                      <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(missionStats().totalEarned, currency())}
+                      </p>
+                      <p class="text-xs text-muted-foreground">earned</p>
+                    </div>
+                    <Show when={missionStats().totalHoursWorked > 0}>
+                      <div class="w-px h-8 bg-emerald-200 dark:bg-emerald-800" />
+                      <div>
+                        <p class="text-2xl font-bold text-foreground">
+                          {missionStats().totalHoursWorked}h
+                        </p>
+                        <p class="text-xs text-muted-foreground">worked</p>
+                      </div>
+                    </Show>
+                  </div>
+
+                  <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                    Keep the momentum going — find more opportunities!
+                  </p>
+
+                  <div class="flex flex-wrap justify-center gap-3">
+                    <Button
+                      size="sm"
+                      class="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => navigate('/me?tab=jobs')}
+                    >
+                      <Briefcase class="h-4 w-4 mr-1.5" />
+                      Find more jobs
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => navigate('/swipe')}>
+                      <Dices class="h-4 w-4 mr-1.5" />
+                      Swipe new strategies
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => navigate('/me?tab=trade')}>
+                      <ShoppingBag class="h-4 w-4 mr-1.5" />
+                      Sell or trade items
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Show>
+
             <MissionList
               missions={followup().missions}
               currency={currency()}
