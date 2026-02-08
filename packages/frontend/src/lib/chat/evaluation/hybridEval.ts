@@ -373,14 +373,16 @@ const GEVAL_CRITERIA = [
   { name: 'actionability', weight: 0.2, desc: 'Actions concretes et immediates' },
 ];
 
-async function runGEval(
-  response: string,
-  context: EvalContext
-): Promise<GEvalCriterionResult[] | null> {
+interface GEvalReturn {
+  results: GEvalCriterionResult[] | null;
+  skipReason?: string;
+}
+
+async function runGEval(response: string, context: EvalContext): Promise<GEvalReturn> {
   const client = getLLMClient();
   if (!client) {
     logger.debug('G-Eval skipped: LLM client not available');
-    return null;
+    return { results: null, skipReason: 'LLM client not available' };
   }
 
   const situationMap: Record<string, string> = {
@@ -443,53 +445,58 @@ Reponds en JSON:
     const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/) || raw.match(/\{[\s\S]*\}/);
     const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]).trim() : null;
     if (!jsonStr) {
+      const reason = `No JSON in ${getModel()} response (${raw.length} chars)`;
       logger.warn('G-Eval: no JSON found in LLM response', {
         model: getModel(),
         rawLength: raw.length,
         rawPreview: raw.substring(0, 200),
       });
-      return null;
+      return { results: null, skipReason: reason };
     }
 
     const parsed = JSON.parse(jsonStr);
     const evals = parsed.evaluations || parsed;
 
     if (!Array.isArray(evals)) {
+      const reason = `${getModel()} returned non-array (keys: ${Object.keys(parsed).join(',')})`;
       logger.warn('G-Eval: LLM returned non-array evaluations', {
         model: getModel(),
         keys: Object.keys(parsed),
       });
-      return null;
+      return { results: null, skipReason: reason };
     }
 
     logger.debug('G-Eval completed', { model: getModel(), criteriaCount: evals.length });
 
-    return GEVAL_CRITERIA.map((criterion) => {
-      const found = evals.find((e: Record<string, unknown>) => e.criterion === criterion.name);
-      if (!found) {
+    return {
+      results: GEVAL_CRITERIA.map((criterion) => {
+        const found = evals.find((e: Record<string, unknown>) => e.criterion === criterion.name);
+        if (!found) {
+          return {
+            criterion: criterion.name,
+            score: 3,
+            normalizedScore: 0.5,
+            confidence: 0.5,
+            reasoning: 'Not evaluated',
+          };
+        }
+        const s = Math.max(1, Math.min(5, Number(found.score) || 3));
         return {
           criterion: criterion.name,
-          score: 3,
-          normalizedScore: 0.5,
-          confidence: 0.5,
-          reasoning: 'Not evaluated',
+          score: s,
+          normalizedScore: (s - 1) / 4,
+          confidence: Math.max(0, Math.min(1, Number(found.confidence) || 0.5)),
+          reasoning: String(found.reasoning || '').substring(0, 300),
         };
-      }
-      const s = Math.max(1, Math.min(5, Number(found.score) || 3));
-      return {
-        criterion: criterion.name,
-        score: s,
-        normalizedScore: (s - 1) / 4,
-        confidence: Math.max(0, Math.min(1, Number(found.confidence) || 0.5)),
-        reasoning: String(found.reasoning || '').substring(0, 300),
-      };
-    });
+      }),
+    };
   } catch (err) {
+    const reason = `LLM error: ${err instanceof Error ? err.message : String(err)}`;
     logger.warn('G-Eval LLM call failed', {
       model: getModel(),
       error: err instanceof Error ? err.message : String(err),
     });
-    return null;
+    return { results: null, skipReason: reason };
   }
 }
 
@@ -534,7 +541,7 @@ function calculateHybridScore(
 
 // ─── Feedback Score Conversion ─────────────────────────────────────────────
 
-function buildFeedbackScores(result: HybridEvalResult): FeedbackScore[] {
+function buildFeedbackScores(result: HybridEvalResult, gevalSkipReason?: string): FeedbackScore[] {
   const scores: FeedbackScore[] = [];
 
   // Main evaluation scores
@@ -552,7 +559,9 @@ function buildFeedbackScores(result: HybridEvalResult): FeedbackScore[] {
   scores.push({
     name: 'evaluation.llm_score',
     value: result.llmScore,
-    reason: result.gevalResults ? 'G-Eval completed' : 'G-Eval skipped',
+    reason: result.gevalResults
+      ? 'G-Eval completed'
+      : `G-Eval skipped: ${gevalSkipReason || 'unknown'}`,
   });
   scores.push({
     name: 'evaluation.passed',
@@ -618,8 +627,15 @@ export async function runHybridChatEvaluation(
 
     // Step 2: Run G-Eval if not skipped and heuristics didn't critically fail
     let gevalResults: GEvalCriterionResult[] | null = null;
-    if (!options?.skipGEval && !heuristics.criticalFailed) {
-      gevalResults = await runGEval(response, evalContext);
+    let gevalSkipReason: string | undefined;
+    if (options?.skipGEval) {
+      gevalSkipReason = 'skipGEval option set';
+    } else if (heuristics.criticalFailed) {
+      gevalSkipReason = 'Heuristics critically failed';
+    } else {
+      const geval = await runGEval(response, evalContext);
+      gevalResults = geval.results;
+      gevalSkipReason = geval.skipReason;
     }
 
     // Step 3: Calculate hybrid score
@@ -637,7 +653,7 @@ export async function runHybridChatEvaluation(
 
     // Step 4: Log feedback scores to Opik (non-blocking)
     if (traceId) {
-      const feedbackScores = buildFeedbackScores(result);
+      const feedbackScores = buildFeedbackScores(result, gevalSkipReason);
       logFeedbackScores(traceId, feedbackScores).catch((err) => {
         logger.warn('Failed to log evaluation feedback scores', { error: err });
       });
