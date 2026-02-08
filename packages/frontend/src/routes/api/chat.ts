@@ -60,11 +60,7 @@ import {
 } from '../../lib/chat/flow';
 import { detectIntent, isIntentFallback } from '../../lib/chat/intent';
 import { parseSlashCommand, executeSlashCommand } from '../../lib/chat/commands';
-import {
-  runHybridChatEvaluation,
-  runHeuristicsOnlyEvaluation,
-  GEVAL_PROMPT_METADATA,
-} from '../../lib/chat/evaluation';
+import { runHybridChatEvaluation, GEVAL_PROMPT_METADATA } from '../../lib/chat/evaluation';
 import { WorkingMemory } from '../../lib/mastra/workingMemory';
 import {
   getReferenceDate,
@@ -618,12 +614,8 @@ export async function POST(event: APIEvent) {
           timeContext
         );
 
-        // Evaluate chart responses too (non-blocking)
-        if (chartResult.traceId && chartResult.response) {
-          runHeuristicsOnlyEvaluation(chartResult.response, context, chartResult.traceId).catch(
-            () => {}
-          );
-        }
+        // Chart responses are template-generated (not LLM output) — skip evaluation.
+        // Evaluating readability/tone on "Income: 500€/mo" is meaningless.
 
         return new Response(JSON.stringify(chartResult), {
           status: 200,
