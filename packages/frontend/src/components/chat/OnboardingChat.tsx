@@ -3352,7 +3352,23 @@ export function OnboardingChat() {
       case 'budget': {
         const inc = Number(data.income) || 0;
         const exp = Number(data.expenses) || 0;
-        setProfile((prev) => ({ ...prev, monthlyIncome: inc, monthlyExpenses: exp }));
+        // Convert to array formats required by persistAllOnboardingData()
+        // Same logic as updateProfileFromExtracted (line ~2477-2488)
+        const incomesArray = [{ source: 'total', amount: inc }];
+        const expensesArray = [
+          { category: 'rent', amount: Math.round(exp * 0.5) },
+          { category: 'food', amount: Math.round(exp * 0.25) },
+          { category: 'transport', amount: Math.round(exp * 0.1) },
+          { category: 'subscriptions', amount: Math.round(exp * 0.05) },
+          { category: 'other', amount: Math.round(exp * 0.1) },
+        ];
+        setProfile((prev) => ({
+          ...prev,
+          monthlyIncome: inc,
+          monthlyExpenses: exp,
+          incomes: incomesArray,
+          expenses: expensesArray,
+        }));
         advanceFormStep(
           `income ${getCurrencySymbolForForm()}${inc}, expenses ${getCurrencySymbolForForm()}${exp}`
         );
