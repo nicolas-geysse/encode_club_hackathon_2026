@@ -464,7 +464,7 @@ Reponds en JSON:
         .replace(/\*([^*]*?)\*/g, '$1') // *italic* → italic
         .replace(/`([^`]*?)`/g, '$1') // `code` → code
         // eslint-disable-next-line no-control-regex
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ') // control chars
+        .replace(/[\x00-\x1F]/g, ' ') // ALL control chars incl. \n\r\t (invalid inside JSON strings)
         .replace(/,\s*}/g, '}') // trailing comma
         .replace(/,\s*]/g, ']'); // trailing comma in arrays
       try {
