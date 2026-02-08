@@ -4,10 +4,10 @@
 
 **Live Demo**: [https://encodeclubhackathon2026-production.up.railway.app/](https://encodeclubhackathon2026-production.up.railway.app/)
 
-**Track**: Financial Health - Encode Club Hackathon 2026
-**Sponsor**: Comet (Opik)
+**Track**: Financial Health — [Encode Club](https://www.encodeclub.com/) Hackathon 2026
+**Sponsors**: [Comet (Opik)](https://www.comet.com/), [Google DeepMind](https://deepmind.google/), [Vercel](https://vercel.com/)
 
-> **About the demo:** Stride is designed as a **privacy-first personal app** — there is no authentication system (out of scope for this hackathon). The live demo runs on a single shared instance, which means **all visitors share the same profile data**. Feel free to explore, but be aware that others may be using it at the same time. API keys for LLM and STT providers (Groq, Mistral) are currently active but may be deactivated after the hackathon. The Google Maps API key on the free tier does not support the Places API, so the Jobs tab may not return results on the demo.
+> **About the demo:** Stride is designed as a **privacy-first personal app** — there is no authentication system (out of scope for this hackathon). The live demo runs on a single shared instance, which means **all visitors share the same profile data**. Feel free to explore, but be aware that others may be using it at the same time. The demo uses **Mistral** (`ministral-3b-2512`) as LLM and **Mistral Voxtral** (`voxtral-mini-2602`) for speech-to-text. API keys are currently active but will be deactivated after the hackathon. The Google Maps API key expires on **February 19, 2026** — after that date, the Jobs tab will not return location results.
 
 > **Prior work disclosure:** All application code in this repository was written during the hackathon. The following open-source (MIT) packages were developed by the same author **before** the hackathon and are used as dependencies:
 > - [deposium_embeddings-turbov2](https://github.com/theseedship/deposium_embeddings-turbov2) — Inference and embedding engine (optional companion service)
