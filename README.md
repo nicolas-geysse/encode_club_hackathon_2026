@@ -33,43 +33,51 @@ Every recommendation is traced in [Opik](https://www.comet.com/opik) — you can
 
 ## How It Works
 
-### Navigation (5 Screens)
+### Chat — Onboarding with Bruno (`/`)
 
-| Screen | Route | Icon | Description |
-|--------|-------|------|-------------|
-| **Chat** | `/` | 💬 | Onboarding chat with Bruno AI assistant |
-| **Me** | `/me` | 👤 | 5 tabs to manage your finances |
-| **Swipe** | `/swipe` | 🎲 | Tinder-style strategy selection |
-| **Progress** | `/progress` | 📈 | Dashboard with timeline and missions |
-| **Settings** | `/settings` | ⚙️ | LLM/STT provider config, API keys, server status |
+Bruno, your AI financial coach, guides you through onboarding via conversation. He extracts your profile, budget, and goals from natural language. Use the **restart** button to reset, or type **help** to see all available actions.
 
-### Me Page (5 Tabs)
+| Restart onboarding | Help — all available actions |
+|---|---|
+| ![Reset](docs/img/reset.png) | ![Help](docs/img/help.png) |
 
-| Tab | Icon | What you do |
-|-----|------|-------------|
-| **Profile** | 👤 | Personal info, energy tracking, work preferences |
-| **Goals** | 🎯 | Savings goal, deadline, progress chart |
-| **Budget** | 🐷 | Monthly income/expenses, subscription optimization |
-| **Trade** | 🤝 | Borrow/lend/swap items instead of buying (earns karma) |
-| **Jobs** | 🧭 | Job search with Google Places, save leads |
+### Me Page — 5 Tabs (`/me`)
 
-### Swipe Scenarios
+| Tab | What you do |
+|-----|-------------|
+| **Profile** | Personal info, energy tracking, work preferences, skill arbitrage |
+| **Goals** | Savings goal with deadline, weekly progress chart, retroplanning |
+| **Budget** | Monthly income/expenses, subscription optimization |
+| **Trade** | Borrow/lend/swap items instead of buying (earns karma) |
+| **Jobs** | Job search with Google Places, save leads |
 
-Roll the dice to get personalized scenarios based on your profile:
-- Swipe right = interested, left = not interested
-- The app learns your preferences (effort sensitivity, rate priority, flexibility)
-- Review phase: see selected scenarios with AI analysis
-- Rejected scenarios section: add back any skipped scenarios
-- After confirming, scenarios become missions to track on Progress page
+| Profile | Goals |
+|---|---|
+| ![Profile](docs/img/1-profile.png) | ![Goals](docs/img/2-goals.png) |
 
-### Progress Dashboard
+| Budget | Trade |
+|---|---|
+| ![Budget](docs/img/3-budget.png) | ![Trade](docs/img/4-budget.png) |
 
-- **Daily Mood Check-in** - emoji-based energy input (once per day)
-- **Timeline** with time progress + weekly targets
-- **Comeback Alert** when you can catch up after exams
-- **Energy History** with fatigue detection
-- **Missions** to validate, skip, or delete
-- **Bruno Tips** with contextual advice (karma-aware)
+| Jobs (Google Places) |
+|---|
+| ![Jobs](docs/img/5-jobs.png) |
+
+### Swipe Scenarios (`/swipe`)
+
+Roll the dice to get personalized scenarios based on your profile. Swipe right = interested, left = not interested. The app learns your preferences (effort sensitivity, rate priority, flexibility). After confirming, scenarios become missions to track on the Progress page.
+
+![Swipe](docs/img/6-swipe.png)
+
+### Progress Dashboard (`/progress`)
+
+Daily mood check-in, timeline with weekly targets, comeback alerts, energy history, missions to validate/skip/delete, and Bruno Tips with contextual advice.
+
+![Progress](docs/img/7-progress.png)
+
+### Settings (`/settings`)
+
+LLM/STT provider config, API keys, server status indicators. Switch providers at runtime without restarting.
 
 ### Time Machine (Demo Feature)
 
@@ -263,6 +271,10 @@ Every recommendation is traced with prompt versioning:
 | `feedback.score` | User satisfaction from interactions |
 
 Traces include `prompt.name`, `prompt.version`, `prompt.hash` for regression detection.
+
+| Chat trace with feedback scores | Swipe preference update trace |
+|---|---|
+| ![Opik traces](docs/img/opik.png) | ![Opik swipe](docs/img/opik2.png) |
 
 ---
 
