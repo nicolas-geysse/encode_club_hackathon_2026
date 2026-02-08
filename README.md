@@ -35,11 +35,15 @@ Every recommendation is traced in [Opik](https://www.comet.com/opik) — you can
 
 ### Chat — Onboarding with Bruno (`/`)
 
-Bruno, your AI financial coach, guides you through onboarding via conversation. He extracts your profile, budget, and goals from natural language. Use the **restart** button to reset, or type **help** to see all available actions.
+Bruno, your AI financial coach, guides you through onboarding via conversation. He extracts your profile, budget, and goals from natural language. Voice input is supported — hold the microphone button to dictate instead of typing. Use the **restart** button to reset, or type **help** to see all available actions.
 
 | Restart onboarding | Help — all available actions |
 |---|---|
 | ![Reset](docs/img/reset.png) | ![Help](docs/img/help.png) |
+
+| Voice recording |
+|---|
+| ![Voice Recording](docs/img/talk.png) |
 
 ### Me Page — 5 Tabs (`/me`)
 
