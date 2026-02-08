@@ -59,7 +59,7 @@ import {
 } from '../../lib/chat/flow';
 import { detectIntent, isIntentFallback } from '../../lib/chat/intent';
 import { parseSlashCommand, executeSlashCommand } from '../../lib/chat/commands';
-import { runResponseEvaluation } from '../../lib/chat/evaluation';
+import { runHybridChatEvaluation, runHeuristicsOnlyEvaluation } from '../../lib/chat/evaluation';
 import { WorkingMemory } from '../../lib/mastra/workingMemory';
 import {
   getReferenceDate,
@@ -612,6 +612,14 @@ export async function POST(event: APIEvent) {
           profileId,
           timeContext
         );
+
+        // Evaluate chart responses too (non-blocking)
+        if (chartResult.traceId && chartResult.response) {
+          runHeuristicsOnlyEvaluation(chartResult.response, context, chartResult.traceId).catch(
+            () => {}
+          );
+        }
+
         return new Response(JSON.stringify(chartResult), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -629,6 +637,17 @@ export async function POST(event: APIEvent) {
         profileId,
         timeContext
       );
+
+      // Run hybrid evaluation on conversation response (non-blocking)
+      // Evaluates every conversation response with heuristics + G-Eval LLM-as-Judge
+      if (conversationResult.traceId && conversationResult.response) {
+        runHybridChatEvaluation(
+          conversationResult.response,
+          context,
+          conversationResult.traceId
+        ).catch(() => {});
+      }
+
       return new Response(JSON.stringify(conversationResult), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -724,6 +743,13 @@ export async function POST(event: APIEvent) {
         };
 
         logger.debug(`Response source: ${groqResult.source}`);
+
+        // Run hybrid evaluation on response (non-blocking, fire-and-forget)
+        // G-Eval LLM-as-Judge + 5 heuristic checks → feedback scores in Opik
+        if (traceId && groqResult.response) {
+          runHybridChatEvaluation(groqResult.response, context, traceId).catch(() => {});
+        }
+
         return new Response(JSON.stringify(result), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -789,14 +815,24 @@ export async function POST(event: APIEvent) {
           response = await generateStepResponse(client, nextStep, updatedContext);
         }
 
-        // Step 4: Quick evaluation of response (non-blocking)
-        const evaluation = await runResponseEvaluation(response, updatedContext);
-        if (evaluation) {
-          span.setAttributes({
-            'evaluation.passed': evaluation.passed,
-            'evaluation.score': evaluation.score,
-            'evaluation.issues_count': evaluation.issues.length,
-          });
+        // Step 4: Hybrid evaluation (heuristics + G-Eval LLM-as-Judge)
+        // Non-blocking: logs 10+ feedback scores to Opik dashboard
+        const currentTraceIdForEval = getCurrentTraceId();
+        if (currentTraceIdForEval) {
+          runHybridChatEvaluation(response, updatedContext, currentTraceIdForEval)
+            .then((evaluation) => {
+              if (evaluation) {
+                span.setAttributes({
+                  'evaluation.passed': evaluation.passed,
+                  'evaluation.final_score': evaluation.finalScore,
+                  'evaluation.heuristic_score': evaluation.heuristicScore,
+                  'evaluation.llm_score': evaluation.llmScore,
+                  'evaluation.issues_count': evaluation.issues.length,
+                  'evaluation.has_geval': !!evaluation.gevalResults,
+                });
+              }
+            })
+            .catch(() => {});
         }
 
         span.setAttributes({

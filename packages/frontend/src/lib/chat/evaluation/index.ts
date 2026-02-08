@@ -5,3 +5,4 @@
  */
 
 export * from './feedback';
+export { runHybridChatEvaluation, runHeuristicsOnlyEvaluation } from './hybridEval';
