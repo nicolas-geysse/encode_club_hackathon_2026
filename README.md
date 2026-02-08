@@ -2,6 +2,8 @@
 
 > Navigate student life, one smart step at a time
 
+<video src="docs/img/bruno.mp4" autoplay loop muted playsinline width="100%"></video>
+
 **Live Demo**: [https://encodeclubhackathon2026-production.up.railway.app/](https://encodeclubhackathon2026-production.up.railway.app/)
 
 **Track**: Financial Health — [Encode Club](https://www.encodeclub.com/) Hackathon 2026
