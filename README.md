@@ -71,6 +71,10 @@ Roll the dice to get personalized scenarios based on your profile:
 - **Missions** to validate, skip, or delete
 - **Bruno Tips** with contextual advice (karma-aware)
 
+### Time Machine (Demo Feature)
+
+Simulation controls let you fast-forward time to test energy debt triggers, comeback scenarios, and achievement unlocks without waiting weeks. Access via the clock icon in the Progress page header.
+
 ---
 
 ## 4 Key Features
@@ -196,7 +200,7 @@ Gamification layer with bronze/silver/gold tiers:
 | Component | Technology |
 |-----------|------------|
 | **Tracing** | Opik Cloud (every recommendation traced) |
-| **LLM** | Any OpenAI-compatible provider (Groq, Mistral, Gemini, OpenAI, etc.) |
+| **LLM** | 3 tested providers: Groq (dev), Mistral (SLM exploration), Google Gemini 2.5 Flash |
 | **Voice (STT)** | Groq Whisper (`whisper-large-v3-turbo`) or Mistral Voxtral (`voxtral-mini-2602`) |
 | **Embeddings** | [Turbov2](https://github.com/theseedship/deposium_embeddings-turbov2) (optional) |
 | **Agents** | Mastra Framework |
@@ -213,8 +217,6 @@ For **RAG features** (semantic search, similar profiles), Stride uses an externa
 | Feature | Model | Speed |
 |---------|-------|-------|
 | **Embeddings** | m2v-bge-m3-1024d | 14k texts/sec |
-| **Reranking** | mxbai-rerank-v2 | SOTA quality |
-| **Future: TabPFN** | tabpfn-2.5 | ML predictions |
 
 **Quick Setup (local dev):**
 
@@ -278,7 +280,7 @@ cp .env.example .env
 #   GOOGLE_MAPS_API_KEY (optional - Jobs tab search)
 
 # 3. Run development server
-pnpm dev              # Frontend → http://localhost:3006
+pnpm run dev              # Frontend → http://localhost:3006
 
 # 4. Build for production
 pnpm build
@@ -321,7 +323,7 @@ python -m uvicorn src.main:app --port 11436
 
 # Terminal 2: Start Stride
 cd ../encode_club_hackathon_2026
-EMBEDDINGS_ENABLED=true pnpm dev
+EMBEDDINGS_ENABLED=true pnpm run dev
 ```
 
 ---
@@ -329,8 +331,8 @@ EMBEDDINGS_ENABLED=true pnpm dev
 ## Development
 
 ```bash
-pnpm dev              # Run frontend
-pnpm dev:mcp          # Run MCP server (stdio)
+pnpm run dev              # Run frontend
+pnpm run dev:mcp          # Run MCP server (stdio)
 pnpm typecheck        # Type check all packages
 pnpm lint             # Lint all packages
 pnpm lint:fix         # Lint with auto-fix
@@ -347,52 +349,36 @@ pnpm format           # Format with Prettier
 
 ---
 
-## Time Machine (Dev Feature)
-
-For demos, the simulation controls allow:
-- Fast-forward time to test energy debt triggers
-- Simulate comeback scenarios
-- Test achievement unlocks
-
-Access via the clock icon in the Progress page header.
-
----
-
 ## Future Development
 
-### Voice Input (STT) ✅ Integrated
+### Community & Social Layer
 
-Voice input is fully implemented:
-- Microphone button in onboarding chat
-- Supports Groq Whisper (`whisper-large-v3-turbo`) or Mistral Voxtral (`voxtral-mini-2602`)
-- Provider switchable at runtime via Settings page
-- Real-time audio level visualization
-- French language support
+Your financial data stays on your device. Only your inventory, trades, and karma are visible to the community. **Data sovereignty by design.**
 
-**Not yet implemented:**
-- Voice input in other chat contexts (Bruno tips, agent conversations)
-- Text-to-speech for Bruno responses
-- Continuous dictation mode
+The existing data model already supports 4 trade types with karma scoring:
 
-### TabPFN 2.5 (ML Enhancement) 🔜 Planned
+| Action | Karma | Today (solo) | Tomorrow (community) |
+|--------|-------|--------------|----------------------|
+| **Sell** | 0 pts | List on Vinted/LeBonCoin | Campus marketplace listing |
+| **Lend** | +50 pts | Self-declared | Match with borrower requests |
+| **Borrow** | +20 pts | Self-declared | Browse campus board, request items |
+| **Trade** | +30 pts | Skill/item exchange | Smart matching via RAG embeddings |
 
-[TabPFN](https://github.com/PriorLabs/TabPFN) is a foundation model for tabular data that could enhance Stride's predictions:
+**What already exists:** Karma tiers (Newcomer → Helper → Star) with energy bonuses, swipe scenarios with karma categories, achievements ("Community Helper", "Sharing Champion", "Karma Legend"), and full trade lifecycle (`pending → active → completed`).
 
-| Use Case | Current | With TabPFN |
-|----------|---------|-------------|
-| **Burnout Prediction** | Rule-based (3 weeks < 40%) | Probability with confidence (e.g., "73% crash risk") |
-| **Swipe Preferences** | Linear 15% learning rate | Non-linear interactions (e.g., "high effort OK if rate > €25") |
-| **Energy Forecasting** | None | 7-day forecast with exam/work covariates |
-| **Comeback Validation** | Binary detection | Confidence score for sustainable recovery |
+**Roadmap:**
+1. **Campus Board** — Simulated feed of nearby students with available items
+2. **Karma Collateral** — Borrowing locks karma points (returned when item returned on time)
+3. **Smart Matching via RAG** — Semantic similarity to match needs against campus inventory
+4. **Multi-user with MotherDuck** — Real authentication (university email), real-time campus board
 
-**Why TabPFN fits Stride:**
-- Tiny datasets (14-50 samples) = fast CPU inference, no GPU needed
-- Zero-shot learning = works immediately without training data
-- Uncertainty quantification = show confidence to users
+### TabPFN 2.5 (ML Enhancement)
 
-**Integration path:** Via existing Turbov2 embeddings service (Railway-ready, ~672MB model).
+[TabPFN](https://github.com/PriorLabs/TabPFN) could replace rule-based algorithms with probabilistic predictions: burnout risk with confidence scores, non-linear swipe preference learning, and 7-day energy forecasting. Fits Stride's tiny datasets (14-50 samples) with zero-shot learning and no GPU needed. See [docs/architecture/legacy/TabPFN-turbov2.md](docs/architecture/legacy/TabPFN-turbov2.md).
 
-See [docs/architecture/legacy/TabPFN-turbov2.md](docs/architecture/legacy/TabPFN-turbov2.md) for full implementation plan.
+### Voice Expansion
+
+Voice input (STT) is integrated in onboarding chat with Groq Whisper or Mistral Voxtral. Future: voice in all chat contexts, text-to-speech for Bruno responses, continuous dictation mode.
 
 ---
 
