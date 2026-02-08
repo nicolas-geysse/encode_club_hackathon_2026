@@ -29,7 +29,7 @@ Thumbs.db
 npm-debug.log*
 
 # Opik local clone (for self-hosted setup)
-opik/
+/opik/
 
 # Test artifacts
 coverage/
