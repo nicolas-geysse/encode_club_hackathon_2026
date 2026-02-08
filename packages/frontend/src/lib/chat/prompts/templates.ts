@@ -5,6 +5,7 @@
  */
 
 import type { OnboardingStep } from '../types';
+import { registerPrompt, type PromptMetadata } from '../../opik';
 
 // =============================================================================
 // System Prompts
@@ -310,4 +311,14 @@ export const EXTRACTION_STEP_CONTEXT: Record<string, string> = {
   lifestyle:
     'We are asking about SUBSCRIPTIONS (Netflix, Spotify, gym, etc.). "none" means empty array.',
   complete: 'Profile is complete. Accept any acknowledgment.',
+};
+
+// =============================================================================
+// Prompt Versioning (SHA256 hashes for Opik regression detection)
+// =============================================================================
+
+export const PROMPT_VERSIONS: Record<string, PromptMetadata> = {
+  onboarding: registerPrompt('bruno-onboarding', SYSTEM_PROMPTS.onboarding),
+  conversation: registerPrompt('bruno-conversation', SYSTEM_PROMPTS.conversation),
+  extraction: registerPrompt('extraction-legacy', EXTRACTION_PROMPT),
 };

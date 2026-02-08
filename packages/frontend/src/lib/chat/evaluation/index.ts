@@ -5,4 +5,8 @@
  */
 
 export * from './feedback';
-export { runHybridChatEvaluation, runHeuristicsOnlyEvaluation } from './hybridEval';
+export {
+  runHybridChatEvaluation,
+  runHeuristicsOnlyEvaluation,
+  GEVAL_PROMPT_METADATA,
+} from './hybridEval';

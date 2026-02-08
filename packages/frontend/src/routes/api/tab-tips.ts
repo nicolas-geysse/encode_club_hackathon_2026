@@ -419,7 +419,7 @@ Réponds en 1-2 phrases max, de manière encourageante. En français.`,
         tip = response.trim();
         traceId = getCurrentTraceId() || '';
       },
-      { metadata: { source: 'tab-tips-legacy', tabType } }
+      { metadata: { source: 'tab-tips-legacy', tabType, 'prompt.name': `tab-tips-${tabType}` } }
     );
 
     const response: TabTipResponse = {

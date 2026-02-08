@@ -46,6 +46,7 @@ import {
   SYSTEM_PROMPTS,
   STEP_PROMPTS,
   EXTRACTION_PROMPT,
+  PROMPT_VERSIONS,
   interpolatePrompt,
   getCurrencySymbol,
 } from '../../lib/chat/prompts';
@@ -59,7 +60,11 @@ import {
 } from '../../lib/chat/flow';
 import { detectIntent, isIntentFallback } from '../../lib/chat/intent';
 import { parseSlashCommand, executeSlashCommand } from '../../lib/chat/commands';
-import { runHybridChatEvaluation, runHeuristicsOnlyEvaluation } from '../../lib/chat/evaluation';
+import {
+  runHybridChatEvaluation,
+  runHeuristicsOnlyEvaluation,
+  GEVAL_PROMPT_METADATA,
+} from '../../lib/chat/evaluation';
 import { WorkingMemory } from '../../lib/mastra/workingMemory';
 import {
   getReferenceDate,
@@ -665,6 +670,13 @@ export async function POST(event: APIEvent) {
         profileId,
       },
       tags: ['onboarding', step],
+      metadata: {
+        'prompt.name': PROMPT_VERSIONS.onboarding.name,
+        'prompt.version': PROMPT_VERSIONS.onboarding.version,
+        'prompt.hash': PROMPT_VERSIONS.onboarding.hash,
+        'eval.prompt.name': GEVAL_PROMPT_METADATA.name,
+        'eval.prompt.version': GEVAL_PROMPT_METADATA.version,
+      },
     };
 
     // Try Groq extractor with JSON mode first (if enabled)
@@ -912,84 +924,94 @@ async function extractDataFromMessage(
   message: string,
   context: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  return trace('chat.extraction', async (span) => {
-    span.setAttributes({
-      'extraction.message_length': message.length,
-      'extraction.model': getModel(),
-    });
-
-    // First try regex extraction for common patterns (faster and more reliable)
-    // Determine current step from context for regex extraction
-    const currentStep = (context.step as OnboardingStep) || 'greeting';
-    const regexData = extractWithRegex(message, currentStep, context);
-
-    try {
-      const prompt = EXTRACTION_PROMPT.replace('{message}', message);
-
-      const completion = await client.chat.completions.create({
-        model: getModel(),
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPTS.extraction },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.0, // Zero temperature for deterministic extraction
-        max_tokens: 512,
-      });
-
-      const content = completion.choices[0]?.message?.content || '{}';
-
-      // Set usage for Opik
-      if (completion.usage) {
-        span.setUsage({
-          prompt_tokens: completion.usage.prompt_tokens,
-          completion_tokens: completion.usage.completion_tokens,
-          total_tokens: completion.usage.total_tokens,
-        });
-      }
-
+  return trace(
+    'chat.extraction',
+    async (span) => {
       span.setAttributes({
-        'extraction.response_length': content.length,
+        'extraction.message_length': message.length,
+        'extraction.model': getModel(),
       });
 
-      // Try to parse JSON from response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const extracted = JSON.parse(jsonMatch[0]);
-          // Merge LLM extraction with regex extraction (regex takes priority for found fields)
-          const merged = { ...extracted, ...regexData };
-          span.setAttributes({
-            'extraction.fields_found': Object.keys(merged).length,
-            'extraction.llm_fields': Object.keys(extracted).length,
-            'extraction.regex_fields': Object.keys(regexData).length,
-            'extraction.method': 'llm+regex',
-            'input.message': message.substring(0, 200),
-            'output.extracted': JSON.stringify(merged).substring(0, 500),
-          });
-          return merged;
-        } catch (parseError) {
-          logger.error('JSON parse error', {
-            error: parseError,
-            content: content?.substring(0, 200),
+      // First try regex extraction for common patterns (faster and more reliable)
+      // Determine current step from context for regex extraction
+      const currentStep = (context.step as OnboardingStep) || 'greeting';
+      const regexData = extractWithRegex(message, currentStep, context);
+
+      try {
+        const prompt = EXTRACTION_PROMPT.replace('{message}', message);
+
+        const completion = await client.chat.completions.create({
+          model: getModel(),
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPTS.extraction },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.0, // Zero temperature for deterministic extraction
+          max_tokens: 512,
+        });
+
+        const content = completion.choices[0]?.message?.content || '{}';
+
+        // Set usage for Opik
+        if (completion.usage) {
+          span.setUsage({
+            prompt_tokens: completion.usage.prompt_tokens,
+            completion_tokens: completion.usage.completion_tokens,
+            total_tokens: completion.usage.total_tokens,
           });
         }
-      }
 
-      // LLM didn't return valid JSON, use regex only
-      span.setAttributes({
-        'extraction.fields_found': Object.keys(regexData).length,
-        'extraction.method': 'regex_only',
-      });
-      return regexData;
-    } catch (error) {
-      logger.error('Extraction error', { error });
-      span.setAttributes({
-        'extraction.fields_found': Object.keys(regexData).length,
-        'extraction.method': 'regex_fallback',
-      });
-      return regexData;
+        span.setAttributes({
+          'extraction.response_length': content.length,
+        });
+
+        // Try to parse JSON from response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const extracted = JSON.parse(jsonMatch[0]);
+            // Merge LLM extraction with regex extraction (regex takes priority for found fields)
+            const merged = { ...extracted, ...regexData };
+            span.setAttributes({
+              'extraction.fields_found': Object.keys(merged).length,
+              'extraction.llm_fields': Object.keys(extracted).length,
+              'extraction.regex_fields': Object.keys(regexData).length,
+              'extraction.method': 'llm+regex',
+              'input.message': message.substring(0, 200),
+              'output.extracted': JSON.stringify(merged).substring(0, 500),
+            });
+            return merged;
+          } catch (parseError) {
+            logger.error('JSON parse error', {
+              error: parseError,
+              content: content?.substring(0, 200),
+            });
+          }
+        }
+
+        // LLM didn't return valid JSON, use regex only
+        span.setAttributes({
+          'extraction.fields_found': Object.keys(regexData).length,
+          'extraction.method': 'regex_only',
+        });
+        return regexData;
+      } catch (error) {
+        logger.error('Extraction error', { error });
+        span.setAttributes({
+          'extraction.fields_found': Object.keys(regexData).length,
+          'extraction.method': 'regex_fallback',
+        });
+        return regexData;
+      }
+    },
+    {
+      metadata: {
+        'prompt.name': PROMPT_VERSIONS.extraction.name,
+        'prompt.version': PROMPT_VERSIONS.extraction.version,
+        'prompt.hash': PROMPT_VERSIONS.extraction.hash,
+      },
     }
-  });
+  );
 }
 
 // Generate response for a specific step
@@ -998,55 +1020,65 @@ async function generateStepResponse(
   step: OnboardingStep,
   context: Record<string, unknown>
 ): Promise<string> {
-  return trace('chat.generation', async (span) => {
-    span.setAttributes({
-      'generation.step': step,
-      'generation.model': getModel(),
-    });
-
-    const promptTemplate = STEP_PROMPTS[step];
-    if (!promptTemplate) {
-      span.setAttributes({ 'generation.fallback': 'no_template' });
-      return "Let's continue!";
-    }
-
-    // Interpolate context into prompt using the utility function
-    const prompt = interpolatePrompt(promptTemplate, context);
-
-    try {
-      const completion = await client.chat.completions.create({
-        model: getModel(),
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPTS.onboarding },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 600, // B.4: Increased for fuller responses
+  return trace(
+    'chat.generation',
+    async (span) => {
+      span.setAttributes({
+        'generation.step': step,
+        'generation.model': getModel(),
       });
 
-      const response = completion.choices[0]?.message?.content || "Let's continue!";
-
-      // Set usage for Opik
-      if (completion.usage) {
-        span.setUsage({
-          prompt_tokens: completion.usage.prompt_tokens,
-          completion_tokens: completion.usage.completion_tokens,
-          total_tokens: completion.usage.total_tokens,
-        });
+      const promptTemplate = STEP_PROMPTS[step];
+      if (!promptTemplate) {
+        span.setAttributes({ 'generation.fallback': 'no_template' });
+        return "Let's continue!";
       }
 
-      span.setAttributes({
-        'generation.response_length': response.length,
-        'generation.method': 'llm',
-      });
+      // Interpolate context into prompt using the utility function
+      const prompt = interpolatePrompt(promptTemplate, context);
 
-      return response;
-    } catch (error) {
-      logger.error('Response generation error', { error });
-      span.setAttributes({ 'generation.method': 'fallback' });
-      return getFallbackStepResponse(step, context);
+      try {
+        const completion = await client.chat.completions.create({
+          model: getModel(),
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPTS.onboarding },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 600, // B.4: Increased for fuller responses
+        });
+
+        const response = completion.choices[0]?.message?.content || "Let's continue!";
+
+        // Set usage for Opik
+        if (completion.usage) {
+          span.setUsage({
+            prompt_tokens: completion.usage.prompt_tokens,
+            completion_tokens: completion.usage.completion_tokens,
+            total_tokens: completion.usage.total_tokens,
+          });
+        }
+
+        span.setAttributes({
+          'generation.response_length': response.length,
+          'generation.method': 'llm',
+        });
+
+        return response;
+      } catch (error) {
+        logger.error('Response generation error', { error });
+        span.setAttributes({ 'generation.method': 'fallback' });
+        return getFallbackStepResponse(step, context);
+      }
+    },
+    {
+      metadata: {
+        'prompt.name': PROMPT_VERSIONS.onboarding.name,
+        'prompt.version': PROMPT_VERSIONS.onboarding.version,
+        'prompt.hash': PROMPT_VERSIONS.onboarding.hash,
+      },
     }
-  });
+  );
 }
 
 // Generate clarification message when user input wasn't understood
@@ -1230,6 +1262,13 @@ async function handleConversationMode(
       `action:${preIntent.action || 'general'}`,
       preIntent.field ? `field:${preIntent.field}` : undefined,
     ].filter(Boolean) as string[],
+    metadata: {
+      'prompt.name': PROMPT_VERSIONS.conversation.name,
+      'prompt.version': PROMPT_VERSIONS.conversation.version,
+      'prompt.hash': PROMPT_VERSIONS.conversation.hash,
+      'eval.prompt.name': GEVAL_PROMPT_METADATA.name,
+      'eval.prompt.version': GEVAL_PROMPT_METADATA.version,
+    },
   };
 
   return trace(

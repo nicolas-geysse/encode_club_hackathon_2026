@@ -18,7 +18,7 @@
  *  - actionability: Concrete, actionable steps
  */
 
-import { logFeedbackScores, type FeedbackScore } from '../../opik';
+import { logFeedbackScores, registerPrompt, type FeedbackScore } from '../../opik';
 import { getLLMClient, getModel } from '../../llm';
 import { HIGH_RISK_KEYWORDS, SAFE_KEYWORDS } from '../extraction/patterns';
 import { createLogger } from '../../logger';
@@ -359,6 +359,8 @@ function runAllHeuristics(
 
 const GEVAL_SYSTEM_PROMPT = `Tu es un evaluateur expert de conseils financiers pour etudiants.
 Evalue le conseil selon les criteres fournis. Score de 1 a 5. Reponds en JSON.`;
+
+export const GEVAL_PROMPT_METADATA = registerPrompt('geval-judge', GEVAL_SYSTEM_PROMPT);
 
 const GEVAL_CRITERIA = [
   {
