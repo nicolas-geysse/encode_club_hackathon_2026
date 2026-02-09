@@ -251,7 +251,7 @@ For **RAG features** (semantic search, similar profiles), Stride uses an externa
 
 | Feature | Model | Speed |
 |---------|-------|-------|
-| **Embeddings** | m2v-bge-m3-1024d | 14k texts/sec |
+| **Embeddings** | [m2v-bge-m3-1024d](https://huggingface.co/tss-deposium/m2v-bge-m3-1024d) | 14k texts/sec |
 
 **Quick Setup (local dev):**
 
