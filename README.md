@@ -2,7 +2,24 @@
 
 > Navigate student life, one smart step at a time
 
+<table>
+<tr>
+<td align="center"><strong>Presentation</strong></td>
+<td align="center"><strong>Bruno Demo</strong></td>
+</tr>
+<tr>
+<td align="center">
+
+[![Watch the presentation](https://img.youtube.com/vi/zpu9fv9aRsw/maxresdefault.jpg)](https://www.youtube.com/watch?v=zpu9fv9aRsw)
+
+</td>
+<td align="center">
+
 https://github.com/user-attachments/assets/8efeb7f1-5d13-47f6-af11-741531863069
+
+</td>
+</tr>
+</table>
 
 **Live Demo**: [https://encodeclubhackathon2026-production.up.railway.app/](https://encodeclubhackathon2026-production.up.railway.app/)
 
